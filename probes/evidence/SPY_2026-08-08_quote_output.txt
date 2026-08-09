@@ -1,0 +1,101 @@
+(sea-green) C:\Users\danla\Documents\github\mb_market_data>python probes\probe_quote.py --symbol SPY
+
+Schwab quote probe
+===============================================================================
+Symbol           : SPY
+Fields requested : all
+Encrypted config : C:\Users\danla\MBV\secure_schwabdev.ecfg
+
+Encrypted config password:
+
+Requesting complete Schwab quote at 2026-08-08 17:58:53 EDT ...
+HTTP status      : 200
+Response received : 2026-08-08 17:58:53 EDT
+Request URL      : https://api.schwabapi.com/marketdata/v1/SPY/quotes?fields=all
+
+Saved evidence
+===============================================================================
+Raw JSON    : output\quote_probe\2026-08-08-17-58-53-SPY\quote_raw.json
+Field paths : output\quote_probe\2026-08-08-17-58-53-SPY\quote_field_paths.txt
+Report      : output\quote_probe\2026-08-08-17-58-53-SPY\quote_report.json
+
+Scalar fields returned: 74
+
+Complete quote field inventory
+===============================================================================
+SPY.assetMainType                                            = 'EQUITY'
+SPY.assetSubType                                             = 'ETF'
+SPY.extended.askPrice                                        = 0.0
+SPY.extended.askSize                                         = 0
+SPY.extended.bidPrice                                        = 0.0
+SPY.extended.bidSize                                         = 0
+SPY.extended.lastPrice                                       = 769.33
+SPY.extended.lastSize                                        = 5
+SPY.extended.mark                                            = 0.0
+SPY.extended.quoteTime                                       = 0
+SPY.extended.totalVolume                                     = 0
+SPY.extended.tradeTime                                       = 1786089578000  [ET: 2026-08-07 03:59:38.000000 EDT]
+SPY.fundamental.avg10DaysVolume                              = 56272855.0
+SPY.fundamental.avg1YearVolume                               = 73384017.0
+SPY.fundamental.declarationDate                              = '2026-01-02T00:00:00Z'
+SPY.fundamental.divAmount                                    = 7.61406
+SPY.fundamental.divExDate                                    = '2026-06-18T00:00:00Z'
+SPY.fundamental.divFreq                                      = 4
+SPY.fundamental.divPayAmount                                 = 1.90352
+SPY.fundamental.divPayDate                                   = '2026-07-31T00:00:00Z'
+SPY.fundamental.divYield                                     = 0.98911
+SPY.fundamental.eps                                          = 99.72564
+SPY.fundamental.fundLeverageFactor                           = 100.0
+SPY.fundamental.lastEarningsDate                             = '2026-05-29T00:00:00Z'
+SPY.fundamental.nextDivExDate                                = '2026-09-18T00:00:00Z'
+SPY.fundamental.nextDivPayDate                               = '2026-11-02T00:00:00Z'
+SPY.fundamental.peRatio                                      = 7.47156
+SPY.fundamental.sharesOutstanding                            = 1058282116
+SPY.quote.52WeekHigh                                         = 776.85
+SPY.quote.52WeekLow                                          = 629.11
+SPY.quote.askMICId                                           = 'ARCX'
+SPY.quote.askPrice                                           = 773.4
+SPY.quote.askSize                                            = 80
+SPY.quote.askTime                                            = 1786147177353  [ET: 2026-08-07 19:59:37.353000 EDT]
+SPY.quote.bidMICId                                           = 'ARCX'
+SPY.quote.bidPrice                                           = 773.35
+SPY.quote.bidSize                                            = 160
+SPY.quote.bidTime                                            = 1786147191305  [ET: 2026-08-07 19:59:51.305000 EDT]
+SPY.quote.closePrice                                         = 773.26
+SPY.quote.highPrice                                          = 773.915
+SPY.quote.lastMICId                                          = 'XADF'
+SPY.quote.lastPrice                                          = 773.3975
+SPY.quote.lastSize                                           = 1
+SPY.quote.lowPrice                                           = 769.61
+SPY.quote.mark                                               = 773.26
+SPY.quote.markChange                                         = 0.0
+SPY.quote.markPercentChange                                  = 0.0
+SPY.quote.netChange                                          = 0.1375
+SPY.quote.netPercentChange                                   = 0.01778186
+SPY.quote.openPrice                                          = 771.02
+SPY.quote.postMarketChange                                   = 0.1375
+SPY.quote.postMarketPercentChange                            = 0.01778186
+SPY.quote.quoteTime                                          = 1786147191305  [ET: 2026-08-07 19:59:51.305000 EDT]
+SPY.quote.securityStatus                                     = 'Normal'
+SPY.quote.totalVolume                                        = 43586333
+SPY.quote.tradeTime                                          = 1786147197281  [ET: 2026-08-07 19:59:57.281000 EDT]
+SPY.quoteType                                                = 'NBBO'
+SPY.realtime                                                 = True
+SPY.reference.cusip                                          = '78462F103'
+SPY.reference.description                                    = 'State Street SPDR S&P 500 ETF Trust'
+SPY.reference.ethOptionEligible                              = False
+SPY.reference.exchange                                       = 'P'
+SPY.reference.exchangeName                                   = 'NYSE Arca'
+SPY.reference.htbRate                                        = 0.0
+SPY.reference.isHardToBorrow                                 = False
+SPY.reference.isShortable                                    = True
+SPY.reference.optionable                                     = True
+SPY.regular.regularMarketLastPrice                           = 773.26
+SPY.regular.regularMarketLastSize                            = 3392
+SPY.regular.regularMarketNetChange                           = 4.7
+SPY.regular.regularMarketPercentChange                       = 0.61153326
+SPY.regular.regularMarketTradeTime                           = 1786147200002  [ET: 2026-08-07 20:00:00.002000 EDT]
+SPY.ssid                                                     = 1281357639
+SPY.symbol                                                   = 'SPY'
+
+(sea-green) C:\Users\danla\Documents\github\mb_market_data>
