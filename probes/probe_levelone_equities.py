@@ -41,6 +41,7 @@ import csv
 import getpass
 import json
 import os
+import sys
 import queue
 import time
 from datetime import datetime, timezone
@@ -512,6 +513,39 @@ def force_flush(file) -> None:
         )
     except OSError:
         pass
+
+
+class TeeTextIO:
+    """
+    Write text to both the original console stream and a log file.
+    """
+
+    def __init__(self, console, log_file):
+        self.console = console
+        self.log_file = log_file
+
+    def write(self, text):
+        self.console.write(text)
+        self.log_file.write(text)
+
+        self.console.flush()
+        self.log_file.flush()
+
+        return len(text)
+
+    def flush(self):
+        self.console.flush()
+        self.log_file.flush()
+
+    def isatty(self):
+        return self.console.isatty()
+
+    def fileno(self):
+        return self.console.fileno()
+
+    @property
+    def encoding(self):
+        return self.console.encoding
 
 
 def field(
@@ -1131,6 +1165,11 @@ def main() -> int:
         / "manifest.json"
     )
 
+    console_path = (
+        run_dir
+        / "console.log"
+    )
+
     manifest: dict[str, Any] = {
         "probe":
             "levelone_equities",
@@ -1183,6 +1222,9 @@ def main() -> int:
 
         "output_directory":
             str(run_dir),
+
+        "console_file":
+            str(console_path),
     }
 
     with manifest_path.open(
@@ -1195,6 +1237,25 @@ def main() -> int:
             indent=2,
             sort_keys=True,
         )
+
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    console_file = console_path.open(
+        "a",
+        encoding="utf-8",
+        buffering=1,
+    )
+
+    sys.stdout = TeeTextIO(
+        original_stdout,
+        console_file,
+    )
+
+    sys.stderr = TeeTextIO(
+        original_stderr,
+        console_file,
+    )
 
     print()
     print("Schwab LEVELONE_EQUITIES probe")
@@ -1927,6 +1988,16 @@ def main() -> int:
             f"Manifest         : "
             f"{manifest_path}"
         )
+        print(
+            f"Console log      : "
+            f"{console_path}"
+        )
+
+        sys.stdout = original_stdout
+        sys.stderr = original_stderr
+
+        console_file.flush()
+        console_file.close()
 
     return 0
 
