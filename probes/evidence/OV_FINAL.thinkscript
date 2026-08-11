@@ -1,0 +1,19 @@
+def newDay =
+    GetYYYYMMDD() != GetYYYYMMDD()[1];
+
+def inOvernight =
+    SecondsFromTime(0100) >= 0
+    and SecondsTillTime(0930) > 0;
+
+def runningOV = CompoundValue(
+    1,
+    if newDay then
+        if inOvernight then volume else 0
+    else if inOvernight then
+        runningOV[1] + volume
+    else
+        runningOV[1],
+    0
+);
+
+plot OVTestValue = runningOV;

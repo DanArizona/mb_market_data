@@ -1,0 +1,19 @@
+def newDay =
+    GetYYYYMMDD() != GetYYYYMMDD()[1];
+
+def inDecisionWindow =
+    SecondsFromTime(0100) >= 0
+    and SecondsTillTime(0925) > 0;
+
+def runningOV = CompoundValue(
+    1,
+    if newDay then
+        if inDecisionWindow then volume else 0
+    else if inDecisionWindow then
+        runningOV[1] + volume
+    else
+        runningOV[1],
+    0
+);
+
+plot OVDecisionValue = runningOV;
