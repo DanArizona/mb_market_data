@@ -34,3 +34,5 @@ output/*
 # OS files
 Thumbs.db
 .DS_Store
+*.egg-info/
+
