@@ -1,23 +1,19 @@
 """
-Validate derivation of OV_FINAL from OV_DECISION.
+Integration validation for OV_FINAL derivation.
 
-Hypothesis
-----------
-    OV_FINAL
-        = OV_DECISION
-        + Schwab 09:25 ET five-minute candle volume
+This probe intentionally uses the production mb_market_data modules:
 
-where:
+    tos_watchlist.py
+        -> read OV_DECISION from a ThinkOrSwim export
 
-    OV_DECISION = volume from 01:00 <= ET < 09:25
-    OV_FINAL    = volume from 01:00 <= ET < 09:30
+    schwab_candles.py
+        -> fetch the 09:25 ET five-minute Schwab candle
 
-The ToS evidence CSV contains independently calculated OV_DECISION
-and OV_FINAL values.  This probe asks Schwab price_history() for
-5-minute candles and compares the 09:25 candle volume against the
-difference between those two ToS values.
+    overnight_volume.py
+        -> derive OV_FINAL
 
-All displayed market times use America/New_York.
+The derived result is compared with the independently calculated
+OV_FINAL value preserved in the ThinkOrSwim evidence CSV.
 """
 
 from __future__ import annotations
@@ -25,15 +21,16 @@ from __future__ import annotations
 import argparse
 import csv
 import getpass
-import json
 import os
 import re
-from datetime import datetime, time
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
 from zoneinfo import ZoneInfo
 
+from mb_market_data.overnight_volume import derive_ov_final
+from mb_market_data.schwab_candles import fetch_0925_candle
+from mb_market_data.tos_watchlist import read_tos_watchlist
 from mb_tools.schwab_secure import (
     console_auth_callback,
     make_secure_schwab_client,
@@ -41,7 +38,6 @@ from mb_tools.schwab_secure import (
 
 
 ET = ZoneInfo("America/New_York")
-
 
 DEFAULT_CSV = Path(
     "probes/evidence/"
@@ -52,8 +48,8 @@ DEFAULT_CSV = Path(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Validate OV_FINAL = OV_DECISION "
-            "+ Schwab 09:25 five-minute volume."
+            "Validate production OV_FINAL derivation "
+            "against preserved ThinkOrSwim evidence."
         )
     )
 
@@ -61,17 +57,14 @@ def parse_args() -> argparse.Namespace:
         "--csv",
         type=Path,
         default=DEFAULT_CSV,
-        help=(
-            "ToS Watchlist export containing Symbol, "
-            "OV_DECISION, and OV_FINAL."
-        ),
+        help="ToS CSV containing OV_DECISION and OV_FINAL.",
     )
 
     parser.add_argument(
         "--date",
         help=(
             "Trading date YYYY-MM-DD. "
-            "If omitted, infer it from the CSV filename."
+            "If omitted, infer from the CSV filename."
         ),
     )
 
@@ -84,7 +77,7 @@ def parse_args() -> argparse.Namespace:
         "--timeout",
         type=int,
         default=10,
-        help="Schwab REST timeout in seconds. Default: 10",
+        help="Schwab REST timeout in seconds.",
     )
 
     return parser.parse_args()
@@ -136,10 +129,10 @@ def resolve_ecfg(
     )
 
 
-def infer_trade_date(
+def resolve_trade_date(
     csv_path: Path,
     explicit_date: str | None,
-) -> datetime:
+) -> date:
     if explicit_date:
         text = explicit_date
     else:
@@ -148,209 +141,67 @@ def infer_trade_date(
             csv_path.name,
         )
 
-        if not match:
+        if match is None:
             raise ValueError(
                 "Could not infer trading date from "
-                f"{csv_path.name!r}. "
-                "Supply --date YYYY-MM-DD."
+                f"{csv_path.name!r}; use --date."
             )
 
         text = match.group(0)
 
-    try:
-        return datetime.strptime(
-            text,
-            "%Y-%m-%d",
-        ).replace(
-            tzinfo=ET
-        )
-
-    except ValueError as exc:
-        raise ValueError(
-            f"Invalid trading date: {text!r}"
-        ) from exc
+    return datetime.strptime(
+        text,
+        "%Y-%m-%d",
+    ).date()
 
 
-def read_tos_watchlist(
-    path: Path,
-) -> list[dict[str, str]]:
-    """
-    Read a ToS Watchlist CSV.
-
-    Rather than assuming exactly three preamble lines,
-    locate the row whose first field is 'Symbol'.
-    """
-
-    with path.open(
-        "r",
-        newline="",
-        encoding="utf-8-sig",
-    ) as file:
-        rows = list(
-            csv.reader(file)
-        )
-
-    header_index = None
-
-    for index, row in enumerate(rows):
-        if (
-            row
-            and row[0].strip() == "Symbol"
-        ):
-            header_index = index
-            break
-
-    if header_index is None:
-        raise ValueError(
-            f"No Symbol header found in {path}"
-        )
-
-    header = [
-        item.strip()
-        for item in rows[header_index]
-    ]
-
-    required = {
-        "Symbol",
-        "OV_DECISION",
-        "OV_FINAL",
-    }
-
-    missing = required - set(header)
-
-    if missing:
-        raise ValueError(
-            "CSV is missing required column(s): "
-            + ", ".join(sorted(missing))
-        )
-
-    result: list[dict[str, str]] = []
-
-    for values in rows[
-        header_index + 1:
-    ]:
-        if not values:
-            continue
-
-        if len(values) < len(header):
-            values = values + (
-                [""] * (
-                    len(header)
-                    - len(values)
-                )
-            )
-
-        record = dict(
-            zip(
-                header,
-                values,
-            )
-        )
-
-        symbol = (
-            record.get(
-                "Symbol",
-                ""
-            )
-            .strip()
-            .upper()
-        )
-
-        if not symbol:
-            continue
-
-        record["Symbol"] = symbol
-        result.append(record)
-
-    return result
-
-
-def parse_integral_value(
-    text: str,
+def parse_integral_volume(
+    raw_value: str,
 ) -> int | None:
-    value = text.strip()
+    """
+    Parse a nonnegative integral volume from a ToS field.
 
-    if not value:
+    Returns None for blank/non-numeric/unavailable values.
+    """
+
+    text = raw_value.strip()
+
+    if not text:
         return None
 
-    if value.lower() in {
+    normalized = text.casefold()
+
+    if normalized in {
         "loading",
         "nan",
-        "n/a",
-        "na",
+        "<empty>",
     }:
         return None
 
-    if (
-        "subscription limit"
-        in value.lower()
-    ):
+    if "subscription limit" in normalized:
         return None
 
     try:
-        number = Decimal(
-            value.replace(",", "")
+        value = Decimal(
+            text.replace(",", "")
         )
-
     except InvalidOperation:
         return None
 
-    integral = number.to_integral_value()
+    if not value.is_finite():
+        return None
 
-    if number != integral:
-        raise ValueError(
-            "Expected integral volume value, "
-            f"got {text!r}"
-        )
+    integral = value.to_integral_value()
 
-    return int(integral)
+    if value != integral:
+        return None
 
+    result = int(integral)
 
-def candle_datetime_et(
-    candle: dict[str, Any],
-) -> datetime:
-    epoch_ms = candle["datetime"]
+    if result < 0:
+        return None
 
-    return datetime.fromtimestamp(
-        epoch_ms / 1000.0,
-        tz=ET,
-    )
-
-
-def find_0925_candle(
-    candles: list[dict[str, Any]],
-    trade_date: datetime,
-) -> tuple[
-    datetime,
-    dict[str, Any],
-] | None:
-
-    wanted_date = trade_date.date()
-    wanted_time = time(
-        9,
-        25,
-    )
-
-    for candle in candles:
-        candle_dt = candle_datetime_et(
-            candle
-        )
-
-        if (
-            candle_dt.date()
-            == wanted_date
-            and candle_dt.time().replace(
-                second=0,
-                microsecond=0,
-            )
-            == wanted_time
-        ):
-            return (
-                candle_dt,
-                candle,
-            )
-
-    return None
+    return result
 
 
 def main() -> int:
@@ -359,48 +210,42 @@ def main() -> int:
     csv_path = args.csv.resolve()
 
     if not csv_path.is_file():
-        raise FileNotFoundError(
-            csv_path
-        )
+        raise FileNotFoundError(csv_path)
 
-    trade_date = infer_trade_date(
+    trade_date = resolve_trade_date(
         csv_path,
         args.date,
     )
 
-    records = read_tos_watchlist(
+    watchlist = read_tos_watchlist(
         csv_path
     )
 
-    usable: list[
-        tuple[str, int, int]
-    ] = []
-
-    skipped: list[str] = []
-
-    for record in records:
-        symbol = record["Symbol"]
-
-        ov_decision = parse_integral_value(
-            record["OV_DECISION"]
+    if "OV_FINAL" not in watchlist.headers:
+        raise ValueError(
+            "Evidence CSV does not contain OV_FINAL."
         )
 
-        ov_final = parse_integral_value(
-            record["OV_FINAL"]
-        )
+    usable_rows = []
 
-        if (
-            ov_decision is None
-            or ov_final is None
-        ):
-            skipped.append(symbol)
+    for row in watchlist.rows:
+        if not row.usable_ov_decision:
             continue
 
-        usable.append(
+        tos_ov_final = parse_integral_volume(
+            row.fields.get(
+                "OV_FINAL",
+                "",
+            )
+        )
+
+        if tos_ov_final is None:
+            continue
+
+        usable_rows.append(
             (
-                symbol,
-                ov_decision,
-                ov_final,
+                row,
+                tos_ov_final,
             )
         )
 
@@ -425,50 +270,18 @@ def main() -> int:
         exist_ok=True,
     )
 
-    report_path = (
-        output_dir
-        / "report.csv"
-    )
+    report_path = output_dir / "report.csv"
 
     print()
-    print(
-        "OV_FINAL derivation probe"
-    )
+    print("OV_FINAL production integration probe")
     print("=" * 79)
-    print(
-        f"Evidence CSV     : {csv_path}"
-    )
-    print(
-        "Trading date     : "
-        f"{trade_date.date()}"
-    )
-    print(
-        f"Symbols in CSV   : {len(records)}"
-    )
-    print(
-        f"Usable symbols   : {len(usable)}"
-    )
-    print(
-        f"Skipped symbols  : {len(skipped)}"
-    )
-    print(
-        f"Encrypted config : {ecfg_path}"
-    )
-    print(
-        f"Output directory : {output_dir}"
-    )
+    print(f"Evidence CSV     : {csv_path}")
+    print(f"Trading date     : {trade_date}")
+    print(f"Symbols in CSV   : {len(watchlist.rows)}")
+    print(f"Usable symbols   : {len(usable_rows)}")
+    print(f"Encrypted config : {ecfg_path}")
+    print(f"Output directory : {output_dir}")
     print()
-
-    if skipped:
-        print(
-            "Skipped because OV values "
-            "were not both numeric:"
-        )
-        print(
-            "  "
-            + " ".join(skipped)
-        )
-        print()
 
     password = getpass.getpass(
         "Encrypted config password: "
@@ -481,129 +294,41 @@ def main() -> int:
         call_on_auth=console_auth_callback,
     )
 
-    start_dt = trade_date.replace(
-        hour=0,
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-
-    end_dt = trade_date.replace(
-        hour=23,
-        minute=59,
-        second=59,
-        microsecond=999999,
-    )
-
-    report_rows: list[
-        dict[str, Any]
-    ] = []
+    report_rows = []
 
     pass_count = 0
     fail_count = 0
     error_count = 0
 
-    try:
-        print(
-            "Symbol   OV_DECISION   "
-            "09:25 Vol   Derived FINAL   "
-            "ToS OV_FINAL   Difference   Result"
-        )
-        print("-" * 79)
+    print(
+        "Symbol   OV_DECISION   "
+        "09:25 Vol   Derived FINAL   "
+        "ToS OV_FINAL   Difference   Result"
+    )
+    print("-" * 79)
 
-        for (
-            symbol,
-            ov_decision,
-            ov_final,
-        ) in usable:
+    try:
+        for row, tos_ov_final in usable_rows:
+            symbol = row.symbol
+            ov_decision = row.ov_decision
+
+            assert ov_decision is not None
 
             try:
-                response = client.price_history(
-                    symbol,
-                    frequencyType="minute",
-                    frequency=5,
-                    startDate=start_dt,
-                    endDate=end_dt,
-                    needExtendedHoursData=True,
-                    needPreviousClose=True,
+                candle = fetch_0925_candle(
+                    client,
+                    symbol=symbol,
+                    trade_date=trade_date,
                 )
 
-                raw_path = (
-                    output_dir
-                    / f"{symbol}_price_history.json"
-                )
-
-                if response.ok:
-                    data = response.json()
-
-                    with raw_path.open(
-                        "w",
-                        encoding="utf-8",
-                    ) as file:
-                        json.dump(
-                            data,
-                            file,
-                            indent=2,
-                            sort_keys=True,
-                        )
-
-                else:
-                    with raw_path.open(
-                        "w",
-                        encoding="utf-8",
-                    ) as file:
-                        file.write(
-                            response.text
-                        )
-
-                    raise RuntimeError(
-                        "HTTP "
-                        f"{response.status_code}"
-                    )
-
-                candles = data.get(
-                    "candles",
-                    []
-                )
-
-                match = find_0925_candle(
-                    candles,
-                    trade_date,
-                )
-
-                if match is None:
-                    raise RuntimeError(
-                        "No 09:25 ET "
-                        "five-minute candle found."
-                    )
-
-                candle_dt, candle = match
-
-                candle_volume_raw = (
-                    candle.get("volume")
-                )
-
-                if not isinstance(
-                    candle_volume_raw,
-                    (int, float),
-                ):
-                    raise RuntimeError(
-                        "09:25 candle has "
-                        "no numeric volume."
-                    )
-
-                candle_volume = int(
-                    candle_volume_raw
-                )
-
-                derived_final = (
-                    ov_decision
-                    + candle_volume
+                derived_ov_final = derive_ov_final(
+                    ov_decision,
+                    candle.volume,
                 )
 
                 difference = (
-                    derived_final
-                    - ov_final
+                    derived_ov_final
+                    - tos_ov_final
                 )
 
                 if difference == 0:
@@ -616,41 +341,28 @@ def main() -> int:
                 print(
                     f"{symbol:<7}"
                     f"{ov_decision:>12,}   "
-                    f"{candle_volume:>9,}   "
-                    f"{derived_final:>13,}   "
-                    f"{ov_final:>12,}   "
+                    f"{candle.volume:>9,}   "
+                    f"{derived_ov_final:>13,}   "
+                    f"{tos_ov_final:>12,}   "
                     f"{difference:>10,}   "
                     f"{result}"
                 )
 
                 report_rows.append(
                     {
-                        "symbol":
-                            symbol,
-
-                        "trade_date":
-                            str(
-                                trade_date.date()
-                            ),
-
-                        "ov_decision":
-                            ov_decision,
-
+                        "symbol": symbol,
+                        "trade_date": trade_date,
+                        "ov_decision": ov_decision,
                         "candle_time_et":
-                            candle_dt.isoformat(),
-
+                            candle.start_et.isoformat(),
                         "candle_volume":
-                            candle_volume,
-
+                            candle.volume,
                         "derived_ov_final":
-                            derived_final,
-
+                            derived_ov_final,
                         "tos_ov_final":
-                            ov_final,
-
+                            tos_ov_final,
                         "difference":
                             difference,
-
                         "result":
                             result,
                     }
@@ -664,46 +376,26 @@ def main() -> int:
                     f"{ov_decision:>12,}   "
                     f"{'ERROR':>9}   "
                     f"{'':>13}   "
-                    f"{ov_final:>12,}   "
+                    f"{tos_ov_final:>12,}   "
                     f"{'':>10}   "
-                    f"{type(exc).__name__}: "
-                    f"{exc}"
+                    f"{type(exc).__name__}: {exc}"
                 )
 
                 report_rows.append(
                     {
-                        "symbol":
-                            symbol,
-
-                        "trade_date":
-                            str(
-                                trade_date.date()
-                            ),
-
-                        "ov_decision":
-                            ov_decision,
-
-                        "candle_time_et":
-                            "",
-
-                        "candle_volume":
-                            "",
-
-                        "derived_ov_final":
-                            "",
-
-                        "tos_ov_final":
-                            ov_final,
-
-                        "difference":
-                            "",
-
-                        "result":
-                            (
-                                "ERROR: "
-                                f"{type(exc).__name__}: "
-                                f"{exc}"
-                            ),
+                        "symbol": symbol,
+                        "trade_date": trade_date,
+                        "ov_decision": ov_decision,
+                        "candle_time_et": "",
+                        "candle_volume": "",
+                        "derived_ov_final": "",
+                        "tos_ov_final": tos_ov_final,
+                        "difference": "",
+                        "result": (
+                            "ERROR: "
+                            f"{type(exc).__name__}: "
+                            f"{exc}"
+                        ),
                     }
                 )
 
@@ -736,33 +428,23 @@ def main() -> int:
         )
 
         writer.writeheader()
-        writer.writerows(
-            report_rows
-        )
+        writer.writerows(report_rows)
 
     print()
     print("=" * 79)
-    print(
-        f"PASS   : {pass_count}"
-    )
-    print(
-        f"FAIL   : {fail_count}"
-    )
-    print(
-        f"ERROR  : {error_count}"
-    )
-    print(
-        f"Report : {report_path}"
-    )
+    print(f"PASS   : {pass_count}")
+    print(f"FAIL   : {fail_count}")
+    print(f"ERROR  : {error_count}")
+    print(f"Report : {report_path}")
     print()
 
     if (
-        fail_count == 0
+        pass_count > 0
+        and fail_count == 0
         and error_count == 0
-        and pass_count > 0
     ):
         print(
-            "Result: hypothesis validated "
+            "Result: production modules validated "
             "for every tested symbol."
         )
         return 0
@@ -771,7 +453,6 @@ def main() -> int:
         "Result: one or more symbols "
         "did not validate."
     )
-
     return 1
 
 
