@@ -10,6 +10,7 @@ from __future__ import annotations
 import getpass
 import os
 import time
+import argparse
 from pathlib import Path
 
 from mb_market_data.schwab_quotes import (
@@ -26,6 +27,28 @@ from mb_tools.schwab_secure import (
 WATCHLIST_CSV = Path(
     "probes/evidence/2026-08-10-watchlist2.csv"
 )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Integration probe for production batched "
+            "Schwab quote acquisition."
+        )
+    )
+
+    parser.add_argument(
+        "--fields",
+        choices=[
+            "quote",
+            "fundamental",
+            "all",
+        ],
+        default="all",
+        help="Schwab quote fields to request. Default: all",
+    )
+
+    return parser.parse_args()
 
 
 def resolve_ecfg() -> Path:
@@ -63,6 +86,8 @@ def main() -> int:
         WATCHLIST_CSV
     )
 
+    args = parse_args()
+    
     symbols = [
         row.symbol
         for row in watchlist.rows
@@ -77,6 +102,7 @@ def main() -> int:
     print(f"Symbols         : {len(symbols)}")
     print(f"Encrypted config: {ecfg_path}")
     print(f"Batch size      : 400")
+    print(f"Fields          : {args.fields}")
     print()
 
     password = getpass.getpass(
@@ -96,7 +122,7 @@ def main() -> int:
         result = fetch_quotes_batched(
             client,
             symbols,
-            fields="quote",
+            fields=args.fields,            
             batch_size=400,
         )
     finally:
