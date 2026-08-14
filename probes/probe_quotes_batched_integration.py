@@ -3,15 +3,20 @@ Integration probe for production batched Schwab quote acquisition.
 
 Uses the real preserved ~759-symbol ThinkOrSwim universe and the
 production mb_market_data.schwab_quotes.fetch_quotes_batched() function.
+
+The probe also reports the actual acquisition timing for each HTTP
+batch. Internally, production timestamps are stored in UTC; this probe
+displays them in Eastern Time for human inspection.
 """
 
 from __future__ import annotations
 
+import argparse
 import getpass
 import os
 import time
-import argparse
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from mb_market_data.schwab_quotes import (
     QuoteStatus,
@@ -23,6 +28,8 @@ from mb_tools.schwab_secure import (
     make_secure_schwab_client,
 )
 
+
+ET = ZoneInfo("America/New_York")
 
 WATCHLIST_CSV = Path(
     "probes/evidence/2026-08-10-watchlist2.csv"
@@ -82,11 +89,11 @@ def resolve_ecfg() -> Path:
 
 
 def main() -> int:
+    args = parse_args()
+
     watchlist = read_tos_watchlist(
         WATCHLIST_CSV
     )
-
-    args = parse_args()
 
     symbols = [
         row.symbol
@@ -97,7 +104,7 @@ def main() -> int:
 
     print()
     print("Production batched-quotes integration probe")
-    print("=" * 72)
+    print("=" * 78)
     print(f"Watchlist       : {WATCHLIST_CSV.resolve()}")
     print(f"Symbols         : {len(symbols)}")
     print(f"Encrypted config: {ecfg_path}")
@@ -136,7 +143,7 @@ def main() -> int:
     counts = result.status_counts()
 
     print()
-    print("=" * 72)
+    print("=" * 78)
     print(f"Input symbols       : {len(symbols)}")
     print(f"Results             : {len(result.results)}")
     print(f"HTTP requests       : {result.request_count}")
@@ -146,6 +153,78 @@ def main() -> int:
     print(f"Request errors      : {counts[QuoteStatus.REQUEST_ERROR]}")
     print(f"Unexpected symbols  : {len(result.unexpected_symbols)}")
     print(f"Elapsed seconds     : {elapsed:.3f}")
+    print()
+
+    print("Batch acquisition timing (ET)")
+    print("-" * 78)
+    print(
+        "Batch   Symbols   Request started             "
+        "Response received           Duration"
+    )
+    print("-" * 78)
+
+    batch_numbers = sorted(
+        {
+            item.batch_number
+            for item in result.results
+        }
+    )
+
+    for batch_number in batch_numbers:
+        batch_results = [
+            item
+            for item in result.results
+            if item.batch_number == batch_number
+        ]
+
+        first = batch_results[0]
+
+        started_et = (
+            first.request_started_at_utc
+            .astimezone(ET)
+        )
+
+        received_utc = (
+            first.response_received_at_utc
+        )
+
+        if received_utc is None:
+            received_text = "NO RESPONSE"
+            duration_text = "n/a"
+        else:
+            received_et = (
+                received_utc.astimezone(ET)
+            )
+
+            duration_seconds = (
+                received_utc
+                - first.request_started_at_utc
+            ).total_seconds()
+
+            received_text = (
+                received_et.strftime(
+                    "%Y-%m-%d %H:%M:%S.%f"
+                )[:-3]
+            )
+
+            duration_text = (
+                f"{duration_seconds:.3f} s"
+            )
+
+        started_text = (
+            started_et.strftime(
+                "%Y-%m-%d %H:%M:%S.%f"
+            )[:-3]
+        )
+
+        print(
+            f"{batch_number:>5}   "
+            f"{len(batch_results):>7}   "
+            f"{started_text:<27} "
+            f"{received_text:<27} "
+            f"{duration_text}"
+        )
+
     print()
 
     invalid = [

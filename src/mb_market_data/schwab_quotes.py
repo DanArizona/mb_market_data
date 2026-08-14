@@ -11,10 +11,14 @@ Empirical capability probing on 2026-08-13 established:
     - Initial production default: 400 symbols per request.
 
 This module does not authenticate Schwab clients and does not perform
-scheduling.  Callers supply an already-authenticated client.
+scheduling. Callers supply an already-authenticated client.
 
-Every normalized input symbol receives an explicit result.  A symbol is
+Every normalized input symbol receives an explicit result. A symbol is
 never silently discarded.
+
+Each result also preserves the UTC start and response times for the
+HTTP request that produced it. This is important for reconstructing the
+actual acquisition timing of decision-time market data.
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -48,6 +53,8 @@ class QuoteResult:
     quote: Mapping[str, Any] | None
     detail: str | None
     batch_number: int
+    request_started_at_utc: datetime
+    response_received_at_utc: datetime | None
 
     @property
     def usable(self) -> bool:
@@ -135,6 +142,8 @@ def normalize_symbols(
 def _invalid_symbols(
     payload: Mapping[str, Any],
 ) -> set[str]:
+    """Extract symbols Schwab explicitly reports as invalid."""
+
     errors = payload.get("errors")
 
     if not isinstance(errors, Mapping):
@@ -155,6 +164,12 @@ def _invalid_symbols(
 def _quote_entries(
     payload: Mapping[str, Any],
 ) -> dict[str, Mapping[str, Any]]:
+    """
+    Extract actual quote entries from a Schwab response.
+
+    The top-level ``errors`` object is metadata, not a ticker.
+    """
+
     entries: dict[str, Mapping[str, Any]] = {}
 
     for key, value in payload.items():
@@ -176,6 +191,8 @@ def _http_error_detail(
     response: Any,
     payload: Any,
 ) -> str:
+    """Build a useful detail string for an HTTP-level failure."""
+
     status_code = getattr(
         response,
         "status_code",
@@ -197,10 +214,15 @@ def _http_error_detail(
                 message = item.get("detail")
 
                 if message:
-                    messages.append(str(message))
+                    messages.append(
+                        str(message)
+                    )
 
             if messages:
-                detail += ": " + "; ".join(messages)
+                detail += (
+                    ": "
+                    + "; ".join(messages)
+                )
 
     return detail
 
@@ -221,14 +243,14 @@ def fetch_quotes_batched(
         Already-authenticated Schwab client having a quotes() method.
 
     symbols
-        Symbols to retrieve.  Symbols are uppercased and duplicates are
+        Symbols to retrieve. Symbols are uppercased and duplicates are
         removed while preserving order.
 
     fields
         Value passed to Schwab's quotes(fields=...) parameter.
 
     batch_size
-        Number of symbols in each HTTP request.  Must be between 1 and
+        Number of symbols in each HTTP request. Must be between 1 and
         Schwab's demonstrated maximum of 500.
 
     Returns
@@ -238,8 +260,10 @@ def fetch_quotes_batched(
 
     Notes
     -----
-    An HTTP failure affects only the symbols in that particular batch.
-    Processing continues with later batches.
+    An HTTP or transport failure affects only the symbols in that
+    particular batch. Processing continues with later batches.
+
+    All request acquisition timestamps are stored in UTC.
     """
 
     if isinstance(batch_size, bool) or not isinstance(
@@ -293,10 +317,20 @@ def fetch_quotes_batched(
 
         request_count += 1
 
+        request_started_at_utc = datetime.now(
+            timezone.utc
+        )
+
+        response_received_at_utc: datetime | None = None
+
         try:
             response = client.quotes(
                 list(batch),
                 fields=fields,
+            )
+
+            response_received_at_utc = datetime.now(
+                timezone.utc
             )
 
         except Exception as exc:
@@ -312,6 +346,10 @@ def fetch_quotes_batched(
                         quote=None,
                         detail=detail,
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=None,
                     )
                 )
 
@@ -319,6 +357,7 @@ def fetch_quotes_batched(
 
         try:
             payload = response.json()
+
         except Exception as exc:
             detail = (
                 "Unreadable Schwab JSON response: "
@@ -333,6 +372,12 @@ def fetch_quotes_batched(
                         quote=None,
                         detail=detail,
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=(
+                            response_received_at_utc
+                        ),
                     )
                 )
 
@@ -356,6 +401,12 @@ def fetch_quotes_batched(
                         quote=None,
                         detail=detail,
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=(
+                            response_received_at_utc
+                        ),
                     )
                 )
 
@@ -378,6 +429,12 @@ def fetch_quotes_batched(
                         quote=None,
                         detail=detail,
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=(
+                            response_received_at_utc
+                        ),
                     )
                 )
 
@@ -405,6 +462,12 @@ def fetch_quotes_batched(
                         quote=quotes[symbol],
                         detail=None,
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=(
+                            response_received_at_utc
+                        ),
                     )
                 )
 
@@ -419,6 +482,12 @@ def fetch_quotes_batched(
                             "as invalid."
                         ),
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=(
+                            response_received_at_utc
+                        ),
                     )
                 )
 
@@ -434,6 +503,12 @@ def fetch_quotes_batched(
                             "classification."
                         ),
                         batch_number=batch_number,
+                        request_started_at_utc=(
+                            request_started_at_utc
+                        ),
+                        response_received_at_utc=(
+                            response_received_at_utc
+                        ),
                     )
                 )
 
@@ -442,6 +517,8 @@ def fetch_quotes_batched(
         request_count=request_count,
         batch_size=batch_size,
         unexpected_symbols=tuple(
-            sorted(unexpected_symbols)
+            sorted(
+                unexpected_symbols
+            )
         ),
     )

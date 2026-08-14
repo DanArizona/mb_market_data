@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from datetime import timezone
 
 from mb_market_data.schwab_quotes import (
     DEFAULT_QUOTE_BATCH_SIZE,
@@ -87,6 +88,19 @@ class EchoClient:
         return FakeResponse(payload)
 
 
+class RaisingClient:
+
+    def quotes(
+        self,
+        symbols,
+        *,
+        fields="quote",
+    ):
+        raise TimeoutError(
+            "simulated timeout"
+        )
+
+
 class TestNormalizeSymbols(unittest.TestCase):
 
     def test_normalizes_and_deduplicates(self) -> None:
@@ -171,6 +185,57 @@ class TestFetchQuotesBatched(unittest.TestCase):
                 == QuoteStatus.QUOTE
                 for item in result.results
             )
+        )
+
+        first = result.results[0]
+        last_first_batch = result.results[399]
+        first_second_batch = result.results[400]
+
+        self.assertEqual(
+            first.request_started_at_utc.tzinfo,
+            timezone.utc,
+        )
+
+        self.assertIsNotNone(
+            first.response_received_at_utc
+        )
+
+        self.assertEqual(
+            first.response_received_at_utc.tzinfo,
+            timezone.utc,
+        )
+
+        # Every result from the same HTTP request carries
+        # the same acquisition timestamps.
+        self.assertEqual(
+            first.request_started_at_utc,
+            last_first_batch.request_started_at_utc,
+        )
+
+        self.assertEqual(
+            first.response_received_at_utc,
+            last_first_batch.response_received_at_utc,
+        )
+
+        # The second batch has its own batch number and
+        # its own acquisition timing.
+        self.assertEqual(
+            first_second_batch.batch_number,
+            2,
+        )
+
+        self.assertEqual(
+            first_second_batch.request_started_at_utc.tzinfo,
+            timezone.utc,
+        )
+
+        self.assertIsNotNone(
+            first_second_batch.response_received_at_utc
+        )
+
+        self.assertEqual(
+            first_second_batch.response_received_at_utc.tzinfo,
+            timezone.utc,
         )
 
     def test_invalid_symbol_is_preserved(self) -> None:
@@ -335,6 +400,39 @@ class TestFetchQuotesBatched(unittest.TestCase):
             result.results[0].status,
             QuoteStatus.REQUEST_ERROR,
         )
+
+    def test_client_exception_has_no_response_time(
+        self,
+    ) -> None:
+        client = RaisingClient()
+
+        result = fetch_quotes_batched(
+            client,
+            [
+                "SPY",
+                "AAPL",
+            ],
+        )
+
+        self.assertEqual(
+            len(result.results),
+            2,
+        )
+
+        for item in result.results:
+            self.assertEqual(
+                item.status,
+                QuoteStatus.REQUEST_ERROR,
+            )
+
+            self.assertEqual(
+                item.request_started_at_utc.tzinfo,
+                timezone.utc,
+            )
+
+            self.assertIsNone(
+                item.response_received_at_utc
+            )
 
     def test_batch_size_above_500_rejected(self) -> None:
         client = EchoClient()
