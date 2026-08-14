@@ -87,7 +87,7 @@ def main() -> int:
     )
 
     args = parse_args()
-    
+
     symbols = [
         row.symbol
         for row in watchlist.rows
@@ -122,7 +122,7 @@ def main() -> int:
         result = fetch_quotes_batched(
             client,
             symbols,
-            fields=args.fields,            
+            fields=args.fields,
             batch_size=400,
         )
     finally:
