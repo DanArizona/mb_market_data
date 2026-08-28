@@ -49,14 +49,14 @@ class TosWatchlistRow:
     """One symbol row from a ThinkOrSwim Watchlist export."""
 
     symbol: str
-    ov_decision: int | None
+    ov_decision: Decimal | None
     ov_decision_status: OVDecisionStatus
     raw_ov_decision: str
     fields: dict[str, str]
 
     @property
     def usable_ov_decision(self) -> bool:
-        """True when OV_DECISION is a valid nonnegative integer."""
+        """True when OV_DECISION is a valid nonnegative numeric value."""
 
         return self.ov_decision_status in USABLE_OV_STATUSES
 
@@ -101,20 +101,22 @@ class TosWatchlist:
 
 def classify_ov_decision(
     raw_value: str,
-) -> tuple[int | None, OVDecisionStatus]:
+) -> tuple[Decimal | None, OVDecisionStatus]:
     """
     Parse and classify one OV_DECISION value.
 
-    Integral decimal representations such as:
+    Finite nonnegative numeric representations such as:
 
         607650
         607650.0
+        12.5
+        2.799640564802E8
         "607,650"
 
-    are accepted and returned as Python ints.
+    are accepted and returned as Decimal values.
 
-    Negative or fractional values are considered invalid because volume
-    must be a nonnegative integral quantity.
+    OV_DECISION is a ThinkOrSwim-derived decision value and is not
+    required to be an integral share count.
     """
 
     text = raw_value.strip()
@@ -149,20 +151,13 @@ def classify_ov_decision(
 
         return None, OVDecisionStatus.INVALID
 
-    integral_value = value.to_integral_value()
-
-    if value != integral_value:
+    if value < 0:
         return None, OVDecisionStatus.INVALID
 
-    integer_value = int(integral_value)
+    if value == 0:
+        return Decimal(0), OVDecisionStatus.ZERO
 
-    if integer_value < 0:
-        return None, OVDecisionStatus.INVALID
-
-    if integer_value == 0:
-        return 0, OVDecisionStatus.ZERO
-
-    return integer_value, OVDecisionStatus.NUMERIC
+    return value, OVDecisionStatus.NUMERIC
 
 
 def read_tos_watchlist(

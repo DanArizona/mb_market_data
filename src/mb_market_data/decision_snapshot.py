@@ -23,6 +23,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from mb_market_data.schwab_quotes import (
@@ -61,7 +62,7 @@ class DecisionSnapshot:
     symbol: str
 
     # ThinkOrSwim OV_DECISION
-    ov_decision: int | None
+    ov_decision: Decimal | None
     ov_decision_status: OVDecisionStatus
     raw_ov_decision: str
     tos_observed_at_utc: datetime

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 from mb_market_data.tos_watchlist import (
@@ -112,18 +113,35 @@ class TestClassifyOVDecision(unittest.TestCase):
             OVDecisionStatus.SUBSCRIPTION_LIMIT,
         )
 
-    def test_fractional_volume_is_invalid(self) -> None:
+    def test_fractional_ov_decision_is_numeric(self) -> None:
         value, status = classify_ov_decision(
             "12.5"
         )
 
-        self.assertIsNone(value)
+        self.assertEqual(
+            value,
+            Decimal("12.5"),
+        )
         self.assertEqual(
             status,
-            OVDecisionStatus.INVALID,
+            OVDecisionStatus.NUMERIC,
         )
 
-    def test_negative_volume_is_invalid(self) -> None:
+    def test_scientific_notation_fraction_is_numeric(self) -> None:
+        value, status = classify_ov_decision(
+            "2.799640564802E8"
+        )
+
+        self.assertEqual(
+            value,
+            Decimal("2.799640564802E8"),
+        )
+        self.assertEqual(
+            status,
+            OVDecisionStatus.NUMERIC,
+        )
+
+    def test_negative_ov_decision_is_invalid(self) -> None:
         value, status = classify_ov_decision(
             "-1"
         )
@@ -175,7 +193,7 @@ class TestReadTosWatchlist(unittest.TestCase):
             "NAN1,,NaN,0,1.00\n"
             "BLANK,,,0,1.00\n"
             "LIMIT,,custom expression subscription limit exceeded,0,1.00\n"
-            "BAD,,12.5,0,1.00\n"
+            "FRAC,,12.5,0,1.00\n"
         )
 
         with tempfile.TemporaryDirectory() as temp:
@@ -202,12 +220,12 @@ class TestReadTosWatchlist(unittest.TestCase):
 
         self.assertEqual(
             len(watchlist.usable_rows),
-            3,
+            4,
         )
 
         self.assertEqual(
             len(watchlist.unavailable_rows),
-            5,
+            4,
         )
 
         by_symbol = {
@@ -251,8 +269,12 @@ class TestReadTosWatchlist(unittest.TestCase):
         )
 
         self.assertEqual(
-            by_symbol["BAD"].ov_decision_status,
-            OVDecisionStatus.INVALID,
+            by_symbol["FRAC"].ov_decision,
+            Decimal("12.5"),
+        )
+        self.assertEqual(
+            by_symbol["FRAC"].ov_decision_status,
+            OVDecisionStatus.NUMERIC,
         )
 
     def test_missing_ov_decision_column_raises(self) -> None:
