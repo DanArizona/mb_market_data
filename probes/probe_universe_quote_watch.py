@@ -35,7 +35,7 @@ import os
 import statistics
 import time as time_module
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import datetime, time as datetime_time, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -49,6 +49,16 @@ from mb_market_data.schwab_quotes import (
     normalize_symbols,
 )
 from mb_market_data.tos_watchlist import read_tos_watchlist
+from mb_market_data.watchlist_polling import (
+    POLL_SECONDS,
+    PollRequest,
+    PollSlotGuard,
+    PollWindow,
+    WatchlistKind,
+    WatchlistSnapshot,
+    capture_poll_request,
+    next_poll_slot,
+)
 from mb_tools.schwab_secure import (
     console_auth_callback,
     make_secure_schwab_client,
@@ -63,6 +73,12 @@ DEFAULT_UNIVERSE_CSV = Path(
 
 QUOTE_CSV_FIELDS = [
     "sample_number",
+    "watchlist_kind",
+    "watchlist_revision",
+    "slot_id",
+    "batch_id",
+    "scheduled_at_et",
+    "dispatch_lateness_seconds",
     "observed_at_et",
     "observed_at_utc",
     "symbol",
@@ -122,6 +138,12 @@ QUOTE_CSV_FIELDS = [
 
 SUMMARY_CSV_FIELDS = [
     "sample_number",
+    "watchlist_kind",
+    "watchlist_revision",
+    "slot_id",
+    "batch_id",
+    "scheduled_at_et",
+    "dispatch_lateness_seconds",
     "sample_started_at_et",
     "sample_completed_at_et",
     "sample_elapsed_seconds",
@@ -193,6 +215,25 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=60.0,
         help="Seconds between sample starts. Default: 60",
+    )
+    parser.add_argument(
+        "--watchlist-kind",
+        choices=[kind.value for kind in WatchlistKind],
+        help=(
+            "Use exact wall-clock polling slots for this Watchlist: "
+            "uni=:00/:30; focus=:05/:20/:35/:50. When omitted, "
+            "the legacy --interval loop is used. Run Uni and Focus "
+            "as separate processes so their polling remains independent."
+        ),
+    )
+    parser.add_argument(
+        "--watchlist-revision",
+        type=int,
+        default=0,
+        help=(
+            "Coordinator membership revision recorded with every sample. "
+            "Default: 0 (static probe input)."
+        ),
     )
     parser.add_argument(
         "--stop-at",
@@ -374,11 +415,42 @@ def batch_duration_seconds(item: QuoteResult) -> float | None:
     )
 
 
+def poll_request_fields(
+    poll_request: PollRequest | None,
+) -> dict[str, Any]:
+    """Return stable CSV/JSON fields for optional exact-slot polling."""
+
+    if poll_request is None:
+        return {
+            "watchlist_kind": None,
+            "watchlist_revision": None,
+            "slot_id": None,
+            "batch_id": None,
+            "scheduled_at_et": None,
+            "dispatch_lateness_seconds": None,
+        }
+
+    return {
+        "watchlist_kind": poll_request.watchlist_kind.value,
+        "watchlist_revision": poll_request.watchlist_revision,
+        "slot_id": poll_request.slot_id,
+        "batch_id": poll_request.batch_id,
+        "scheduled_at_et": poll_request.slot.scheduled_at.astimezone(
+            ET
+        ).isoformat(),
+        "dispatch_lateness_seconds": round(
+            poll_request.dispatch_lateness_seconds,
+            6,
+        ),
+    }
+
+
 def quote_csv_row(
     *,
     sample_number: int,
     observed_at: datetime,
     item: QuoteResult,
+    poll_request: PollRequest | None = None,
 ) -> dict[str, Any]:
     quote: Mapping[str, Any] = item.quote or {}
 
@@ -394,6 +466,7 @@ def quote_csv_row(
 
     return {
         "sample_number": sample_number,
+        **poll_request_fields(poll_request),
         "observed_at_et": observed_at.isoformat(),
         "observed_at_utc": observed_at.astimezone(
             timezone.utc
@@ -578,9 +651,11 @@ def normalized_acquisition_record(
     sample_started_at: datetime,
     sample_completed_at: datetime,
     result: QuoteBatchResult,
+    poll_request: PollRequest | None = None,
 ) -> dict[str, Any]:
     return {
         "sample_number": sample_number,
+        **poll_request_fields(poll_request),
         "sample_started_at_et": sample_started_at.isoformat(),
         "sample_started_at_utc": sample_started_at.astimezone(
             timezone.utc
@@ -740,11 +815,13 @@ def summary_row(
     input_symbol_count: int,
     result: QuoteBatchResult,
     change_metrics: dict[str, int],
+    poll_request: PollRequest | None = None,
 ) -> dict[str, Any]:
     counts = result.status_counts()
 
     return {
         "sample_number": sample_number,
+        **poll_request_fields(poll_request),
         "sample_started_at_et": sample_started_at.isoformat(),
         "sample_completed_at_et": sample_completed_at.isoformat(),
         "sample_elapsed_seconds": round(
@@ -768,6 +845,10 @@ def print_sample_summary(
     row: Mapping[str, Any],
     result: QuoteBatchResult,
 ) -> None:
+    slot_text = ""
+    if row.get("slot_id"):
+        slot_text = f"  {row['slot_id']}"
+
     print(
         f"Sample {row['sample_number']:>3}  "
         f"{row['sample_completed_at_et']}  "
@@ -779,6 +860,7 @@ def print_sample_summary(
         f"reqerr={row['request_error_count']}  "
         f"vol+={row['volume_increased_count']}  "
         f"trade+={row['trade_time_advanced_count']}"
+        f"{slot_text}"
     )
 
     def format_age(value: Any) -> str:
@@ -849,6 +931,9 @@ def main() -> int:
     if args.max_samples is not None and args.max_samples <= 0:
         raise SystemExit("--max-samples must be greater than zero.")
 
+    if args.watchlist_revision < 0:
+        raise SystemExit("--watchlist-revision must be nonnegative.")
+
     if args.timeout <= 0:
         raise SystemExit("--timeout must be greater than zero.")
 
@@ -857,7 +942,53 @@ def main() -> int:
     ecfg_path = resolve_ecfg(args.ecfg)
 
     started_at = datetime.now(ET)
+    poll_kind = (
+        WatchlistKind(args.watchlist_kind)
+        if args.watchlist_kind
+        else None
+    )
+    poll_window: PollWindow | None = None
+    snapshot: WatchlistSnapshot | None = None
+    slot_guard = PollSlotGuard()
+
+    if poll_kind is not None:
+        session_start = datetime.combine(
+            started_at.date(),
+            datetime_time(9, 30),
+            tzinfo=ET,
+        )
+        regular_session_end = datetime.combine(
+            started_at.date(),
+            datetime_time(16, 0),
+            tzinfo=ET,
+        )
+        session_end = (
+            min(stop_at, regular_session_end)
+            if stop_at is not None
+            else regular_session_end
+        )
+
+        if session_end <= session_start:
+            raise SystemExit(
+                "Exact-slot polling requires --stop-at later than "
+                "09:30 ET."
+            )
+
+        poll_window = PollWindow(
+            start_at=session_start,
+            end_at=session_end,
+        )
+        snapshot = WatchlistSnapshot(
+            watchlist_kind=poll_kind,
+            session_date=poll_window.session_date,
+            revision=args.watchlist_revision,
+            effective_at=started_at,
+            symbols=symbols,
+        )
+
     run_stamp = started_at.strftime("%Y-%m-%d-%H-%M-%S")
+    if poll_kind is not None:
+        run_stamp += f"-{poll_kind.value}"
     run_dir = Path(args.output_root) / run_stamp
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -882,6 +1013,19 @@ def main() -> int:
         "fields": args.fields,
         "batch_size": args.batch_size,
         "interval_seconds": args.interval,
+        "watchlist_kind": poll_kind.value if poll_kind else None,
+        "watchlist_revision": (
+            args.watchlist_revision if poll_kind else None
+        ),
+        "poll_seconds": (
+            list(POLL_SECONDS[poll_kind]) if poll_kind else None
+        ),
+        "poll_window_start_et": (
+            poll_window.start_at.isoformat() if poll_window else None
+        ),
+        "poll_window_end_et": (
+            poll_window.end_at.isoformat() if poll_window else None
+        ),
         "stop_at_et": stop_at.isoformat() if stop_at else None,
         "max_samples": args.max_samples,
         "timeout_seconds": args.timeout,
@@ -903,7 +1047,23 @@ def main() -> int:
     print(f"Symbols          : {len(symbols)}")
     print(f"Fields           : {args.fields}")
     print(f"Batch size       : {args.batch_size}")
-    print(f"Interval         : {args.interval:g} seconds")
+    if poll_kind is None:
+        print(f"Interval         : {args.interval:g} seconds")
+    else:
+        print(f"Watchlist kind   : {poll_kind.value}")
+        print(f"Watchlist rev    : {args.watchlist_revision}")
+        print(
+            "Polling seconds  : "
+            + ", ".join(
+                f":{second:02d}"
+                for second in POLL_SECONDS[poll_kind]
+            )
+        )
+        print(
+            "Polling window   : "
+            f"{poll_window.start_at:%Y-%m-%d %H:%M:%S %Z} through "
+            f"{poll_window.end_at:%H:%M:%S %Z} (end excluded)"
+        )
     print(f"Started          : {started_at:%Y-%m-%d %H:%M:%S %Z}")
     print(
         "Automatic stop   : "
@@ -979,8 +1139,49 @@ def main() -> int:
                     print("Reached maximum sample count.")
                     break
 
+                poll_request: PollRequest | None = None
+
+                if poll_kind is not None:
+                    assert poll_window is not None
+                    assert snapshot is not None
+
+                    slot = next_poll_slot(
+                        poll_kind,
+                        after=now,
+                        window=poll_window,
+                    )
+                    if slot is None:
+                        print("Reached the end of the polling window.")
+                        break
+
+                    while True:
+                        delay = (
+                            slot.scheduled_at - datetime.now(ET)
+                        ).total_seconds()
+                        if delay <= 0:
+                            break
+                        time_module.sleep(delay)
+
+                    dispatched_at = datetime.now(ET)
+                    if dispatched_at >= poll_window.end_at:
+                        print("Reached the end of the polling window.")
+                        break
+
+                    if not slot_guard.claim(slot):
+                        continue
+
+                    poll_request = capture_poll_request(
+                        slot,
+                        snapshot,
+                        dispatched_at=dispatched_at,
+                    )
+
                 sample_number += 1
-                sample_started_at = datetime.now(ET)
+                sample_started_at = (
+                    poll_request.dispatched_at
+                    if poll_request is not None
+                    else datetime.now(ET)
+                )
                 started_monotonic = time_module.monotonic()
 
                 try:
@@ -1000,6 +1201,7 @@ def main() -> int:
                         sample_started_at=sample_started_at,
                         sample_completed_at=sample_completed_at,
                         result=result,
+                        poll_request=poll_request,
                     )
                     acquisition_record["sample_elapsed_seconds"] = round(
                         elapsed_monotonic,
@@ -1020,6 +1222,7 @@ def main() -> int:
                                 sample_number=sample_number,
                                 observed_at=sample_completed_at,
                                 item=item,
+                                poll_request=poll_request,
                             )
                         )
                     force_flush(quote_csv_file)
@@ -1035,6 +1238,7 @@ def main() -> int:
                         input_symbol_count=len(symbols),
                         result=result,
                         change_metrics=change_metrics,
+                        poll_request=poll_request,
                     )
                     row["sample_elapsed_seconds"] = round(
                         elapsed_monotonic,
@@ -1067,14 +1271,15 @@ def main() -> int:
                     print("Reached maximum sample count.")
                     break
 
-                next_sample_monotonic += args.interval
-                delay = (
-                    next_sample_monotonic - time_module.monotonic()
-                )
-                if delay > 0:
-                    time_module.sleep(delay)
-                else:
-                    next_sample_monotonic = time_module.monotonic()
+                if poll_kind is None:
+                    next_sample_monotonic += args.interval
+                    delay = (
+                        next_sample_monotonic - time_module.monotonic()
+                    )
+                    if delay > 0:
+                        time_module.sleep(delay)
+                    else:
+                        next_sample_monotonic = time_module.monotonic()
 
     except KeyboardInterrupt:
         print()
