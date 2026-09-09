@@ -4,8 +4,10 @@ import sqlite3
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from mb_market_data.quote_observation_store import (
     DuplicateRecordError,
@@ -155,7 +157,7 @@ class TestQuoteObservationStore(unittest.TestCase):
         return make_result(request)
 
     def test_initializes_daily_versioned_wal_database(self) -> None:
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
             journal_mode = connection.execute(
                 "PRAGMA journal_mode"
@@ -190,6 +192,25 @@ class TestQuoteObservationStore(unittest.TestCase):
         with self.assertRaises(DuplicateRecordError):
             self.store.record_run(changed)
 
+    def test_store_explicitly_closes_each_connection(self) -> None:
+        real_connect = sqlite3.connect
+        opened_connections: list[sqlite3.Connection] = []
+
+        def tracked_connect(*args, **kwargs) -> sqlite3.Connection:
+            connection = real_connect(*args, **kwargs)
+            opened_connections.append(connection)
+            return connection
+
+        with patch(
+            "mb_market_data.quote_observation_store.sqlite3.connect",
+            side_effect=tracked_connect,
+        ):
+            self.assertIsNone(self.store.get_acquisition("not-present"))
+
+        self.assertEqual(len(opened_connections), 1)
+        with self.assertRaises(sqlite3.ProgrammingError):
+            opened_connections[0].execute("SELECT 1")
+
     def test_channel_names_are_data_and_hot_needs_no_schema_change(self) -> None:
         hot = SamplingChannelRevision(
             channel="HOT",
@@ -203,7 +224,7 @@ class TestQuoteObservationStore(unittest.TestCase):
         outcome = self.store.record_channel_revision(hot)
 
         self.assertEqual(outcome, RecordResult.INSERTED)
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             stored = connection.execute(
                 "SELECT channel, reason FROM sampling_channel_revision "
                 "WHERE channel = 'hot'"

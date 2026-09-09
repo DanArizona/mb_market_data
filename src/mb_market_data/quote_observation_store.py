@@ -15,11 +15,12 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 from mb_market_data.schwab_quotes import (
     QuoteBatchResult,
@@ -331,12 +332,23 @@ class QuoteObservationStore:
         )
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Commit or roll back, then always release the database handle."""
+
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def initialize(self) -> None:
         """Create or validate the daily, version-1 WAL database."""
 
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             current_version = connection.execute(
                 "PRAGMA user_version"
@@ -392,7 +404,7 @@ class QuoteObservationStore:
         )
         fingerprint = _fingerprint(values)
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             duplicate = self._duplicate_result(
                 connection,
@@ -441,7 +453,7 @@ class QuoteObservationStore:
             {"header": header, "symbols": revision.symbols}
         )
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
                 """
@@ -546,7 +558,7 @@ class QuoteObservationStore:
         )
         fingerprint = _fingerprint({"header": header, "rows": rows})
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             if connection.execute(
                 "SELECT 1 FROM poll_run WHERE run_id = ?",
@@ -677,7 +689,7 @@ class QuoteObservationStore:
     ) -> StoredAcquisition | None:
         """Load one acquisition header by its stable polling batch ID."""
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT * FROM quote_acquisition WHERE acquisition_id = ?",
                 (acquisition_id,),
@@ -689,7 +701,7 @@ class QuoteObservationStore:
     def acquisitions_in_replay_order(self) -> tuple[StoredAcquisition, ...]:
         """Load all completed acquisitions in deterministic event order."""
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 """
                 SELECT *
@@ -705,7 +717,7 @@ class QuoteObservationStore:
         """Load membership changes in deterministic replay order."""
 
         revisions: list[SamplingChannelRevision] = []
-        with self._connect() as connection:
+        with self._connection() as connection:
             header_rows = connection.execute(
                 """
                 SELECT *
@@ -801,7 +813,7 @@ class QuoteObservationStore:
         suffix: str,
         parameters: tuple[Any, ...],
     ) -> tuple[StoredQuoteObservation, ...]:
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 f"""
                 SELECT
