@@ -569,21 +569,58 @@ These are strategy features and are intentionally not yet part of the acquisitio
 
 ---
 
-# Historical storage
+# Storage and replay layers
 
-A persistent historical store is planned but not yet complete.
+Market-data persistence is divided into distinct layers so that live polling,
+exact day replay, and long-horizon research do not force one database to serve
+incompatible workloads.
 
-The store is expected to support:
+## Daily observation journal
 
-* one normalized record per symbol/session/window;
+Each trading session has a separate SQLite journal. It records:
+
+* polling-run software and configuration provenance;
+* immutable membership revisions for named sampling channels;
+* scheduled, dispatched, and completed acquisition times;
+* one explicit status row for every requested symbol;
+* normalized quote, volume, trade-time, and reference values.
+
+The active journal belongs on MasterBot's local filesystem. SQLite WAL files
+must not be placed on a Windows network share. After polling processes close
+and the WAL is checkpointed, the completed daily journal may be archived or
+transported as an ordinary file.
+
+Sampling channels are named data, not fixed table structures. A symbol may be
+observed through `uni`, `focus`, `hot`, or future channels, and may belong to
+more than one channel at the same time. Promotion or an IPO admission creates
+a new immutable channel revision; it never rewrites earlier observations.
+
+The daily journal is the authoritative high-resolution input for replaying
+what the system could have known, and in what order. Full Schwab response
+payloads remain in the separate raw-evidence stream rather than being copied
+into hundreds of thousands of database rows each day.
+
+## Historical feature store
+
+A separate long-term store will be built from completed daily journals and
+other authoritative session inputs. It is expected to contain compact records
+such as one normalized row per symbol/session/window and support:
+
 * efficient retrieval of recent N-day history;
-* symbol churn;
-* missing-session handling;
-* reproducible derived statistics;
-* provenance of raw/acquired data;
-* ET session-date semantics.
+* 3/5/10/30-session medians and maxima;
+* symbol churn and missing-session handling;
+* reproducible Overnight Volume and other derived statistics;
+* long-horizon back-testing and optimization;
+* ET session-date semantics and source provenance.
 
-The exact schema remains subject to change during implementation.
+The historical store is a derived product. Its contents can be regenerated
+from retained daily journals when feature definitions change. Exact intraday
+day replay continues to use the daily journal rather than the distilled store.
+
+Daily retention and archive compression will be chosen after measuring real
+session sizes. A synthetic normalized-row test suggests that a full session
+will be hundreds of MiB rather than a small configuration database, reinforcing
+the need for a separate compact historical feature store.
 
 ---
 
