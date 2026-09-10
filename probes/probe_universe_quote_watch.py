@@ -17,6 +17,7 @@ The probe:
     - writes normalized per-symbol quote evidence to CSV;
     - writes one acquisition summary row per sample;
     - preserves each normalized acquisition, including quote payloads, as JSONL;
+    - can append scheduled acquisitions to a shared daily SQLite journal;
     - flushes evidence to disk after every sample;
     - can stop automatically at a specified Eastern Time;
     - can run a fixed number of samples for testing.
@@ -32,14 +33,23 @@ import csv
 import getpass
 import json
 import os
+import socket
 import statistics
+import subprocess
+import sys
 import time as time_module
 from collections.abc import Mapping
 from datetime import datetime, time as datetime_time, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from mb_market_data.polling_journal import (
+    PollingJournalSession,
+    daily_quote_journal_path,
+)
+from mb_market_data.quote_observation_store import RecordResult
 from mb_market_data.schwab_quotes import (
     DEFAULT_QUOTE_BATCH_SIZE,
     QuoteBatchResult,
@@ -70,6 +80,11 @@ ET = ZoneInfo("America/New_York")
 DEFAULT_UNIVERSE_CSV = Path(
     "probes/evidence/2026-08-10-watchlist2.csv"
 )
+
+
+class JournalWriteError(RuntimeError):
+    """A completed API acquisition could not be recorded durably."""
+
 
 QUOTE_CSV_FIELDS = [
     "sample_number",
@@ -256,6 +271,14 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=20,
         help="Schwab request timeout in seconds. Default: 20",
+    )
+    parser.add_argument(
+        "--journal-root",
+        help=(
+            "Opt in to the shared daily SQLite quote journal. The probe "
+            "creates YYYY-MM-DD.sqlite3 below this directory. Requires "
+            "--watchlist-kind."
+        ),
     )
     parser.add_argument(
         "--output-root",
@@ -922,6 +945,50 @@ def write_manifest(path: Path, manifest: Mapping[str, Any]) -> None:
         )
 
 
+def installed_software_version() -> str:
+    """Return package and Git identity when the source checkout is available."""
+
+    try:
+        package_version = version("mb-market-data")
+    except PackageNotFoundError:
+        package_version = "source-tree"
+
+    repository_root = Path(__file__).resolve().parents[1]
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if commit.returncode != 0:
+            return package_version
+
+        tracked_status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=repository_root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return package_version
+
+    commit_sha = commit.stdout.strip()
+    if not commit_sha:
+        return package_version
+
+    dirty_suffix = (
+        ".dirty"
+        if tracked_status.returncode == 0 and tracked_status.stdout.strip()
+        else ""
+    )
+    return f"{package_version}+git.{commit_sha[:12]}{dirty_suffix}"
+
+
 def main() -> int:
     args = parse_args()
 
@@ -936,6 +1003,11 @@ def main() -> int:
 
     if args.timeout <= 0:
         raise SystemExit("--timeout must be greater than zero.")
+
+    if args.journal_root and not args.watchlist_kind:
+        raise SystemExit(
+            "--journal-root requires exact-slot --watchlist-kind polling."
+        )
 
     symbols = load_symbols(args)
     stop_at = parse_et_datetime(args.stop_at)
@@ -982,7 +1054,10 @@ def main() -> int:
             watchlist_kind=poll_kind,
             session_date=poll_window.session_date,
             revision=args.watchlist_revision,
-            effective_at=started_at,
+            # A static probe revision represents session membership, not this
+            # particular process lifetime.  The deterministic effective time
+            # makes a same-day restart idempotent.
+            effective_at=session_start,
             symbols=symbols,
         )
 
@@ -1003,6 +1078,49 @@ def main() -> int:
         if args.symbols
         else str(Path(args.universe_csv).expanduser().resolve())
     )
+
+    journal_session: PollingJournalSession | None = None
+    journal_path: Path | None = None
+    journal_run_id: str | None = None
+    journal_software_version: str | None = None
+    if args.journal_root:
+        assert poll_kind is not None
+        assert poll_window is not None
+        assert snapshot is not None
+        journal_path = daily_quote_journal_path(
+            Path(args.journal_root).expanduser(),
+            poll_window.session_date,
+        )
+        journal_run_id = (
+            "universe_quote_watch:"
+            f"{poll_kind.value}:"
+            f"{started_at.astimezone(timezone.utc).isoformat(timespec='microseconds')}"
+        )
+        journal_software_version = installed_software_version()
+        journal_session = PollingJournalSession.start(
+            journal_path,
+            run_id=journal_run_id,
+            started_at=started_at,
+            software_version=journal_software_version,
+            configuration={
+                "probe": "universe_quote_watch",
+                "watchlist_kind": poll_kind.value,
+                "watchlist_revision": args.watchlist_revision,
+                "symbol_source": source_text,
+                "symbol_count": len(symbols),
+                "fields": args.fields,
+                "batch_size": args.batch_size,
+                "poll_seconds": list(POLL_SECONDS[poll_kind]),
+                "poll_window_start_et": poll_window.start_at.isoformat(),
+                "poll_window_end_et": poll_window.end_at.isoformat(),
+            },
+            snapshot=snapshot,
+            revision_source=source_text,
+            revision_reason="static probe input",
+            revision_metadata={"probe": "universe_quote_watch"},
+            host=socket.gethostname(),
+            command=tuple(sys.argv),
+        )
 
     manifest: dict[str, Any] = {
         "probe": "universe_quote_watch",
@@ -1034,6 +1152,22 @@ def main() -> int:
         "quote_csv_file": str(quote_csv_path),
         "summary_csv_file": str(summary_csv_path),
         "errors_file": str(error_path),
+        "journal_path": str(journal_path) if journal_path else None,
+        "journal_run_id": journal_run_id,
+        "journal_software_version": journal_software_version,
+        "journal_run_record_result": (
+            journal_session.run_record_result.value
+            if journal_session
+            else None
+        ),
+        "journal_revision_record_result": (
+            journal_session.revision_record_result.value
+            if journal_session
+            else None
+        ),
+        "journal_acquisitions_inserted": 0,
+        "journal_acquisitions_already_present": 0,
+        "journal_errors": 0,
         "completed_at_et": None,
         "samples_attempted": 0,
         "samples_completed": 0,
@@ -1079,6 +1213,10 @@ def main() -> int:
     )
     print(f"Encrypted config : {ecfg_path}")
     print(f"Output directory : {run_dir}")
+    print(
+        "Daily journal    : "
+        + (str(journal_path) if journal_path else "disabled")
+    )
     print()
 
     password = getpass.getpass("Encrypted config password: ")
@@ -1086,6 +1224,9 @@ def main() -> int:
     client = None
     sample_number = 0
     completed_count = 0
+    journal_inserted_count = 0
+    journal_already_present_count = 0
+    journal_error_count = 0
     previous: dict[str, tuple[Any, Any]] = {}
 
     try:
@@ -1216,6 +1357,27 @@ def main() -> int:
                     )
                     force_flush(acquisition_file)
 
+                    if journal_session is not None:
+                        assert poll_request is not None
+                        try:
+                            journal_result = (
+                                journal_session.record_acquisition(
+                                    poll_request,
+                                    result,
+                                    completed_at=sample_completed_at,
+                                )
+                            )
+                        except Exception as exc:
+                            raise JournalWriteError(
+                                f"Daily journal write failed for "
+                                f"{poll_request.batch_id}: {exc}"
+                            ) from exc
+
+                        if journal_result == RecordResult.INSERTED:
+                            journal_inserted_count += 1
+                        else:
+                            journal_already_present_count += 1
+
                     for item in result.results:
                         quote_writer.writerow(
                             quote_csv_row(
@@ -1263,6 +1425,10 @@ def main() -> int:
                         f"Sample {sample_number:>3} ERROR: "
                         f"{type(exc).__name__}: {exc}"
                     )
+                    if isinstance(exc, JournalWriteError):
+                        journal_error_count += 1
+                        print("Stopping after daily journal failure.")
+                        break
 
                 if (
                     args.max_samples is not None
@@ -1296,6 +1462,13 @@ def main() -> int:
         manifest["completed_at_et"] = completed_at.isoformat()
         manifest["samples_attempted"] = sample_number
         manifest["samples_completed"] = completed_count
+        manifest["journal_acquisitions_inserted"] = (
+            journal_inserted_count
+        )
+        manifest["journal_acquisitions_already_present"] = (
+            journal_already_present_count
+        )
+        manifest["journal_errors"] = journal_error_count
         write_manifest(manifest_path, manifest)
 
         print()
@@ -1309,8 +1482,16 @@ def main() -> int:
         print(f"Summary CSV       : {summary_csv_path}")
         print(f"Errors            : {error_path}")
         print(f"Manifest          : {manifest_path}")
+        if journal_path is not None:
+            print(f"Daily journal     : {journal_path}")
+            print(
+                "Journal records   : "
+                f"{journal_inserted_count} inserted, "
+                f"{journal_already_present_count} already present, "
+                f"{journal_error_count} errors"
+            )
 
-    return 0
+    return 1 if journal_error_count else 0
 
 
 if __name__ == "__main__":

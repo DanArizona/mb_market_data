@@ -600,6 +600,26 @@ what the system could have known, and in what order. Full Schwab response
 payloads remain in the separate raw-evidence stream rather than being copied
 into hundreds of thousands of database rows each day.
 
+The universe quote-watch probe can opt into this journal while retaining its
+existing JSONL and CSV evidence. Give both exact-slot processes the same
+`--journal-root`; each derives the same session-dated database path:
+
+```cmd
+python probes\probe_universe_quote_watch.py --watchlist-kind uni --watchlist-revision 0 --journal-root output\quote_observation_journal
+```
+
+```cmd
+python probes\probe_universe_quote_watch.py --watchlist-kind focus --watchlist-revision 0 --symbols SPY QQQ AAPL NVDA --journal-root output\quote_observation_journal
+```
+
+For example, both processes use
+`output\quote_observation_journal\2026-09-10.sqlite3` on that session date.
+SQLite WAL mode coordinates their independent writes. Journal recording is
+disabled when `--journal-root` is omitted, preserving the original probe
+behavior. If a completed acquisition cannot be written to the journal, its
+raw JSONL evidence is flushed first, the error is recorded, and that polling
+process stops with a nonzero exit status rather than continuing silently.
+
 ## Historical feature store
 
 A separate long-term store will be built from completed daily journals and
