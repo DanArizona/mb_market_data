@@ -162,6 +162,8 @@ SUMMARY_CSV_FIELDS = [
     "sample_started_at_et",
     "sample_completed_at_et",
     "sample_elapsed_seconds",
+    "journal_write_seconds",
+    "sample_end_to_end_seconds",
     "input_symbols",
     "results",
     "http_requests",
@@ -783,6 +785,20 @@ def percentile(values: list[float], fraction: float) -> float | None:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * weight
 
 
+def duration_summary(values: list[float]) -> dict[str, Any] | None:
+    """Return compact latency statistics for a completed probe run."""
+
+    if not values:
+        return None
+    return {
+        "count": len(values),
+        "median": round(statistics.median(values), 6),
+        "p95": round(percentile(values, 0.95), 6),
+        "p99": round(percentile(values, 0.99), 6),
+        "max": round(max(values), 6),
+    }
+
+
 def age_summary(values: list[float], prefix: str) -> dict[str, Any]:
     if not values:
         return {
@@ -872,6 +888,14 @@ def print_sample_summary(
     if row.get("slot_id"):
         slot_text = f"  {row['slot_id']}"
 
+    timing_text = ""
+    journal_seconds = row.get("journal_write_seconds")
+    end_to_end_seconds = row.get("sample_end_to_end_seconds")
+    if isinstance(journal_seconds, (int, float)):
+        timing_text += f"  journal={journal_seconds:.3f}s"
+    if isinstance(end_to_end_seconds, (int, float)):
+        timing_text += f"  total={end_to_end_seconds:.3f}s"
+
     print(
         f"Sample {row['sample_number']:>3}  "
         f"{row['sample_completed_at_et']}  "
@@ -884,6 +908,7 @@ def print_sample_summary(
         f"vol+={row['volume_increased_count']}  "
         f"trade+={row['trade_time_advanced_count']}"
         f"{slot_text}"
+        f"{timing_text}"
     )
 
     def format_age(value: Any) -> str:
@@ -1113,6 +1138,7 @@ def main() -> int:
                 "poll_seconds": list(POLL_SECONDS[poll_kind]),
                 "poll_window_start_et": poll_window.start_at.isoformat(),
                 "poll_window_end_et": poll_window.end_at.isoformat(),
+                "evidence_run_directory": str(run_dir.resolve()),
             },
             snapshot=snapshot,
             revision_source=source_text,
@@ -1168,6 +1194,9 @@ def main() -> int:
         "journal_acquisitions_inserted": 0,
         "journal_acquisitions_already_present": 0,
         "journal_errors": 0,
+        "acquisition_timing_seconds": None,
+        "journal_write_timing_seconds": None,
+        "end_to_end_timing_seconds": None,
         "completed_at_et": None,
         "samples_attempted": 0,
         "samples_completed": 0,
@@ -1227,6 +1256,9 @@ def main() -> int:
     journal_inserted_count = 0
     journal_already_present_count = 0
     journal_error_count = 0
+    acquisition_durations: list[float] = []
+    journal_write_durations: list[float] = []
+    end_to_end_durations: list[float] = []
     previous: dict[str, tuple[Any, Any]] = {}
 
     try:
@@ -1357,8 +1389,10 @@ def main() -> int:
                     )
                     force_flush(acquisition_file)
 
+                    journal_write_seconds: float | None = None
                     if journal_session is not None:
                         assert poll_request is not None
+                        journal_started_monotonic = time_module.monotonic()
                         try:
                             journal_result = (
                                 journal_session.record_acquisition(
@@ -1372,6 +1406,12 @@ def main() -> int:
                                 f"Daily journal write failed for "
                                 f"{poll_request.batch_id}: {exc}"
                             ) from exc
+                        finally:
+                            journal_write_seconds = round(
+                                time_module.monotonic()
+                                - journal_started_monotonic,
+                                6,
+                            )
 
                         if journal_result == RecordResult.INSERTED:
                             journal_inserted_count += 1
@@ -1406,9 +1446,21 @@ def main() -> int:
                         elapsed_monotonic,
                         6,
                     )
+                    row["journal_write_seconds"] = journal_write_seconds
+                    end_to_end_seconds = round(
+                        time_module.monotonic() - started_monotonic,
+                        6,
+                    )
+                    row["sample_end_to_end_seconds"] = end_to_end_seconds
                     summary_writer.writerow(row)
                     force_flush(summary_csv_file)
 
+                    acquisition_durations.append(elapsed_monotonic)
+                    if journal_write_seconds is not None:
+                        journal_write_durations.append(
+                            journal_write_seconds
+                        )
+                    end_to_end_durations.append(end_to_end_seconds)
                     completed_count += 1
                     print_sample_summary(row, result)
 
@@ -1469,6 +1521,15 @@ def main() -> int:
             journal_already_present_count
         )
         manifest["journal_errors"] = journal_error_count
+        manifest["acquisition_timing_seconds"] = duration_summary(
+            acquisition_durations
+        )
+        manifest["journal_write_timing_seconds"] = duration_summary(
+            journal_write_durations
+        )
+        manifest["end_to_end_timing_seconds"] = duration_summary(
+            end_to_end_durations
+        )
         write_manifest(manifest_path, manifest)
 
         print()

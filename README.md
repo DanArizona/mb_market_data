@@ -620,6 +620,63 @@ behavior. If a completed acquisition cannot be written to the journal, its
 raw JSONL evidence is flushed first, the error is recorded, and that polling
 process stops with a nonzero exit status rather than continuing silently.
 
+Each probe sample now reports three separate durations:
+
+* `sample_elapsed_seconds`: Schwab acquisition time only;
+* `journal_write_seconds`: the atomic SQLite journal transaction;
+* `sample_end_to_end_seconds`: acquisition plus durable raw JSONL, journal,
+  and per-symbol CSV output (the summary row used to record this measurement
+  is excluded from its own timing).
+
+The run manifest summarizes each duration with its count, median, p95, p99,
+and maximum. This lets a full-session test show whether storage work is
+starting to threaten the next polling slot rather than hiding it inside API
+latency.
+
+Audit a journal during the session or after the close with:
+
+```cmd
+python probes\audit_quote_observation_journal.py output\quote_observation_journal\2026-09-10.sqlite3
+```
+
+The audit is read-only. It checks SQLite integrity and foreign keys, schema
+identity, channel revision/member counts, one observation per requested
+symbol, result-status totals, run provenance, configured polling slots, and
+SQLite/evidence sizes. While the market is open, it expects only slots due by
+the audit time. After the configured polling window closes, a missing slot
+causes the audit to fail and return exit status 1.
+
+## Intended polling and signal flow
+
+Intraday signal calculation is a separate responsibility from Watchlist
+membership policy. Live observations should be fanned out to both durable
+storage and the signal engine; the signal engine should not query SQLite on
+the live polling path.
+
+```mermaid
+flowchart TD
+    U["Daily Uni selector"] --> C["Watchlist Coordinator"]
+    X["OV, halts, IPOs, and manual actions"] --> C
+
+    C --> P["Uni / Focus / Hot polling"]
+    P --> E["Normalized observation events"]
+    E --> J["Daily SQLite journal"]
+    E --> I["Intraday Signal Engine"]
+    H["Historical feature store"] --> I
+
+    I -->|"Admission and promotion intents"| C
+    C --> T["ThinkOrSwim adapter"]
+    J --> H
+    J --> R["Exact day replay"]
+    R --> I
+```
+
+During replay, journal observations are emitted through the same normalized
+event boundary and signal logic, using only historical features that would
+have been available at that point in time. The Coordinator remains the owner
+of membership revisions; the signal engine emits evidence-backed intents but
+does not mutate a Watchlist directly.
+
 ## Historical feature store
 
 A separate long-term store will be built from completed daily journals and
