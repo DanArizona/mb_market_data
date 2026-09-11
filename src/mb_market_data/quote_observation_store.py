@@ -129,6 +129,7 @@ class StoredAcquisition:
     batch_size: int
     requested_symbol_count: int
     unexpected_symbols: tuple[str, ...]
+    content_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -771,6 +772,7 @@ class QuoteObservationStore:
             unexpected_symbols=tuple(
                 json.loads(row["unexpected_symbols_json"])
             ),
+            content_sha256=row["content_sha256"],
         )
 
     def get_observations(

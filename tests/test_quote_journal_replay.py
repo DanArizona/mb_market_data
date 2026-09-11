@@ -196,6 +196,24 @@ class TestQuoteJournalReplayReader(ReplayJournalFixture):
         self.assertIsInstance(events[0], ChannelRevisionEvent)
         self.assertIsInstance(events[1], QuoteAcquisitionEvent)
 
+    def test_same_time_revisions_are_ordered_numerically(self) -> None:
+        instant = datetime(2026, 9, 9, 13, 30, tzinfo=UTC)
+        for revision in (10, 2):
+            self.store.record_channel_revision(
+                make_revision(
+                    WatchlistKind.FOCUS,
+                    effective_at=instant,
+                    revision=revision,
+                )
+            )
+
+        events = tuple(QuoteJournalReplayReader(self.database_path).events())
+
+        self.assertEqual(
+            tuple(event.revision.revision for event in events),
+            (2, 10),
+        )
+
     def test_missing_observation_is_reported_as_corruption(self) -> None:
         instant = datetime(2026, 9, 9, 13, 30, tzinfo=UTC)
         self.store.record_channel_revision(

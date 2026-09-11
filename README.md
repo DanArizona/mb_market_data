@@ -687,6 +687,22 @@ observation, channel, and status counts plus a SHA-256 digest of the exact
 event-ID sequence. Replaying the same unchanged journal produces the same
 counts and sequence digest.
 
+Every emitted event also passes through `QuoteEventStateProjector`, the first
+consumer of the common live/replay event boundary. Its final report shows each
+channel's active revision, ordered member count, number of members with a
+latest observation, latest outcome statuses, unique member count, and overlap
+between channels. The projector retains observations separately by
+`(channel, symbol)`, so a symbol may simultaneously have independent Uni,
+Focus, and future Hot observations.
+
+Membership changes do not destroy history. Removing a symbol makes it absent
+from current channel rows while retaining its last observation for forensic
+queries. Likewise, an in-flight acquisition captured under an older revision
+may finish after a new revision becomes effective: its observations remain
+valid under the captured revision without rolling current membership backward.
+Projector snapshots are immutable and isolated from later events, providing a
+safe input for dashboard rendering.
+
 The reader does not invent future state that version 1 journals do not contain.
 For example, the 2026-09-11 journal can exactly reproduce its recorded static
 `uni` and `focus` memberships and observations, but not hypothetical `hot`,

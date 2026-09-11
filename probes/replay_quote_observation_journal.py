@@ -23,7 +23,12 @@ from mb_market_data.quote_journal_replay import (
     QuoteAcquisitionEvent,
     QuoteJournalReplayReader,
     ReplayEvent,
+    ReplayIntegrityError,
     paced_replay,
+)
+from mb_market_data.quote_event_state import (
+    QuoteEventStateProjector,
+    StateProjectionError,
 )
 
 
@@ -145,6 +150,7 @@ def main() -> int:
     channel_observations: Counter[str] = Counter()
     status_counts: Counter[str] = Counter()
     digest = hashlib.sha256()
+    projector = QuoteEventStateProjector(session_date=reader.session_date)
     first_available = None
     last_available = None
     started = time.perf_counter()
@@ -157,6 +163,7 @@ def main() -> int:
     )
     try:
         for event in replay:
+            projector.apply(event)
             event_count += 1
             digest.update(event.event_id.encode("utf-8"))
             digest.update(b"\n")
@@ -186,6 +193,10 @@ def main() -> int:
     except (EOFError, KeyboardInterrupt):
         print()
         print("Replay stopped by user.")
+    except (ReplayIntegrityError, StateProjectionError, ValueError) as exc:
+        print()
+        print(f"Replay ERROR: {type(exc).__name__}: {exc}")
+        return 2
 
     elapsed = time.perf_counter() - started
     print()
@@ -217,6 +228,42 @@ def main() -> int:
     if elapsed > 0:
         print(f"Observations/sec : {observation_count / elapsed:,.0f}")
     print(f"Sequence SHA-256 : {digest.hexdigest()}")
+
+    state = projector.snapshot()
+    print()
+    print("Projected current state")
+    print("=" * 79)
+    print(
+        "As of            : "
+        + (
+            state.current_time_utc.astimezone(ET).isoformat()
+            if state.current_time_utc is not None
+            else "no events"
+        )
+    )
+    membership_counts: Counter[str] = Counter()
+    for channel in state.channels:
+        revision = state.channel_revisions[channel]
+        rows = state.channel_rows(channel)
+        membership_counts.update(row.symbol for row in rows)
+        latest_rows = tuple(row for row in rows if row.latest is not None)
+        latest_statuses = Counter(
+            row.latest.observation.status for row in latest_rows
+        )
+        status_text = ", ".join(
+            f"{name}={count:,}"
+            for name, count in sorted(latest_statuses.items())
+        )
+        print(
+            f"  {channel:<12} r{revision.revision:<5} "
+            f"members={len(rows):>5,}  latest={len(latest_rows):>5,}  "
+            f"statuses: {status_text or 'none'}"
+        )
+    overlap_count = sum(
+        count > 1 for count in membership_counts.values()
+    )
+    print(f"Unique members   : {len(membership_counts):,}")
+    print(f"Multi-channel    : {overlap_count:,}")
     return 0
 
 

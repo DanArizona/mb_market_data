@@ -140,7 +140,9 @@ def _journal_session_date(database_path: Path) -> date:
         connection.close()
 
 
-def _event_sort_key(event: ReplayEvent) -> tuple[datetime, int, str, str]:
+def _event_sort_key(
+    event: ReplayEvent,
+) -> tuple[datetime, int, str, int, str]:
     # Membership must win a same-timestamp tie so consumers know the active
     # channel state before receiving an acquisition.
     kind_order = 0 if isinstance(event, ChannelRevisionEvent) else 1
@@ -148,6 +150,9 @@ def _event_sort_key(event: ReplayEvent) -> tuple[datetime, int, str, str]:
         event.available_at_utc,
         kind_order,
         event.channel,
+        event.revision.revision
+        if isinstance(event, ChannelRevisionEvent)
+        else 0,
         event.event_id,
     )
 
@@ -173,13 +178,14 @@ class QuoteJournalReplayReader:
 
         def payload_sort_key(
             payload: ReplayEvent | StoredAcquisition,
-        ) -> tuple[datetime, int, str, str]:
+        ) -> tuple[datetime, int, str, int, str]:
             if isinstance(payload, ChannelRevisionEvent):
                 return _event_sort_key(payload)
             return (
                 payload.completed_at_utc,
                 1,
                 payload.channel,
+                0,
                 payload.acquisition_id,
             )
 
