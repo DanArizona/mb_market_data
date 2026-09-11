@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -213,10 +214,14 @@ class TestQuoteJournalReplayReader(ReplayJournalFixture):
             request,
             completed_at=instant + timedelta(seconds=1),
         )
-        with sqlite3.connect(self.database_path) as connection:
+        # A sqlite3 connection context commits or rolls back but does not
+        # close.  Explicit closing is required before Windows can remove the
+        # temporary database file.
+        with closing(sqlite3.connect(self.database_path)) as connection:
             connection.execute(
                 "DELETE FROM quote_observation WHERE symbol = 'QQQ'"
             )
+            connection.commit()
 
         reader = QuoteJournalReplayReader(self.database_path)
         with self.assertRaisesRegex(
@@ -227,16 +232,18 @@ class TestQuoteJournalReplayReader(ReplayJournalFixture):
 
     def test_rejects_unsupported_database_schema(self) -> None:
         other_path = Path(self.temporary_directory.name) / "other.sqlite3"
-        with sqlite3.connect(other_path) as connection:
+        with closing(sqlite3.connect(other_path)) as connection:
             connection.execute("PRAGMA user_version = 999")
+            connection.commit()
 
         with self.assertRaises(UnsupportedSchemaVersionError):
             QuoteJournalReplayReader(other_path)
 
     def test_rejects_versioned_database_without_identity_table(self) -> None:
         other_path = Path(self.temporary_directory.name) / "other.sqlite3"
-        with sqlite3.connect(other_path) as connection:
+        with closing(sqlite3.connect(other_path)) as connection:
             connection.execute("PRAGMA user_version = 1")
+            connection.commit()
 
         with self.assertRaisesRegex(
             ReplayIntegrityError,
