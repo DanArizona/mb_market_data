@@ -646,6 +646,53 @@ SQLite/evidence sizes. While the market is open, it expects only slots due by
 the audit time. After the configured polling window closes, a missing slot
 causes the audit to fail and return exit status 1.
 
+## Exact-day replay
+
+The replay reader emits two immutable event types through one chronological
+stream:
+
+* a sampling-channel revision, including its complete membership;
+* a completed quote acquisition, including one normalized outcome for every
+  requested symbol.
+
+Events are ordered by when the live system could have known them. A channel
+revision becomes available at its effective time. An acquisition becomes
+available at its completion time, not its scheduled time. Therefore, if one
+request finishes out of order, replay preserves that fact. A revision wins a
+same-timestamp tie so consumers always receive applicable membership before
+quote observations.
+
+Replay a completed journal as quickly as the computer can read it:
+
+```cmd
+python probes\replay_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3
+```
+
+Other pacing modes use the same event sequence:
+
+```cmd
+rem One historical minute becomes one wall-clock second
+python probes\replay_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3 --speed 60
+
+rem Preserve the original timing
+python probes\replay_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3 --real-time
+
+rem Inspect events one at a time
+python probes\replay_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3 --step --limit 10
+```
+
+Scaled replay uses absolute deadlines, so processing time does not accumulate
+as timing drift. At completion the command reports event, acquisition,
+observation, channel, and status counts plus a SHA-256 digest of the exact
+event-ID sequence. Replaying the same unchanged journal produces the same
+counts and sequence digest.
+
+The reader does not invent future state that version 1 journals do not contain.
+For example, the 2026-09-11 journal can exactly reproduce its recorded static
+`uni` and `focus` memberships and observations, but not hypothetical `hot`,
+blocked, IPO, or halted-today changes. Those will become replayable after their
+authoritative event records are added to a future journal schema.
+
 ## Intended polling and signal flow
 
 Intraday signal calculation is a separate responsibility from Watchlist
