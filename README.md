@@ -703,6 +703,42 @@ valid under the captured revision without rolling current membership backward.
 Projector snapshots are immutable and isolated from later events, providing a
 safe input for dashboard rendering.
 
+## Local market-state dashboard
+
+The initial dashboard is a local Plotly Dash application backed by the same
+framework-neutral projector used during replay. Dash owns presentation only;
+it does not own membership, signals, polling, or persistence.
+
+Install the project and its Dash dependencies into the active environment:
+
+```cmd
+python -m pip install -e .
+```
+
+Load a completed journal and start the local dashboard:
+
+```cmd
+python probes\dashboard_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3
+```
+
+After projection finishes, open the displayed local address, normally:
+
+```text
+http://127.0.0.1:8050
+```
+
+The first version displays final replay state: session/replay time, event and
+observation totals, channel revisions and coverage, and one sortable/filterable
+Dash AG Grid row per unique current symbol. Each row shows channel membership,
+per-channel revision, latest acquisition channel and status, quote prices,
+volume, observation time, exchange, and description. Press `Ctrl+C` in the
+command window to stop the server.
+
+Playback controls are deliberately deferred. A later increment will advance
+the same projector through the journal with play, pause, speed, seek, and
+single-step controls; the table will consume new immutable snapshots rather
+than learning how to query SQLite itself.
+
 The reader does not invent future state that version 1 journals do not contain.
 For example, the 2026-09-11 journal can exactly reproduce its recorded static
 `uni` and `focus` memberships and observations, but not hypothetical `hot`,

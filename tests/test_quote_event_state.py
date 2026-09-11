@@ -8,6 +8,7 @@ from mb_market_data.quote_event_state import (
     QuoteEventStateProjector,
     StateProjectionError,
 )
+from mb_market_data.quote_dashboard_view import build_quote_dashboard_view
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
     QuoteAcquisitionEvent,
@@ -50,6 +51,7 @@ def acquisition_event(
     *,
     acquisition_id: str,
     completed_at: datetime,
+    price_start: float = 100.0,
 ) -> QuoteAcquisitionEvent:
     scheduled_at = completed_at - timedelta(milliseconds=500)
     acquisition = StoredAcquisition(
@@ -81,7 +83,12 @@ def acquisition_event(
             schwab_batch_number=1,
             request_started_at_utc=scheduled_at,
             response_received_at_utc=completed_at,
-            values={"quote_last_price": 100.0 + ordinal},
+            values={
+                "quote_last_price": price_start + ordinal,
+                "quote_total_volume": 1_000 + ordinal,
+                "exchange": "Q",
+                "description": f"{symbol} description",
+            },
         )
         for ordinal, symbol in enumerate(symbols)
     )
@@ -342,3 +349,61 @@ class TestQuoteEventStateProjector(unittest.TestCase):
             before.channel_revisions["focus"] = before.channel_revisions[
                 "focus"
             ]
+
+
+class TestQuoteDashboardView(unittest.TestCase):
+    def test_collapses_current_membership_to_one_row_per_symbol(self) -> None:
+        projector = QuoteEventStateProjector(session_date=SESSION_DATE)
+        projector.apply(revision_event("uni", 7, ("AAPL", "IPO")))
+        projector.apply(revision_event("focus", 20, ("AAPL", "SPY")))
+        projector.apply(
+            acquisition_event(
+                "uni",
+                7,
+                ("AAPL", "IPO"),
+                acquisition_id="uni-view",
+                completed_at=START + timedelta(seconds=1),
+                price_start=100.0,
+            )
+        )
+        projector.apply(
+            acquisition_event(
+                "focus",
+                20,
+                ("AAPL", "SPY"),
+                acquisition_id="focus-view",
+                completed_at=START + timedelta(seconds=2),
+                price_start=250.0,
+            )
+        )
+
+        view = build_quote_dashboard_view(projector.snapshot())
+        records = {row["symbol"]: row for row in view.grid_records()}
+
+        self.assertEqual(view.session_date, SESSION_DATE)
+        self.assertEqual(view.unique_member_count, 3)
+        self.assertEqual(view.multi_channel_count, 1)
+        self.assertEqual(tuple(records), ("AAPL", "IPO", "SPY"))
+        self.assertEqual(records["AAPL"]["channels"], "focus, uni")
+        self.assertEqual(records["AAPL"]["uni_revision"], "r7")
+        self.assertEqual(records["AAPL"]["focus_revision"], "r20")
+        self.assertIsNone(records["AAPL"]["hot_revision"])
+        self.assertEqual(records["AAPL"]["latest_channel"], "focus")
+        self.assertEqual(records["AAPL"]["last_price"], 250.0)
+        self.assertEqual(records["IPO"]["channels"], "uni")
+        self.assertEqual(records["SPY"]["channels"], "focus")
+        self.assertEqual(
+            tuple(summary.channel for summary in view.channels),
+            ("focus", "uni"),
+        )
+        self.assertEqual(view.channels[0].status_counts, {"quote": 2})
+
+    def test_empty_state_produces_an_empty_dashboard(self) -> None:
+        view = build_quote_dashboard_view(
+            QuoteEventStateProjector().snapshot()
+        )
+
+        self.assertIsNone(view.session_date)
+        self.assertEqual(view.as_of_et_text, "No events")
+        self.assertEqual(view.channels, ())
+        self.assertEqual(view.grid_records(), [])

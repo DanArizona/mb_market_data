@@ -1,0 +1,320 @@
+:root {
+  color-scheme: dark;
+  --ink: #eef7ff;
+  --muted: #9bb0c2;
+  --quiet: #6f8598;
+  --canvas: #06101c;
+  --surface: #0b1828;
+  --surface-raised: #102136;
+  --line: #20364b;
+  --sea: #34d6ad;
+  --sea-soft: rgba(52, 214, 173, 0.14);
+  --amber: #f1b95d;
+  --red: #ff7b85;
+  --blue: #6fc8ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-size: 16px;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% -20%, rgba(52, 214, 173, 0.12), transparent 35%),
+    linear-gradient(180deg, #071321 0%, var(--canvas) 42%);
+}
+
+.dashboard-shell {
+  width: min(100%, 1800px);
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand-lockup,
+.channel-card-title,
+.table-heading {
+  display: flex;
+  align-items: center;
+}
+
+.brand-lockup {
+  gap: 0.85rem;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid rgba(52, 214, 173, 0.5);
+  border-radius: 0.7rem;
+  background: var(--sea-soft);
+  color: var(--sea);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(1.35rem, 2.3vw, 1.8rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.mode-label {
+  margin-top: 0.28rem;
+  color: var(--sea);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.session-identity {
+  text-align: right;
+}
+
+.session-date {
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.as-of {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+.metric-grid,
+.channel-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.channel-grid {
+  grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
+}
+
+.metric-card,
+.channel-card,
+.table-panel {
+  border: 1px solid var(--line);
+  background: rgba(11, 24, 40, 0.92);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
+}
+
+.metric-card {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.65rem;
+}
+
+.metric-card span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.metric-card strong {
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.channel-card {
+  position: relative;
+  overflow: hidden;
+  padding: 0.95rem 1rem;
+  border-radius: 0.65rem;
+}
+
+.channel-card::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--blue);
+  content: "";
+}
+
+.channel-focus::before {
+  background: var(--amber);
+}
+
+.channel-hot::before {
+  background: var(--red);
+}
+
+.channel-card-title {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.revision-pill,
+.row-count {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.revision-pill {
+  padding: 0.16rem 0.48rem;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0;
+}
+
+.channel-card-value {
+  margin-top: 0.55rem;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 1.65rem;
+  font-weight: 800;
+}
+
+.channel-card-detail {
+  margin-top: 0.28rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.table-panel {
+  margin-top: 0.85rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+}
+
+.table-heading {
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.15rem 0.8rem;
+}
+
+.table-heading h2 {
+  font-size: 1.08rem;
+}
+
+.table-heading p {
+  margin-top: 0.22rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.row-count {
+  flex: 0 0 auto;
+  padding: 0.32rem 0.7rem;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.market-grid {
+  width: 100%;
+  --ag-background-color: #081522;
+  --ag-foreground-color: var(--ink);
+  --ag-header-background-color: #102136;
+  --ag-header-foreground-color: #bdd0df;
+  --ag-border-color: var(--line);
+  --ag-row-border-color: rgba(32, 54, 75, 0.64);
+  --ag-odd-row-background-color: rgba(16, 33, 54, 0.38);
+  --ag-row-hover-color: rgba(52, 214, 173, 0.09);
+  --ag-selected-row-background-color: rgba(52, 214, 173, 0.14);
+  --ag-input-focus-border-color: var(--sea);
+  --ag-font-size: 14px;
+  --ag-font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.market-grid .symbol-cell {
+  color: var(--ink);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-weight: 800;
+}
+
+.market-grid .channel-cell,
+.market-grid .status-quote {
+  color: var(--sea);
+  font-weight: 700;
+}
+
+.market-grid .status-invalid,
+.market-grid .status-error {
+  color: var(--red);
+  font-weight: 700;
+}
+
+.market-grid .status-missing {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.65rem;
+  color: var(--muted);
+}
+
+@media (max-width: 850px) {
+  .dashboard-shell {
+    padding: 1rem;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .session-identity {
+    text-align: left;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-heading {
+    align-items: flex-start;
+  }
+}
