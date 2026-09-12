@@ -742,6 +742,12 @@ minute takes one second and a regular session takes roughly 6.5 minutes. At
 event: either a channel revision or an acquisition containing every requested
 symbol outcome.
 
+The operational display defaults to dark mode. The **Light mode** button in the
+header switches the display palette and the browser remembers that preference.
+Printing is independent of the display preference: print preview and printed
+documentation always use a light, ink-efficient layout and omit the interactive
+replay controls.
+
 The dashboard shows session/replay time, event and observation totals, channel
 revisions and coverage, and one sortable/filterable Dash AG Grid row per unique
 current symbol. Each row shows channel membership, per-channel revision, latest

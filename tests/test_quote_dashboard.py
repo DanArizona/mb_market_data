@@ -60,13 +60,121 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(layout.status_code, 200)
         self.assertIn(b"market-state-grid", layout.data)
         self.assertIn(b"replay-toggle", layout.data)
-        self.assertEqual(len(app.callback_map), 1)
+        self.assertIn(b"theme-toggle", layout.data)
+        self.assertIn(b"theme-preference", layout.data)
+        self.assertIn(b"replay-speed-dropdown", layout.data)
+        self.assertEqual(len(app.callback_map), 3)
         self.assertEqual(stylesheet.status_code, 200)
+        self.assertIn(b"@media print", stylesheet.data)
+        self.assertIn(b".dash-dropdown-content", stylesheet.data)
         self.assertEqual(favicon.status_code, 200)
+
+    def test_theme_callbacks_toggle_and_apply_saved_preference(self) -> None:
+        app = create_quote_dashboard(single_event_controller())
+        client = app.server.test_client()
+        remember_key, remember = next(
+            (key, value)
+            for key, value in app.callback_map.items()
+            if any(
+                item["id"] == "theme-toggle"
+                for item in value["inputs"]
+            )
+        )
+        remember_response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": remember_key,
+                "outputs": {
+                    "id": "theme-preference",
+                    "property": "data",
+                },
+                "changedPropIds": ["theme-toggle.n_clicks"],
+                "inputs": [
+                    {
+                        "id": "theme-toggle",
+                        "property": "n_clicks",
+                        "value": 1,
+                    }
+                ],
+                "state": [
+                    {
+                        "id": "theme-preference",
+                        "property": "data",
+                        "value": "dark",
+                    }
+                ],
+            },
+        )
+        self.addCleanup(remember_response.close)
+
+        self.assertEqual(remember_response.status_code, 200)
+        self.assertEqual(
+            remember_response.get_json()["response"]["theme-preference"][
+                "data"
+            ],
+            "light",
+        )
+
+        apply_key, apply_callback = next(
+            (key, value)
+            for key, value in app.callback_map.items()
+            if any(
+                item["id"] == "theme-preference"
+                and item["property"] == "modified_timestamp"
+                for item in value["inputs"]
+            )
+        )
+        apply_outputs = [
+            {
+                "id": item.component_id,
+                "property": item.component_property,
+            }
+            for item in apply_callback["output"]
+        ]
+        apply_response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": apply_key,
+                "outputs": apply_outputs,
+                "changedPropIds": [
+                    "theme-preference.modified_timestamp"
+                ],
+                "inputs": [
+                    {
+                        "id": "theme-preference",
+                        "property": "modified_timestamp",
+                        "value": 1,
+                    }
+                ],
+                "state": [
+                    {
+                        "id": "theme-preference",
+                        "property": "data",
+                        "value": "light",
+                    }
+                ],
+            },
+        )
+        self.addCleanup(apply_response.close)
+
+        self.assertEqual(apply_response.status_code, 200)
+        body = apply_response.get_json()["response"]
+        self.assertEqual(
+            body["dashboard-page"]["className"],
+            "dashboard-shell theme-light",
+        )
+        self.assertEqual(body["theme-toggle"]["children"], "Dark mode")
 
     def test_play_callback_projects_and_returns_updated_state(self) -> None:
         app = create_quote_dashboard(single_event_controller())
-        callback_key, callback = next(iter(app.callback_map.items()))
+        callback_key, callback = next(
+            (key, value)
+            for key, value in app.callback_map.items()
+            if any(
+                item["id"] == "replay-toggle"
+                for item in value["inputs"]
+            )
+        )
         outputs = [
             {
                 "id": item.component_id,

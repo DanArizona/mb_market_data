@@ -254,6 +254,11 @@ def create_quote_dashboard(
                 id="rendered-event-count",
                 data=replay.applied_event_count,
             ),
+            dcc.Store(
+                id="theme-preference",
+                data="dark",
+                storage_type="local",
+            ),
             html.Header(
                 [
                     html.Div(
@@ -273,19 +278,33 @@ def create_quote_dashboard(
                     ),
                     html.Div(
                         [
-                            html.Div(
-                                view.session_date.isoformat()
-                                if view.session_date
-                                else "No session",
-                                className="session-date",
+                            html.Button(
+                                "Light mode",
+                                id="theme-toggle",
+                                className="theme-toggle",
+                                title=(
+                                    "Switch display theme; printing always "
+                                    "uses the light print theme"
+                                ),
                             ),
                             html.Div(
-                                f"State as of {view.as_of_et_text}",
-                                id="state-as-of",
-                                className="as-of",
+                                [
+                                    html.Div(
+                                        view.session_date.isoformat()
+                                        if view.session_date
+                                        else "No session",
+                                        className="session-date",
+                                    ),
+                                    html.Div(
+                                        f"State as of {view.as_of_et_text}",
+                                        id="state-as-of",
+                                        className="as-of",
+                                    ),
+                                ],
+                                className="session-identity",
                             ),
                         ],
-                        className="session-identity",
+                        className="session-tools",
                     ),
                 ],
                 className="topbar",
@@ -320,14 +339,24 @@ def create_quote_dashboard(
                             dcc.Dropdown(
                                 id="replay-speed",
                                 options=[
-                                    {"label": "1× real time", "value": 1},
+                                    {
+                                        "label": "1× real time",
+                                        "value": 1,
+                                    },
                                     {"label": "10×", "value": 10},
-                                    {"label": "60× · ~6½ min", "value": 60},
-                                    {"label": "390× · ~1 min", "value": 390},
+                                    {
+                                        "label": "60× · ~6½ min",
+                                        "value": 60,
+                                    },
+                                    {
+                                        "label": "390× · ~1 min",
+                                        "value": 390,
+                                    },
                                 ],
                                 value=replay.speed,
                                 clearable=False,
                                 searchable=False,
+                                className="replay-speed-dropdown",
                             ),
                         ],
                         className="speed-control",
@@ -470,8 +499,35 @@ def create_quote_dashboard(
                 **{"aria-label": "Current symbols"},
             ),
         ],
-        className="dashboard-shell",
+        id="dashboard-page",
+        className="dashboard-shell theme-dark",
     )
+
+    @app.callback(
+        Output("theme-preference", "data"),
+        Input("theme-toggle", "n_clicks"),
+        State("theme-preference", "data"),
+        prevent_initial_call=True,
+    )
+    def remember_theme(
+        _clicks: int,
+        current_theme: str | None,
+    ) -> str:
+        return "dark" if current_theme == "light" else "light"
+
+    @app.callback(
+        Output("dashboard-page", "className"),
+        Output("theme-toggle", "children"),
+        Input("theme-preference", "modified_timestamp"),
+        State("theme-preference", "data"),
+    )
+    def apply_theme(
+        _modified_timestamp: int | None,
+        stored_theme: str | None,
+    ) -> tuple[str, str]:
+        theme = "light" if stored_theme == "light" else "dark"
+        next_theme = "Dark mode" if theme == "light" else "Light mode"
+        return f"dashboard-shell theme-{theme}", next_theme
 
     @app.callback(
         Output("replay-toggle", "children"),
