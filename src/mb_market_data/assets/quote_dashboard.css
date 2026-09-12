@@ -105,6 +105,145 @@ h1 {
   font-weight: 750;
 }
 
+.replay-controls {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 230px) minmax(280px, 1fr);
+  align-items: end;
+  gap: 1rem;
+  margin-top: 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(11, 24, 40, 0.92);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
+}
+
+.button-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.control-button {
+  min-width: 5.1rem;
+  padding: 0.62rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.control-button:hover:not(:disabled) {
+  border-color: var(--sea);
+}
+
+.control-button:focus-visible {
+  outline: 2px solid var(--sea);
+  outline-offset: 2px;
+}
+
+.control-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.control-primary {
+  border-color: rgba(52, 214, 173, 0.55);
+  background: var(--sea-soft);
+  color: var(--sea);
+}
+
+.speed-control > span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.speed-control .Select-control,
+.speed-control .Select-menu-outer,
+.speed-control .Select-value,
+.speed-control .Select-input {
+  border-color: var(--line) !important;
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+}
+
+.speed-control .Select-value-label,
+.speed-control .Select-option {
+  color: var(--ink) !important;
+}
+
+.speed-control .Select-option.is-focused {
+  background: var(--sea-soft) !important;
+}
+
+.replay-position {
+  min-width: 0;
+}
+
+.replay-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.replay-readout strong {
+  overflow: hidden;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.replay-status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-playing {
+  color: var(--sea);
+}
+
+.status-complete {
+  color: var(--blue);
+}
+
+.replay-progress-track {
+  height: 0.35rem;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-raised);
+}
+
+.replay-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--sea), var(--blue));
+  transition: width 160ms linear;
+}
+
+.progress-label {
+  margin-top: 0.28rem;
+  color: var(--quiet);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  text-align: right;
+}
+
 .as-of {
   margin-top: 0.25rem;
   color: var(--muted);
@@ -307,6 +446,14 @@ h1 {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .replay-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .replay-position {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 520px) {
@@ -316,5 +463,17 @@ h1 {
 
   .table-heading {
     align-items: flex-start;
+  }
+
+  .replay-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .replay-position {
+    grid-column: auto;
+  }
+
+  .button-row {
+    flex-wrap: wrap;
   }
 }

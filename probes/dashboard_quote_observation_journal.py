@@ -14,8 +14,9 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from mb_market_data.quote_dashboard import create_quote_dashboard
-from mb_market_data.quote_dashboard_view import build_quote_dashboard_view
-from mb_market_data.quote_event_state import QuoteEventStateProjector
+from mb_market_data.quote_dashboard_replay import (
+    QuoteDashboardReplayController,
+)
 from mb_market_data.quote_journal_replay import QuoteJournalReplayReader
 
 
@@ -38,6 +39,14 @@ def parse_args() -> argparse.Namespace:
         default=8050,
         help="Local port to serve (default: 8050)",
     )
+    parser.add_argument(
+        "--start-at-beginning",
+        action="store_true",
+        help=(
+            "Open paused before the first event instead of displaying "
+            "the completed final state"
+        ),
+    )
     args = parser.parse_args()
     if not 1 <= args.port <= 65_535:
         parser.error("--port must be between 1 and 65535")
@@ -55,13 +64,15 @@ def main() -> int:
 
     try:
         reader = QuoteJournalReplayReader(args.database)
-        projector = QuoteEventStateProjector(
-            session_date=reader.session_date
+        timeline = reader.timeline()
+        controller = QuoteDashboardReplayController(
+            timeline=timeline,
+            event_factory=reader.events,
         )
-        for event in reader.events():
-            projector.apply(event)
-        view = build_quote_dashboard_view(projector.snapshot())
-        app = create_quote_dashboard(view)
+        if not args.start_at_beginning:
+            controller.finish()
+        replay = controller.snapshot()
+        app = create_quote_dashboard(controller)
     except Exception as exc:
         print(f"Dashboard ERROR: {type(exc).__name__}: {exc}")
         return 2
@@ -69,10 +80,16 @@ def main() -> int:
     elapsed = time.perf_counter() - started
     url = f"http://{args.host}:{args.port}"
     print(f"Session date     : {reader.session_date.isoformat()}")
-    print(f"Events projected : {view.event_count:,}")
-    print(f"Current symbols  : {view.unique_member_count:,}")
+    print(f"Replay events    : {timeline.event_count:,}")
+    print(
+        "Initial position : "
+        + ("beginning (paused)" if args.start_at_beginning else "end")
+    )
+    print(f"Events projected : {replay.applied_event_count:,}")
     print(f"Load time        : {elapsed:.3f} seconds")
     print(f"Open in browser  : {url}")
+    if not args.start_at_beginning:
+        print("Click Restart to return to the beginning of the session.")
     print("Press Ctrl+C here to stop the dashboard.")
     print()
 

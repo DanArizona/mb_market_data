@@ -727,17 +727,33 @@ After projection finishes, open the displayed local address, normally:
 http://127.0.0.1:8050
 ```
 
-The first version displays final replay state: session/replay time, event and
-observation totals, channel revisions and coverage, and one sortable/filterable
-Dash AG Grid row per unique current symbol. Each row shows channel membership,
-per-channel revision, latest acquisition channel and status, quote prices,
-volume, observation time, exchange, and description. Press `Ctrl+C` in the
-command window to stop the server.
+By default, the dashboard opens at final replay state so it remains useful as
+an end-of-day browser. Click **Restart** to return to the first event, choose a
+speed, and then click **Play**. To open already positioned at the beginning:
 
-Playback controls are deliberately deferred. A later increment will advance
-the same projector through the journal with play, pause, speed, seek, and
-single-step controls; the table will consume new immutable snapshots rather
-than learning how to query SQLite itself.
+```cmd
+python probes\dashboard_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3 --start-at-beginning
+```
+
+The controls provide play, pause, restart, single-event step, 1x/10x/60x/390x
+speed selection, a historical clock, and event progress. At 60x, one historical
+minute takes one second and a regular session takes roughly 6.5 minutes. At
+390x, the regular session takes roughly one minute. A step is one complete
+event: either a channel revision or an acquisition containing every requested
+symbol outcome.
+
+The dashboard shows session/replay time, event and observation totals, channel
+revisions and coverage, and one sortable/filterable Dash AG Grid row per unique
+current symbol. Each row shows channel membership, per-channel revision, latest
+acquisition channel and status, quote prices, volume, observation time,
+exchange, and description. Press `Ctrl+C` in the command window to stop the
+server.
+
+Replay streams acquisition observations from SQLite only when their event is
+due; it does not retain the day's complete observation history in memory. Dash
+receives immutable projector snapshots and never queries the journal directly.
+Time seeking remains deferred; restart always reconstructs state causally from
+the beginning.
 
 The reader does not invent future state that version 1 journals do not contain.
 For example, the 2026-09-11 journal can exactly reproduce its recorded static

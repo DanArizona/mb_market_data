@@ -108,6 +108,16 @@ class QuoteAcquisitionEvent:
 ReplayEvent: TypeAlias = ChannelRevisionEvent | QuoteAcquisitionEvent
 
 
+@dataclass(frozen=True, slots=True)
+class ReplayTimeline:
+    """Bounded metadata for one journal's replayable event stream."""
+
+    session_date: date
+    event_count: int
+    first_available_at_utc: datetime | None
+    last_available_at_utc: datetime | None
+
+
 def _journal_session_date(database_path: Path) -> date:
     if not database_path.is_file():
         raise FileNotFoundError(database_path)
@@ -168,9 +178,9 @@ class QuoteJournalReplayReader:
             session_date=self.session_date,
         )
 
-    def events(self) -> Iterator[ReplayEvent]:
-        """Yield immutable events ordered by when they became available."""
-
+    def _ordered_headers(
+        self,
+    ) -> tuple[ReplayEvent | StoredAcquisition, ...]:
         header_payloads: list[ReplayEvent | StoredAcquisition] = []
         for revision in self.store.channel_revisions_in_effective_order():
             header_payloads.append(ChannelRevisionEvent(revision))
@@ -190,8 +200,33 @@ class QuoteJournalReplayReader:
             )
 
         header_payloads.sort(key=payload_sort_key)
+        return tuple(header_payloads)
 
-        for payload in header_payloads:
+    def timeline(self) -> ReplayTimeline:
+        """Return event counts and bounds without loading observations."""
+
+        headers = self._ordered_headers()
+        if not headers:
+            return ReplayTimeline(self.session_date, 0, None, None)
+
+        def available_at(
+            payload: ReplayEvent | StoredAcquisition,
+        ) -> datetime:
+            if isinstance(payload, ChannelRevisionEvent):
+                return payload.available_at_utc
+            return payload.completed_at_utc
+
+        return ReplayTimeline(
+            session_date=self.session_date,
+            event_count=len(headers),
+            first_available_at_utc=available_at(headers[0]),
+            last_available_at_utc=available_at(headers[-1]),
+        )
+
+    def events(self) -> Iterator[ReplayEvent]:
+        """Yield immutable events ordered by when they became available."""
+
+        for payload in self._ordered_headers():
             if isinstance(payload, ChannelRevisionEvent):
                 yield payload
                 continue

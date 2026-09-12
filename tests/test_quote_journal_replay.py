@@ -157,9 +157,16 @@ class TestQuoteJournalReplayReader(ReplayJournalFixture):
         )
 
         reader = QuoteJournalReplayReader(self.database_path)
+        timeline = reader.timeline()
         events = tuple(reader.events())
 
         self.assertEqual(reader.session_date, SESSION_DATE)
+        self.assertEqual(timeline.event_count, 4)
+        self.assertEqual(timeline.first_available_at_utc, effective_at)
+        self.assertEqual(
+            timeline.last_available_at_utc,
+            datetime(2026, 9, 9, 13, 30, 10, tzinfo=UTC),
+        )
         self.assertEqual(
             tuple(event.channel for event in events),
             ("focus", "uni", "focus", "uni"),
