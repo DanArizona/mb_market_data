@@ -6,6 +6,7 @@ import argparse
 import sys
 import time
 from pathlib import Path
+from threading import Event
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +14,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from mb_market_data.local_dashboard_server import LocalDashboardServer
 from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
@@ -61,6 +63,7 @@ def main() -> int:
     print(f"Journal          : {args.database}")
     print("Loading replay state...")
     started = time.perf_counter()
+    stop_event = Event()
 
     try:
         reader = QuoteJournalReplayReader(args.database)
@@ -72,7 +75,16 @@ def main() -> int:
         if not args.start_at_beginning:
             controller.finish()
         replay = controller.snapshot()
-        app = create_quote_dashboard(controller)
+        app = create_quote_dashboard(
+            controller,
+            request_server_stop=stop_event.set,
+        )
+        server = LocalDashboardServer(
+            app.server,
+            host=args.host,
+            port=args.port,
+            stop_event=stop_event,
+        )
     except Exception as exc:
         print(f"Dashboard ERROR: {type(exc).__name__}: {exc}")
         return 2
@@ -90,12 +102,15 @@ def main() -> int:
     print(f"Open in browser  : {url}")
     if not args.start_at_beginning:
         print("Click Restart to return to the beginning of the session.")
-    print("Press Ctrl+C here to stop the dashboard.")
+    print("Press Ctrl+C here or use Stop server in the dashboard.")
     print()
 
     try:
-        app.run(host=args.host, port=args.port, debug=False)
-    except KeyboardInterrupt:
+        server.serve_until_stopped()
+    except Exception as exc:
+        print(f"Dashboard server ERROR: {type(exc).__name__}: {exc}")
+        return 2
+    else:
         print("Dashboard stopped.")
     return 0
 

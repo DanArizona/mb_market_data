@@ -169,6 +169,18 @@ h1 {
   outline-offset: 2px;
 }
 
+.server-stop-button:hover,
+.server-stop-button:focus-visible {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.server-stop-status {
+  color: var(--red);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
 .session-date {
   font-size: 1.05rem;
   font-weight: 750;
@@ -591,7 +603,8 @@ h1 {
   }
 
   .replay-controls,
-  .theme-toggle {
+  .theme-toggle,
+  .server-stop-status {
     display: none !important;
   }
 

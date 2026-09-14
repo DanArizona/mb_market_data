@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping
+from threading import Timer
+from typing import Any, Callable, Mapping
 from zoneinfo import ZoneInfo
 
 from mb_market_data.quote_dashboard_replay import (
@@ -226,6 +227,8 @@ def _control_values(
 
 def create_quote_dashboard(
     controller: QuoteDashboardReplayController,
+    *,
+    request_server_stop: Callable[[], None] | None = None,
 ) -> Any:
     """Create a local interactive dashboard for one replay controller."""
 
@@ -306,6 +309,35 @@ def create_quote_dashboard(
                     ),
                     html.Div(
                         [
+                            *(
+                                [
+                                    html.Button(
+                                        "Stop server",
+                                        id="server-stop",
+                                        className=(
+                                            "theme-toggle server-stop-button"
+                                        ),
+                                        title=(
+                                            "Gracefully stop this local "
+                                            "dashboard server"
+                                        ),
+                                    ),
+                                    dcc.ConfirmDialog(
+                                        id="server-stop-confirm",
+                                        message=(
+                                            "Stop the local dashboard server?"
+                                        ),
+                                    ),
+                                    html.Span(
+                                        "",
+                                        id="server-stop-status",
+                                        className="server-stop-status",
+                                        **{"aria-live": "polite"},
+                                    ),
+                                ]
+                                if request_server_stop is not None
+                                else []
+                            ),
                             html.Button(
                                 "Light mode",
                                 id="theme-toggle",
@@ -558,6 +590,27 @@ def create_quote_dashboard(
         theme = "light" if stored_theme == "light" else "dark"
         next_theme = "Dark mode" if theme == "light" else "Light mode"
         return f"dashboard-shell theme-{theme}", next_theme
+
+    if request_server_stop is not None:
+
+        @app.callback(
+            Output("server-stop-confirm", "displayed"),
+            Input("server-stop", "n_clicks"),
+            prevent_initial_call=True,
+        )
+        def confirm_server_stop(_clicks: int) -> bool:
+            return True
+
+        @app.callback(
+            Output("server-stop-status", "children"),
+            Input("server-stop-confirm", "submit_n_clicks"),
+            prevent_initial_call=True,
+        )
+        def stop_server(_submit_clicks: int) -> str:
+            timer = Timer(0.2, request_server_stop)
+            timer.daemon = True
+            timer.start()
+            return "Stopping…"
 
     @app.callback(
         Output("replay-toggle", "children"),

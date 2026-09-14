@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from datetime import date, datetime, timezone
+from threading import Event
 
 from mb_market_data.quote_dashboard import (
     _column_definitions,
@@ -63,7 +64,11 @@ class TestQuoteDashboard(unittest.TestCase):
             timeline=ReplayTimeline(date(2026, 9, 11), 0, None, None),
             event_factory=lambda: iter(()),
         )
-        app = create_quote_dashboard(controller)
+        stop_event = Event()
+        app = create_quote_dashboard(
+            controller,
+            request_server_stop=stop_event.set,
+        )
         client = app.server.test_client()
 
         page = client.get("/")
@@ -80,11 +85,74 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"theme-toggle", layout.data)
         self.assertIn(b"theme-preference", layout.data)
         self.assertIn(b"replay-speed-dropdown", layout.data)
-        self.assertEqual(len(app.callback_map), 3)
+        self.assertIn(b"server-stop", layout.data)
+        self.assertEqual(len(app.callback_map), 5)
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)
         self.assertEqual(favicon.status_code, 200)
+
+    def test_confirmed_server_stop_requests_shutdown(self) -> None:
+        stop_event = Event()
+        app = create_quote_dashboard(
+            single_event_controller(),
+            request_server_stop=stop_event.set,
+        )
+        client = app.server.test_client()
+
+        confirm_response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": "server-stop-confirm.displayed",
+                "outputs": {
+                    "id": "server-stop-confirm",
+                    "property": "displayed",
+                },
+                "changedPropIds": ["server-stop.n_clicks"],
+                "inputs": [
+                    {
+                        "id": "server-stop",
+                        "property": "n_clicks",
+                        "value": 1,
+                    }
+                ],
+                "state": [],
+            },
+        )
+        self.addCleanup(confirm_response.close)
+        self.assertEqual(confirm_response.status_code, 200)
+        confirm_body = confirm_response.get_json()["response"]
+        self.assertTrue(confirm_body["server-stop-confirm"]["displayed"])
+
+        stop_response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": "server-stop-status.children",
+                "outputs": {
+                    "id": "server-stop-status",
+                    "property": "children",
+                },
+                "changedPropIds": [
+                    "server-stop-confirm.submit_n_clicks"
+                ],
+                "inputs": [
+                    {
+                        "id": "server-stop-confirm",
+                        "property": "submit_n_clicks",
+                        "value": 1,
+                    }
+                ],
+                "state": [],
+            },
+        )
+        self.addCleanup(stop_response.close)
+        self.assertEqual(stop_response.status_code, 200)
+        stop_body = stop_response.get_json()["response"]
+        self.assertEqual(
+            stop_body["server-stop-status"]["children"],
+            "Stopping…",
+        )
+        self.assertTrue(stop_event.wait(1.0))
 
     def test_theme_callbacks_toggle_and_apply_saved_preference(self) -> None:
         app = create_quote_dashboard(single_event_controller())

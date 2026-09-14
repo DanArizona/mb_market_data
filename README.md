@@ -752,8 +752,11 @@ The dashboard shows session/replay time, event and observation totals, channel
 revisions and coverage, and one sortable/filterable Dash AG Grid row per unique
 current symbol. Each row shows channel membership, per-channel revision, latest
 acquisition channel and status, quote prices, volume, observation time,
-exchange, and description. Press `Ctrl+C` in the command window to stop the
-server.
+exchange, and description. Stop the server gracefully either by pressing
+`Ctrl+C` in the command window or by selecting **Stop server** in the dashboard
+header and confirming. The launcher supervises the web server from its main
+thread so Windows console interruption and browser-requested shutdown share the
+same orderly cleanup path.
 
 Replay streams acquisition observations from SQLite only when their event is
 due; it does not retain the day's complete observation history in memory. Dash
