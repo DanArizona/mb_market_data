@@ -90,13 +90,33 @@ def _column_definitions() -> list[dict[str, Any]]:
             "width": 150,
             "cellClass": "channel-cell",
         },
-        {"field": "uni_revision", "headerName": "Uni", "width": 88},
+        {
+            "field": "uni_revision",
+            "headerName": "Uni",
+            "headerTooltip": (
+                "Active Uni membership revision; blank means the symbol "
+                "is not currently in Uni."
+            ),
+            "width": 88,
+        },
         {
             "field": "focus_revision",
             "headerName": "Focus",
+            "headerTooltip": (
+                "Active Focus membership revision; blank means the symbol "
+                "is not currently in Focus."
+            ),
             "width": 94,
         },
-        {"field": "hot_revision", "headerName": "Hot", "width": 88},
+        {
+            "field": "hot_revision",
+            "headerName": "Hot",
+            "headerTooltip": (
+                "Active Hot membership revision; blank means the symbol "
+                "is not currently in Hot."
+            ),
+            "width": 88,
+        },
         {
             "field": "status",
             "headerName": "Status",
@@ -111,6 +131,10 @@ def _column_definitions() -> list[dict[str, Any]]:
         {
             "field": "latest_channel",
             "headerName": "Latest via",
+            "headerTooltip": (
+                "Sampling channel that supplied the newest displayed "
+                "observation."
+            ),
             "width": 112,
         },
         {
@@ -134,6 +158,10 @@ def _column_definitions() -> list[dict[str, Any]]:
         {
             "field": "mark",
             "headerName": "Mark",
+            "headerTooltip": (
+                "Schwab mark price from the newest displayed quote "
+                "observation."
+            ),
             "type": "numericColumn",
             "width": 104,
         },
@@ -485,6 +513,8 @@ def create_quote_dashboard(
                         },
                         dashGridOptions={
                             "animateRows": False,
+                            "tooltipShowDelay": 350,
+                            "tooltipHideDelay": 10_000,
                             "pagination": True,
                             "paginationPageSize": 50,
                             "paginationPageSizeSelector": [25, 50, 100, 250],
@@ -564,6 +594,10 @@ def create_quote_dashboard(
         rendered_event_count: int,
     ) -> tuple[Any, ...]:
         trigger = ctx.triggered_id
+        selected_speed = float(speed)
+        if controller.snapshot().speed != selected_speed:
+            controller.set_speed(selected_speed)
+
         if trigger == "replay-toggle":
             updated = controller.toggle()
         elif trigger == "replay-step":
@@ -571,7 +605,7 @@ def create_quote_dashboard(
         elif trigger == "replay-restart":
             updated = controller.restart()
         elif trigger == "replay-speed":
-            updated = controller.set_speed(float(speed))
+            updated = controller.snapshot()
         elif trigger == "replay-tick":
             updated = controller.tick()
         else:

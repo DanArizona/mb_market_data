@@ -3,7 +3,10 @@ from __future__ import annotations
 import unittest
 from datetime import date, datetime, timezone
 
-from mb_market_data.quote_dashboard import create_quote_dashboard
+from mb_market_data.quote_dashboard import (
+    _column_definitions,
+    create_quote_dashboard,
+)
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
 )
@@ -41,6 +44,20 @@ def single_event_controller() -> QuoteDashboardReplayController:
 
 
 class TestQuoteDashboard(unittest.TestCase):
+    def test_explains_membership_and_quote_provenance_columns(self) -> None:
+        columns = {
+            column["field"]: column for column in _column_definitions()
+        }
+
+        for field in (
+            "uni_revision",
+            "focus_revision",
+            "hot_revision",
+            "latest_channel",
+            "mark",
+        ):
+            self.assertTrue(columns[field]["headerTooltip"])
+
     def test_serves_layout_and_packaged_assets(self) -> None:
         controller = QuoteDashboardReplayController(
             timeline=ReplayTimeline(date(2026, 9, 11), 0, None, None),
@@ -166,7 +183,9 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(body["theme-toggle"]["children"], "Dark mode")
 
     def test_play_callback_projects_and_returns_updated_state(self) -> None:
-        app = create_quote_dashboard(single_event_controller())
+        controller = single_event_controller()
+        app = create_quote_dashboard(controller)
+        controller.set_speed(390)
         callback_key, callback = next(
             (key, value)
             for key, value in app.callback_map.items()
@@ -232,6 +251,7 @@ class TestQuoteDashboard(unittest.TestCase):
         body = response.get_json()["response"]
         self.assertEqual(body["replay-status"]["children"], "Complete")
         self.assertEqual(body["metric-events"]["children"], "1")
+        self.assertEqual(controller.snapshot().speed, 60)
         self.assertEqual(
             body["market-state-grid"]["rowData"][0]["symbol"],
             "SPY",

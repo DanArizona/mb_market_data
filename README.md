@@ -758,8 +758,16 @@ server.
 Replay streams acquisition observations from SQLite only when their event is
 due; it does not retain the day's complete observation history in memory. Dash
 receives immutable projector snapshots and never queries the journal directly.
-Time seeking remains deferred; restart always reconstructs state causally from
-the beginning.
+One planned enhancement is a seek control accepting a specified historical ET
+time, likely supplemented by a session-time slider. Seeking must reconstruct
+state causally through the target time (or from a verified checkpoint) rather
+than merely changing the displayed clock. Until that is implemented, restart
+always reconstructs state from the beginning.
+
+Another planned convenience is an exact symbol-list filter that accepts
+symbols separated by spaces or commas, such as `NVDA AAPL MASK`, and displays
+the union of those symbols. The current floating Symbol field remains a normal
+single-value text filter.
 
 The reader does not invent future state that version 1 journals do not contain.
 For example, the 2026-09-11 journal can exactly reproduce its recorded static
