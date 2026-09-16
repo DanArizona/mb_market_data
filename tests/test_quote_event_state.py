@@ -11,6 +11,7 @@ from mb_market_data.quote_event_state import (
 from mb_market_data.quote_dashboard_view import build_quote_dashboard_view
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
+    MembershipRevisionEvent,
     QuoteAcquisitionEvent,
 )
 from mb_market_data.quote_observation_store import (
@@ -18,6 +19,7 @@ from mb_market_data.quote_observation_store import (
     StoredAcquisition,
     StoredQuoteObservation,
 )
+from mb_market_data.sampling_membership import SamplingHierarchyRevision
 
 
 UTC = timezone.utc
@@ -39,6 +41,27 @@ def revision_event(
             revision=revision,
             effective_at=available_at,
             symbols=symbols,
+            source="unit-test",
+        )
+    )
+
+
+def hierarchy_event(
+    revision: int,
+    *,
+    uni_symbols: tuple[str, ...] = ("AAPL", "IPO"),
+    focus_symbols: tuple[str, ...] = ("AAPL",),
+    hot_symbols: tuple[str, ...] = (),
+    available_at: datetime = START,
+) -> MembershipRevisionEvent:
+    return MembershipRevisionEvent(
+        SamplingHierarchyRevision(
+            session_date=SESSION_DATE,
+            revision=revision,
+            effective_at=available_at,
+            uni_symbols=uni_symbols,
+            focus_symbols=focus_symbols,
+            hot_symbols=hot_symbols,
             source="unit-test",
         )
     )
@@ -96,6 +119,82 @@ def acquisition_event(
 
 
 class TestQuoteEventStateProjector(unittest.TestCase):
+    def test_hierarchy_revision_projects_all_channels_as_one_event(
+        self,
+    ) -> None:
+        projector = QuoteEventStateProjector(session_date=SESSION_DATE)
+
+        projector.apply(hierarchy_event(0))
+
+        state = projector.snapshot()
+        self.assertEqual(state.channels, ("focus", "hot", "uni"))
+        self.assertEqual(state.current_members("uni"), ("AAPL", "IPO"))
+        self.assertEqual(state.current_members("focus"), ("AAPL",))
+        self.assertEqual(state.current_members("hot"), ())
+        self.assertEqual(state.event_count, 1)
+        self.assertEqual(state.revision_count, 1)
+        self.assertEqual(
+            {
+                revision.revision
+                for revision in state.channel_revisions.values()
+            },
+            {0},
+        )
+        self.assertTrue(
+            all(
+                revision.membership_contract
+                == "nested-uni-focus-hot-v1"
+                for revision in state.channel_revisions.values()
+            )
+        )
+
+    def test_hierarchy_failure_does_not_publish_partial_channels(self) -> None:
+        projector = QuoteEventStateProjector(session_date=SESSION_DATE)
+        projector.apply(revision_event("uni", 0, ("AAPL", "IPO")))
+        before = projector.snapshot()
+
+        with self.assertRaisesRegex(
+            StateProjectionError,
+            "Hierarchy revision did not increase",
+        ):
+            projector.apply(hierarchy_event(0))
+
+        after = projector.snapshot()
+        self.assertEqual(after, before)
+        self.assertEqual(after.channels, ("uni",))
+
+    def test_old_in_flight_acquisition_survives_atomic_hierarchy_change(
+        self,
+    ) -> None:
+        projector = QuoteEventStateProjector(session_date=SESSION_DATE)
+        projector.apply(hierarchy_event(0))
+        projector.apply(
+            hierarchy_event(
+                1,
+                focus_symbols=("AAPL", "IPO"),
+                hot_symbols=("IPO",),
+                available_at=START + timedelta(seconds=1),
+            )
+        )
+        projector.apply(
+            acquisition_event(
+                "focus",
+                0,
+                ("AAPL",),
+                acquisition_id="slow-old-hierarchy-request",
+                completed_at=START + timedelta(seconds=2),
+            )
+        )
+
+        state = projector.snapshot()
+        self.assertEqual(state.current_members("focus"), ("AAPL", "IPO"))
+        self.assertEqual(state.current_members("hot"), ("IPO",))
+        self.assertEqual(state.channel_revisions["focus"].revision, 1)
+        self.assertEqual(
+            state.latest("focus", "AAPL").acquisition.acquisition_id,
+            "slow-old-hierarchy-request",
+        )
+
     def test_preserves_overlapping_channel_membership_and_latest_quotes(
         self,
     ) -> None:

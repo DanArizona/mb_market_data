@@ -9,9 +9,11 @@ from mb_market_data.quote_dashboard_replay import (
 )
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
+    MembershipRevisionEvent,
     ReplayTimeline,
 )
 from mb_market_data.quote_observation_store import SamplingChannelRevision
+from mb_market_data.sampling_membership import SamplingHierarchyRevision
 
 
 UTC = timezone.utc
@@ -43,7 +45,47 @@ def revision_event(channel: str, seconds: int) -> ChannelRevisionEvent:
     )
 
 
+def membership_event(seconds: int) -> MembershipRevisionEvent:
+    return MembershipRevisionEvent(
+        SamplingHierarchyRevision(
+            session_date=SESSION_DATE,
+            revision=0,
+            effective_at=START + timedelta(seconds=seconds),
+            uni_symbols=("FOCUS", "HOT", "UNI"),
+            focus_symbols=("FOCUS", "HOT"),
+            hot_symbols=("HOT",),
+            source="unit-test",
+        )
+    )
+
+
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_one_step_applies_complete_hierarchy_revision(self) -> None:
+        event = membership_event(0)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(
+                session_date=SESSION_DATE,
+                event_count=1,
+                first_available_at_utc=event.available_at_utc,
+                last_available_at_utc=event.available_at_utc,
+            ),
+            event_factory=lambda: iter((event,)),
+        )
+
+        result = controller.step()
+
+        self.assertEqual(result.applied_event_count, 1)
+        self.assertEqual(result.state.channels, ("focus", "hot", "uni"))
+        self.assertEqual(
+            result.state.current_members("uni"),
+            ("FOCUS", "HOT", "UNI"),
+        )
+        self.assertEqual(
+            result.state.current_members("focus"),
+            ("FOCUS", "HOT"),
+        )
+        self.assertEqual(result.state.current_members("hot"), ("HOT",))
+
     def setUp(self) -> None:
         self.events = (
             revision_event("uni", 0),

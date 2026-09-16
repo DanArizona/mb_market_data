@@ -1,9 +1,10 @@
 """Deterministic event replay for a daily quote-observation journal.
 
-Replay events use availability time rather than sampling time.  A channel
-revision becomes available at its effective time; a quote acquisition becomes
-available when the complete Schwab response has been durably assembled.  Each
-quote event still retains its scheduled, dispatched, and completed timestamps.
+Replay events use availability time rather than sampling time.  A legacy
+channel revision or atomic hierarchy revision becomes available at its
+effective time; a quote acquisition becomes available when the complete
+Schwab response has been durably assembled.  Each quote event still retains
+its scheduled, dispatched, and completed timestamps.
 """
 
 from __future__ import annotations
@@ -18,12 +19,19 @@ from pathlib import Path
 from typing import TypeAlias
 
 from mb_market_data.quote_observation_store import (
+    HIERARCHY_SCHEMA_VERSION,
     SCHEMA_VERSION,
+    SUPPORTED_STORE_SCHEMA_VERSIONS,
     QuoteObservationStore,
+    QuoteObservationStoreError,
     SamplingChannelRevision,
     StoredAcquisition,
     StoredQuoteObservation,
     UnsupportedSchemaVersionError,
+)
+from mb_market_data.sampling_membership import (
+    SAMPLING_HIERARCHY_CONTRACT,
+    SamplingHierarchyRevision,
 )
 
 
@@ -35,6 +43,7 @@ class ReplayEventKind(StrEnum):
     """Stable event types shared by replay and future live publication."""
 
     CHANNEL_REVISION = "channel_revision"
+    MEMBERSHIP_REVISION = "membership_revision"
     QUOTE_ACQUISITION = "quote_acquisition"
 
 
@@ -60,6 +69,35 @@ class ChannelRevisionEvent:
     def event_id(self) -> str:
         return (
             f"channel_revision:{self.revision.channel}:"
+            f"{self.revision.session_date.isoformat()}:"
+            f"r{self.revision.revision}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipRevisionEvent:
+    """A complete Uni/Focus/Hot hierarchy revision becoming effective."""
+
+    revision: SamplingHierarchyRevision
+
+    @property
+    def kind(self) -> ReplayEventKind:
+        return ReplayEventKind.MEMBERSHIP_REVISION
+
+    @property
+    def available_at_utc(self) -> datetime:
+        return self.revision.effective_at
+
+    @property
+    def channel(self) -> str:
+        """Return a stable label for generic replay diagnostics."""
+
+        return "hierarchy"
+
+    @property
+    def event_id(self) -> str:
+        return (
+            "membership_revision:"
             f"{self.revision.session_date.isoformat()}:"
             f"r{self.revision.revision}"
         )
@@ -105,7 +143,10 @@ class QuoteAcquisitionEvent:
         return f"quote_acquisition:{self.acquisition.acquisition_id}"
 
 
-ReplayEvent: TypeAlias = ChannelRevisionEvent | QuoteAcquisitionEvent
+RevisionReplayEvent: TypeAlias = (
+    ChannelRevisionEvent | MembershipRevisionEvent
+)
+ReplayEvent: TypeAlias = RevisionReplayEvent | QuoteAcquisitionEvent
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,14 +159,21 @@ class ReplayTimeline:
     last_available_at_utc: datetime | None
 
 
-def _journal_session_date(database_path: Path) -> date:
+@dataclass(frozen=True, slots=True)
+class _JournalIdentity:
+    schema_version: int
+    session_date: date
+    membership_contract: str | None
+
+
+def _journal_identity(database_path: Path) -> _JournalIdentity:
     if not database_path.is_file():
         raise FileNotFoundError(database_path)
     uri = database_path.resolve().as_uri() + "?mode=ro"
     connection = sqlite3.connect(uri, uri=True)
     try:
         version = connection.execute("PRAGMA user_version").fetchone()[0]
-        if version != SCHEMA_VERSION:
+        if version not in SUPPORTED_STORE_SCHEMA_VERSIONS:
             raise UnsupportedSchemaVersionError(
                 f"Unsupported quote-observation schema version: {version}"
             )
@@ -145,7 +193,27 @@ def _journal_session_date(database_path: Path) -> date:
                 "store_identity schema version differs from PRAGMA "
                 "user_version"
             )
-        return date.fromisoformat(row[1])
+        membership_contract = None
+        if version == HIERARCHY_SCHEMA_VERSION:
+            try:
+                membership_contract = connection.execute(
+                    "SELECT membership_contract FROM store_identity "
+                    "WHERE singleton = 1"
+                ).fetchone()[0]
+            except sqlite3.Error as exc:
+                raise ReplayIntegrityError(
+                    "Hierarchy journal has no readable membership contract"
+                ) from exc
+            if membership_contract != SAMPLING_HIERARCHY_CONTRACT:
+                raise UnsupportedSchemaVersionError(
+                    "Unsupported sampling hierarchy contract: "
+                    f"{membership_contract!r}"
+                )
+        return _JournalIdentity(
+            schema_version=version,
+            session_date=date.fromisoformat(row[1]),
+            membership_contract=membership_contract,
+        )
     finally:
         connection.close()
 
@@ -155,14 +223,15 @@ def _event_sort_key(
 ) -> tuple[datetime, int, str, int, str]:
     # Membership must win a same-timestamp tie so consumers know the active
     # channel state before receiving an acquisition.
-    kind_order = 0 if isinstance(event, ChannelRevisionEvent) else 1
+    is_revision = isinstance(
+        event, (ChannelRevisionEvent, MembershipRevisionEvent)
+    )
+    kind_order = 0 if is_revision else 1
     return (
         event.available_at_utc,
         kind_order,
         event.channel,
-        event.revision.revision
-        if isinstance(event, ChannelRevisionEvent)
-        else 0,
+        event.revision.revision if is_revision else 0,
         event.event_id,
     )
 
@@ -172,24 +241,45 @@ class QuoteJournalReplayReader:
 
     def __init__(self, database_path: str | Path) -> None:
         self.database_path = Path(database_path)
-        self.session_date = _journal_session_date(self.database_path)
+        identity = _journal_identity(self.database_path)
+        self.schema_version = identity.schema_version
+        self.session_date = identity.session_date
+        self.membership_contract = identity.membership_contract
         self.store = QuoteObservationStore(
             self.database_path,
             session_date=self.session_date,
+            schema_version=self.schema_version,
         )
 
     def _ordered_headers(
         self,
     ) -> tuple[ReplayEvent | StoredAcquisition, ...]:
         header_payloads: list[ReplayEvent | StoredAcquisition] = []
-        for revision in self.store.channel_revisions_in_effective_order():
-            header_payloads.append(ChannelRevisionEvent(revision))
+        try:
+            if self.schema_version == SCHEMA_VERSION:
+                for revision in (
+                    self.store.channel_revisions_in_effective_order()
+                ):
+                    header_payloads.append(ChannelRevisionEvent(revision))
+            else:
+                for revision in (
+                    self.store.membership_revisions_in_effective_order()
+                ):
+                    header_payloads.append(
+                        MembershipRevisionEvent(revision)
+                    )
+        except QuoteObservationStoreError as exc:
+            raise ReplayIntegrityError(
+                "Journal membership revisions are inconsistent"
+            ) from exc
         header_payloads.extend(self.store.acquisitions_in_replay_order())
 
         def payload_sort_key(
             payload: ReplayEvent | StoredAcquisition,
         ) -> tuple[datetime, int, str, int, str]:
-            if isinstance(payload, ChannelRevisionEvent):
+            if isinstance(
+                payload, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
                 return _event_sort_key(payload)
             return (
                 payload.completed_at_utc,
@@ -212,7 +302,9 @@ class QuoteJournalReplayReader:
         def available_at(
             payload: ReplayEvent | StoredAcquisition,
         ) -> datetime:
-            if isinstance(payload, ChannelRevisionEvent):
+            if isinstance(
+                payload, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
                 return payload.available_at_utc
             return payload.completed_at_utc
 
@@ -227,7 +319,9 @@ class QuoteJournalReplayReader:
         """Yield immutable events ordered by when they became available."""
 
         for payload in self._ordered_headers():
-            if isinstance(payload, ChannelRevisionEvent):
+            if isinstance(
+                payload, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
                 yield payload
                 continue
 

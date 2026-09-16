@@ -20,6 +20,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
+    MembershipRevisionEvent,
     QuoteAcquisitionEvent,
     QuoteJournalReplayReader,
     ReplayEvent,
@@ -96,6 +97,15 @@ def event_label(event: ReplayEvent) -> str:
             f"{revision.channel} r{revision.revision}  "
             f"symbols={len(revision.symbols)}"
         )
+    if isinstance(event, MembershipRevisionEvent):
+        revision = event.revision
+        return (
+            f"{available:%H:%M:%S.%f} ET  membership  "
+            f"r{revision.revision}  "
+            f"uni={len(revision.uni_symbols)}  "
+            f"focus={len(revision.focus_symbols)}  "
+            f"hot={len(revision.hot_symbols)}"
+        )
     acquisition = event.acquisition
     return (
         f"{available:%H:%M:%S.%f} ET  acquisition  "
@@ -135,6 +145,9 @@ def main() -> int:
     print("=" * 79)
     print(f"Database         : {reader.database_path}")
     print(f"Session date     : {reader.session_date.isoformat()}")
+    print(f"Schema version   : {reader.schema_version}")
+    if reader.membership_contract is not None:
+        print(f"Membership       : {reader.membership_contract}")
     print(f"Mode             : {mode}")
     print(
         "Event limit      : "
@@ -171,7 +184,9 @@ def main() -> int:
                 first_available = event.available_at_utc
             last_available = event.available_at_utc
 
-            if isinstance(event, ChannelRevisionEvent):
+            if isinstance(
+                event, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
                 revision_count += 1
                 print(event_label(event))
                 continue

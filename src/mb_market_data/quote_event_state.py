@@ -11,10 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from types import MappingProxyType
-from typing import Mapping
+from typing import Any, Mapping
 
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
+    MembershipRevisionEvent,
     QuoteAcquisitionEvent,
     ReplayEvent,
 )
@@ -22,6 +23,10 @@ from mb_market_data.quote_observation_store import (
     SamplingChannelRevision,
     StoredAcquisition,
     StoredQuoteObservation,
+)
+from mb_market_data.sampling_membership import (
+    SamplingChannel,
+    SamplingHierarchyRevision,
 )
 from mb_market_data.schwab_quotes import normalize_symbols
 
@@ -54,6 +59,25 @@ class ChannelMemberState:
 
 
 @dataclass(frozen=True, slots=True)
+class ProjectedChannelRevision:
+    """Current membership for one projected channel.
+
+    Unlike the legacy persistence value, this projection permits an empty
+    membership because schema-v2 Focus and Hot are valid empty sets.
+    """
+
+    channel: str
+    session_date: date
+    revision: int
+    effective_at: datetime
+    symbols: tuple[str, ...]
+    source: str
+    reason: str | None
+    metadata: Mapping[str, Any]
+    membership_contract: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class QuoteEventStateSnapshot:
     """Immutable point-in-time view suitable for dashboard consumers."""
 
@@ -63,7 +87,7 @@ class QuoteEventStateSnapshot:
     revision_count: int
     acquisition_count: int
     observation_count: int
-    channel_revisions: Mapping[str, SamplingChannelRevision]
+    channel_revisions: Mapping[str, ProjectedChannelRevision]
     latest_observations: Mapping[
         tuple[str, str], ProjectedQuoteObservation
     ]
@@ -123,9 +147,41 @@ def _channel_key(channel: str) -> str:
 
 
 def _event_session_date(event: ReplayEvent) -> date:
-    if isinstance(event, ChannelRevisionEvent):
+    if isinstance(event, (ChannelRevisionEvent, MembershipRevisionEvent)):
         return event.revision.session_date
     return event.acquisition.session_date
+
+
+def _project_legacy_revision(
+    revision: SamplingChannelRevision,
+) -> ProjectedChannelRevision:
+    return ProjectedChannelRevision(
+        channel=_channel_key(revision.channel),
+        session_date=revision.session_date,
+        revision=revision.revision,
+        effective_at=revision.effective_at,
+        symbols=revision.symbols,
+        source=revision.source,
+        reason=revision.reason,
+        metadata=revision.metadata,
+    )
+
+
+def _project_hierarchy_channel(
+    revision: SamplingHierarchyRevision,
+    channel: SamplingChannel,
+) -> ProjectedChannelRevision:
+    return ProjectedChannelRevision(
+        channel=channel.value,
+        session_date=revision.session_date,
+        revision=revision.revision,
+        effective_at=revision.effective_at,
+        symbols=revision.symbols_for(channel),
+        source=revision.source,
+        reason=revision.reason,
+        metadata=revision.metadata,
+        membership_contract=revision.contract,
+    )
 
 
 class QuoteEventStateProjector:
@@ -138,12 +194,15 @@ class QuoteEventStateProjector:
         # every full acquisition event would also retain every observation in
         # memory, defeating the projector's bounded latest-state design.
         self._seen_event_headers: dict[
-            str, SamplingChannelRevision | StoredAcquisition
+            str,
+            SamplingChannelRevision
+            | SamplingHierarchyRevision
+            | StoredAcquisition,
         ] = {}
         self._revisions: dict[
-            tuple[str, int], SamplingChannelRevision
+            tuple[str, int], ProjectedChannelRevision
         ] = {}
-        self._current_revisions: dict[str, SamplingChannelRevision] = {}
+        self._current_revisions: dict[str, ProjectedChannelRevision] = {}
         self._latest: dict[
             tuple[str, str], ProjectedQuoteObservation
         ] = {}
@@ -156,7 +215,9 @@ class QuoteEventStateProjector:
 
         event_header = (
             event.revision
-            if isinstance(event, ChannelRevisionEvent)
+            if isinstance(
+                event, (ChannelRevisionEvent, MembershipRevisionEvent)
+            )
             else event.acquisition
         )
         existing = self._seen_event_headers.get(event.event_id)
@@ -177,9 +238,10 @@ class QuoteEventStateProjector:
             )
 
         event_session_date = _event_session_date(event)
-        if self._session_date is None:
-            self._session_date = event_session_date
-        elif event_session_date != self._session_date:
+        if (
+            self._session_date is not None
+            and event_session_date != self._session_date
+        ):
             raise StateProjectionError(
                 f"Event belongs to {event_session_date}, not "
                 f"{self._session_date}: {event.event_id}"
@@ -188,17 +250,22 @@ class QuoteEventStateProjector:
         if isinstance(event, ChannelRevisionEvent):
             self._apply_revision(event)
             self._revision_count += 1
+        elif isinstance(event, MembershipRevisionEvent):
+            self._apply_membership_revision(event)
+            self._revision_count += 1
         else:
             self._apply_acquisition(event)
             self._acquisition_count += 1
             self._observation_count += len(event.observations)
 
         self._seen_event_headers[event.event_id] = event_header
+        if self._session_date is None:
+            self._session_date = event_session_date
         self._current_time_utc = event.available_at_utc
         return True
 
     def _apply_revision(self, event: ChannelRevisionEvent) -> None:
-        revision = event.revision
+        revision = _project_legacy_revision(event.revision)
         channel = _channel_key(revision.channel)
         current = self._current_revisions.get(channel)
         if current is not None and revision.revision <= current.revision:
@@ -215,6 +282,42 @@ class QuoteEventStateProjector:
             )
         self._revisions[key] = revision
         self._current_revisions[channel] = revision
+
+    def _apply_membership_revision(
+        self,
+        event: MembershipRevisionEvent,
+    ) -> None:
+        """Validate every channel, then publish the bundle in one mutation."""
+
+        hierarchy = event.revision
+        staged: dict[str, ProjectedChannelRevision] = {}
+        for channel in SamplingChannel:
+            revision = _project_hierarchy_channel(hierarchy, channel)
+            current = self._current_revisions.get(channel.value)
+            if (
+                current is not None
+                and revision.revision <= current.revision
+            ):
+                raise StateProjectionError(
+                    "Hierarchy revision did not increase: "
+                    f"{channel.value} r{revision.revision} after "
+                    f"r{current.revision}"
+                )
+            key = (channel.value, revision.revision)
+            if key in self._revisions:
+                raise StateProjectionError(
+                    "Hierarchy channel revision was already applied: "
+                    f"{channel.value} r{revision.revision}"
+                )
+            staged[channel.value] = revision
+
+        self._revisions.update(
+            {
+                (channel, hierarchy.revision): revision
+                for channel, revision in staged.items()
+            }
+        )
+        self._current_revisions.update(staged)
 
     def _apply_acquisition(self, event: QuoteAcquisitionEvent) -> None:
         acquisition = event.acquisition

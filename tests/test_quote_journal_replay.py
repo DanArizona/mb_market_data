@@ -6,20 +6,24 @@ import unittest
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
+    MembershipRevisionEvent,
     QuoteAcquisitionEvent,
     QuoteJournalReplayReader,
     ReplayIntegrityError,
     paced_replay,
 )
 from mb_market_data.quote_observation_store import (
+    HIERARCHY_SCHEMA_VERSION,
     PollRunProvenance,
     QuoteObservationStore,
     SamplingChannelRevision,
     UnsupportedSchemaVersionError,
 )
+from mb_market_data.sampling_membership import SamplingHierarchyRevision
 from mb_market_data.schwab_quotes import (
     QuoteBatchResult,
     QuoteResult,
@@ -49,6 +53,25 @@ def make_revision(
         revision=revision,
         effective_at=effective_at,
         symbols=symbols,
+        source="unit-test",
+    )
+
+
+def make_hierarchy_revision(
+    *,
+    effective_at: datetime,
+    revision: int = 0,
+    uni_symbols: tuple[str, ...] = ("QQQ", "SPY"),
+    focus_symbols: tuple[str, ...] = ("SPY",),
+    hot_symbols: tuple[str, ...] = (),
+) -> SamplingHierarchyRevision:
+    return SamplingHierarchyRevision(
+        session_date=SESSION_DATE,
+        revision=revision,
+        effective_at=effective_at,
+        uni_symbols=uni_symbols,
+        focus_symbols=focus_symbols,
+        hot_symbols=hot_symbols,
         source="unit-test",
     )
 
@@ -161,6 +184,8 @@ class TestQuoteJournalReplayReader(ReplayJournalFixture):
         events = tuple(reader.events())
 
         self.assertEqual(reader.session_date, SESSION_DATE)
+        self.assertEqual(reader.schema_version, 1)
+        self.assertIsNone(reader.membership_contract)
         self.assertEqual(timeline.event_count, 4)
         self.assertEqual(timeline.first_available_at_utc, effective_at)
         self.assertEqual(
@@ -276,6 +301,107 @@ class TestQuoteJournalReplayReader(ReplayJournalFixture):
         ):
             QuoteJournalReplayReader(other_path)
 
+
+class TestHierarchyQuoteJournalReplayReader(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_directory.cleanup)
+        self.database_path = (
+            Path(self.temporary_directory.name) / "2026-09-09-v2.sqlite3"
+        )
+        self.store = QuoteObservationStore(
+            self.database_path,
+            session_date=SESSION_DATE,
+            schema_version=HIERARCHY_SCHEMA_VERSION,
+        )
+        self.store.initialize()
+        self.run = PollRunProvenance(
+            run_id="v2-replay-test-run",
+            started_at=datetime(2026, 9, 9, 13, 29, tzinfo=UTC),
+            software_version="test",
+            configuration={},
+        )
+        self.store.record_run(self.run)
+
+    def test_replays_one_atomic_event_per_hierarchy_revision(self) -> None:
+        instant = datetime(2026, 9, 9, 13, 30, tzinfo=UTC)
+        hierarchy = make_hierarchy_revision(effective_at=instant)
+        with patch(
+            "mb_market_data.quote_observation_store._utc_now",
+            return_value=instant - timedelta(seconds=1),
+        ):
+            self.store.record_membership_revision(hierarchy)
+
+        request = make_request(
+            WatchlistKind.UNI,
+            scheduled_at=instant,
+            symbols=hierarchy.uni_symbols,
+        )
+        self.store.record_acquisition(
+            self.run.run_id,
+            request,
+            make_result(request, response_received_at=instant),
+            completed_at=instant,
+        )
+
+        reader = QuoteJournalReplayReader(self.database_path)
+        timeline = reader.timeline()
+        events = tuple(reader.events())
+
+        self.assertEqual(reader.schema_version, HIERARCHY_SCHEMA_VERSION)
+        self.assertEqual(
+            reader.membership_contract,
+            "nested-uni-focus-hot-v1",
+        )
+        self.assertEqual(timeline.event_count, 2)
+        self.assertIsInstance(events[0], MembershipRevisionEvent)
+        self.assertIsInstance(events[1], QuoteAcquisitionEvent)
+        membership = events[0]
+        assert isinstance(membership, MembershipRevisionEvent)
+        self.assertEqual(membership.revision.uni_symbols, ("QQQ", "SPY"))
+        self.assertEqual(membership.revision.focus_symbols, ("SPY",))
+        self.assertEqual(membership.revision.hot_symbols, ())
+        self.assertEqual(
+            membership.event_id,
+            "membership_revision:2026-09-09:r0",
+        )
+
+    def test_reader_rejects_wrong_hierarchy_contract(self) -> None:
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            connection.execute("PRAGMA ignore_check_constraints = ON")
+            connection.execute(
+                "UPDATE store_identity SET membership_contract = 'other'"
+            )
+            connection.commit()
+
+        with self.assertRaisesRegex(
+            UnsupportedSchemaVersionError,
+            "hierarchy contract",
+        ):
+            QuoteJournalReplayReader(self.database_path)
+
+    def test_corrupt_hierarchy_is_reported_as_replay_integrity(self) -> None:
+        instant = datetime(2026, 9, 9, 13, 30, tzinfo=UTC)
+        with patch(
+            "mb_market_data.quote_observation_store._utc_now",
+            return_value=instant - timedelta(seconds=1),
+        ):
+            self.store.record_membership_revision(
+                make_hierarchy_revision(effective_at=instant)
+            )
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            connection.execute(
+                "DELETE FROM sampling_channel_revision "
+                "WHERE channel = 'hot'"
+            )
+            connection.commit()
+
+        reader = QuoteJournalReplayReader(self.database_path)
+        with self.assertRaisesRegex(
+            ReplayIntegrityError,
+            "membership revisions are inconsistent",
+        ):
+            tuple(reader.events())
 
 class FakeClock:
     def __init__(self) -> None:
