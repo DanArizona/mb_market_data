@@ -61,12 +61,15 @@ from mb_market_data.schwab_quotes import (
 from mb_market_data.tos_watchlist import read_tos_watchlist
 from mb_market_data.watchlist_polling import (
     POLL_SECONDS,
+    MembershipUnavailableError,
     PollRequest,
     PollSlotGuard,
     PollWindow,
+    SkippedPollSlot,
     WatchlistKind,
     WatchlistSnapshot,
     capture_poll_request,
+    resolve_provider_poll_slot,
     next_poll_slot,
 )
 from mb_tools.schwab_secure import (
@@ -280,6 +283,17 @@ def parse_args() -> argparse.Namespace:
             "Opt in to the shared daily SQLite quote journal. The probe "
             "creates YYYY-MM-DD.sqlite3 below this directory. Requires "
             "--watchlist-kind."
+        ),
+    )
+    parser.add_argument(
+        "--journal-schema-version",
+        type=int,
+        choices=(1, 2),
+        default=1,
+        help=(
+            "Journal contract to use. Version 1 records static startup "
+            "membership; version 2 resolves an already-published atomic "
+            "hierarchy at every slot. Default: 1"
         ),
     )
     parser.add_argument(
@@ -1034,7 +1048,23 @@ def main() -> int:
             "--journal-root requires exact-slot --watchlist-kind polling."
         )
 
-    symbols = load_symbols(args)
+    hierarchy_polling = args.journal_schema_version == 2
+    if hierarchy_polling and not args.journal_root:
+        raise SystemExit(
+            "--journal-schema-version 2 requires --journal-root."
+        )
+    if hierarchy_polling and args.symbols:
+        raise SystemExit(
+            "--symbols cannot be used with schema-v2 hierarchy polling; "
+            "membership is read from the journal at each slot."
+        )
+    if hierarchy_polling and args.watchlist_revision != 0:
+        raise SystemExit(
+            "--watchlist-revision is a schema-v1 static-membership option; "
+            "schema-v2 revisions are resolved from the journal."
+        )
+
+    symbols = () if hierarchy_polling else load_symbols(args)
     stop_at = parse_et_datetime(args.stop_at)
     ecfg_path = resolve_ecfg(args.ecfg)
 
@@ -1075,16 +1105,17 @@ def main() -> int:
             start_at=session_start,
             end_at=session_end,
         )
-        snapshot = WatchlistSnapshot(
-            watchlist_kind=poll_kind,
-            session_date=poll_window.session_date,
-            revision=args.watchlist_revision,
-            # A static probe revision represents session membership, not this
-            # particular process lifetime.  The deterministic effective time
-            # makes a same-day restart idempotent.
-            effective_at=session_start,
-            symbols=symbols,
-        )
+        if not hierarchy_polling:
+            snapshot = WatchlistSnapshot(
+                watchlist_kind=poll_kind,
+                session_date=poll_window.session_date,
+                revision=args.watchlist_revision,
+                # A static probe revision represents session membership, not
+                # this particular process lifetime.  The deterministic
+                # effective time makes a same-day restart idempotent.
+                effective_at=session_start,
+                symbols=symbols,
+            )
 
     run_stamp = started_at.strftime("%Y-%m-%d-%H-%M-%S")
     if poll_kind is not None:
@@ -1095,13 +1126,18 @@ def main() -> int:
     acquisition_path = run_dir / "acquisition_samples.jsonl"
     quote_csv_path = run_dir / "quote_samples.csv"
     summary_csv_path = run_dir / "sample_summary.csv"
+    skipped_slot_path = run_dir / "skipped_slots.jsonl"
     error_path = run_dir / "errors.log"
     manifest_path = run_dir / "manifest.json"
 
     source_text = (
-        "explicit --symbols"
-        if args.symbols
-        else str(Path(args.universe_csv).expanduser().resolve())
+        "schema-v2 journal hierarchy"
+        if hierarchy_polling
+        else (
+            "explicit --symbols"
+            if args.symbols
+            else str(Path(args.universe_csv).expanduser().resolve())
+        )
     )
 
     journal_session: PollingJournalSession | None = None
@@ -1111,7 +1147,6 @@ def main() -> int:
     if args.journal_root:
         assert poll_kind is not None
         assert poll_window is not None
-        assert snapshot is not None
         journal_path = daily_quote_journal_path(
             Path(args.journal_root).expanduser(),
             poll_window.session_date,
@@ -1122,44 +1157,67 @@ def main() -> int:
             f"{started_at.astimezone(timezone.utc).isoformat(timespec='microseconds')}"
         )
         journal_software_version = installed_software_version()
-        journal_session = PollingJournalSession.start(
-            journal_path,
-            run_id=journal_run_id,
-            started_at=started_at,
-            software_version=journal_software_version,
-            configuration={
-                "probe": "universe_quote_watch",
-                "watchlist_kind": poll_kind.value,
-                "watchlist_revision": args.watchlist_revision,
-                "symbol_source": source_text,
-                "symbol_count": len(symbols),
-                "fields": args.fields,
-                "batch_size": args.batch_size,
-                "poll_seconds": list(POLL_SECONDS[poll_kind]),
-                "poll_window_start_et": poll_window.start_at.isoformat(),
-                "poll_window_end_et": poll_window.end_at.isoformat(),
-                "evidence_run_directory": str(run_dir.resolve()),
-            },
-            snapshot=snapshot,
-            revision_source=source_text,
-            revision_reason="static probe input",
-            revision_metadata={"probe": "universe_quote_watch"},
-            host=socket.gethostname(),
-            command=tuple(sys.argv),
-        )
+        journal_configuration = {
+            "probe": "universe_quote_watch",
+            "watchlist_kind": poll_kind.value,
+            "watchlist_revision": (
+                None if hierarchy_polling else args.watchlist_revision
+            ),
+            "membership_source": (
+                "journal_hierarchy" if hierarchy_polling else "startup"
+            ),
+            "symbol_source": source_text,
+            "symbol_count": len(symbols) if not hierarchy_polling else None,
+            "fields": args.fields,
+            "batch_size": args.batch_size,
+            "poll_seconds": list(POLL_SECONDS[poll_kind]),
+            "poll_window_start_et": poll_window.start_at.isoformat(),
+            "poll_window_end_et": poll_window.end_at.isoformat(),
+            "evidence_run_directory": str(run_dir.resolve()),
+        }
+        if hierarchy_polling:
+            journal_session = (
+                PollingJournalSession.register_hierarchy_polling(
+                    journal_path,
+                    session_date=poll_window.session_date,
+                    run_id=journal_run_id,
+                    started_at=started_at,
+                    software_version=journal_software_version,
+                    configuration=journal_configuration,
+                    host=socket.gethostname(),
+                    command=tuple(sys.argv),
+                )
+            )
+        else:
+            assert snapshot is not None
+            journal_session = PollingJournalSession.start(
+                journal_path,
+                run_id=journal_run_id,
+                started_at=started_at,
+                software_version=journal_software_version,
+                configuration=journal_configuration,
+                snapshot=snapshot,
+                revision_source=source_text,
+                revision_reason="static probe input",
+                revision_metadata={"probe": "universe_quote_watch"},
+                host=socket.gethostname(),
+                command=tuple(sys.argv),
+            )
 
     manifest: dict[str, Any] = {
         "probe": "universe_quote_watch",
         "started_at_et": started_at.isoformat(),
         "symbol_source": source_text,
-        "symbol_count": len(symbols),
-        "symbols": list(symbols),
+        "symbol_count": None if hierarchy_polling else len(symbols),
+        "symbols": None if hierarchy_polling else list(symbols),
         "fields": args.fields,
         "batch_size": args.batch_size,
         "interval_seconds": args.interval,
         "watchlist_kind": poll_kind.value if poll_kind else None,
         "watchlist_revision": (
-            args.watchlist_revision if poll_kind else None
+            args.watchlist_revision
+            if poll_kind and not hierarchy_polling
+            else None
         ),
         "poll_seconds": (
             list(POLL_SECONDS[poll_kind]) if poll_kind else None
@@ -1177,8 +1235,12 @@ def main() -> int:
         "acquisition_samples_file": str(acquisition_path),
         "quote_csv_file": str(quote_csv_path),
         "summary_csv_file": str(summary_csv_path),
+        "skipped_slots_file": str(skipped_slot_path),
         "errors_file": str(error_path),
         "journal_path": str(journal_path) if journal_path else None,
+        "journal_schema_version": (
+            args.journal_schema_version if journal_path else None
+        ),
         "journal_run_id": journal_run_id,
         "journal_software_version": journal_software_version,
         "journal_run_record_result": (
@@ -1188,12 +1250,18 @@ def main() -> int:
         ),
         "journal_revision_record_result": (
             journal_session.revision_record_result.value
-            if journal_session
+            if (
+                journal_session is not None
+                and journal_session.revision_record_result is not None
+            )
             else None
         ),
         "journal_acquisitions_inserted": 0,
         "journal_acquisitions_already_present": 0,
+        "journal_skips_inserted": 0,
+        "journal_skips_already_present": 0,
         "journal_errors": 0,
+        "skipped_empty_membership_slots": 0,
         "acquisition_timing_seconds": None,
         "journal_write_timing_seconds": None,
         "end_to_end_timing_seconds": None,
@@ -1207,14 +1275,24 @@ def main() -> int:
     print("Schwab full-universe quote watch")
     print("=" * 79)
     print(f"Symbol source    : {source_text}")
-    print(f"Symbols          : {len(symbols)}")
+    print(
+        "Symbols          : "
+        + ("resolved per slot" if hierarchy_polling else str(len(symbols)))
+    )
     print(f"Fields           : {args.fields}")
     print(f"Batch size       : {args.batch_size}")
     if poll_kind is None:
         print(f"Interval         : {args.interval:g} seconds")
     else:
         print(f"Watchlist kind   : {poll_kind.value}")
-        print(f"Watchlist rev    : {args.watchlist_revision}")
+        print(
+            "Watchlist rev    : "
+            + (
+                "resolved per slot"
+                if hierarchy_polling
+                else str(args.watchlist_revision)
+            )
+        )
         print(
             "Polling seconds  : "
             + ", ".join(
@@ -1246,6 +1324,8 @@ def main() -> int:
         "Daily journal    : "
         + (str(journal_path) if journal_path else "disabled")
     )
+    if journal_path is not None:
+        print(f"Journal schema   : {args.journal_schema_version}")
     print()
 
     password = getpass.getpass("Encrypted config password: ")
@@ -1255,7 +1335,10 @@ def main() -> int:
     completed_count = 0
     journal_inserted_count = 0
     journal_already_present_count = 0
+    journal_skip_inserted_count = 0
+    journal_skip_already_present_count = 0
     journal_error_count = 0
+    skipped_slot_count = 0
     acquisition_durations: list[float] = []
     journal_write_durations: list[float] = []
     end_to_end_durations: list[float] = []
@@ -1277,6 +1360,9 @@ def main() -> int:
             summary_csv_path.open(
                 "a", newline="", encoding="utf-8"
             ) as summary_csv_file,
+            skipped_slot_path.open(
+                "a", encoding="utf-8"
+            ) as skipped_slot_file,
             error_path.open("a", encoding="utf-8") as error_file,
         ):
             quote_writer = csv.DictWriter(
@@ -1316,7 +1402,6 @@ def main() -> int:
 
                 if poll_kind is not None:
                     assert poll_window is not None
-                    assert snapshot is not None
 
                     slot = next_poll_slot(
                         poll_kind,
@@ -1340,14 +1425,116 @@ def main() -> int:
                         print("Reached the end of the polling window.")
                         break
 
-                    if not slot_guard.claim(slot):
-                        continue
+                    if hierarchy_polling:
+                        assert journal_session is not None
+                        try:
+                            resolved_request = (
+                                resolve_provider_poll_slot(
+                                    slot,
+                                    journal_session,
+                                    dispatched_at=dispatched_at,
+                                )
+                            )
+                        except MembershipUnavailableError as exc:
+                            message = (
+                                f"{dispatched_at.isoformat()} "
+                                f"slot={slot.slot_id} "
+                                f"{type(exc).__name__}: {exc}\n"
+                            )
+                            error_file.write(message)
+                            force_flush(error_file)
+                            journal_error_count += 1
+                            print(f"Hierarchy membership ERROR: {exc}")
+                            print("Stopping without dispatching the slot.")
+                            break
 
-                    poll_request = capture_poll_request(
-                        slot,
-                        snapshot,
-                        dispatched_at=dispatched_at,
-                    )
+                        if not slot_guard.claim(slot):
+                            continue
+                        if isinstance(resolved_request, SkippedPollSlot):
+                            skipped_slot_file.write(
+                                json.dumps(
+                                    {
+                                        "record_type": "skipped_poll_slot",
+                                        "reason": resolved_request.reason,
+                                        "slot_id": resolved_request.slot_id,
+                                        "watchlist_kind": poll_kind.value,
+                                        "watchlist_revision": (
+                                            resolved_request.watchlist_revision
+                                        ),
+                                        "scheduled_at_et": (
+                                            slot.scheduled_at.isoformat()
+                                        ),
+                                        "membership_effective_at_et": (
+                                            resolved_request
+                                            .membership_effective_at
+                                            .astimezone(ET)
+                                            .isoformat()
+                                        ),
+                                        "observed_at_et": (
+                                            resolved_request.observed_at
+                                            .astimezone(ET)
+                                            .isoformat()
+                                        ),
+                                    },
+                                    sort_keys=True,
+                                )
+                                + "\n"
+                            )
+                            force_flush(skipped_slot_file)
+                            journal_started_monotonic = (
+                                time_module.monotonic()
+                            )
+                            try:
+                                skip_result = (
+                                    journal_session.record_skipped_slot(
+                                        resolved_request
+                                    )
+                                )
+                            except Exception as exc:
+                                message = (
+                                    f"{datetime.now(ET).isoformat()} "
+                                    f"slot={slot.slot_id} "
+                                    f"JournalWriteError: Daily journal "
+                                    f"skip write failed: {exc}\n"
+                                )
+                                error_file.write(message)
+                                force_flush(error_file)
+                                journal_error_count += 1
+                                print(
+                                    "Daily journal skip write ERROR: "
+                                    f"{exc}"
+                                )
+                                print("Stopping after daily journal failure.")
+                                break
+                            finally:
+                                journal_write_durations.append(
+                                    round(
+                                        time_module.monotonic()
+                                        - journal_started_monotonic,
+                                        6,
+                                    )
+                                )
+                            if skip_result == RecordResult.INSERTED:
+                                journal_skip_inserted_count += 1
+                            else:
+                                journal_skip_already_present_count += 1
+                            skipped_slot_count += 1
+                            print(
+                                f"Skipped {slot.slot_id}: "
+                                f"{poll_kind.value} membership is empty "
+                                f"under r{resolved_request.watchlist_revision}."
+                            )
+                            continue
+                        poll_request = resolved_request
+                    else:
+                        assert snapshot is not None
+                        if not slot_guard.claim(slot):
+                            continue
+                        poll_request = capture_poll_request(
+                            slot,
+                            snapshot,
+                            dispatched_at=dispatched_at,
+                        )
 
                 sample_number += 1
                 sample_started_at = (
@@ -1356,11 +1543,16 @@ def main() -> int:
                     else datetime.now(ET)
                 )
                 started_monotonic = time_module.monotonic()
+                request_symbols = (
+                    poll_request.symbols
+                    if poll_request is not None
+                    else symbols
+                )
 
                 try:
                     result = fetch_quotes_batched(
                         client,
-                        symbols,
+                        request_symbols,
                         fields=args.fields,
                         batch_size=args.batch_size,
                     )
@@ -1437,7 +1629,7 @@ def main() -> int:
                         sample_number=sample_number,
                         sample_started_at=sample_started_at,
                         sample_completed_at=sample_completed_at,
-                        input_symbol_count=len(symbols),
+                        input_symbol_count=len(request_symbols),
                         result=result,
                         change_metrics=change_metrics,
                         poll_request=poll_request,
@@ -1520,7 +1712,12 @@ def main() -> int:
         manifest["journal_acquisitions_already_present"] = (
             journal_already_present_count
         )
+        manifest["journal_skips_inserted"] = journal_skip_inserted_count
+        manifest["journal_skips_already_present"] = (
+            journal_skip_already_present_count
+        )
         manifest["journal_errors"] = journal_error_count
+        manifest["skipped_empty_membership_slots"] = skipped_slot_count
         manifest["acquisition_timing_seconds"] = duration_summary(
             acquisition_durations
         )
@@ -1538,9 +1735,13 @@ def main() -> int:
         print(f"Completed         : {completed_at:%Y-%m-%d %H:%M:%S %Z}")
         print(f"Samples attempted : {sample_number}")
         print(f"Samples completed : {completed_count}")
+        if skipped_slot_count:
+            print(f"Slots skipped     : {skipped_slot_count}")
         print(f"Acquisitions      : {acquisition_path}")
         print(f"Quote CSV         : {quote_csv_path}")
         print(f"Summary CSV       : {summary_csv_path}")
+        if skipped_slot_count:
+            print(f"Skipped slots     : {skipped_slot_path}")
         print(f"Errors            : {error_path}")
         print(f"Manifest          : {manifest_path}")
         if journal_path is not None:
@@ -1551,6 +1752,12 @@ def main() -> int:
                 f"{journal_already_present_count} already present, "
                 f"{journal_error_count} errors"
             )
+            if skipped_slot_count:
+                print(
+                    "Journal skips     : "
+                    f"{journal_skip_inserted_count} inserted, "
+                    f"{journal_skip_already_present_count} already present"
+                )
 
     return 1 if journal_error_count else 0
 

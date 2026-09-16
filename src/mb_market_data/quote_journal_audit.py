@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from mb_market_data.quote_observation_store import SCHEMA_VERSION
+from mb_market_data.quote_observation_store import (
+    HIERARCHY_SCHEMA_VERSION,
+    SUPPORTED_STORE_SCHEMA_VERSIONS,
+    QuoteObservationStore,
+    QuoteObservationStoreError,
+)
+from mb_market_data.sampling_membership import SAMPLING_HIERARCHY_CONTRACT
 
 
 UTC = timezone.utc
@@ -44,6 +51,7 @@ class ChannelAudit:
     revision_count: int
     member_rows: int
     acquisition_count: int
+    skipped_slot_count: int
     observation_count: int
     requested_symbol_count: int
     status_counts: Mapping[str, int]
@@ -59,6 +67,7 @@ class QuoteJournalAudit:
     database_path: Path
     session_date: str
     schema_version: int
+    membership_contract: str
     integrity_results: tuple[str, ...]
     table_counts: Mapping[str, int]
     runs: tuple[RunAudit, ...]
@@ -86,6 +95,17 @@ def _utc_text(value: datetime) -> str:
         .isoformat(timespec="microseconds")
         .replace("+00:00", "Z")
     )
+
+
+def _fingerprint(value: Any) -> str:
+    payload = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _expected_slots(
@@ -188,14 +208,39 @@ def audit_quote_journal(
         if identity is None:
             raise ValueError("Journal has no store_identity row")
         session_date = identity["session_date"]
+        membership_contract = "legacy-independent-channels"
+        if schema_version == HIERARCHY_SCHEMA_VERSION:
+            contract_row = connection.execute(
+                "SELECT membership_contract FROM store_identity "
+                "WHERE singleton = 1"
+            ).fetchone()
+            membership_contract = (
+                contract_row["membership_contract"]
+                if contract_row is not None
+                else "missing"
+            )
 
-        table_names = (
+        table_names = [
             "poll_run",
             "sampling_channel_revision",
             "sampling_channel_member",
             "quote_acquisition",
             "quote_observation",
+        ]
+        skip_table_exists = (
+            connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                "AND name = 'poll_slot_skip'"
+            ).fetchone()
+            is not None
         )
+        if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+            "AND name = 'sampling_membership_revision'"
+        ).fetchone():
+            table_names.insert(1, "sampling_membership_revision")
+        if skip_table_exists:
+            table_names.insert(-2, "poll_slot_skip")
         table_counts = {
             table: connection.execute(
                 f"SELECT COUNT(*) FROM {table}"
@@ -232,12 +277,16 @@ def audit_quote_journal(
         channels = tuple(
             row[0]
             for row in connection.execute(
-                """
-                SELECT channel FROM sampling_channel_revision
-                UNION
-                SELECT channel FROM quote_acquisition
-                ORDER BY channel
-                """
+                (
+                    "SELECT channel FROM sampling_channel_revision "
+                    "UNION SELECT channel FROM quote_acquisition "
+                    + (
+                        "UNION SELECT channel FROM poll_slot_skip "
+                        if skip_table_exists
+                        else ""
+                    )
+                    + "ORDER BY channel"
+                )
             )
         )
         channel_audits: list[ChannelAudit] = []
@@ -250,12 +299,12 @@ def audit_quote_journal(
                     "; ".join(integrity_results),
                 )
             )
-        if schema_version != SCHEMA_VERSION:
+        if schema_version not in SUPPORTED_STORE_SCHEMA_VERSIONS:
             findings.append(
                 AuditFinding(
                     "schema_version",
-                    f"PRAGMA user_version is {schema_version}; expected "
-                    f"{SCHEMA_VERSION}",
+                    f"PRAGMA user_version is {schema_version}; supported "
+                    f"versions are {sorted(SUPPORTED_STORE_SCHEMA_VERSIONS)}",
                 )
             )
         if identity["schema_version"] != schema_version:
@@ -264,6 +313,28 @@ def audit_quote_journal(
                     "schema_identity",
                     "store_identity schema_version differs from "
                     "PRAGMA user_version",
+                )
+            )
+        if (
+            schema_version == HIERARCHY_SCHEMA_VERSION
+            and membership_contract != SAMPLING_HIERARCHY_CONTRACT
+        ):
+            findings.append(
+                AuditFinding(
+                    "membership_contract",
+                    "store_identity membership contract is "
+                    f"{membership_contract!r}; expected "
+                    f"{SAMPLING_HIERARCHY_CONTRACT!r}",
+                )
+            )
+        if (
+            schema_version == HIERARCHY_SCHEMA_VERSION
+            and not skip_table_exists
+        ):
+            findings.append(
+                AuditFinding(
+                    "poll_slot_skip_table",
+                    "schema-v2 journal has no durable skipped-slot table",
                 )
             )
         foreign_key_violations = connection.execute(
@@ -301,6 +372,96 @@ def audit_quote_journal(
                 )
             )
 
+        if schema_version == HIERARCHY_SCHEMA_VERSION:
+            hierarchy_rows = connection.execute(
+                """
+                SELECT revision, effective_at_utc
+                FROM sampling_membership_revision
+                WHERE session_date = ?
+                ORDER BY revision
+                """,
+                (session_date,),
+            ).fetchall()
+            if not hierarchy_rows:
+                findings.append(
+                    AuditFinding(
+                        "hierarchy_missing",
+                        "schema-v2 journal has no membership revision",
+                    )
+                )
+            revision_numbers = tuple(row["revision"] for row in hierarchy_rows)
+            expected_revisions = tuple(range(len(hierarchy_rows)))
+            if revision_numbers != expected_revisions:
+                findings.append(
+                    AuditFinding(
+                        "hierarchy_revision_sequence",
+                        f"found revisions {revision_numbers}; expected "
+                        f"{expected_revisions}",
+                    )
+                )
+            effective_times = tuple(
+                row["effective_at_utc"] for row in hierarchy_rows
+            )
+            if effective_times != tuple(sorted(effective_times)):
+                findings.append(
+                    AuditFinding(
+                        "hierarchy_effective_order",
+                        "hierarchy effective times are not monotonic",
+                    )
+                )
+
+            expected_channels = {"uni", "focus", "hot"}
+            for row in hierarchy_rows:
+                channel_rows = connection.execute(
+                    """
+                    SELECT channel, effective_at_utc
+                    FROM sampling_channel_revision
+                    WHERE session_date = ? AND revision = ?
+                    """,
+                    (session_date, row["revision"]),
+                ).fetchall()
+                actual_channels = {
+                    item["channel"] for item in channel_rows
+                }
+                if (
+                    actual_channels != expected_channels
+                    or len(channel_rows) != len(expected_channels)
+                ):
+                    findings.append(
+                        AuditFinding(
+                            "hierarchy_bundle_channels",
+                            f"r{row['revision']} contains channels "
+                            f"{tuple(sorted(actual_channels))}; expected "
+                            "('focus', 'hot', 'uni')",
+                        )
+                    )
+                if any(
+                    item["effective_at_utc"] != row["effective_at_utc"]
+                    for item in channel_rows
+                ):
+                    findings.append(
+                        AuditFinding(
+                            "hierarchy_bundle_effective_time",
+                            f"r{row['revision']} channel effective times "
+                            "differ from the hierarchy header",
+                        )
+                    )
+
+            try:
+                hierarchy_store = QuoteObservationStore(
+                    path,
+                    session_date=date.fromisoformat(session_date),
+                    schema_version=HIERARCHY_SCHEMA_VERSION,
+                )
+                hierarchy_store.membership_revisions_in_effective_order()
+            except (QuoteObservationStoreError, TypeError, ValueError) as exc:
+                findings.append(
+                    AuditFinding(
+                        "hierarchy_content",
+                        f"{type(exc).__name__}: {exc}",
+                    )
+                )
+
         configurations = tuple(run.configuration for run in runs)
         for channel in channels:
             revision_count = connection.execute(
@@ -328,6 +489,103 @@ def audit_quote_journal(
                 """,
                 (channel,),
             ).fetchall()
+            skip_rows = (
+                connection.execute(
+                    """
+                    SELECT *
+                    FROM poll_slot_skip
+                    WHERE channel = ?
+                    ORDER BY scheduled_at_utc, slot_id
+                    """,
+                    (channel,),
+                ).fetchall()
+                if skip_table_exists
+                else []
+            )
+            for skipped in skip_rows:
+                header = (
+                    skipped["slot_id"],
+                    skipped["run_id"],
+                    skipped["channel"],
+                    skipped["channel_revision"],
+                    skipped["session_date"],
+                    skipped["scheduled_at_utc"],
+                    skipped["membership_effective_at_utc"],
+                    skipped["observed_at_utc"],
+                    skipped["reason"],
+                )
+                if skipped["content_sha256"] != _fingerprint(header):
+                    findings.append(
+                        AuditFinding(
+                            "skip_content_hash",
+                            f"{skipped['slot_id']} content hash differs "
+                            "from its stored values",
+                        )
+                    )
+
+                bound_revision = connection.execute(
+                    """
+                    SELECT effective_at_utc, symbol_count
+                    FROM sampling_channel_revision
+                    WHERE channel = ? AND session_date = ?
+                      AND revision = ?
+                    """,
+                    (
+                        channel,
+                        skipped["session_date"],
+                        skipped["channel_revision"],
+                    ),
+                ).fetchone()
+                latest_revision = connection.execute(
+                    """
+                    SELECT revision
+                    FROM sampling_membership_revision
+                    WHERE session_date = ? AND effective_at_utc <= ?
+                    ORDER BY effective_at_utc DESC, revision DESC
+                    LIMIT 1
+                    """,
+                    (
+                        skipped["session_date"],
+                        skipped["scheduled_at_utc"],
+                    ),
+                ).fetchone()
+                if (
+                    bound_revision is None
+                    or bound_revision["effective_at_utc"]
+                    != skipped["membership_effective_at_utc"]
+                    or latest_revision is None
+                    or latest_revision["revision"]
+                    != skipped["channel_revision"]
+                ):
+                    findings.append(
+                        AuditFinding(
+                            "skip_revision_binding",
+                            f"{skipped['slot_id']} is not bound to the "
+                            "latest hierarchy revision effective at its slot",
+                        )
+                    )
+                if (
+                    bound_revision is not None
+                    and bound_revision["symbol_count"] != 0
+                ):
+                    findings.append(
+                        AuditFinding(
+                            "skip_nonempty_membership",
+                            f"{skipped['slot_id']} skips a nonempty "
+                            f"{channel} membership",
+                        )
+                    )
+                if connection.execute(
+                    "SELECT 1 FROM quote_acquisition WHERE slot_id = ?",
+                    (skipped["slot_id"],),
+                ).fetchone():
+                    findings.append(
+                        AuditFinding(
+                            "slot_outcome_conflict",
+                            f"{skipped['slot_id']} has both an acquisition "
+                            "and a skipped-slot record",
+                        )
+                    )
             mismatch_ids = tuple(
                 row["acquisition_id"]
                 for row in acquisition_rows
@@ -341,6 +599,100 @@ def audit_quote_journal(
                         "requested symbol",
                     )
                 )
+
+            if schema_version == HIERARCHY_SCHEMA_VERSION:
+                binding_rows = connection.execute(
+                    """
+                    SELECT acquisition.acquisition_id,
+                           acquisition.channel_revision,
+                           acquisition.scheduled_at_utc,
+                           revision.effective_at_utc
+                    FROM quote_acquisition AS acquisition
+                    LEFT JOIN sampling_channel_revision AS revision
+                      ON revision.channel = acquisition.channel
+                     AND revision.session_date = acquisition.session_date
+                     AND revision.revision = acquisition.channel_revision
+                    WHERE acquisition.channel = ?
+                    ORDER BY acquisition.scheduled_at_utc,
+                             acquisition.acquisition_id
+                    """,
+                    (channel,),
+                ).fetchall()
+                for binding in binding_rows:
+                    if (
+                        binding["effective_at_utc"] is not None
+                        and binding["effective_at_utc"]
+                        > binding["scheduled_at_utc"]
+                    ):
+                        findings.append(
+                            AuditFinding(
+                                "acquisition_revision_effective_time",
+                                f"{binding['acquisition_id']} uses "
+                                f"{channel} r{binding['channel_revision']} "
+                                "before that revision is effective",
+                            )
+                        )
+                    latest_revision = connection.execute(
+                        """
+                        SELECT revision
+                        FROM sampling_membership_revision
+                        WHERE session_date = ? AND effective_at_utc <= ?
+                        ORDER BY effective_at_utc DESC, revision DESC
+                        LIMIT 1
+                        """,
+                        (session_date, binding["scheduled_at_utc"]),
+                    ).fetchone()
+                    if (
+                        latest_revision is None
+                        or latest_revision["revision"]
+                        != binding["channel_revision"]
+                    ):
+                        findings.append(
+                            AuditFinding(
+                                "acquisition_latest_revision",
+                                f"{binding['acquisition_id']} does not use "
+                                "the latest hierarchy revision effective "
+                                "at its scheduled slot",
+                            )
+                        )
+                    observed_symbols = tuple(
+                        row["symbol"]
+                        for row in connection.execute(
+                            """
+                            SELECT symbol
+                            FROM quote_observation
+                            WHERE acquisition_id = ?
+                            ORDER BY ordinal
+                            """,
+                            (binding["acquisition_id"],),
+                        )
+                    )
+                    revision_symbols = tuple(
+                        row["symbol"]
+                        for row in connection.execute(
+                            """
+                            SELECT symbol
+                            FROM sampling_channel_member
+                            WHERE channel = ? AND session_date = ?
+                              AND revision = ?
+                            ORDER BY ordinal
+                            """,
+                            (
+                                channel,
+                                session_date,
+                                binding["channel_revision"],
+                            ),
+                        )
+                    )
+                    if observed_symbols != revision_symbols:
+                        findings.append(
+                            AuditFinding(
+                                "acquisition_revision_binding",
+                                f"{binding['acquisition_id']} symbols do "
+                                f"not match {channel} "
+                                f"r{binding['channel_revision']}",
+                            )
+                        )
 
             status_counts = Counter(
                 {
@@ -362,6 +714,9 @@ def audit_quote_journal(
             recorded_slots = {
                 row["scheduled_at_utc"] for row in acquisition_rows
             }
+            recorded_slots.update(
+                row["scheduled_at_utc"] for row in skip_rows
+            )
             expected_slots = _expected_slots(
                 channel,
                 configurations,
@@ -379,7 +734,8 @@ def audit_quote_journal(
                     AuditFinding(
                         "missing_poll_slots",
                         f"{channel}: {len(missing_slot_ids)} configured "
-                        "slots have no acquisition",
+                        "slots have neither an acquisition nor an "
+                        "empty-membership skip",
                     )
                 )
 
@@ -389,6 +745,7 @@ def audit_quote_journal(
                     revision_count=revision_count,
                     member_rows=member_rows,
                     acquisition_count=len(acquisition_rows),
+                    skipped_slot_count=len(skip_rows),
                     observation_count=sum(status_counts.values()),
                     requested_symbol_count=sum(
                         row["requested_symbol_count"]
@@ -407,6 +764,7 @@ def audit_quote_journal(
         database_path=path,
         session_date=session_date,
         schema_version=schema_version,
+        membership_contract=membership_contract,
         integrity_results=integrity_results,
         table_counts=table_counts,
         runs=runs,

@@ -145,7 +145,8 @@ Evidence includes 15 focused dashboard tests, 143 full tests, and manual demonst
 
 ### CP-2 — Dynamic, atomic membership changes
 
-**Status: Pending.**
+**Status: In progress; contract, persistence, replay, audit, and synthetic
+poller handoff implemented. Live-like concurrent validation remains pending.**
 
 Allow membership to change while polling and dashboard processes are running. The implementation must preserve **Hot ⊆ Focus ⊆ Uni**, never expose partial updates, and bind each acquisition to one unambiguous membership revision.
 
@@ -159,7 +160,7 @@ Completion requires:
 - durable journal evidence sufficient for exact replay;
 - concurrency, restart, and failure-injection tests.
 
-The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). It selects complete hierarchy snapshots, one global per-session revision, pre-commit nesting validation, atomic SQLite publication, schema-v1 compatibility, and a single bundled replay event for future hierarchy-governed journals. Implementation remains pending.
+The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). Implemented work now includes the pure hierarchy contract, opt-in schema-v2 atomic persistence, schema-aware bundled replay, atomic projection, v2 audit checks, separated poller registration, slot-time membership resolution, fail-closed missing-membership behavior, durable empty-channel skips, and a controlled JSON publisher. The coordinator publication adapter and a recorded concurrent r0-to-r1 live-like transition remain pending.
 
 ### CP-3 — Deterministic daily universe selector
 
@@ -183,7 +184,7 @@ The selector may first produce a startup-stable Uni snapshot; it does not need t
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
-1. **Implement Slice A of the atomic-membership plan.** Begin with the pure `SamplingHierarchyRevision` contract and tests, then add schema-v2 atomic persistence, bundled replay, projector, and audit support.
+1. **Complete live-like validation of Slice B of the atomic-membership plan.** Run concurrent schema-v2 Uni and Focus pollers through a controlled r0-to-r1 transition, including one old-revision acquisition that completes after r1 becomes effective. Audit and replay the result exactly.
 2. **Implement the deterministic daily universe-selector MVP.** Separate retrieval, conversion, filtering, output, and optional submission. Record input-date/session provenance and filter counts.
 3. **Use September 11, September 14, and September 15 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
 4. **Validate dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
@@ -302,6 +303,9 @@ A previously deferred capability may move forward only when its prerequisite has
 | 2026-09-15 | Timestamp representation | All revision and acquisition timestamps were non-null fixed-width UTC text with microsecond precision; `completed_at_utc` matches replay acquisition event time. |
 | 2026-09-16 | Historical seek | Commit `f237c5f`; 15 focused and 143 full tests passed. Manual September 14/15 demonstrations confirmed exact whole-second boundaries, pre-acquisition state, between-acquisition state, noon seek, backward seek, and end-of-data totals. |
 | 2026-09-16 | Atomic membership design | Complete hierarchy snapshots, one global revision, atomic schema-v2 publication, bundled replay, schema-v1 compatibility, dynamic poller handoff, and staged acceptance gates recorded; implementation not started. |
+| 2026-09-16 | Atomic membership contract and persistence | Commits `dd84675` and `0a8f664`; pure normalized hierarchy contract and opt-in schema-v2 atomic persistence implemented with schema-v1 compatibility. |
+| 2026-09-16 | Atomic hierarchy replay | Commit `4667768`; v1/v2 schema detection, one bundled v2 membership event, atomic projector/dashboard behavior, and replay CLI support validated with 181 tests. |
+| 2026-09-16 | Dynamic poller handoff | Schema-v2 run registration separated from publication; slot-time membership provider, fail-closed lookup, durable empty-channel skips, controlled JSON publisher, and v2 audit checks implemented synthetically. Corrective review added latest-effective binding enforcement, journaled skip completeness, per-channel hash/provenance validation, publication-order enforcement, and concurrent atomic-read coverage. Full suite reached 211 tests before live-like process validation. |
 
 ### 8.4 Evidence standard
 
@@ -322,7 +326,7 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | --- | --- | --- |
 | D-001 | ToS is an output/execution adapter, not the primary market-data plane. | Active |
 | D-002 | Maintain independent API-based Uni and smaller Focus/Hot sets. | Active |
-| D-003 | Preserve **Hot ⊆ Focus ⊆ Uni** through complete, atomically published hierarchy revisions. Invalid nesting is rejected before commit. | Active; design approved, implementation pending |
+| D-003 | Preserve **Hot ⊆ Focus ⊆ Uni** through complete, atomically published hierarchy revisions. Invalid nesting is rejected before commit. | Active; implementation and synthetic validation complete, live-like acceptance pending |
 | D-004 | Use completed regular-session close and completed-day volume to build the next trading day's universe. | Active |
 | D-005 | Keep universe-selector v1 CLI/config driven; GUI is deferred. | Active |
 | D-006 | Producers express intent; the coordinator owns canonical state and publication. | Active |
@@ -386,3 +390,8 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Preserved completed schema-v1 journals without migration; future hierarchy journals use schema v2 and one bundled membership replay event.
 - Kept removal simple as omission from the next snapshot and deferred timed-removal categories.
 - Kept the coordinator's flat canonical Watchlist separate from the future sampling-hierarchy projection.
+- Implemented the pure hierarchy contract, schema-v2 atomic persistence, bundled replay, and atomic projection while preserving schema-v1 behavior.
+- Added schema-v2 audit labeling and checks for bundle completeness, nesting/content validity, sequential revisions, effective-time order, and exact acquisition binding.
+- Separated poller run registration from hierarchy publication. Pollers now resolve membership at scheduled slot time, fail closed if no revision is effective, and durably report empty-channel skips without issuing an empty Schwab request.
+- Added a controlled JSON hierarchy publisher for r0/r1 testing; coordinator-side publication integration and concurrent live-like transition evidence remain pending.
+- Corrective review closed stale acquisition binding, sidecar-only empty-slot evidence, unchecked per-channel provenance/hash, and publication-time regression gaps; added concurrent readers-versus-publication coverage.

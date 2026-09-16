@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from threading import Barrier
 from unittest.mock import patch
 
 from mb_market_data.quote_observation_store import (
@@ -33,6 +34,7 @@ from mb_market_data.schwab_quotes import (
 from mb_market_data.watchlist_polling import (
     PollRequest,
     PollSlot,
+    SkippedPollSlot,
     WatchlistKind,
 )
 
@@ -207,6 +209,53 @@ class TestQuoteObservationStore(unittest.TestCase):
         self.assertEqual(version, 1)
         self.assertEqual(journal_mode.casefold(), "wal")
         self.assertEqual(stored_date, SESSION_DATE.isoformat())
+
+    def test_wal_initialization_retries_a_transient_lock(self) -> None:
+        class LockOnceConnection:
+            attempts = 0
+
+            def execute(self, statement: str) -> None:
+                self.assert_wal_statement(statement)
+                self.attempts += 1
+                if self.attempts == 1:
+                    raise sqlite3.OperationalError("database is locked")
+
+            @staticmethod
+            def assert_wal_statement(statement: str) -> None:
+                if statement != "PRAGMA journal_mode = WAL":
+                    raise AssertionError(statement)
+
+        connection = LockOnceConnection()
+        with patch(
+            "mb_market_data.quote_observation_store.time.sleep"
+        ) as sleep:
+            self.store._enable_wal(connection)  # type: ignore[arg-type]
+
+        self.assertEqual(connection.attempts, 2)
+        sleep.assert_called_once()
+
+    def test_wal_initialization_does_not_retry_other_errors(self) -> None:
+        class BrokenConnection:
+            attempts = 0
+
+            def execute(self, statement: str) -> None:
+                self.attempts += 1
+                raise sqlite3.OperationalError("disk I/O error")
+
+        connection = BrokenConnection()
+        with patch(
+            "mb_market_data.quote_observation_store.time.sleep"
+        ) as sleep:
+            with self.assertRaisesRegex(
+                sqlite3.OperationalError,
+                "disk I/O error",
+            ):
+                self.store._enable_wal(  # type: ignore[arg-type]
+                    connection
+                )
+
+        self.assertEqual(connection.attempts, 1)
+        sleep.assert_not_called()
 
     def test_existing_database_rejects_another_session(self) -> None:
         wrong_store = QuoteObservationStore(
@@ -593,6 +642,7 @@ class TestHierarchyQuoteObservationStore(unittest.TestCase):
         self.assertEqual(version, HIERARCHY_SCHEMA_VERSION)
         self.assertEqual(identity, (2, "nested-uni-focus-hot-v1"))
         self.assertIn("sampling_membership_revision", tables)
+        self.assertIn("poll_slot_skip", tables)
 
     def test_default_v1_creation_remains_unchanged(self) -> None:
         legacy_path = Path(self.temporary_directory.name) / "legacy.sqlite3"
@@ -609,9 +659,14 @@ class TestHierarchyQuoteObservationStore(unittest.TestCase):
                 "WHERE type = 'table' "
                 "AND name = 'sampling_membership_revision'"
             ).fetchone()
+            skip_table = connection.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'poll_slot_skip'"
+            ).fetchone()
 
         self.assertEqual(version, 1)
         self.assertIsNone(hierarchy_table)
+        self.assertIsNone(skip_table)
 
     def test_refuses_cross_version_open_instead_of_migrating(self) -> None:
         legacy_path = Path(self.temporary_directory.name) / "legacy.sqlite3"
@@ -749,6 +804,34 @@ class TestHierarchyQuoteObservationStore(unittest.TestCase):
                 publication_time=late_publication,
             )
 
+    def test_rejects_publication_time_regression_assigned_by_store(
+        self,
+    ) -> None:
+        self.record(make_hierarchy_revision())
+
+        with self.assertRaisesRegex(
+            MembershipRevisionError,
+            "published_at",
+        ):
+            self.record(
+                make_hierarchy_revision(
+                    revision=1,
+                    effective_at=datetime(
+                        2026,
+                        9,
+                        9,
+                        14,
+                        32,
+                        tzinfo=UTC,
+                    ),
+                    focus_symbols=("AAPL",),
+                    hot_symbols=(),
+                    reason="membership change",
+                ),
+                publication_time=self.publication_time
+                - timedelta(microseconds=1),
+            )
+
     def test_direct_channel_publication_is_rejected_on_v2(self) -> None:
         with self.assertRaisesRegex(
             UnsupportedSchemaVersionError,
@@ -799,6 +882,71 @@ class TestHierarchyQuoteObservationStore(unittest.TestCase):
             )
         self.assertEqual(counts, (0, 0, 0))
 
+    def test_concurrent_readers_never_observe_partial_publication(
+        self,
+    ) -> None:
+        self.record(make_hierarchy_revision())
+        uni = tuple(f"S{number:04d}" for number in range(1_000))
+        focus = uni[:500]
+        hot = uni[:100]
+        second = make_hierarchy_revision(
+            revision=1,
+            effective_at=datetime(
+                2026,
+                9,
+                9,
+                14,
+                32,
+                tzinfo=UTC,
+            ),
+            uni_symbols=uni,
+            focus_symbols=focus,
+            hot_symbols=hot,
+            reason="large atomic transition",
+        )
+        barrier = Barrier(7)
+
+        def publish() -> RecordResult:
+            barrier.wait()
+            return self.record(
+                second,
+                publication_time=self.publication_time
+                + timedelta(seconds=1),
+            )
+
+        def read_repeatedly() -> set[tuple[int, ...]]:
+            barrier.wait()
+            observed: set[tuple[int, ...]] = set()
+            for _ in range(50):
+                revisions = (
+                    self.store.membership_revisions_in_effective_order()
+                )
+                signature = tuple(item.revision for item in revisions)
+                self.assertIn(signature, {(0,), (0, 1)})
+                if signature == (0, 1):
+                    self.assertEqual(len(revisions[1].uni_symbols), 1_000)
+                    self.assertEqual(len(revisions[1].focus_symbols), 500)
+                    self.assertEqual(len(revisions[1].hot_symbols), 100)
+                observed.add(signature)
+            return observed
+
+        with ThreadPoolExecutor(max_workers=7) as executor:
+            writer = executor.submit(publish)
+            readers = tuple(
+                executor.submit(read_repeatedly) for _ in range(6)
+            )
+            self.assertEqual(writer.result(), RecordResult.INSERTED)
+            observed = set().union(*(reader.result() for reader in readers))
+
+        self.assertTrue(observed <= {(0,), (0, 1)})
+        self.assertEqual(
+            tuple(
+                item.revision
+                for item in self.store.membership_revisions_in_effective_order()
+            ),
+            (0, 1),
+        )
+
     def test_old_in_flight_acquisition_keeps_v2_revision_binding(self) -> None:
         request = make_request(revision=0, symbols=("AAPL", "NVDA"))
         first = make_hierarchy_revision(
@@ -842,6 +990,157 @@ class TestHierarchyQuoteObservationStore(unittest.TestCase):
             1,
         )
 
+    def test_v2_acquisition_revision_must_be_effective_at_slot(self) -> None:
+        request = make_request(revision=0, symbols=("AAPL", "NVDA"))
+        revision = make_hierarchy_revision(
+            effective_at=(
+                request.slot.scheduled_at + timedelta(milliseconds=100)
+            ),
+            uni_symbols=request.symbols,
+            focus_symbols=(),
+            hot_symbols=(),
+        )
+        self.record(revision)
+        run = PollRunProvenance(
+            run_id="v2-slot-boundary-run",
+            started_at=request.slot.scheduled_at - timedelta(minutes=1),
+            software_version="test",
+            configuration={"schema_version": 2},
+        )
+        self.store.record_run(run)
+
+        with self.assertRaisesRegex(
+            DuplicateRecordError,
+            "scheduled slot",
+        ):
+            self.store.record_acquisition(
+                run.run_id,
+                request,
+                make_result(request),
+                completed_at=request.dispatched_at + timedelta(seconds=1),
+            )
+
+    def test_v2_acquisition_must_use_latest_effective_revision(self) -> None:
+        request = make_request(revision=0, symbols=("AAPL", "NVDA"))
+        self.record(
+            make_hierarchy_revision(
+                uni_symbols=request.symbols,
+                focus_symbols=("AAPL",),
+                hot_symbols=(),
+            )
+        )
+        self.record(
+            make_hierarchy_revision(
+                revision=1,
+                effective_at=request.slot.scheduled_at
+                - timedelta(seconds=1),
+                uni_symbols=request.symbols,
+                focus_symbols=(),
+                hot_symbols=(),
+                reason="empty focus",
+            )
+        )
+        run = PollRunProvenance(
+            run_id="v2-stale-binding-run",
+            started_at=request.slot.scheduled_at - timedelta(minutes=1),
+            software_version="test",
+            configuration={"schema_version": 2},
+        )
+        self.store.record_run(run)
+
+        with self.assertRaisesRegex(
+            DuplicateRecordError,
+            "latest hierarchy revision",
+        ):
+            self.store.record_acquisition(
+                run.run_id,
+                request,
+                make_result(request),
+                completed_at=request.dispatched_at + timedelta(seconds=1),
+            )
+
+    def test_records_idempotent_empty_membership_skip(self) -> None:
+        self.record(
+            make_hierarchy_revision(
+                focus_symbols=(),
+                hot_symbols=(),
+            )
+        )
+        run = PollRunProvenance(
+            run_id="v2-empty-focus-run",
+            started_at=datetime(2026, 9, 9, 14, 29, tzinfo=UTC),
+            software_version="test",
+            configuration={"watchlist_kind": "focus"},
+        )
+        self.store.record_run(run)
+        slot = PollSlot(
+            WatchlistKind.FOCUS,
+            datetime(2026, 9, 9, 14, 31, 5, tzinfo=UTC),
+        )
+        skipped = SkippedPollSlot(
+            slot=slot,
+            watchlist_revision=0,
+            membership_effective_at=datetime(
+                2026,
+                9,
+                9,
+                14,
+                30,
+                tzinfo=UTC,
+            ),
+            observed_at=slot.scheduled_at + timedelta(milliseconds=2),
+        )
+
+        self.assertEqual(
+            self.store.record_skipped_slot(run.run_id, skipped),
+            RecordResult.INSERTED,
+        )
+        self.assertEqual(
+            self.store.record_skipped_slot(run.run_id, skipped),
+            RecordResult.ALREADY_PRESENT,
+        )
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            row = connection.execute(
+                "SELECT channel, channel_revision, reason "
+                "FROM poll_slot_skip"
+            ).fetchone()
+        self.assertEqual(row, ("focus", 0, "empty_membership"))
+
+    def test_rejects_skip_for_nonempty_membership(self) -> None:
+        self.record(make_hierarchy_revision())
+        run = PollRunProvenance(
+            run_id="v2-nonempty-focus-run",
+            started_at=datetime(2026, 9, 9, 14, 29, tzinfo=UTC),
+            software_version="test",
+            configuration={"watchlist_kind": "focus"},
+        )
+        self.store.record_run(run)
+        slot = PollSlot(
+            WatchlistKind.FOCUS,
+            datetime(2026, 9, 9, 14, 31, 5, tzinfo=UTC),
+        )
+
+        with self.assertRaisesRegex(
+            DuplicateRecordError,
+            "membership is nonempty",
+        ):
+            self.store.record_skipped_slot(
+                run.run_id,
+                SkippedPollSlot(
+                    slot=slot,
+                    watchlist_revision=0,
+                    membership_effective_at=datetime(
+                        2026,
+                        9,
+                        9,
+                        14,
+                        30,
+                        tzinfo=UTC,
+                    ),
+                    observed_at=slot.scheduled_at,
+                ),
+            )
+
     def test_loader_detects_incomplete_hierarchy_bundle(self) -> None:
         self.record(make_hierarchy_revision())
         with closing(sqlite3.connect(self.database_path)) as connection:
@@ -855,6 +1154,21 @@ class TestHierarchyQuoteObservationStore(unittest.TestCase):
         with self.assertRaisesRegex(
             QuoteObservationStoreError,
             "does not contain exactly",
+        ):
+            self.store.membership_revisions_in_effective_order()
+
+    def test_loader_detects_corrupted_channel_header_and_hash(self) -> None:
+        self.record(make_hierarchy_revision())
+        with closing(sqlite3.connect(self.database_path)) as connection:
+            connection.execute(
+                "UPDATE sampling_channel_revision "
+                "SET source = 'corrupted' WHERE channel = 'focus'"
+            )
+            connection.commit()
+
+        with self.assertRaisesRegex(
+            QuoteObservationStoreError,
+            "channel header differs",
         ):
             self.store.membership_revisions_in_effective_order()
 

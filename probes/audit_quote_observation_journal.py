@@ -62,6 +62,7 @@ def main() -> int:
     print(f"Database         : {report.database_path}")
     print(f"Session date     : {report.session_date}")
     print(f"Schema version   : {report.schema_version}")
+    print(f"Membership       : {report.membership_contract}")
     print(f"SQLite integrity : {', '.join(report.integrity_results)}")
     print()
     print("Table rows")
@@ -91,6 +92,7 @@ def main() -> int:
         print(
             f"    acquisitions={channel.acquisition_count:,}/"
             f"{channel.expected_slot_count:,} expected  "
+            f"skipped={channel.skipped_slot_count:,}  "
             f"missing={len(channel.missing_slot_ids):,}"
         )
         print(

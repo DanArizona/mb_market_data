@@ -6,12 +6,15 @@ from zoneinfo import ZoneInfo
 
 from mb_market_data.watchlist_polling import (
     POLL_SECONDS,
+    MembershipUnavailableError,
     PollSlot,
     PollSlotGuard,
     PollWindow,
+    SkippedPollSlot,
     WatchlistKind,
     WatchlistSnapshot,
     capture_poll_request,
+    resolve_provider_poll_slot,
     next_poll_slot,
     poll_slots_between,
 )
@@ -122,15 +125,16 @@ class TestWatchlistSnapshot(unittest.TestCase):
 
         self.assertEqual(snapshot.symbols, ("AAPL", "NVDA"))
 
-    def test_empty_membership_is_rejected(self) -> None:
-        with self.assertRaisesRegex(ValueError, "at least one"):
-            WatchlistSnapshot(
-                watchlist_kind=WatchlistKind.UNI,
-                session_date=date(2026, 9, 9),
-                revision=1,
-                effective_at=et(9, 0),
-                symbols=(),
-            )
+    def test_empty_membership_can_represent_an_optional_channel(self) -> None:
+        snapshot = WatchlistSnapshot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            session_date=date(2026, 9, 9),
+            revision=1,
+            effective_at=et(9, 0),
+            symbols=(),
+        )
+
+        self.assertEqual(snapshot.symbols, ())
 
     def test_capture_binds_slot_to_exact_revision(self) -> None:
         slot = PollSlot(
@@ -199,6 +203,111 @@ class TestWatchlistSnapshot(unittest.TestCase):
                 dispatched_at=et(10, 0, 1),
             )
 
+
+class FakeMembershipProvider:
+    def __init__(self, snapshot: WatchlistSnapshot | None) -> None:
+        self.snapshot = snapshot
+        self.lookups: list[tuple[WatchlistKind, datetime]] = []
+
+    def latest_effective_snapshot(
+        self,
+        watchlist_kind: WatchlistKind,
+        *,
+        at: datetime,
+    ) -> WatchlistSnapshot | None:
+        self.lookups.append((watchlist_kind, at))
+        return self.snapshot
+
+
+class TestMembershipProviderCapture(unittest.TestCase):
+    def test_resolves_membership_at_slot_time_not_delayed_dispatch(self) -> None:
+        slot = PollSlot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            scheduled_at=et(10, 0, 5),
+        )
+        snapshot = WatchlistSnapshot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            session_date=date(2026, 9, 9),
+            revision=7,
+            effective_at=et(9, 59),
+            symbols=("AAPL",),
+        )
+        provider = FakeMembershipProvider(snapshot)
+
+        request = resolve_provider_poll_slot(
+            slot,
+            provider,
+            dispatched_at=et(10, 0, 8),
+        )
+
+        self.assertIsNotNone(request)
+        assert request is not None
+        self.assertEqual(request.watchlist_revision, 7)
+        self.assertEqual(request.symbols, ("AAPL",))
+        self.assertEqual(
+            provider.lookups,
+            [(WatchlistKind.FOCUS, slot.scheduled_at)],
+        )
+
+    def test_missing_effective_revision_fails_closed(self) -> None:
+        slot = PollSlot(
+            watchlist_kind=WatchlistKind.UNI,
+            scheduled_at=et(10, 0),
+        )
+
+        with self.assertRaisesRegex(
+            MembershipUnavailableError,
+            slot.slot_id,
+        ):
+            resolve_provider_poll_slot(
+                slot,
+                FakeMembershipProvider(None),
+                dispatched_at=et(10, 0, 1),
+            )
+
+    def test_empty_channel_is_skipped_without_a_poll_request(self) -> None:
+        slot = PollSlot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            scheduled_at=et(10, 0, 5),
+        )
+        snapshot = WatchlistSnapshot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            session_date=date(2026, 9, 9),
+            revision=7,
+            effective_at=et(9, 59),
+            symbols=(),
+        )
+
+        request = resolve_provider_poll_slot(
+            slot,
+            FakeMembershipProvider(snapshot),
+            dispatched_at=et(10, 0, 6),
+        )
+
+        self.assertIsInstance(request, SkippedPollSlot)
+        assert isinstance(request, SkippedPollSlot)
+        self.assertEqual(request.watchlist_revision, 7)
+        self.assertEqual(request.reason, "empty_membership")
+
+    def test_provider_snapshot_must_be_effective_at_slot_time(self) -> None:
+        slot = PollSlot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            scheduled_at=et(10, 0, 5),
+        )
+        snapshot = WatchlistSnapshot(
+            watchlist_kind=WatchlistKind.FOCUS,
+            session_date=date(2026, 9, 9),
+            revision=8,
+            effective_at=et(10, 0, 6),
+            symbols=("AAPL",),
+        )
+
+        with self.assertRaisesRegex(ValueError, "effective at slot time"):
+            resolve_provider_poll_slot(
+                slot,
+                FakeMembershipProvider(snapshot),
+                dispatched_at=et(10, 0, 8),
+            )
 
 class TestPollSlotGuard(unittest.TestCase):
 

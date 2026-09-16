@@ -6,6 +6,14 @@
 
 **Applies to:** `mb_market_data` sampling membership and its future coordinator publication adapter
 
+**Implementation status (2026-09-16):** Slice A is implemented, including
+schema-v2 audit support. Slice B code paths are implemented through controlled
+publication, slot-time membership resolution, acquisition binding, fail-closed
+lookup, and durable empty-channel skip evidence. Store and audit enforcement
+also require the latest revision effective at each slot and validate
+per-channel provenance/content hashes. The concurrent live-like r0-to-r1
+acceptance run remains pending. Slice C remains pending.
+
 ## 1. Outcome
 
 Introduce live membership changes without ever exposing a partially updated sampling hierarchy. Each committed revision is one complete, immutable snapshot of:

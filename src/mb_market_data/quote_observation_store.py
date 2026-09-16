@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
@@ -34,7 +35,7 @@ from mb_market_data.schwab_quotes import (
     QuoteResult,
     normalize_symbols,
 )
-from mb_market_data.watchlist_polling import PollRequest
+from mb_market_data.watchlist_polling import PollRequest, SkippedPollSlot
 
 
 SCHEMA_VERSION = 1
@@ -379,13 +380,38 @@ class QuoteObservationStore:
         finally:
             connection.close()
 
+    def _enable_wal(self, connection: sqlite3.Connection) -> None:
+        """Enable WAL, retrying SQLite's transient initialization lock.
+
+        SQLite's configured busy timeout is not consistently honored by
+        ``PRAGMA journal_mode`` on Windows.  Two pollers opening a new daily
+        journal can therefore race here even though their later writes wait
+        normally.  Keep this retry limited to lock/busy errors and bounded by
+        the store's existing timeout.
+        """
+
+        deadline = time.monotonic() + (self.busy_timeout_ms / 1_000)
+        while True:
+            try:
+                connection.execute("PRAGMA journal_mode = WAL")
+                return
+            except sqlite3.OperationalError as error:
+                message = str(error).casefold()
+                if "locked" not in message and "busy" not in message:
+                    raise
+
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise
+                time.sleep(min(0.05, remaining))
+
     def initialize(self) -> None:
         """Create or validate one explicitly selected daily schema."""
 
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
 
         with self._connection() as connection:
-            connection.execute("PRAGMA journal_mode = WAL")
+            self._enable_wal(connection)
             current_version = connection.execute(
                 "PRAGMA user_version"
             ).fetchone()[0]
@@ -641,11 +667,10 @@ class QuoteObservationStore:
                 if current_row is not None
                 else None
             )
-            transition = assess_revision_candidate(current, revision)
+            committed = replace(revision, published_at=_utc_now())
+            transition = assess_revision_candidate(current, committed)
             if transition is RevisionTransition.ALREADY_PRESENT:
                 return RecordResult.ALREADY_PRESENT
-
-            committed = replace(revision, published_at=_utc_now())
             session_text = committed.session_date.isoformat()
             effective_text = _utc_text(
                 committed.effective_at,
@@ -738,6 +763,129 @@ class QuoteObservationStore:
 
         return RecordResult.INSERTED
 
+    def record_skipped_slot(
+        self,
+        run_id: str,
+        skipped: SkippedPollSlot,
+    ) -> RecordResult:
+        """Record one schema-v2 slot skipped for empty membership."""
+
+        self._require_schema_version(HIERARCHY_SCHEMA_VERSION)
+        _require_nonblank(run_id, "run_id")
+        if not isinstance(skipped, SkippedPollSlot):
+            raise TypeError("skipped must be a SkippedPollSlot")
+        self._require_session(skipped.slot.session_date)
+        if skipped.observed_at < skipped.slot.scheduled_at:
+            raise ValueError("observed_at cannot precede scheduled_at")
+
+        channel = skipped.slot.watchlist_kind.value
+        session_text = skipped.slot.session_date.isoformat()
+        header = (
+            skipped.slot_id,
+            run_id,
+            channel,
+            skipped.watchlist_revision,
+            session_text,
+            _utc_text(skipped.slot.scheduled_at, "scheduled_at"),
+            _utc_text(
+                skipped.membership_effective_at,
+                "membership_effective_at",
+            ),
+            _utc_text(skipped.observed_at, "observed_at"),
+            skipped.reason,
+        )
+        fingerprint = _fingerprint(header)
+
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if connection.execute(
+                "SELECT 1 FROM poll_run WHERE run_id = ?",
+                (run_id,),
+            ).fetchone() is None:
+                raise UnknownRunError(f"Unknown polling run: {run_id}")
+
+            revision_row = connection.execute(
+                """
+                SELECT effective_at_utc, symbol_count
+                FROM sampling_channel_revision
+                WHERE channel = ? AND session_date = ? AND revision = ?
+                """,
+                (
+                    channel,
+                    session_text,
+                    skipped.watchlist_revision,
+                ),
+            ).fetchone()
+            if revision_row is None:
+                raise UnknownChannelRevisionError(
+                    "Unknown sampling-channel revision: "
+                    f"{channel} r{skipped.watchlist_revision}"
+                )
+            recorded_effective_at = _parse_utc(
+                revision_row["effective_at_utc"]
+            )
+            if recorded_effective_at != skipped.membership_effective_at.astimezone(
+                timezone.utc
+            ):
+                raise DuplicateRecordError(
+                    "Skipped slot membership effective time differs from its "
+                    "recorded channel revision"
+                )
+            latest_revision = self._latest_hierarchy_revision_number(
+                connection,
+                skipped.slot.scheduled_at,
+            )
+            if latest_revision != skipped.watchlist_revision:
+                raise DuplicateRecordError(
+                    "Skipped slot does not use the latest hierarchy revision "
+                    f"effective at its scheduled slot: {channel} "
+                    f"r{skipped.watchlist_revision}; expected r{latest_revision}"
+                )
+            if revision_row["symbol_count"] != 0:
+                raise DuplicateRecordError(
+                    "Polling slot cannot be skipped because its recorded "
+                    f"membership is nonempty: {channel} "
+                    f"r{skipped.watchlist_revision}"
+                )
+
+            if connection.execute(
+                "SELECT 1 FROM quote_acquisition WHERE slot_id = ?",
+                (skipped.slot_id,),
+            ).fetchone() is not None:
+                raise DuplicateRecordError(
+                    "Polling slot already has an acquisition: "
+                    f"{skipped.slot_id}"
+                )
+
+            duplicate = self._duplicate_result(
+                connection,
+                table="poll_slot_skip",
+                id_column="slot_id",
+                record_id=skipped.slot_id,
+                fingerprint=fingerprint,
+            )
+            if duplicate is not None:
+                return duplicate
+
+            connection.execute(
+                """
+                INSERT INTO poll_slot_skip (
+                    slot_id,
+                    run_id,
+                    channel,
+                    channel_revision,
+                    session_date,
+                    scheduled_at_utc,
+                    membership_effective_at_utc,
+                    observed_at_utc,
+                    reason,
+                    content_sha256
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (*header, fingerprint),
+            )
+        return RecordResult.INSERTED
+
     def record_acquisition(
         self,
         run_id: str,
@@ -807,13 +955,35 @@ class QuoteObservationStore:
                     "Unknown sampling-channel revision: "
                     f"{channel} r{request.watchlist_revision}"
                 )
+            binding_time = (
+                request.slot.scheduled_at
+                if self.schema_version == HIERARCHY_SCHEMA_VERSION
+                else request.dispatched_at
+            )
             if _parse_utc(revision_row["effective_at_utc"]) > (
-                request.dispatched_at.astimezone(timezone.utc)
+                binding_time.astimezone(timezone.utc)
             ):
+                boundary = (
+                    "scheduled slot"
+                    if self.schema_version == HIERARCHY_SCHEMA_VERSION
+                    else "dispatch"
+                )
                 raise DuplicateRecordError(
                     "Polling acquisition uses a channel revision before "
-                    "its effective time"
+                    f"its effective time at {boundary}"
                 )
+            if self.schema_version == HIERARCHY_SCHEMA_VERSION:
+                latest_revision = self._latest_hierarchy_revision_number(
+                    connection,
+                    request.slot.scheduled_at,
+                )
+                if latest_revision != request.watchlist_revision:
+                    raise DuplicateRecordError(
+                        "Polling acquisition does not use the latest hierarchy "
+                        "revision effective at its scheduled slot: "
+                        f"{channel} r{request.watchlist_revision}; expected "
+                        f"r{latest_revision}"
+                    )
 
             member_rows = connection.execute(
                 """
@@ -849,6 +1019,18 @@ class QuoteObservationStore:
             ):
                 raise DuplicateRecordError(
                     "Polling slot already has another acquisition: "
+                    f"{request.slot_id}"
+                )
+            if (
+                self.schema_version == HIERARCHY_SCHEMA_VERSION
+                and connection.execute(
+                    "SELECT 1 FROM poll_slot_skip WHERE slot_id = ?",
+                    (request.slot_id,),
+                ).fetchone()
+                is not None
+            ):
+                raise DuplicateRecordError(
+                    "Polling slot is already recorded as skipped: "
                     f"{request.slot_id}"
                 )
 
@@ -997,6 +1179,37 @@ class QuoteObservationStore:
                 for row in rows
             )
 
+    def latest_membership_revision_effective_at(
+        self,
+        value: datetime,
+    ) -> SamplingHierarchyRevision | None:
+        """Return the newest hierarchy revision effective at ``value``.
+
+        Pollers use the scheduled slot time for this lookup so a delayed
+        dispatch cannot silently adopt a revision that became effective only
+        after the slot.
+        """
+
+        self._require_schema_version(HIERARCHY_SCHEMA_VERSION)
+        _require_aware(value, "value")
+        with self._connection() as connection:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM sampling_membership_revision
+                WHERE session_date = ? AND effective_at_utc <= ?
+                ORDER BY effective_at_utc DESC, revision DESC
+                LIMIT 1
+                """,
+                (
+                    self.session_date.isoformat(),
+                    _utc_text(value, "value"),
+                ),
+            ).fetchone()
+            if row is None:
+                return None
+            return self._membership_revision_from_row(connection, row)
+
     def _membership_revision_from_row(
         self,
         connection: sqlite3.Connection,
@@ -1004,7 +1217,7 @@ class QuoteObservationStore:
     ) -> SamplingHierarchyRevision:
         channel_rows = connection.execute(
             """
-            SELECT channel, symbol_count
+            SELECT *
             FROM sampling_channel_revision
             WHERE session_date = ? AND revision = ?
             ORDER BY channel
@@ -1040,6 +1253,47 @@ class QuoteObservationStore:
                     "Hierarchy channel member count does not match its "
                     f"header: {channel_row['channel']} r{row['revision']}"
                 )
+            expected_channel_header = (
+                channel_row["channel"],
+                row["session_date"],
+                row["revision"],
+                row["effective_at_utc"],
+                len(symbols),
+                row["source"],
+                row["reason"],
+                row["metadata_json"],
+            )
+            actual_channel_provenance = (
+                channel_row["effective_at_utc"],
+                channel_row["source"],
+                channel_row["reason"],
+                channel_row["metadata_json"],
+            )
+            expected_channel_provenance = (
+                row["effective_at_utc"],
+                row["source"],
+                row["reason"],
+                row["metadata_json"],
+            )
+            if actual_channel_provenance != expected_channel_provenance:
+                raise QuoteObservationStoreError(
+                    "Hierarchy channel header differs from its hierarchy "
+                    f"header: {channel_row['channel']} r{row['revision']}"
+                )
+            expected_channel_fingerprint = _fingerprint(
+                {
+                    "header": expected_channel_header,
+                    "symbols": symbols,
+                }
+            )
+            if (
+                channel_row["content_sha256"]
+                != expected_channel_fingerprint
+            ):
+                raise QuoteObservationStoreError(
+                    "Hierarchy channel content hash does not match: "
+                    f"{channel_row['channel']} r{row['revision']}"
+                )
             memberships[channel_row["channel"]] = symbols
 
         revision = SamplingHierarchyRevision(
@@ -1061,6 +1315,28 @@ class QuoteObservationStore:
                 f"r{row['revision']}"
             )
         return revision
+
+    def _latest_hierarchy_revision_number(
+        self,
+        connection: sqlite3.Connection,
+        value: datetime,
+    ) -> int | None:
+        """Return the newest global revision effective at ``value``."""
+
+        row = connection.execute(
+            """
+            SELECT revision
+            FROM sampling_membership_revision
+            WHERE session_date = ? AND effective_at_utc <= ?
+            ORDER BY effective_at_utc DESC, revision DESC
+            LIMIT 1
+            """,
+            (
+                self.session_date.isoformat(),
+                _utc_text(value, "value"),
+            ),
+        ).fetchone()
+        return None if row is None else row["revision"]
 
     @staticmethod
     def _stored_acquisition(row: sqlite3.Row) -> StoredAcquisition:
@@ -1420,6 +1696,21 @@ CREATE TABLE IF NOT EXISTS sampling_channel_member (
     FOREIGN KEY (channel, session_date, revision)
         REFERENCES sampling_channel_revision (channel, session_date, revision)
         ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS poll_slot_skip (
+    slot_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES poll_run (run_id),
+    channel TEXT NOT NULL,
+    channel_revision INTEGER NOT NULL,
+    session_date TEXT NOT NULL,
+    scheduled_at_utc TEXT NOT NULL,
+    membership_effective_at_utc TEXT NOT NULL,
+    observed_at_utc TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    FOREIGN KEY (channel, session_date, channel_revision)
+        REFERENCES sampling_channel_revision (channel, session_date, revision)
 );
 
 CREATE TABLE IF NOT EXISTS quote_acquisition (

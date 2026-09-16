@@ -620,6 +620,53 @@ behavior. If a completed acquisition cannot be written to the journal, its
 raw JSONL evidence is flushed first, the error is recorded, and that polling
 process stops with a nonzero exit status rather than continuing silently.
 
+These commands use the default schema-v1 contract and retain static startup
+membership. Schema v2 is opt-in and uses one complete atomic Uni/Focus/Hot
+hierarchy. Only the publisher writes hierarchy revisions; pollers register
+their runs and resolve the newest revision effective at each scheduled slot.
+They never infer or republish another channel's membership.
+
+For a controlled schema-v2 test, create a complete JSON proposal such as:
+
+```json
+{
+  "session_date": "2026-09-17",
+  "revision": 0,
+  "effective_at": "2026-09-17T09:30:00-04:00",
+  "uni_symbols": ["AAPL", "NVDA", "QQQ", "SPY"],
+  "focus_symbols": ["AAPL", "NVDA"],
+  "hot_symbols": [],
+  "source": "controlled-live-test",
+  "reason": "seed r0",
+  "metadata": {"operator": "manual"}
+}
+```
+
+Publish it before its effective time:
+
+```cmd
+python probes\publish_sampling_hierarchy.py output\quote_observation_journal\2026-09-17.sqlite3 r0.json
+```
+
+Then start independent pollers against the already-published hierarchy:
+
+```cmd
+python probes\probe_universe_quote_watch.py --watchlist-kind uni --journal-root output\quote_observation_journal --journal-schema-version 2
+```
+
+```cmd
+python probes\probe_universe_quote_watch.py --watchlist-kind focus --journal-root output\quote_observation_journal --journal-schema-version 2
+```
+
+The v2 poller reads membership immediately before each dispatch using the
+slot's scheduled time. If no hierarchy revision is effective, it stops without
+issuing the request. A valid empty Focus membership is reported as a skipped
+slot and written durably to the schema-v2 journal; no empty Schwab request is
+sent. Publish a complete sequential r1 JSON proposal to exercise a live
+transition. The publisher rejects backdating, publication-time regression,
+invalid nesting, revision gaps, and conflicting retries before anything is
+committed.
+
 Each probe sample now reports three separate durations:
 
 * `sample_elapsed_seconds`: Schwab acquisition time only;
@@ -639,19 +686,23 @@ Audit a journal during the session or after the close with:
 python probes\audit_quote_observation_journal.py output\quote_observation_journal\2026-09-10.sqlite3
 ```
 
-The audit is read-only. It checks SQLite integrity and foreign keys, schema
-identity, channel revision/member counts, one observation per requested
-symbol, result-status totals, run provenance, configured polling slots, and
-SQLite/evidence sizes. While the market is open, it expects only slots due by
-the audit time. After the configured polling window closes, a missing slot
-causes the audit to fail and return exit status 1.
+The audit is read-only. It labels schema-v1 journals as
+`legacy-independent-channels` and schema-v2 journals as
+`nested-uni-focus-hot-v1`. In addition to SQLite integrity, observation counts,
+polling slots, provenance, and storage sizes, v2 auditing verifies complete
+three-channel bundles, member counts, nesting, sequential revisions, monotonic
+effective and publication times, global and per-channel content hashes, and
+each acquisition's latest-effective revision/symbol binding. A configured slot
+is complete when it has either an acquisition or a validated durable
+empty-membership skip. After the polling window closes, any slot with neither
+outcome causes the audit to fail and return exit status 1.
 
 ## Exact-day replay
 
-The replay reader emits two immutable event types through one chronological
-stream:
+The replay reader emits immutable events through one chronological stream:
 
-* a sampling-channel revision, including its complete membership;
+* a legacy schema-v1 channel revision;
+* one bundled schema-v2 Uni/Focus/Hot hierarchy revision;
 * a completed quote acquisition, including one normalized outcome for every
   requested symbol.
 
@@ -761,11 +812,9 @@ same orderly cleanup path.
 Replay streams acquisition observations from SQLite only when their event is
 due; it does not retain the day's complete observation history in memory. Dash
 receives immutable projector snapshots and never queries the journal directly.
-One planned enhancement is a seek control accepting a specified historical ET
-time, likely supplemented by a session-time slider. Seeking must reconstruct
-state causally through the target time (or from a verified checkpoint) rather
-than merely changing the displayed clock. Until that is implemented, restart
-always reconstructs state from the beginning.
+The seek control accepts a historical ET time and reconstructs state causally
+through that exact target. A backward seek rebuilds from the event stream; it
+does not merely change the displayed clock.
 
 Another planned convenience is an exact symbol-list filter that accepts
 symbols separated by spaces or commas, such as `NVDA AAPL MASK`, and displays

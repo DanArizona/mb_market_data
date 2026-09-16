@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import Enum
-from typing import Iterable
+from typing import Iterable, Protocol
 from zoneinfo import ZoneInfo
 
 from mb_market_data.schwab_quotes import normalize_symbols
@@ -33,6 +33,21 @@ class WatchlistKind(str, Enum):
 
     UNI = "uni"
     FOCUS = "focus"
+
+
+class MembershipUnavailableError(RuntimeError):
+    """No hierarchy revision is effective for a required polling slot."""
+
+
+class MembershipProvider(Protocol):
+    """Resolve immutable channel membership at a historical instant."""
+
+    def latest_effective_snapshot(
+        self,
+        watchlist_kind: WatchlistKind,
+        *,
+        at: datetime,
+    ) -> WatchlistSnapshot | None: ...
 
 
 POLL_SECONDS: dict[WatchlistKind, tuple[int, ...]] = {
@@ -122,11 +137,7 @@ class WatchlistSnapshot:
         if self.revision < 0:
             raise ValueError("revision must be nonnegative")
 
-        normalized = normalize_symbols(self.symbols)
-        if not normalized:
-            raise ValueError("symbols must contain at least one symbol")
-
-        object.__setattr__(self, "symbols", normalized)
+        object.__setattr__(self, "symbols", normalize_symbols(self.symbols))
 
 
 @dataclass(frozen=True)
@@ -143,6 +154,11 @@ class PollRequest:
 
         if self.dispatched_at < self.slot.scheduled_at:
             raise ValueError("dispatched_at cannot precede scheduled_at")
+
+        normalized = normalize_symbols(self.symbols)
+        if not normalized:
+            raise ValueError("symbols must contain at least one symbol")
+        object.__setattr__(self, "symbols", normalized)
 
     @property
     def watchlist_kind(self) -> WatchlistKind:
@@ -165,6 +181,40 @@ class PollRequest:
         return (
             self.dispatched_at - self.slot.scheduled_at
         ).total_seconds()
+
+
+@dataclass(frozen=True)
+class SkippedPollSlot:
+    """A due slot intentionally skipped because its channel is empty."""
+
+    slot: PollSlot
+    watchlist_revision: int
+    membership_effective_at: datetime
+    observed_at: datetime
+    reason: str = "empty_membership"
+
+    def __post_init__(self) -> None:
+        _require_aware(
+            self.membership_effective_at,
+            "membership_effective_at",
+        )
+        _require_aware(self.observed_at, "observed_at")
+        if self.observed_at < self.slot.scheduled_at:
+            raise ValueError("observed_at cannot precede scheduled_at")
+        if self.membership_effective_at > self.slot.scheduled_at:
+            raise ValueError(
+                "membership_effective_at cannot follow scheduled_at"
+            )
+        if isinstance(self.watchlist_revision, bool) or not isinstance(
+            self.watchlist_revision, int
+        ):
+            raise TypeError("watchlist_revision must be an integer")
+        if self.watchlist_revision < 0:
+            raise ValueError("watchlist_revision must be nonnegative")
+
+    @property
+    def slot_id(self) -> str:
+        return self.slot.slot_id
 
 
 def capture_poll_request(
@@ -190,6 +240,48 @@ def capture_poll_request(
         slot=slot,
         watchlist_revision=snapshot.revision,
         symbols=snapshot.symbols,
+        dispatched_at=dispatched_at,
+    )
+
+
+def resolve_provider_poll_slot(
+    slot: PollSlot,
+    provider: MembershipProvider,
+    *,
+    dispatched_at: datetime,
+) -> PollRequest | SkippedPollSlot:
+    """Resolve slot-time membership and capture a request when nonempty.
+
+    An empty channel returns a durable skip value instead of constructing an
+    empty Schwab request. Absence of any effective hierarchy revision raises
+    instead of guessing from startup membership.
+    """
+
+    snapshot = provider.latest_effective_snapshot(
+        slot.watchlist_kind,
+        at=slot.scheduled_at,
+    )
+    if snapshot is None:
+        raise MembershipUnavailableError(
+            "No hierarchy revision is effective for polling slot: "
+            f"{slot.slot_id}"
+        )
+    if slot.watchlist_kind != snapshot.watchlist_kind:
+        raise ValueError("slot and snapshot Watchlist kinds do not match")
+    if slot.session_date != snapshot.session_date:
+        raise ValueError("slot and snapshot session dates do not match")
+    if snapshot.effective_at > slot.scheduled_at:
+        raise ValueError("snapshot is not yet effective at slot time")
+    if not snapshot.symbols:
+        return SkippedPollSlot(
+            slot=slot,
+            watchlist_revision=snapshot.revision,
+            membership_effective_at=snapshot.effective_at,
+            observed_at=dispatched_at,
+        )
+    return capture_poll_request(
+        slot,
+        snapshot,
         dispatched_at=dispatched_at,
     )
 

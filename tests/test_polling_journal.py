@@ -6,13 +6,20 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from mb_market_data.polling_journal import (
     PollingJournalSession,
     daily_quote_journal_path,
 )
-from mb_market_data.quote_observation_store import RecordResult
+from mb_market_data.quote_event_state import QuoteEventStateProjector
+from mb_market_data.quote_journal_replay import QuoteJournalReplayReader
+from mb_market_data.quote_observation_store import (
+    HIERARCHY_SCHEMA_VERSION,
+    RecordResult,
+)
+from mb_market_data.sampling_membership import SamplingHierarchyRevision
 from mb_market_data.schwab_quotes import (
     QuoteBatchResult,
     QuoteResult,
@@ -21,8 +28,10 @@ from mb_market_data.schwab_quotes import (
 from mb_market_data.watchlist_polling import (
     PollRequest,
     PollSlot,
+    SkippedPollSlot,
     WatchlistKind,
     WatchlistSnapshot,
+    resolve_provider_poll_slot,
 )
 
 
@@ -84,6 +93,24 @@ def make_result(request: PollRequest) -> QuoteBatchResult:
         request_count=1,
         batch_size=400,
         unexpected_symbols=(),
+    )
+
+
+def make_hierarchy_revision(
+    *,
+    revision: int = 0,
+    effective_at: datetime = SESSION_START,
+    uni_symbols: tuple[str, ...] = ("QQQ", "SPY"),
+    focus_symbols: tuple[str, ...] = ("SPY",),
+) -> SamplingHierarchyRevision:
+    return SamplingHierarchyRevision(
+        session_date=SESSION_DATE,
+        revision=revision,
+        effective_at=effective_at,
+        uni_symbols=uni_symbols,
+        focus_symbols=focus_symbols,
+        hot_symbols=(),
+        source="unit-test-publisher",
     )
 
 
@@ -271,6 +298,252 @@ class TestPollingJournalSession(unittest.TestCase):
             tuple(item.channel for item in acquisitions),
             ("uni", "focus"),
         )
+
+
+class TestHierarchyPollingJournalSession(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary_directory.cleanup)
+        self.database_path = daily_quote_journal_path(
+            self.temporary_directory.name,
+            SESSION_DATE,
+        )
+
+    def register(self, run_id: str = "focus-v2-run") -> PollingJournalSession:
+        return PollingJournalSession.register_hierarchy_polling(
+            self.database_path,
+            session_date=SESSION_DATE,
+            run_id=run_id,
+            started_at=SESSION_START - timedelta(minutes=5),
+            software_version="test-version",
+            configuration={"watchlist_kind": "focus"},
+            host="MasterBot",
+        )
+
+    def publish(self, revision: SamplingHierarchyRevision) -> None:
+        with patch(
+            "mb_market_data.quote_observation_store._utc_now",
+            return_value=SESSION_START - timedelta(minutes=10),
+        ):
+            self.register("publisher-bootstrap").store.record_membership_revision(
+                revision
+            )
+
+    def test_registration_does_not_publish_membership(self) -> None:
+        journal = self.register()
+
+        self.assertEqual(
+            journal.store.schema_version,
+            HIERARCHY_SCHEMA_VERSION,
+        )
+        self.assertEqual(journal.run_record_result, RecordResult.INSERTED)
+        self.assertIsNone(journal.revision_record_result)
+        self.assertEqual(
+            journal.store.membership_revisions_in_effective_order(),
+            (),
+        )
+
+    def test_resolves_the_latest_revision_effective_at_the_slot(self) -> None:
+        journal = self.register()
+        self.publish(make_hierarchy_revision())
+        self.publish(
+            make_hierarchy_revision(
+                revision=1,
+                effective_at=SESSION_START + timedelta(minutes=1),
+                focus_symbols=("QQQ", "SPY"),
+            )
+        )
+
+        before_change = journal.latest_effective_snapshot(
+            WatchlistKind.FOCUS,
+            at=SESSION_START.replace(second=50),
+        )
+        after_change = journal.latest_effective_snapshot(
+            WatchlistKind.FOCUS,
+            at=SESSION_START + timedelta(minutes=1, seconds=5),
+        )
+
+        self.assertIsNotNone(before_change)
+        self.assertIsNotNone(after_change)
+        assert before_change is not None
+        assert after_change is not None
+        self.assertEqual(before_change.revision, 0)
+        self.assertEqual(before_change.symbols, ("SPY",))
+        self.assertEqual(after_change.revision, 1)
+        self.assertEqual(after_change.symbols, ("QQQ", "SPY"))
+
+    def test_provider_capture_and_acquisition_use_exact_revision(self) -> None:
+        journal = self.register()
+        self.publish(make_hierarchy_revision())
+        slot = PollSlot(
+            WatchlistKind.FOCUS,
+            SESSION_START.replace(second=5),
+        )
+        request = resolve_provider_poll_slot(
+            slot,
+            journal,
+            dispatched_at=slot.scheduled_at + timedelta(milliseconds=1),
+        )
+        self.assertIsNotNone(request)
+        assert request is not None
+
+        outcome = journal.record_acquisition(
+            request,
+            make_result(request),
+            completed_at=(
+                request.dispatched_at + timedelta(milliseconds=250)
+            ),
+        )
+
+        self.assertEqual(outcome, RecordResult.INSERTED)
+        stored = journal.store.get_acquisition(request.batch_id)
+        self.assertIsNotNone(stored)
+        assert stored is not None
+        self.assertEqual(stored.channel_revision, 0)
+        self.assertEqual(stored.requested_symbol_count, 1)
+
+    def test_empty_membership_skip_is_durable_and_idempotent(self) -> None:
+        journal = self.register()
+        self.publish(make_hierarchy_revision(focus_symbols=()))
+        slot = PollSlot(
+            WatchlistKind.FOCUS,
+            SESSION_START.replace(second=5),
+        )
+        skipped = resolve_provider_poll_slot(
+            slot,
+            journal,
+            dispatched_at=slot.scheduled_at + timedelta(milliseconds=1),
+        )
+        self.assertIsInstance(skipped, SkippedPollSlot)
+        assert isinstance(skipped, SkippedPollSlot)
+
+        self.assertEqual(
+            journal.record_skipped_slot(skipped),
+            RecordResult.INSERTED,
+        )
+        self.assertEqual(
+            journal.record_skipped_slot(skipped),
+            RecordResult.ALREADY_PRESENT,
+        )
+
+    def test_lookup_before_initial_effective_time_returns_none(self) -> None:
+        journal = self.register()
+        self.publish(make_hierarchy_revision())
+
+        snapshot = journal.latest_effective_snapshot(
+            WatchlistKind.UNI,
+            at=SESSION_START - timedelta(microseconds=1),
+        )
+
+        self.assertIsNone(snapshot)
+
+    def test_concurrent_transition_preserves_inflight_r0_bindings(
+        self,
+    ) -> None:
+        uni_journal = self.register("uni-v2-run")
+        focus_journal = self.register("focus-v2-run")
+        self.publish(make_hierarchy_revision())
+
+        old_uni_slot = PollSlot(
+            WatchlistKind.UNI,
+            SESSION_START.replace(second=30),
+        )
+        old_focus_slot = PollSlot(
+            WatchlistKind.FOCUS,
+            SESSION_START.replace(second=35),
+        )
+        old_uni = resolve_provider_poll_slot(
+            old_uni_slot,
+            uni_journal,
+            dispatched_at=(
+                old_uni_slot.scheduled_at + timedelta(milliseconds=1)
+            ),
+        )
+        old_focus = resolve_provider_poll_slot(
+            old_focus_slot,
+            focus_journal,
+            dispatched_at=(
+                old_focus_slot.scheduled_at + timedelta(milliseconds=1)
+            ),
+        )
+        assert isinstance(old_uni, PollRequest)
+        assert isinstance(old_focus, PollRequest)
+
+        self.publish(
+            make_hierarchy_revision(
+                revision=1,
+                effective_at=SESSION_START.replace(second=50),
+                focus_symbols=("QQQ", "SPY"),
+            )
+        )
+        new_focus_slot = PollSlot(
+            WatchlistKind.FOCUS,
+            SESSION_START.replace(second=50),
+        )
+        new_focus = resolve_provider_poll_slot(
+            new_focus_slot,
+            focus_journal,
+            dispatched_at=(
+                new_focus_slot.scheduled_at + timedelta(milliseconds=1)
+            ),
+        )
+        assert isinstance(new_focus, PollRequest)
+
+        def record(
+            journal: PollingJournalSession,
+            request: PollRequest,
+            completed_at: datetime,
+        ) -> RecordResult:
+            return journal.record_acquisition(
+                request,
+                make_result(request),
+                completed_at=completed_at,
+            )
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            outcomes = tuple(
+                future.result()
+                for future in (
+                    executor.submit(
+                        record,
+                        uni_journal,
+                        old_uni,
+                        SESSION_START.replace(second=55),
+                    ),
+                    executor.submit(
+                        record,
+                        focus_journal,
+                        old_focus,
+                        SESSION_START.replace(second=56),
+                    ),
+                    executor.submit(
+                        record,
+                        focus_journal,
+                        new_focus,
+                        SESSION_START.replace(second=57),
+                    ),
+                )
+            )
+
+        self.assertEqual(outcomes, (RecordResult.INSERTED,) * 3)
+        reader = QuoteJournalReplayReader(self.database_path)
+        events = tuple(reader.events())
+        projector = QuoteEventStateProjector(session_date=SESSION_DATE)
+        for event in events:
+            projector.apply(event)
+        state = projector.snapshot()
+
+        self.assertEqual(len(events), 5)
+        self.assertEqual(
+            tuple(
+                acquisition.channel_revision
+                for acquisition in reader.store.acquisitions_in_replay_order()
+            ),
+            (0, 0, 1),
+        )
+        self.assertEqual(state.channel_revisions["focus"].revision, 1)
+        self.assertEqual(state.current_members("focus"), ("QQQ", "SPY"))
+        self.assertEqual(state.acquisition_count, 3)
 
 
 if __name__ == "__main__":

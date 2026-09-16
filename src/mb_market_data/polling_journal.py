@@ -14,13 +14,19 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from mb_market_data.quote_observation_store import (
+    HIERARCHY_SCHEMA_VERSION,
     PollRunProvenance,
     QuoteObservationStore,
     RecordResult,
     SamplingChannelRevision,
 )
 from mb_market_data.schwab_quotes import QuoteBatchResult
-from mb_market_data.watchlist_polling import PollRequest, WatchlistSnapshot
+from mb_market_data.watchlist_polling import (
+    PollRequest,
+    SkippedPollSlot,
+    WatchlistKind,
+    WatchlistSnapshot,
+)
 
 
 def daily_quote_journal_path(
@@ -39,7 +45,7 @@ class PollingJournalSession:
     store: QuoteObservationStore
     run_id: str
     run_record_result: RecordResult
-    revision_record_result: RecordResult
+    revision_record_result: RecordResult | None
 
     @classmethod
     def start(
@@ -99,9 +105,73 @@ class PollingJournalSession:
             revision_record_result=revision_result,
         )
 
+    @classmethod
+    def register_hierarchy_polling(
+        cls,
+        database_path: str | Path,
+        *,
+        session_date: date,
+        run_id: str,
+        started_at: datetime,
+        software_version: str,
+        configuration: Mapping[str, Any],
+        host: str | None = None,
+        command: tuple[str, ...] = (),
+        busy_timeout_ms: int = 5_000,
+    ) -> PollingJournalSession:
+        """Register a schema-v2 poller without publishing membership.
+
+        Hierarchy publication belongs to the coordinator-side publisher.
+        A poller only records its run, resolves effective membership, and
+        writes acquisitions bound to revisions already present in the store.
+        """
+
+        store = QuoteObservationStore(
+            database_path,
+            session_date=session_date,
+            schema_version=HIERARCHY_SCHEMA_VERSION,
+            busy_timeout_ms=busy_timeout_ms,
+        )
+        store.initialize()
+        run_result = store.record_run(
+            PollRunProvenance(
+                run_id=run_id,
+                started_at=started_at,
+                software_version=software_version,
+                configuration=configuration,
+                host=host,
+                command=command,
+            )
+        )
+        return cls(
+            store=store,
+            run_id=run_id,
+            run_record_result=run_result,
+            revision_record_result=None,
+        )
+
     @property
     def database_path(self) -> Path:
         return self.store.database_path
+
+    def latest_effective_snapshot(
+        self,
+        watchlist_kind: WatchlistKind,
+        *,
+        at: datetime,
+    ) -> WatchlistSnapshot | None:
+        """Resolve one channel from the hierarchy effective at ``at``."""
+
+        revision = self.store.latest_membership_revision_effective_at(at)
+        if revision is None:
+            return None
+        return WatchlistSnapshot(
+            watchlist_kind=watchlist_kind,
+            session_date=revision.session_date,
+            revision=revision.revision,
+            effective_at=revision.effective_at,
+            symbols=revision.symbols_for(watchlist_kind.value),
+        )
 
     def record_acquisition(
         self,
@@ -118,3 +188,11 @@ class PollingJournalSession:
             result,
             completed_at=completed_at,
         )
+
+    def record_skipped_slot(
+        self,
+        skipped: SkippedPollSlot,
+    ) -> RecordResult:
+        """Atomically record one due slot skipped for empty membership."""
+
+        return self.store.record_skipped_slot(self.run_id, skipped)
