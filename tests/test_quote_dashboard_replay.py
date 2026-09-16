@@ -109,6 +109,75 @@ class TestQuoteDashboardReplayController(unittest.TestCase):
         self.assertEqual(finished.status, DashboardReplayStatus.COMPLETE)
         self.assertEqual(finished.state.channels, ("focus", "hot", "uni"))
 
+    def test_seek_reconstructs_the_inclusive_event_prefix(self) -> None:
+        before_first = self.controller.seek(
+            START - timedelta(microseconds=1)
+        )
+        self.assertEqual(before_first.status, DashboardReplayStatus.PAUSED)
+        self.assertEqual(before_first.applied_event_count, 0)
+        self.assertEqual(
+            before_first.replay_time_utc,
+            START - timedelta(microseconds=1),
+        )
+
+        at_first = self.controller.seek(START)
+        self.assertEqual(at_first.applied_event_count, 1)
+        self.assertEqual(at_first.state.channels, ("uni",))
+
+        between_events = self.controller.seek(
+            START + timedelta(seconds=7)
+        )
+        self.assertEqual(between_events.status, DashboardReplayStatus.PAUSED)
+        self.assertEqual(between_events.applied_event_count, 2)
+        self.assertEqual(
+            between_events.replay_time_utc,
+            START + timedelta(seconds=7),
+        )
+        self.assertEqual(between_events.state.channels, ("focus", "uni"))
+
+        backward = self.controller.seek(START + timedelta(seconds=1))
+        self.assertEqual(backward.applied_event_count, 1)
+        self.assertEqual(backward.state.channels, ("uni",))
+
+        repeated = self.controller.seek(START + timedelta(seconds=1))
+        self.assertEqual(repeated, backward)
+
+        after_last = self.controller.seek(
+            START + timedelta(seconds=20)
+        )
+        self.assertEqual(after_last.status, DashboardReplayStatus.COMPLETE)
+        self.assertEqual(after_last.applied_event_count, 3)
+        self.assertEqual(
+            after_last.replay_time_utc,
+            START + timedelta(seconds=20),
+        )
+
+    def test_seek_pauses_playback_and_preserves_speed(self) -> None:
+        self.controller.play()
+        self.controller.set_speed(10)
+
+        sought = self.controller.seek(START + timedelta(seconds=7))
+
+        self.assertEqual(sought.status, DashboardReplayStatus.PAUSED)
+        self.assertEqual(sought.speed, 10)
+        self.clock.advance(20)
+        self.assertEqual(self.controller.tick(), sought)
+
+    def test_seek_rejects_invalid_target_without_mutating_state(self) -> None:
+        baseline = self.controller.seek(START + timedelta(seconds=7))
+
+        with self.assertRaises(ValueError):
+            self.controller.seek(datetime(2026, 9, 11, 9, 30))
+        self.assertEqual(self.controller.snapshot(), baseline)
+
+        with self.assertRaises(ValueError):
+            self.controller.seek(START + timedelta(days=1))
+        self.assertEqual(self.controller.snapshot(), baseline)
+
+        with self.assertRaises(TypeError):
+            self.controller.seek("09:30:00")  # type: ignore[arg-type]
+        self.assertEqual(self.controller.snapshot(), baseline)
+
     def test_rejects_invalid_speed(self) -> None:
         with self.assertRaises(ValueError):
             self.controller.set_speed(0)

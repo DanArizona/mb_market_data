@@ -6,14 +6,18 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 from mb_market_data.quote_event_state import (
     QuoteEventStateProjector,
     QuoteEventStateSnapshot,
 )
 from mb_market_data.quote_journal_replay import ReplayEvent, ReplayTimeline
+
+
+ET = ZoneInfo("America/New_York")
 
 
 class DashboardReplayStatus(StrEnum):
@@ -192,6 +196,36 @@ class QuoteDashboardReplayController:
     def restart(self) -> DashboardReplaySnapshot:
         with self._lock:
             self._reset_unlocked()
+            return self.snapshot()
+
+    def seek(self, target_utc: datetime) -> DashboardReplaySnapshot:
+        """Reconstruct state through an inclusive historical cutoff."""
+
+        if not isinstance(target_utc, datetime):
+            raise TypeError("target_utc must be a datetime")
+        if target_utc.tzinfo is None or target_utc.utcoffset() is None:
+            raise ValueError("target_utc must be timezone-aware")
+        target_utc = target_utc.astimezone(timezone.utc)
+        if target_utc.astimezone(ET).date() != self._timeline.session_date:
+            raise ValueError(
+                "target_utc must fall on the journal session date in ET"
+            )
+
+        with self._lock:
+            self._reset_unlocked()
+            while (
+                self._pending is not None
+                and self._pending.available_at_utc <= target_utc
+            ):
+                self._next_unlocked()
+            self._position_utc = target_utc
+            self._anchor_position_utc = None
+            self._anchor_monotonic = None
+            self._status = (
+                DashboardReplayStatus.PAUSED
+                if self._pending is not None
+                else DashboardReplayStatus.COMPLETE
+            )
             return self.snapshot()
 
     def set_speed(self, speed: float) -> DashboardReplaySnapshot:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 from threading import Timer
 from typing import Any, Callable, Mapping
@@ -199,11 +201,15 @@ def _control_values(
         "Playing"
         if status is DashboardReplayStatus.PLAYING
         else (
-            "Complete"
+            "End of recorded data"
             if status is DashboardReplayStatus.COMPLETE
             else (
                 "Ready"
-                if replay.applied_event_count == 0
+                if (
+                    replay.applied_event_count == 0
+                    and replay.replay_time_utc
+                    == replay.first_event_time_utc
+                )
                 else "Paused"
             )
         )
@@ -223,6 +229,24 @@ def _control_values(
         ),
         {"width": f"{percent:.3f}%"},
     )
+
+
+def _parse_seek_time_utc(
+    session_date: date,
+    value: str | None,
+) -> datetime:
+    """Parse an ET wall-clock second as an inclusive replay cutoff."""
+
+    text = value.strip() if isinstance(value, str) else ""
+    if re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d", text) is None:
+        raise ValueError("Seek time must use HH:MM:SS ET.")
+    hour, minute, second = (int(part) for part in text.split(":"))
+    target_et = datetime.combine(
+        session_date,
+        time(hour, minute, second, 999_999),
+        tzinfo=ET,
+    )
+    return target_et.astimezone(timezone.utc)
 
 
 def create_quote_dashboard(
@@ -388,6 +412,29 @@ def create_quote_dashboard(
                             html.Button(
                                 "Restart",
                                 id="replay-restart",
+                                className="control-button",
+                            ),
+                            html.Label(
+                                [
+                                    html.Span("Seek time ET"),
+                                    dcc.Input(
+                                        id="replay-seek-time",
+                                        type="text",
+                                        placeholder="HH:MM:SS",
+                                        maxLength=8,
+                                        debounce=True,
+                                        className="replay-seek-input",
+                                    ),
+                                ],
+                                className="seek-control",
+                                title=(
+                                    "Seek within this journal day using "
+                                    "Eastern Time"
+                                ),
+                            ),
+                            html.Button(
+                                "Seek",
+                                id="replay-seek",
                                 className="control-button",
                             ),
                         ],
@@ -634,29 +681,48 @@ def create_quote_dashboard(
         Input("replay-toggle", "n_clicks"),
         Input("replay-step", "n_clicks"),
         Input("replay-restart", "n_clicks"),
+        Input("replay-seek", "n_clicks"),
         Input("replay-tick", "n_intervals"),
         Input("replay-speed", "value"),
         State("rendered-event-count", "data"),
+        State("replay-seek-time", "value"),
     )
     def update_replay(
         _toggle_clicks: int | None,
         _step_clicks: int | None,
         _restart_clicks: int | None,
+        _seek_clicks: int | None,
         _ticks: int,
         speed: float,
         rendered_event_count: int,
+        seek_time: str | None,
     ) -> tuple[Any, ...]:
         trigger = ctx.triggered_id
         selected_speed = float(speed)
         if controller.snapshot().speed != selected_speed:
             controller.set_speed(selected_speed)
 
+        seek_error: str | None = None
         if trigger == "replay-toggle":
             updated = controller.toggle()
         elif trigger == "replay-step":
             updated = controller.step()
         elif trigger == "replay-restart":
             updated = controller.restart()
+        elif trigger == "replay-seek":
+            current = controller.snapshot()
+            session_date = current.state.session_date
+            try:
+                if session_date is None:
+                    raise ValueError("This replay has no session date.")
+                target_utc = _parse_seek_time_utc(
+                    session_date,
+                    seek_time,
+                )
+                updated = controller.seek(target_utc)
+            except ValueError as exc:
+                seek_error = str(exc)
+                updated = controller.snapshot()
         elif trigger == "replay-speed":
             updated = controller.snapshot()
         elif trigger == "replay-tick":
@@ -664,7 +730,12 @@ def create_quote_dashboard(
         else:
             updated = controller.snapshot()
 
-        control_values = _control_values(updated)
+        control_values: tuple[Any, ...] = _control_values(updated)
+        if seek_error is not None:
+            error_values = list(control_values)
+            error_values[4] = seek_error
+            error_values[5] = "replay-status status-error"
+            control_values = tuple(error_values)
         state_changed = (
             updated.applied_event_count != rendered_event_count
         )

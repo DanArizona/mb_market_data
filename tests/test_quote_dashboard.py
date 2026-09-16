@@ -3,9 +3,11 @@ from __future__ import annotations
 import unittest
 from datetime import date, datetime, timezone
 from threading import Event
+from typing import Any
 
 from mb_market_data.quote_dashboard import (
     _column_definitions,
+    _parse_seek_time_utc,
     create_quote_dashboard,
 )
 from mb_market_data.quote_dashboard_replay import (
@@ -42,6 +44,121 @@ def single_event_controller() -> QuoteDashboardReplayController:
         ),
         event_factory=lambda: iter((event,)),
     )
+
+
+def two_event_controller() -> QuoteDashboardReplayController:
+    first = datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc)
+    events = (
+        ChannelRevisionEvent(
+            SamplingChannelRevision(
+                channel="uni",
+                session_date=SESSION_DATE,
+                revision=0,
+                effective_at=first,
+                symbols=("SPY",),
+                source="unit-test",
+            )
+        ),
+        ChannelRevisionEvent(
+            SamplingChannelRevision(
+                channel="focus",
+                session_date=SESSION_DATE,
+                revision=0,
+                effective_at=first.replace(second=10),
+                symbols=("AAPL",),
+                source="unit-test",
+            )
+        ),
+    )
+    return QuoteDashboardReplayController(
+        timeline=ReplayTimeline(
+            SESSION_DATE,
+            len(events),
+            events[0].available_at_utc,
+            events[-1].available_at_utc,
+        ),
+        event_factory=lambda: iter(events),
+    )
+
+
+def replay_callback_payload(
+    app: Any,
+    *,
+    changed_prop_id: str,
+    rendered_event_count: int,
+    seek_time: str | None = None,
+    speed: float = 60,
+) -> tuple[str, dict[str, Any]]:
+    callback_key, callback = next(
+        (key, value)
+        for key, value in app.callback_map.items()
+        if any(item["id"] == "replay-toggle" for item in value["inputs"])
+    )
+    outputs = [
+        {
+            "id": item.component_id,
+            "property": item.component_property,
+        }
+        for item in callback["output"]
+    ]
+    inputs = [
+        {
+            "id": "replay-toggle",
+            "property": "n_clicks",
+            "value": 1
+            if changed_prop_id == "replay-toggle.n_clicks"
+            else None,
+        },
+        {
+            "id": "replay-step",
+            "property": "n_clicks",
+            "value": 1
+            if changed_prop_id == "replay-step.n_clicks"
+            else None,
+        },
+        {
+            "id": "replay-restart",
+            "property": "n_clicks",
+            "value": 1
+            if changed_prop_id == "replay-restart.n_clicks"
+            else None,
+        },
+        {
+            "id": "replay-seek",
+            "property": "n_clicks",
+            "value": 1
+            if changed_prop_id == "replay-seek.n_clicks"
+            else None,
+        },
+        {
+            "id": "replay-tick",
+            "property": "n_intervals",
+            "value": 0,
+        },
+        {
+            "id": "replay-speed",
+            "property": "value",
+            "value": speed,
+        },
+    ]
+    return callback_key, {
+        "output": callback_key,
+        "outputs": outputs,
+        "changedPropIds": [changed_prop_id],
+        "inputs": inputs,
+        "state": [
+            {
+                "id": "rendered-event-count",
+                "property": "data",
+                "value": rendered_event_count,
+            },
+            {
+                "id": "replay-seek-time",
+                "property": "value",
+                "value": seek_time,
+            },
+        ],
+    }
 
 
 class TestQuoteDashboard(unittest.TestCase):
@@ -82,6 +199,8 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(layout.status_code, 200)
         self.assertIn(b"market-state-grid", layout.data)
         self.assertIn(b"replay-toggle", layout.data)
+        self.assertIn(b"replay-seek-time", layout.data)
+        self.assertIn(b"replay-seek", layout.data)
         self.assertIn(b"theme-toggle", layout.data)
         self.assertIn(b"theme-preference", layout.data)
         self.assertIn(b"replay-speed-dropdown", layout.data)
@@ -91,6 +210,74 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)
         self.assertEqual(favicon.status_code, 200)
+
+    def test_parses_seek_time_as_end_of_displayed_et_second(self) -> None:
+        self.assertEqual(
+            _parse_seek_time_utc(SESSION_DATE, " 09:30:00 "),
+            datetime(
+                2026,
+                9,
+                11,
+                13,
+                30,
+                0,
+                999_999,
+                tzinfo=timezone.utc,
+            ),
+        )
+        self.assertEqual(
+            _parse_seek_time_utc(SESSION_DATE, "00:00:00"),
+            datetime(
+                2026,
+                9,
+                11,
+                4,
+                0,
+                0,
+                999_999,
+                tzinfo=timezone.utc,
+            ),
+        )
+        self.assertEqual(
+            _parse_seek_time_utc(SESSION_DATE, "23:59:59"),
+            datetime(
+                2026,
+                9,
+                12,
+                3,
+                59,
+                59,
+                999_999,
+                tzinfo=timezone.utc,
+            ),
+        )
+        self.assertEqual(
+            _parse_seek_time_utc(date(2026, 1, 15), "09:30:00"),
+            datetime(
+                2026,
+                1,
+                15,
+                14,
+                30,
+                0,
+                999_999,
+                tzinfo=timezone.utc,
+            ),
+        )
+
+    def test_rejects_invalid_seek_time_text(self) -> None:
+        for value in (
+            None,
+            "",
+            "9:30:00",
+            "09:30",
+            "09:30:00.5",
+            "24:00:00",
+            "09:60:00",
+            "09:30:60",
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                _parse_seek_time_utc(SESSION_DATE, value)
 
     def test_confirmed_server_stop_requests_shutdown(self) -> None:
         stop_event = Event()
@@ -254,60 +441,11 @@ class TestQuoteDashboard(unittest.TestCase):
         controller = single_event_controller()
         app = create_quote_dashboard(controller)
         controller.set_speed(390)
-        callback_key, callback = next(
-            (key, value)
-            for key, value in app.callback_map.items()
-            if any(
-                item["id"] == "replay-toggle"
-                for item in value["inputs"]
-            )
+        callback_key, payload = replay_callback_payload(
+            app,
+            changed_prop_id="replay-toggle.n_clicks",
+            rendered_event_count=0,
         )
-        outputs = [
-            {
-                "id": item.component_id,
-                "property": item.component_property,
-            }
-            for item in callback["output"]
-        ]
-        payload = {
-            "output": callback_key,
-            "outputs": outputs,
-            "changedPropIds": ["replay-toggle.n_clicks"],
-            "inputs": [
-                {
-                    "id": "replay-toggle",
-                    "property": "n_clicks",
-                    "value": 1,
-                },
-                {
-                    "id": "replay-step",
-                    "property": "n_clicks",
-                    "value": None,
-                },
-                {
-                    "id": "replay-restart",
-                    "property": "n_clicks",
-                    "value": None,
-                },
-                {
-                    "id": "replay-tick",
-                    "property": "n_intervals",
-                    "value": 0,
-                },
-                {
-                    "id": "replay-speed",
-                    "property": "value",
-                    "value": 60,
-                },
-            ],
-            "state": [
-                {
-                    "id": "rendered-event-count",
-                    "property": "data",
-                    "value": 0,
-                }
-            ],
-        }
 
         response = app.server.test_client().post(
             "/_dash-update-component",
@@ -317,13 +455,80 @@ class TestQuoteDashboard(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.get_json()["response"]
-        self.assertEqual(body["replay-status"]["children"], "Complete")
+        self.assertEqual(
+            body["replay-status"]["children"],
+            "End of recorded data",
+        )
         self.assertEqual(body["metric-events"]["children"], "1")
         self.assertEqual(controller.snapshot().speed, 60)
         self.assertEqual(
             body["market-state-grid"]["rowData"][0]["symbol"],
             "SPY",
         )
+
+    def test_seek_callback_projects_through_requested_second(self) -> None:
+        controller = two_event_controller()
+        app = create_quote_dashboard(controller)
+        callback_key, payload = replay_callback_payload(
+            app,
+            changed_prop_id="replay-seek.n_clicks",
+            rendered_event_count=0,
+            seek_time="09:30:05",
+        )
+
+        response = app.server.test_client().post(
+            "/_dash-update-component",
+            json=payload,
+        )
+        self.addCleanup(response.close)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()["response"]
+        self.assertEqual(body["replay-status"]["children"], "Paused")
+        self.assertEqual(
+            body["replay-clock"]["children"],
+            "2026-09-11 09:30:05.999 ET",
+        )
+        self.assertEqual(body["metric-events"]["children"], "1")
+        self.assertEqual(
+            body["market-state-grid"]["rowData"][0]["symbol"],
+            "SPY",
+        )
+        snapshot = controller.snapshot()
+        self.assertEqual(snapshot.applied_event_count, 1)
+        self.assertEqual(
+            snapshot.state.current_time_utc,
+            datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc),
+        )
+
+    def test_invalid_seek_callback_preserves_replay_state(self) -> None:
+        controller = two_event_controller()
+        app = create_quote_dashboard(controller)
+        baseline = controller.snapshot()
+        callback_key, payload = replay_callback_payload(
+            app,
+            changed_prop_id="replay-seek.n_clicks",
+            rendered_event_count=0,
+            seek_time="9:30",
+        )
+
+        response = app.server.test_client().post(
+            "/_dash-update-component",
+            json=payload,
+        )
+        self.addCleanup(response.close)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()["response"]
+        self.assertEqual(
+            body["replay-status"]["children"],
+            "Seek time must use HH:MM:SS ET.",
+        )
+        self.assertEqual(
+            body["replay-status"]["className"],
+            "replay-status status-error",
+        )
+        self.assertEqual(controller.snapshot(), baseline)
 
 
 if __name__ == "__main__":
