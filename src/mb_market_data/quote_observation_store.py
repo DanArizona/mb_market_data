@@ -16,12 +16,19 @@ import hashlib
 import json
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+from mb_market_data.sampling_membership import (
+    SAMPLING_HIERARCHY_CONTRACT,
+    RevisionTransition,
+    SamplingChannel,
+    SamplingHierarchyRevision,
+    assess_revision_candidate,
+)
 from mb_market_data.schwab_quotes import (
     QuoteBatchResult,
     QuoteResult,
@@ -31,6 +38,10 @@ from mb_market_data.watchlist_polling import PollRequest
 
 
 SCHEMA_VERSION = 1
+HIERARCHY_SCHEMA_VERSION = 2
+SUPPORTED_STORE_SCHEMA_VERSIONS = frozenset(
+    {SCHEMA_VERSION, HIERARCHY_SCHEMA_VERSION}
+)
 
 
 class QuoteObservationStoreError(RuntimeError):
@@ -227,6 +238,15 @@ def _json_text(value: Any) -> str:
         separators=(",", ":"),
         ensure_ascii=False,
         allow_nan=False,
+        default=_json_default,
+    )
+
+
+def _json_default(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise TypeError(
+        f"Object of type {type(value).__name__} is not JSON serializable"
     )
 
 
@@ -300,6 +320,10 @@ def _normalized_quote_values(result: QuoteResult) -> tuple[Any, ...]:
     )
 
 
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 class QuoteObservationStore:
     """Process-safe, file-backed journal bound to one trading session."""
 
@@ -308,8 +332,18 @@ class QuoteObservationStore:
         database_path: str | Path,
         *,
         session_date: date,
+        schema_version: int = SCHEMA_VERSION,
         busy_timeout_ms: int = 5_000,
     ) -> None:
+        if isinstance(schema_version, bool) or not isinstance(
+            schema_version, int
+        ):
+            raise TypeError("schema_version must be an integer")
+        if schema_version not in SUPPORTED_STORE_SCHEMA_VERSIONS:
+            raise UnsupportedSchemaVersionError(
+                "Unsupported quote-observation schema version: "
+                f"{schema_version}"
+            )
         if isinstance(busy_timeout_ms, bool) or not isinstance(
             busy_timeout_ms, int
         ):
@@ -319,6 +353,7 @@ class QuoteObservationStore:
 
         self.database_path = Path(database_path)
         self.session_date = session_date
+        self.schema_version = schema_version
         self.busy_timeout_ms = busy_timeout_ms
 
     def _connect(self) -> sqlite3.Connection:
@@ -345,7 +380,7 @@ class QuoteObservationStore:
             connection.close()
 
     def initialize(self) -> None:
-        """Create or validate the daily, version-1 WAL database."""
+        """Create or validate one explicitly selected daily schema."""
 
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -354,32 +389,58 @@ class QuoteObservationStore:
             current_version = connection.execute(
                 "PRAGMA user_version"
             ).fetchone()[0]
-            if current_version not in (0, SCHEMA_VERSION):
+            if current_version not in (0, self.schema_version):
                 raise UnsupportedSchemaVersionError(
                     "Unsupported quote-observation schema version: "
-                    f"{current_version}"
+                    f"database is {current_version}, requested "
+                    f"{self.schema_version}"
                 )
 
-            connection.executescript(_SCHEMA_SQL)
-            connection.execute(
-                """
-                INSERT OR IGNORE INTO store_identity (
-                    singleton,
-                    schema_version,
-                    session_date,
-                    created_at_utc
-                ) VALUES (1, ?, ?, ?)
-                """,
-                (
-                    SCHEMA_VERSION,
-                    self.session_date.isoformat(),
-                    _utc_text(datetime.now(timezone.utc), "created_at_utc"),
-                ),
+            schema_sql = (
+                _SCHEMA_V2_SQL
+                if self.schema_version == HIERARCHY_SCHEMA_VERSION
+                else _SCHEMA_SQL
             )
+            connection.executescript(schema_sql)
+            created_at_utc = _utc_text(_utc_now(), "created_at_utc")
+            if self.schema_version == HIERARCHY_SCHEMA_VERSION:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO store_identity (
+                        singleton,
+                        schema_version,
+                        session_date,
+                        created_at_utc,
+                        membership_contract
+                    ) VALUES (1, ?, ?, ?, ?)
+                    """,
+                    (
+                        self.schema_version,
+                        self.session_date.isoformat(),
+                        created_at_utc,
+                        SAMPLING_HIERARCHY_CONTRACT,
+                    ),
+                )
+            else:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO store_identity (
+                        singleton,
+                        schema_version,
+                        session_date,
+                        created_at_utc
+                    ) VALUES (1, ?, ?, ?)
+                    """,
+                    (
+                        self.schema_version,
+                        self.session_date.isoformat(),
+                        created_at_utc,
+                    ),
+                )
             identity = connection.execute(
                 "SELECT * FROM store_identity WHERE singleton = 1"
             ).fetchone()
-            if identity["schema_version"] != SCHEMA_VERSION:
+            if identity["schema_version"] != self.schema_version:
                 raise UnsupportedSchemaVersionError(
                     "store_identity schema version does not match"
                 )
@@ -388,7 +449,17 @@ class QuoteObservationStore:
                     f"Database is bound to {identity['session_date']}, not "
                     f"{self.session_date.isoformat()}"
                 )
-            connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            if (
+                self.schema_version == HIERARCHY_SCHEMA_VERSION
+                and identity["membership_contract"]
+                != SAMPLING_HIERARCHY_CONTRACT
+            ):
+                raise UnsupportedSchemaVersionError(
+                    "store_identity membership contract does not match"
+                )
+            connection.execute(
+                f"PRAGMA user_version = {self.schema_version}"
+            )
 
     def record_run(self, run: PollRunProvenance) -> RecordResult:
         """Record immutable software/configuration provenance for a process."""
@@ -438,6 +509,7 @@ class QuoteObservationStore:
     ) -> RecordResult:
         """Record one immutable membership revision and all of its symbols."""
 
+        self._require_schema_version(SCHEMA_VERSION)
         self._require_session(revision.session_date)
         metadata_json = _json_text(dict(revision.metadata))
         header = (
@@ -513,6 +585,157 @@ class QuoteObservationStore:
                     for ordinal, symbol in enumerate(revision.symbols)
                 ),
             )
+        return RecordResult.INSERTED
+
+    def record_membership_revision(
+        self,
+        revision: SamplingHierarchyRevision,
+    ) -> RecordResult:
+        """Atomically publish one complete Uni/Focus/Hot hierarchy."""
+
+        self._require_schema_version(HIERARCHY_SCHEMA_VERSION)
+        if not isinstance(revision, SamplingHierarchyRevision):
+            raise TypeError(
+                "revision must be a SamplingHierarchyRevision"
+            )
+        self._require_session(revision.session_date)
+        if revision.published_at is not None:
+            raise ValueError(
+                "published_at is assigned by the store and must be None"
+            )
+
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            existing_row = connection.execute(
+                """
+                SELECT *
+                FROM sampling_membership_revision
+                WHERE session_date = ? AND revision = ?
+                """,
+                (self.session_date.isoformat(), revision.revision),
+            ).fetchone()
+            if existing_row is not None:
+                existing = self._membership_revision_from_row(
+                    connection,
+                    existing_row,
+                )
+                if existing.content_sha256 == revision.content_sha256:
+                    return RecordResult.ALREADY_PRESENT
+                raise DuplicateRecordError(
+                    "Hierarchy revision already exists with different "
+                    f"content: r{revision.revision}"
+                )
+
+            current_row = connection.execute(
+                """
+                SELECT *
+                FROM sampling_membership_revision
+                WHERE session_date = ?
+                ORDER BY revision DESC
+                LIMIT 1
+                """,
+                (self.session_date.isoformat(),),
+            ).fetchone()
+            current = (
+                self._membership_revision_from_row(connection, current_row)
+                if current_row is not None
+                else None
+            )
+            transition = assess_revision_candidate(current, revision)
+            if transition is RevisionTransition.ALREADY_PRESENT:
+                return RecordResult.ALREADY_PRESENT
+
+            committed = replace(revision, published_at=_utc_now())
+            session_text = committed.session_date.isoformat()
+            effective_text = _utc_text(
+                committed.effective_at,
+                "effective_at",
+            )
+            published_text = _utc_text(
+                committed.published_at,
+                "published_at",
+            )
+            metadata_json = _json_text(committed.metadata)
+            connection.execute(
+                """
+                INSERT INTO sampling_membership_revision (
+                    session_date,
+                    revision,
+                    effective_at_utc,
+                    published_at_utc,
+                    membership_contract,
+                    source,
+                    reason,
+                    metadata_json,
+                    content_sha256
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_text,
+                    committed.revision,
+                    effective_text,
+                    published_text,
+                    committed.contract,
+                    committed.source,
+                    committed.reason,
+                    metadata_json,
+                    committed.content_sha256,
+                ),
+            )
+
+            for channel in SamplingChannel:
+                symbols = committed.symbols_for(channel)
+                channel_header = (
+                    channel.value,
+                    session_text,
+                    committed.revision,
+                    effective_text,
+                    len(symbols),
+                    committed.source,
+                    committed.reason,
+                    metadata_json,
+                )
+                channel_fingerprint = _fingerprint(
+                    {"header": channel_header, "symbols": symbols}
+                )
+                connection.execute(
+                    """
+                    INSERT INTO sampling_channel_revision (
+                        channel,
+                        session_date,
+                        revision,
+                        effective_at_utc,
+                        symbol_count,
+                        source,
+                        reason,
+                        metadata_json,
+                        content_sha256
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (*channel_header, channel_fingerprint),
+                )
+                connection.executemany(
+                    """
+                    INSERT INTO sampling_channel_member (
+                        channel,
+                        session_date,
+                        revision,
+                        symbol,
+                        ordinal
+                    ) VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        (
+                            channel.value,
+                            session_text,
+                            committed.revision,
+                            symbol,
+                            ordinal,
+                        )
+                        for ordinal, symbol in enumerate(symbols)
+                    ),
+                )
+
         return RecordResult.INSERTED
 
     def record_acquisition(
@@ -717,6 +940,7 @@ class QuoteObservationStore:
     ) -> tuple[SamplingChannelRevision, ...]:
         """Load membership changes in deterministic replay order."""
 
+        self._require_schema_version(SCHEMA_VERSION)
         revisions: list[SamplingChannelRevision] = []
         with self._connection() as connection:
             header_rows = connection.execute(
@@ -753,6 +977,90 @@ class QuoteObservationStore:
                     )
                 )
         return tuple(revisions)
+
+    def membership_revisions_in_effective_order(
+        self,
+    ) -> tuple[SamplingHierarchyRevision, ...]:
+        """Load complete hierarchy revisions in deterministic event order."""
+
+        self._require_schema_version(HIERARCHY_SCHEMA_VERSION)
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM sampling_membership_revision
+                ORDER BY effective_at_utc, revision
+                """
+            ).fetchall()
+            return tuple(
+                self._membership_revision_from_row(connection, row)
+                for row in rows
+            )
+
+    def _membership_revision_from_row(
+        self,
+        connection: sqlite3.Connection,
+        row: sqlite3.Row,
+    ) -> SamplingHierarchyRevision:
+        channel_rows = connection.execute(
+            """
+            SELECT channel, symbol_count
+            FROM sampling_channel_revision
+            WHERE session_date = ? AND revision = ?
+            ORDER BY channel
+            """,
+            (row["session_date"], row["revision"]),
+        ).fetchall()
+        expected_channels = {channel.value for channel in SamplingChannel}
+        actual_channels = {item["channel"] for item in channel_rows}
+        if actual_channels != expected_channels or len(channel_rows) != 3:
+            raise QuoteObservationStoreError(
+                "Hierarchy revision does not contain exactly Uni, Focus, "
+                f"and Hot: r{row['revision']}"
+            )
+
+        memberships: dict[str, tuple[str, ...]] = {}
+        for channel_row in channel_rows:
+            member_rows = connection.execute(
+                """
+                SELECT symbol
+                FROM sampling_channel_member
+                WHERE channel = ? AND session_date = ? AND revision = ?
+                ORDER BY ordinal
+                """,
+                (
+                    channel_row["channel"],
+                    row["session_date"],
+                    row["revision"],
+                ),
+            ).fetchall()
+            symbols = tuple(item["symbol"] for item in member_rows)
+            if len(symbols) != channel_row["symbol_count"]:
+                raise QuoteObservationStoreError(
+                    "Hierarchy channel member count does not match its "
+                    f"header: {channel_row['channel']} r{row['revision']}"
+                )
+            memberships[channel_row["channel"]] = symbols
+
+        revision = SamplingHierarchyRevision(
+            session_date=date.fromisoformat(row["session_date"]),
+            revision=row["revision"],
+            effective_at=_parse_utc(row["effective_at_utc"]),
+            uni_symbols=memberships[SamplingChannel.UNI.value],
+            focus_symbols=memberships[SamplingChannel.FOCUS.value],
+            hot_symbols=memberships[SamplingChannel.HOT.value],
+            source=row["source"],
+            reason=row["reason"],
+            metadata=json.loads(row["metadata_json"]),
+            published_at=_parse_utc(row["published_at_utc"]),
+            contract=row["membership_contract"],
+        )
+        if revision.content_sha256 != row["content_sha256"]:
+            raise QuoteObservationStoreError(
+                "Hierarchy revision content hash does not match: "
+                f"r{row['revision']}"
+            )
+        return revision
 
     @staticmethod
     def _stored_acquisition(row: sqlite3.Row) -> StoredAcquisition:
@@ -891,6 +1199,13 @@ class QuoteObservationStore:
                 f"{self.session_date}"
             )
 
+    def _require_schema_version(self, expected: int) -> None:
+        if self.schema_version != expected:
+            raise UnsupportedSchemaVersionError(
+                f"Operation requires schema version {expected}; store is "
+                f"configured for version {self.schema_version}"
+            )
+
     @staticmethod
     def _duplicate_result(
         connection: sqlite3.Connection,
@@ -942,6 +1257,156 @@ CREATE TABLE IF NOT EXISTS sampling_channel_revision (
     metadata_json TEXT NOT NULL,
     content_sha256 TEXT NOT NULL,
     PRIMARY KEY (channel, session_date, revision)
+);
+
+CREATE TABLE IF NOT EXISTS sampling_channel_member (
+    channel TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    symbol TEXT NOT NULL,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    PRIMARY KEY (channel, session_date, revision, symbol),
+    UNIQUE (channel, session_date, revision, ordinal),
+    FOREIGN KEY (channel, session_date, revision)
+        REFERENCES sampling_channel_revision (channel, session_date, revision)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS quote_acquisition (
+    acquisition_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES poll_run (run_id),
+    channel TEXT NOT NULL,
+    channel_revision INTEGER NOT NULL,
+    session_date TEXT NOT NULL,
+    slot_id TEXT NOT NULL,
+    scheduled_at_utc TEXT NOT NULL,
+    dispatched_at_utc TEXT NOT NULL,
+    completed_at_utc TEXT NOT NULL,
+    request_count INTEGER NOT NULL CHECK (request_count >= 0),
+    batch_size INTEGER NOT NULL CHECK (batch_size > 0),
+    requested_symbol_count INTEGER NOT NULL
+        CHECK (requested_symbol_count > 0),
+    unexpected_symbols_json TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    UNIQUE (slot_id),
+    FOREIGN KEY (channel, session_date, channel_revision)
+        REFERENCES sampling_channel_revision (channel, session_date, revision)
+);
+
+CREATE INDEX IF NOT EXISTS quote_acquisition_session_channel_idx
+ON quote_acquisition (session_date, channel, scheduled_at_utc);
+
+CREATE TABLE IF NOT EXISTS quote_observation (
+    acquisition_id TEXT NOT NULL
+        REFERENCES quote_acquisition (acquisition_id) ON DELETE CASCADE,
+    symbol TEXT NOT NULL,
+    ordinal INTEGER NOT NULL CHECK (ordinal >= 0),
+    status TEXT NOT NULL,
+    detail TEXT,
+    schwab_batch_number INTEGER NOT NULL,
+    request_started_at_utc TEXT NOT NULL,
+    response_received_at_utc TEXT,
+    normalized_schema_version INTEGER NOT NULL,
+    asset_main_type TEXT,
+    asset_sub_type TEXT,
+    realtime INTEGER,
+    extended_bid_price REAL,
+    extended_ask_price REAL,
+    extended_mark REAL,
+    extended_last_price REAL,
+    extended_last_size INTEGER,
+    extended_total_volume INTEGER,
+    extended_quote_time_ms INTEGER,
+    extended_trade_time_ms INTEGER,
+    quote_bid_price REAL,
+    quote_ask_price REAL,
+    quote_mark REAL,
+    quote_last_price REAL,
+    quote_bid_size INTEGER,
+    quote_ask_size INTEGER,
+    quote_last_size INTEGER,
+    quote_total_volume INTEGER,
+    quote_security_status TEXT,
+    quote_open_price REAL,
+    quote_high_price REAL,
+    quote_low_price REAL,
+    quote_close_price REAL,
+    quote_net_change REAL,
+    quote_net_percent_change REAL,
+    quote_time_ms INTEGER,
+    quote_trade_time_ms INTEGER,
+    quote_bid_time_ms INTEGER,
+    quote_ask_time_ms INTEGER,
+    post_market_change REAL,
+    post_market_percent_change REAL,
+    regular_market_last_price REAL,
+    regular_market_last_size INTEGER,
+    regular_market_trade_time_ms INTEGER,
+    regular_market_net_change REAL,
+    regular_market_percent_change REAL,
+    shares_outstanding INTEGER,
+    avg_10_days_volume REAL,
+    avg_1_year_volume REAL,
+    exchange TEXT,
+    exchange_name TEXT,
+    description TEXT,
+    PRIMARY KEY (acquisition_id, symbol),
+    UNIQUE (acquisition_id, ordinal)
+);
+
+CREATE INDEX IF NOT EXISTS quote_observation_symbol_idx
+ON quote_observation (symbol, acquisition_id);
+"""
+
+
+_SCHEMA_V2_SQL = f"""
+CREATE TABLE IF NOT EXISTS store_identity (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    schema_version INTEGER NOT NULL CHECK (schema_version = 2),
+    session_date TEXT NOT NULL,
+    created_at_utc TEXT NOT NULL,
+    membership_contract TEXT NOT NULL
+        CHECK (membership_contract = '{SAMPLING_HIERARCHY_CONTRACT}')
+);
+
+CREATE TABLE IF NOT EXISTS poll_run (
+    run_id TEXT PRIMARY KEY,
+    started_at_utc TEXT NOT NULL,
+    software_version TEXT NOT NULL,
+    host TEXT,
+    command_json TEXT NOT NULL,
+    configuration_json TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sampling_membership_revision (
+    session_date TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 0),
+    effective_at_utc TEXT NOT NULL,
+    published_at_utc TEXT NOT NULL,
+    membership_contract TEXT NOT NULL
+        CHECK (membership_contract = '{SAMPLING_HIERARCHY_CONTRACT}'),
+    source TEXT NOT NULL,
+    reason TEXT,
+    metadata_json TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    PRIMARY KEY (session_date, revision)
+);
+
+CREATE TABLE IF NOT EXISTS sampling_channel_revision (
+    channel TEXT NOT NULL CHECK (channel IN ('uni', 'focus', 'hot')),
+    session_date TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 0),
+    effective_at_utc TEXT NOT NULL,
+    symbol_count INTEGER NOT NULL CHECK (symbol_count >= 0),
+    source TEXT NOT NULL,
+    reason TEXT,
+    metadata_json TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    PRIMARY KEY (channel, session_date, revision),
+    FOREIGN KEY (session_date, revision)
+        REFERENCES sampling_membership_revision (session_date, revision)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS sampling_channel_member (
