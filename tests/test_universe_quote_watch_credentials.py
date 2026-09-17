@@ -25,11 +25,29 @@ PROBE_NAMESPACE = runpy.run_path(
 polling_credential_required_through = PROBE_NAMESPACE[
     "polling_credential_required_through"
 ]
+exact_poll_window = PROBE_NAMESPACE["exact_poll_window"]
 prepare_polling_client = PROBE_NAMESPACE["prepare_polling_client"]
 main = PROBE_NAMESPACE["main"]
 
 
 class TestUniverseQuoteWatchCredentials(unittest.TestCase):
+    def test_custom_exact_poll_window_is_preserved_for_audit(self) -> None:
+        started = datetime(2026, 9, 17, 11, 55, tzinfo=ET)
+        window = exact_poll_window(
+            started_at=started,
+            start_at=datetime(2026, 9, 17, 11, 58, tzinfo=ET),
+            stop_at=datetime(2026, 9, 17, 12, 2, tzinfo=ET),
+        )
+
+        self.assertEqual(
+            window.start_at,
+            datetime(2026, 9, 17, 11, 58, tzinfo=ET),
+        )
+        self.assertEqual(
+            window.end_at,
+            datetime(2026, 9, 17, 12, 2, tzinfo=ET),
+        )
+
     def test_exact_slot_run_requires_end_plus_refresh_margin(self) -> None:
         started = datetime(2026, 9, 16, 8, 0, tzinfo=ET)
         window = PollWindow(
@@ -129,6 +147,7 @@ class TestUniverseQuoteWatchCredentials(unittest.TestCase):
                 journal_root="journal",
                 journal_schema_version=1,
                 symbols=["SPY"],
+                start_at=None,
                 stop_at=None,
                 ecfg="secure.ecfg",
                 watchlist_kind="focus",

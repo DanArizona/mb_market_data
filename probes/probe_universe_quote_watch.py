@@ -274,6 +274,14 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--start-at",
+        help=(
+            "Begin the exact-slot polling window at this Eastern Time. "
+            "Format: YYYY-MM-DDTHH:MM or YYYY-MM-DDTHH:MM:SS. "
+            "Requires --watchlist-kind; default: 09:30 ET."
+        ),
+    )
+    parser.add_argument(
         "--stop-at",
         help=(
             "Automatically stop at this Eastern Time. "
@@ -1075,6 +1083,45 @@ def polling_credential_required_through(
     return planned_end + DEFAULT_POLLING_REFRESH_MARGIN
 
 
+def exact_poll_window(
+    *,
+    started_at: datetime,
+    start_at: datetime | None,
+    stop_at: datetime | None,
+) -> PollWindow:
+    """Build one bounded regular-session exact-slot polling window."""
+
+    regular_session_start = datetime.combine(
+        started_at.date(),
+        datetime_time(9, 30),
+        tzinfo=ET,
+    )
+    if start_at is not None and start_at.date() != started_at.date():
+        raise ValueError(
+            "--start-at must use the current Eastern session date."
+        )
+    session_start = max(
+        regular_session_start,
+        start_at if start_at is not None else regular_session_start,
+    )
+    regular_session_end = datetime.combine(
+        started_at.date(),
+        datetime_time(16, 0),
+        tzinfo=ET,
+    )
+    session_end = (
+        min(stop_at, regular_session_end)
+        if stop_at is not None
+        else regular_session_end
+    )
+    if session_end <= session_start:
+        raise ValueError(
+            "Exact-slot polling requires --stop-at later than "
+            "the polling-window start."
+        )
+    return PollWindow(start_at=session_start, end_at=session_end)
+
+
 def prepare_polling_client(
     ecfg_path: Path,
     password: str,
@@ -1126,6 +1173,10 @@ def main() -> int:
         raise SystemExit(
             "--journal-root requires exact-slot --watchlist-kind polling."
         )
+    if args.start_at and not args.watchlist_kind:
+        raise SystemExit(
+            "--start-at requires exact-slot --watchlist-kind polling."
+        )
 
     hierarchy_polling = args.journal_schema_version == 2
     if hierarchy_polling and not args.journal_root:
@@ -1144,6 +1195,7 @@ def main() -> int:
         )
 
     symbols = () if hierarchy_polling else load_symbols(args)
+    start_at = parse_et_datetime(args.start_at)
     stop_at = parse_et_datetime(args.stop_at)
     ecfg_path = resolve_ecfg(args.ecfg)
 
@@ -1158,32 +1210,14 @@ def main() -> int:
     slot_guard = PollSlotGuard()
 
     if poll_kind is not None:
-        session_start = datetime.combine(
-            started_at.date(),
-            datetime_time(9, 30),
-            tzinfo=ET,
-        )
-        regular_session_end = datetime.combine(
-            started_at.date(),
-            datetime_time(16, 0),
-            tzinfo=ET,
-        )
-        session_end = (
-            min(stop_at, regular_session_end)
-            if stop_at is not None
-            else regular_session_end
-        )
-
-        if session_end <= session_start:
-            raise SystemExit(
-                "Exact-slot polling requires --stop-at later than "
-                "09:30 ET."
+        try:
+            poll_window = exact_poll_window(
+                started_at=started_at,
+                start_at=start_at,
+                stop_at=stop_at,
             )
-
-        poll_window = PollWindow(
-            start_at=session_start,
-            end_at=session_end,
-        )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         if not hierarchy_polling:
             snapshot = WatchlistSnapshot(
                 watchlist_kind=poll_kind,
@@ -1192,7 +1226,7 @@ def main() -> int:
                 # A static probe revision represents session membership, not
                 # this particular process lifetime.  The deterministic
                 # effective time makes a same-day restart idempotent.
-                effective_at=session_start,
+                effective_at=poll_window.start_at,
                 symbols=symbols,
             )
 
@@ -1341,6 +1375,9 @@ def main() -> int:
             poll_window.end_at.isoformat() if poll_window else None
         ),
         "stop_at_et": stop_at.isoformat() if stop_at else None,
+        "requested_start_at_et": (
+            start_at.isoformat() if start_at else None
+        ),
         "max_samples": args.max_samples,
         "timeout_seconds": args.timeout,
         "ecfg_path": str(ecfg_path),

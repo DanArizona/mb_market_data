@@ -1,0 +1,26 @@
+{
+  "session_date": "2026-09-17",
+  "revision": 0,
+  "effective_at": "2026-09-17T09:30:00-04:00",
+  "uni_symbols": [
+    "AAPL",
+    "AMD",
+    "AMZN",
+    "GOOG",
+    "META",
+    "MSFT",
+    "NVDA",
+    "QQQ",
+    "SPY",
+    "TSLA"
+  ],
+  "focus_symbols": ["AAPL", "NVDA", "QQQ", "SPY"],
+  "hot_symbols": ["SPY"],
+  "source": "controlled-live-like-transition",
+  "reason": "seed r0 before concurrent polling",
+  "metadata": {
+    "acceptance_gate": "schema-v2-r0-to-r1",
+    "operator": "manual",
+    "planned_transition": "2026-09-17T12:00:01-04:00"
+  }
+}

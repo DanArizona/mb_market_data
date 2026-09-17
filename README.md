@@ -676,6 +676,13 @@ transition. The publisher rejects backdating, publication-time regression,
 invalid nesting, revision gaps, and conflicting retries before anything is
 committed.
 
+For a precisely timed concurrency test, the publisher accepts a timezone-aware
+`--publish-at` timestamp and validates the proposal before waiting. Exact-slot
+pollers accept `--start-at` so a short controlled window has matching audit
+expectations rather than appearing to have missed every earlier session slot.
+The recorded September 17 procedure is in
+`docs\Schema_v2_Live_Like_Transition_Runbook.md`.
+
 Each probe sample now reports three separate durations:
 
 * `sample_elapsed_seconds`: Schwab acquisition time only;

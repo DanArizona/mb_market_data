@@ -1,0 +1,26 @@
+{
+  "session_date": "2026-09-17",
+  "revision": 1,
+  "effective_at": "2026-09-17T12:00:01-04:00",
+  "uni_symbols": [
+    "AAPL",
+    "AMD",
+    "AMZN",
+    "GOOG",
+    "META",
+    "MSFT",
+    "NVDA",
+    "QQQ",
+    "SPY",
+    "TSLA"
+  ],
+  "focus_symbols": ["AAPL", "MSFT", "NVDA", "QQQ", "SPY"],
+  "hot_symbols": ["MSFT", "SPY"],
+  "source": "controlled-live-like-transition",
+  "reason": "promote MSFT while the 12:00:00 Uni r0 request is in flight",
+  "metadata": {
+    "acceptance_gate": "schema-v2-r0-to-r1",
+    "operator": "manual",
+    "scheduled_publish_at": "2026-09-17T12:00:00.100000-04:00"
+  }
+}

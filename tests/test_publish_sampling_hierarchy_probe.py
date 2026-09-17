@@ -21,7 +21,12 @@ PROBE_NAMESPACE = runpy.run_path(
     run_name="publish_sampling_hierarchy_probe",
 )
 load_proposal = PROBE_NAMESPACE["load_proposal"]
+parse_publish_at = PROBE_NAMESPACE["parse_publish_at"]
 publish_proposal = PROBE_NAMESPACE["publish_proposal"]
+validate_publication_schedule = PROBE_NAMESPACE[
+    "validate_publication_schedule"
+]
+wait_until = PROBE_NAMESPACE["wait_until"]
 
 
 class TestPublishSamplingHierarchyProbe(unittest.TestCase):
@@ -102,6 +107,74 @@ class TestPublishSamplingHierarchyProbe(unittest.TestCase):
         self.write_payload()
         with self.assertRaisesRegex(ValueError, "unexpected fields"):
             load_proposal(self.proposal_path)
+
+    def test_scheduled_publication_requires_aware_future_time_before_effective(
+        self,
+    ) -> None:
+        self.write_payload()
+        proposal = load_proposal(self.proposal_path)
+        observed_at = datetime(2099, 9, 10, 13, 29, tzinfo=UTC)
+        publish_at = parse_publish_at("2099-09-10T09:29:30-04:00")
+
+        validate_publication_schedule(
+            proposal,
+            publish_at,
+            observed_at=observed_at,
+        )
+        with self.assertRaisesRegex(ValueError, "explicit UTC offset"):
+            parse_publish_at("2099-09-10T09:29:30")
+        with self.assertRaisesRegex(ValueError, "must be in the future"):
+            validate_publication_schedule(
+                proposal,
+                observed_at,
+                observed_at=observed_at,
+            )
+        with self.assertRaisesRegex(ValueError, "must precede"):
+            validate_publication_schedule(
+                proposal,
+                proposal.effective_at,
+                observed_at=observed_at,
+            )
+
+    def test_wait_until_uses_bounded_final_sleeps(self) -> None:
+        target = datetime(2099, 9, 10, 13, 30, tzinfo=UTC)
+        readings = iter(
+            (
+                target - timedelta(seconds=1),
+                target - timedelta(milliseconds=200),
+                target,
+            )
+        )
+        sleeps: list[float] = []
+
+        wait_until(
+            target,
+            clock=lambda: next(readings),
+            sleep=sleeps.append,
+        )
+
+        self.assertEqual(sleeps, [0.25, 0.2])
+
+    def test_september_17_transition_proposals_form_sequential_hierarchy(
+        self,
+    ) -> None:
+        evidence = (
+            PROJECT_ROOT
+            / "probes"
+            / "evidence"
+            / "schema_v2_transition_2026-09-17"
+        )
+        r0 = load_proposal(evidence / "r0.json")
+        r1 = load_proposal(evidence / "r1.json")
+
+        self.assertEqual((r0.revision, r1.revision), (0, 1))
+        self.assertEqual(len(r0.uni_symbols), 10)
+        self.assertEqual(len(r0.focus_symbols), 4)
+        self.assertEqual(len(r1.focus_symbols), 5)
+        self.assertEqual(r0.hot_symbols, ("SPY",))
+        self.assertEqual(r1.hot_symbols, ("MSFT", "SPY"))
+        self.assertEqual(r0.uni_symbols, r1.uni_symbols)
+        self.assertLess(r0.effective_at, r1.effective_at)
 
 
 if __name__ == "__main__":

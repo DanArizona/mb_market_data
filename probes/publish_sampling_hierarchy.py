@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import date, datetime
+import time as time_module
+from collections.abc import Callable
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +57,69 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="JSON file containing the complete hierarchy proposal",
     )
+    parser.add_argument(
+        "--publish-at",
+        help=(
+            "Wait and publish at this timezone-aware ISO timestamp. "
+            "The proposal is loaded and validated before waiting."
+        ),
+    )
     return parser.parse_args()
+
+
+def parse_publish_at(text: str) -> datetime:
+    """Parse one timezone-aware scheduled publication timestamp."""
+
+    try:
+        value = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(
+            "--publish-at must be a valid ISO timestamp"
+        ) from exc
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("--publish-at must include an explicit UTC offset")
+    return value
+
+
+def validate_publication_schedule(
+    proposal: SamplingHierarchyRevision,
+    publish_at: datetime,
+    *,
+    observed_at: datetime,
+) -> None:
+    """Fail closed when a scheduled publication cannot preserve semantics."""
+
+    for value, name in (
+        (publish_at, "publish_at"),
+        (observed_at, "observed_at"),
+    ):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(f"{name} must be timezone-aware")
+    if publish_at <= observed_at:
+        raise ValueError("--publish-at must be in the future")
+    if publish_at >= proposal.effective_at:
+        raise ValueError(
+            "--publish-at must precede the proposal effective_at"
+        )
+
+
+def wait_until(
+    target: datetime,
+    *,
+    clock: Callable[[], datetime] | None = None,
+    sleep: Callable[[float], None] | None = None,
+) -> None:
+    """Wait until an aware timestamp, using short final sleeps."""
+
+    if target.tzinfo is None or target.utcoffset() is None:
+        raise ValueError("target must be timezone-aware")
+    current_time = clock or (lambda: datetime.now(timezone.utc))
+    sleep_for = sleep or time_module.sleep
+    while True:
+        remaining = (target - current_time()).total_seconds()
+        if remaining <= 0:
+            return
+        sleep_for(min(remaining, 0.25))
 
 
 def load_proposal(path: str | Path) -> SamplingHierarchyRevision:
@@ -125,6 +189,25 @@ def main() -> int:
     args = parse_args()
     try:
         proposal = load_proposal(args.proposal)
+        publish_at = (
+            parse_publish_at(args.publish_at)
+            if args.publish_at is not None
+            else None
+        )
+        if publish_at is not None:
+            validate_publication_schedule(
+                proposal,
+                publish_at,
+                observed_at=datetime.now(timezone.utc),
+            )
+            print()
+            print("Sampling hierarchy publication armed")
+            print("=" * 79)
+            print(f"Database         : {Path(args.database)}")
+            print(f"Proposal         : {Path(args.proposal)}")
+            print(f"Publish at       : {publish_at.isoformat()}")
+            print(f"Effective at     : {proposal.effective_at.isoformat()}")
+            wait_until(publish_at)
         result, stored = publish_proposal(args.database, proposal)
     except Exception as exc:
         print(f"Hierarchy publication ERROR: {type(exc).__name__}: {exc}")
