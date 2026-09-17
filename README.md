@@ -604,6 +604,15 @@ The universe quote-watch probe can opt into this journal while retaining its
 existing JSONL and CSV evidence. Give both exact-slot processes the same
 `--journal-root`; each derives the same session-dated database path:
 
+Before creating its output directory or registering a journal run, each
+poller performs a read-only credential preflight. For an exact-slot session,
+the stored refresh token must remain valid through the polling-window end plus
+Schwabdev's interactive-refresh threshold and a 15-minute safety margin. The
+poller never opens a browser or reads an OAuth callback during collection; if
+authorization is needed, it exits before polling and instructs the operator to
+run `mb-schwab-auth`. Use `mb-schwab-auth --status` for a standalone read-only
+lifetime check.
+
 ```cmd
 python probes\probe_universe_quote_watch.py --watchlist-kind uni --watchlist-revision 0 --journal-root output\quote_observation_journal
 ```

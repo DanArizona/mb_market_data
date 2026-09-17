@@ -184,12 +184,13 @@ The selector may first produce a startup-stable Uni snapshot; it does not need t
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
-1. **Complete live-like validation of Slice B of the atomic-membership plan.** Run concurrent schema-v2 Uni and Focus pollers through a controlled r0-to-r1 transition, including one old-revision acquisition that completes after r1 becomes effective. Audit and replay the result exactly.
-2. **Implement the deterministic daily universe-selector MVP.** Separate retrieval, conversion, filtering, output, and optional submission. Record input-date/session provenance and filter counts.
-3. **Use September 11, September 14, and September 15 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
-4. **Validate dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
-5. **Close the combined coordinator POC milestone when a genuine new LUDP/M event is available.** Verify the complete desired Watchlist, not merely command acceptance or a GUI action.
-6. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
+1. **Deploy and live-smoke-test the Schwab credential preflight.** Upgrade to Schwabdev 4.x, confirm `mb-schwab-auth --status`, verify an insufficient refresh horizon fails before output/journal registration, and confirm two normal pollers start without interactive authorization.
+2. **Complete live-like validation of Slice B of the atomic-membership plan.** Run concurrent schema-v2 Uni and Focus pollers through a controlled r0-to-r1 transition, including one old-revision acquisition that completes after r1 becomes effective. Audit and replay the result exactly.
+3. **Implement the deterministic daily universe-selector MVP.** Separate retrieval, conversion, filtering, output, and optional submission. Record input-date/session provenance and filter counts.
+4. **Use September 11, September 14, and September 15 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
+5. **Validate dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
+6. **Close the combined coordinator POC milestone when a genuine new LUDP/M event is available.** Verify the complete desired Watchlist, not merely command acceptance or a GUI action.
+7. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
 
 ## 5. Medium- and long-term work
 
@@ -306,6 +307,7 @@ A previously deferred capability may move forward only when its prerequisite has
 | 2026-09-16 | Atomic membership contract and persistence | Commits `dd84675` and `0a8f664`; pure normalized hierarchy contract and opt-in schema-v2 atomic persistence implemented with schema-v1 compatibility. |
 | 2026-09-16 | Atomic hierarchy replay | Commit `4667768`; v1/v2 schema detection, one bundled v2 membership event, atomic projector/dashboard behavior, and replay CLI support validated with 181 tests. |
 | 2026-09-16 | Dynamic poller handoff | Schema-v2 run registration separated from publication; slot-time membership provider, fail-closed lookup, durable empty-channel skips, controlled JSON publisher, and v2 audit checks implemented synthetically. Corrective review added latest-effective binding enforcement, journaled skip completeness, per-channel hash/provenance validation, publication-order enforcement, and concurrent atomic-read coverage. Full suite reached 211 tests before live-like process validation. |
+| 2026-09-16 | Interrupted credential-expiry session | Schwabdev 3.0.5 entered interactive refresh inside an exclusive token-database transaction; an empty callback left that transaction open, blocked the second poller, and required process termination plus `mb-schwab-auth`. The schema-v1 journal remained replayable: 2 revisions, 2,304 acquisitions, 584,526 observations, 18 missing slots per channel, and sequence SHA-256 `91da0974e80051c00cd0a52686cfb4c4eb85516142072f362800a2745a80a398`. |
 
 ### 8.4 Evidence standard
 
@@ -395,3 +397,4 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Separated poller run registration from hierarchy publication. Pollers now resolve membership at scheduled slot time, fail closed if no revision is effective, and durably report empty-channel skips without issuing an empty Schwab request.
 - Added a controlled JSON hierarchy publisher for r0/r1 testing; coordinator-side publication integration and concurrent live-like transition evidence remain pending.
 - Corrective review closed stale acquisition binding, sidecar-only empty-slot evidence, unchecked per-channel provenance/hash, and publication-time regression gaps; added concurrent readers-versus-publication coverage.
+- Diagnosed the interrupted-session token lock as a Schwabdev 3.0.5 failed-authorization transaction leak rather than a quote-journal lock. Prepared a Schwabdev 4.x requirement, read-only token-status command, and fail-before-artifacts poller horizon gate; Windows installation and live smoke validation remain pending.

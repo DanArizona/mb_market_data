@@ -39,7 +39,7 @@ import subprocess
 import sys
 import time as time_module
 from collections.abc import Mapping
-from datetime import datetime, time as datetime_time, timezone
+from datetime import datetime, time as datetime_time, timedelta, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
@@ -73,8 +73,11 @@ from mb_market_data.watchlist_polling import (
     next_poll_slot,
 )
 from mb_tools.schwab_secure import (
-    console_auth_callback,
-    make_secure_schwab_client,
+    DEFAULT_POLLING_REFRESH_MARGIN,
+    SchwabTokenStatus,
+    load_secure_schwab_config,
+    make_client_from_config,
+    read_schwab_token_status,
 )
 
 
@@ -87,6 +90,21 @@ DEFAULT_UNIVERSE_CSV = Path(
 
 class JournalWriteError(RuntimeError):
     """A completed API acquisition could not be recorded durably."""
+
+
+class PollingAuthorizationRequiredError(RuntimeError):
+    """A poller unexpectedly reached interactive Schwab authorization."""
+
+
+class _RejectInteractiveAuthorization:
+    """Record an auth request without opening a browser or reading stdin."""
+
+    def __init__(self) -> None:
+        self.requested = False
+
+    def __call__(self, _auth_url: str) -> str:
+        self.requested = True
+        return ""
 
 
 QUOTE_CSV_FIELDS = [
@@ -1028,6 +1046,67 @@ def installed_software_version() -> str:
     return f"{package_version}+git.{commit_sha[:12]}{dirty_suffix}"
 
 
+def polling_credential_required_through(
+    *,
+    started_at: datetime,
+    poll_window: PollWindow | None,
+    stop_at: datetime | None,
+    max_samples: int | None,
+    interval_seconds: float,
+) -> datetime:
+    """Return the conservative refresh-token horizon for one poller run."""
+
+    if started_at.tzinfo is None or started_at.utcoffset() is None:
+        raise ValueError("started_at must be timezone-aware")
+    if poll_window is not None:
+        planned_end = poll_window.end_at
+    elif stop_at is not None:
+        planned_end = stop_at
+    elif max_samples is not None:
+        planned_end = started_at + timedelta(
+            seconds=max(0, max_samples - 1) * interval_seconds
+        )
+    else:
+        # An open-ended diagnostic loop has no knowable completion time.
+        # The noninteractive callback below still prevents it from opening a
+        # browser or holding an authorization lock later in the run.
+        planned_end = started_at
+    planned_end = max(planned_end, started_at)
+    return planned_end + DEFAULT_POLLING_REFRESH_MARGIN
+
+
+def prepare_polling_client(
+    ecfg_path: Path,
+    password: str,
+    *,
+    timeout: int,
+    required_through: datetime,
+) -> tuple[Any, SchwabTokenStatus]:
+    """Validate the run horizon and create a noninteractive Schwab client."""
+
+    config = load_secure_schwab_config(ecfg_path, password)
+    status = read_schwab_token_status(config)
+    status.require_refresh_valid_through(required_through)
+
+    auth_rejection = _RejectInteractiveAuthorization()
+    client = make_client_from_config(
+        config,
+        timeout=timeout,
+        call_on_auth=auth_rejection,
+    )
+    if auth_rejection.requested:
+        try:
+            client.close()
+        except Exception:
+            pass
+        raise PollingAuthorizationRequiredError(
+            "Schwab unexpectedly requested interactive authorization. "
+            "No browser was opened and polling did not start. "
+            "Run mb-schwab-auth, then start the poller again."
+        )
+    return client, status
+
+
 def main() -> int:
     args = parse_args()
 
@@ -1116,6 +1195,39 @@ def main() -> int:
                 effective_at=session_start,
                 symbols=symbols,
             )
+
+    required_refresh_through = polling_credential_required_through(
+        started_at=started_at,
+        poll_window=poll_window,
+        stop_at=stop_at,
+        max_samples=args.max_samples,
+        interval_seconds=args.interval,
+    )
+    print(f"Encrypted config : {ecfg_path}")
+    password = getpass.getpass("Encrypted config password: ")
+    try:
+        client, token_status = prepare_polling_client(
+            ecfg_path,
+            password,
+            timeout=args.timeout,
+            required_through=required_refresh_through,
+        )
+    except Exception as exc:
+        print(
+            "Schwab credential preflight FAILED: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(
+        "Credential status : refresh valid through "
+        f"{token_status.refresh_token_expires_at.astimezone(ET).isoformat()}"
+    )
+    print(
+        "Required through  : "
+        f"{required_refresh_through.astimezone(ET).isoformat()}"
+    )
 
     run_stamp = started_at.strftime("%Y-%m-%d-%H-%M-%S")
     if poll_kind is not None:
@@ -1232,6 +1344,20 @@ def main() -> int:
         "max_samples": args.max_samples,
         "timeout_seconds": args.timeout,
         "ecfg_path": str(ecfg_path),
+        "credential_status_observed_at_utc": (
+            token_status.observed_at.astimezone(timezone.utc).isoformat()
+        ),
+        "refresh_token_expires_at_utc": (
+            token_status.refresh_token_expires_at
+            .astimezone(timezone.utc)
+            .isoformat()
+        ),
+        "credential_required_through_utc": (
+            required_refresh_through.astimezone(timezone.utc).isoformat()
+        ),
+        "credential_refresh_margin_seconds": (
+            DEFAULT_POLLING_REFRESH_MARGIN.total_seconds()
+        ),
         "acquisition_samples_file": str(acquisition_path),
         "quote_csv_file": str(quote_csv_path),
         "summary_csv_file": str(summary_csv_path),
@@ -1328,9 +1454,6 @@ def main() -> int:
         print(f"Journal schema   : {args.journal_schema_version}")
     print()
 
-    password = getpass.getpass("Encrypted config password: ")
-
-    client = None
     sample_number = 0
     completed_count = 0
     journal_inserted_count = 0
@@ -1345,13 +1468,6 @@ def main() -> int:
     previous: dict[str, tuple[Any, Any]] = {}
 
     try:
-        client = make_secure_schwab_client(
-            ecfg_path,
-            password,
-            timeout=args.timeout,
-            call_on_auth=console_auth_callback,
-        )
-
         with (
             acquisition_path.open("a", encoding="utf-8") as acquisition_file,
             quote_csv_path.open(
