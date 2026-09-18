@@ -16,6 +16,7 @@ NAMESPACE = runpy.run_path(str(PROBE), run_name="probe_daily_ohlcv_test")
 DailyOhlcv = NAMESPACE["DailyOhlcv"]
 select_daily_ohlcv = NAMESPACE["select_daily_ohlcv"]
 write_ohlcv = NAMESPACE["write_ohlcv"]
+request_daily_history = NAMESPACE["request_daily_history"]
 
 
 def epoch_ms(year: int, month: int, day: int) -> int:
@@ -35,6 +36,45 @@ def candle(year: int, month: int, day: int) -> dict[str, object]:
 
 
 class TestDailyOhlcvProbe(unittest.TestCase):
+
+    def test_requests_daily_frequency_with_year_period_type(self) -> None:
+        class RecordingClient:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, dict[str, object]]] = []
+
+            def price_history(self, symbol: str, **parameters: object) -> object:
+                self.calls.append((symbol, parameters))
+                return object()
+
+        client = RecordingClient()
+        start_at = datetime(2026, 8, 6, tzinfo=ET)
+        end_at = datetime(2026, 8, 15, tzinfo=ET)
+
+        response = request_daily_history(
+            client,
+            symbol="DAIC",
+            start_at=start_at,
+            end_at=end_at,
+        )
+
+        self.assertIsNotNone(response)
+        self.assertEqual(
+            client.calls,
+            [
+                (
+                    "DAIC",
+                    {
+                        "periodType": "year",
+                        "frequencyType": "daily",
+                        "frequency": 1,
+                        "startDate": start_at,
+                        "endDate": end_at,
+                        "needExtendedHoursData": False,
+                        "needPreviousClose": True,
+                    },
+                )
+            ],
+        )
 
     def test_selects_exact_eastern_session_date(self) -> None:
         payload = {

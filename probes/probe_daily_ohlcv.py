@@ -190,6 +190,27 @@ def write_ohlcv(path: Path, candle: DailyOhlcv) -> None:
         writer.writerow(asdict(candle))
 
 
+def request_daily_history(
+    client: Any,
+    *,
+    symbol: str,
+    start_at: datetime,
+    end_at: datetime,
+) -> Any:
+    """Request daily candles with a Schwab-compatible period type."""
+
+    return client.price_history(
+        symbol,
+        periodType="year",
+        frequencyType="daily",
+        frequency=1,
+        startDate=start_at,
+        endDate=end_at,
+        needExtendedHoursData=False,
+        needPreviousClose=True,
+    )
+
+
 def main() -> int:
     args = parse_args()
     symbol = args.symbol.strip().upper()
@@ -235,14 +256,11 @@ def main() -> int:
             timeout=args.timeout,
             call_on_auth=console_auth_callback,
         )
-        response = client.price_history(
-            symbol,
-            frequencyType="daily",
-            frequency=1,
-            startDate=request_start,
-            endDate=request_end,
-            needExtendedHoursData=False,
-            needPreviousClose=True,
+        response = request_daily_history(
+            client,
+            symbol=symbol,
+            start_at=request_start,
+            end_at=request_end,
         )
         if not response.ok:
             print(
