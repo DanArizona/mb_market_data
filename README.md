@@ -122,7 +122,7 @@ Schwab post-close snapshot
 deterministic decision ledger
         |
         v
-next-session Uni roster
+next-session Uni roster and schema-v2 r0 proposal
 ```
 
 ---

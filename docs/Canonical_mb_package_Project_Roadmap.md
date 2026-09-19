@@ -185,15 +185,16 @@ batched Schwab post-close snapshot, calculates market capitalization from the
 regular-session close and shares outstanding, and writes an immutable decision
 ledger, pollable Watchlist, symbol list, and hashed manifests. A one-command
 production workflow and operating runbook preserve the independently runnable
-stages.
+stages. The workflow also creates a strict schema-v2 opening `r0` proposal and
+can publish it atomically to an explicitly selected journal root.
 
 The September 18 production-style validation selected 554 symbols for the
 September 21 opening roster. The motivating DAIC case was correctly included
 from a $3.55 regular close, 4,105,261 shares of volume, 1,210,383 shares
-outstanding, and a calculated market capitalization of $4,296,859.65. The
-remaining boundary is publication of this opening roster as schema-v2
-hierarchical membership revision `r0`; the current operational handoff uses
-the static schema-v1 Uni poller.
+outstanding, and a calculated market capitalization of $4,296,859.65. Opening
+`r0` populates Uni from this roster while leaving Focus and Hot empty. The
+current operational handoff may remain schema v1; schema-v2 publication is an
+explicit opt-in until a controlled production cutover is accepted.
 
 ## 4. Near-term work
 
@@ -201,9 +202,10 @@ Near-term work should be handled in small, testable weekly increments—normally
 
 1. **Deploy and live-smoke-test the Schwab credential preflight.** Upgrade to Schwabdev 4.x, confirm `mb-schwab-auth --status`, verify an insufficient refresh horizon fails before output/journal registration, and confirm two normal pollers start without interactive authorization.
 2. **Complete live-like validation of Slice B of the atomic-membership plan.** Run concurrent schema-v2 Uni and Focus pollers through a controlled r0-to-r1 transition, including one old-revision acquisition that completes after r1 becomes effective. Audit and replay the result exactly.
-3. **Integrate the completed daily universe with opening membership.** Use the
-   generated roster as the target session's schema-v2 hierarchical revision
-   `r0`, while preserving the immutable decision and workflow evidence.
+3. **Validate the daily-universe opening `r0` on a controlled target session.**
+   Run schema-v2 polling from the published roster, audit and replay it, then
+   make the operational cutover decision. The following membership milestone
+   is an OV-derived Focus `BASE_SET` revision.
 4. **Use September 11, September 14, and September 15 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
 5. **Validate dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
 6. **Close the combined coordinator POC milestone when a genuine new LUDP/M event is available.** Verify the complete desired Watchlist, not merely command acceptance or a GUI action.

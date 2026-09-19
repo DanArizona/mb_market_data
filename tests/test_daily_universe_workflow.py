@@ -20,7 +20,7 @@ from mb_market_data.daily_universe_workflow import (
 
 
 class TestDailyUniverseWorkflow(unittest.TestCase):
-    def test_builds_three_explicit_stage_commands(self) -> None:
+    def test_builds_four_explicit_stage_commands(self) -> None:
         paths = workflow_paths("output/workflow")
         stages = build_stage_commands(
             repository_root="C:/repo",
@@ -37,6 +37,7 @@ class TestDailyUniverseWorkflow(unittest.TestCase):
                 "Nasdaq symbol directory",
                 "Schwab post-close snapshot",
                 "Deterministic universe build",
+                "Opening schema-v2 r0 proposal",
             ],
         )
         self.assertIn("--output-dir", stages[0].command)
@@ -44,6 +45,25 @@ class TestDailyUniverseWorkflow(unittest.TestCase):
         self.assertIn("--ecfg", stages[1].command)
         self.assertIn("normalized_all.csv", " ".join(stages[2].command))
         self.assertIn("2026-09-21", stages[2].command)
+        self.assertIn("opening_hierarchy_r0.json", " ".join(stages[3].command))
+
+    def test_explicit_publication_adds_fifth_stage(self) -> None:
+        stages = build_stage_commands(
+            repository_root="C:/repo",
+            python_executable="python",
+            paths=workflow_paths("output/workflow"),
+            session_date=date(2026, 9, 18),
+            target_date=date(2026, 9, 21),
+            publish_database="output/journal/2026-09-21.sqlite3",
+        )
+
+        self.assertEqual(len(stages), 5)
+        self.assertEqual(
+            stages[-1].name,
+            "Opening schema-v2 r0 publication",
+        )
+        self.assertIn("publish_sampling_hierarchy.py", stages[-1].command[1])
+        self.assertIn("2026-09-21.sqlite3", " ".join(stages[-1].command))
 
     def test_stops_after_a_failed_stage(self) -> None:
         stages = (
@@ -95,6 +115,7 @@ class TestDailyUniverseWorkflow(unittest.TestCase):
                 (paths.universe / filename).write_text(
                     "symbol\nDAIC\n", encoding="utf-8"
                 )
+            paths.opening_hierarchy.write_text("{}\n", encoding="utf-8")
             stages = (WorkflowStage("example", ("python", "example.py")),)
 
             manifest_path = write_workflow_manifest(
@@ -113,6 +134,10 @@ class TestDailyUniverseWorkflow(unittest.TestCase):
         self.assertEqual(
             manifest["artifacts"]["uni_watchlist"]["path"],
             "universe/uni_watchlist.csv",
+        )
+        self.assertEqual(
+            manifest["artifacts"]["opening_hierarchy_r0"]["path"],
+            "opening_hierarchy_r0.json",
         )
 
     def test_plan_command_requires_no_network_or_credentials(self) -> None:
@@ -150,8 +175,8 @@ class TestDailyUniverseWorkflow(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Daily universe production plan", result.stdout)
-        self.assertIn("[1/3] Nasdaq symbol directory", result.stdout)
-        self.assertIn("[3/3] Deterministic universe build", result.stdout)
+        self.assertIn("[1/4] Nasdaq symbol directory", result.stdout)
+        self.assertIn("[4/4] Opening schema-v2 r0 proposal", result.stdout)
 
 
 if __name__ == "__main__":
