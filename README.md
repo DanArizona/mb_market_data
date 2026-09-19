@@ -11,9 +11,13 @@ Reusable market-data acquisition and normalization for the MasterBot project.
 > * Schwab quote acquisition;
 > * Schwab price-history probes;
 > * ThinkOrSwim Watchlist parsing;
-> * live decision-snapshot assembly combining ToS `OV_DECISION` data with Schwab quotes.
+> * live decision-snapshot assembly combining ToS `OV_DECISION` data with Schwab quotes;
+> * deterministic post-close construction of the next session's Uni roster.
 >
 > The full historical Overnight Volume database and MasterBot-computed OV analytics are **not yet implemented**.
+
+The daily-universe operating procedure is documented in
+[`docs/Daily_Universe_Production_Runbook.md`](docs/Daily_Universe_Production_Runbook.md).
 
 ## Purpose
 
@@ -105,6 +109,21 @@ ProducerIntent(ENSURE_PRESENT)
 ```
 
 `mb_market_data` itself does not own Watchlist policy.
+
+The daily universe applies established, explicit market-data eligibility
+thresholds to produce a versioned input for higher-level policy:
+
+```text
+Nasdaq symbol directory
+        +
+Schwab post-close snapshot
+        |
+        v
+deterministic decision ledger
+        |
+        v
+next-session Uni roster
+```
 
 ---
 
