@@ -70,6 +70,10 @@ def parse_args() -> argparse.Namespace:
         "--output-root",
         default="output/daily_universe_snapshot",
     )
+    parser.add_argument(
+        "--output-dir",
+        help="Explicit immutable output directory; overrides --output-root.",
+    )
     return parser.parse_args()
 
 
@@ -157,8 +161,11 @@ def main() -> int:
                 close()
 
     run_stamp = datetime.now(ET).strftime("%Y-%m-%d-%H-%M-%S")
-    output_dir = Path(args.output_root) / (
-        f"{run_stamp}-session-{args.session_date.isoformat()}"
+    output_dir = (
+        Path(args.output_dir)
+        if args.output_dir
+        else Path(args.output_root)
+        / f"{run_stamp}-session-{args.session_date.isoformat()}"
     )
     output_dir.mkdir(parents=True, exist_ok=False)
     snapshot_path = output_dir / "market_data_snapshot.csv"
