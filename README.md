@@ -16,7 +16,9 @@ Reusable market-data acquisition and normalization for the MasterBot project.
 >
 > The full historical Overnight Volume database and MasterBot-computed OV analytics are **not yet implemented**.
 
-The daily-universe operating procedure is documented in
+Start with the maintained
+[`Operations Quick Reference`](docs/Operations_Quick_Reference.md) for routine
+commands and validation checks. The detailed daily-universe procedure is in
 [`docs/Daily_Universe_Production_Runbook.md`](docs/Daily_Universe_Production_Runbook.md).
 
 ## Purpose
