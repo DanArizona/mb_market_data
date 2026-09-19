@@ -3,12 +3,13 @@
 ## Purpose
 
 This procedure builds the stable opening `Uni` roster for the next trading
-session. It freezes three evidence layers:
+session. It freezes four evidence layers:
 
 1. the current Nasdaq Trader symbol directory;
 2. one Schwab post-close quote snapshot for every non-ETF, non-test candidate;
 3. one deterministic inclusion or rejection decision for every directory
-   symbol.
+   symbol;
+4. one strict schema-v2 opening hierarchy `r0` proposal.
 
 The resulting roster is an opening-session input. Intraday additions and the
 future `Hot ⊆ Focus ⊆ Uni` membership workflow are separate concerns.
@@ -61,7 +62,8 @@ The command performs, in order:
 
 1. `probe_nasdaq_symbol_directory.py`;
 2. `acquire_daily_universe_snapshot.py`;
-3. `build_daily_universe.py`.
+3. `build_daily_universe.py`;
+4. `build_opening_sampling_hierarchy.py`.
 
 It prompts once for the encrypted Schwab configuration password during the
 second stage. A successful run ends with:
@@ -108,6 +110,7 @@ universe\
     uni_symbols.csv
     manifest.json
 
+opening_hierarchy_r0.json
 workflow_manifest.json
 ```
 
@@ -126,11 +129,11 @@ python probes\run_daily_universe_production.py ^
 
 Before using the roster, confirm:
 
-1. all three stages and the top-level workflow report `PASS`;
+1. all four stages and the top-level workflow report `PASS`;
 2. the snapshot status and session-match counts are printed and plausible;
 3. the universe build reports nonzero included symbols;
 4. the rejection reason counts are present;
-5. `workflow_manifest.json` exists;
+5. `opening_hierarchy_r0.json` and `workflow_manifest.json` exist;
 6. a motivating or boundary symbol can be explained from
    `universe\decision_ledger.csv`.
 
@@ -147,8 +150,10 @@ of $4,296,859.65.
 
 ## Starting the next session
 
-Until schema-v2 opening-membership publication is integrated, pass the
-generated Watchlist directly to the static schema-v1 Uni poller:
+### Existing schema-v1 handoff
+
+Without explicit publication, pass the generated Watchlist directly to the
+static schema-v1 Uni poller:
 
 ```cmd
 python probes\probe_universe_quote_watch.py ^
@@ -163,6 +168,57 @@ python probes\probe_universe_quote_watch.py ^
 
 Run Focus independently in its existing process. Both processes may share the
 same daily schema-v1 journal.
+
+### Explicit schema-v2 opening publication
+
+To publish the generated opening hierarchy as `r0`, add an explicit journal
+root to the production command:
+
+```cmd
+python probes\run_daily_universe_production.py ^
+  --session-date 2026-09-18 ^
+  --target-date 2026-09-21 ^
+  --publish-journal-root output\quote_observation_journal_v2
+```
+
+This adds a fifth stage. It immediately creates the target session's database
+and atomically publishes `r0`, effective at 09:30 ET. Opening membership is:
+
+- Uni: every included daily-universe symbol;
+- Focus: empty, awaiting the future OV `BASE_SET`;
+- Hot: empty, awaiting Focus selection.
+
+Publication must complete before the target session's 09:30 ET effective
+time. The publisher fails closed rather than backdating a membership revision.
+
+To create and publish `r0` from an already completed standalone universe build
+without reacquiring market data:
+
+```cmd
+python probes\build_opening_sampling_hierarchy.py ^
+  "output\daily_universe\2026-09-21-from-2026-09-18" ^
+  --output "output\daily_universe\2026-09-21-from-2026-09-18\opening_hierarchy_r0.json"
+
+python probes\publish_sampling_hierarchy.py ^
+  "output\quote_observation_journal_v2\2026-09-21.sqlite3" ^
+  "output\daily_universe\2026-09-21-from-2026-09-18\opening_hierarchy_r0.json"
+```
+
+The corresponding schema-v2 Uni poller reads membership from the journal and
+does not accept `--universe-csv`:
+
+```cmd
+python probes\probe_universe_quote_watch.py ^
+  --watchlist-kind uni ^
+  --start-at 2026-09-21T09:30:00-04:00 ^
+  --stop-at 2026-09-21T16:00:00-04:00 ^
+  --journal-root output\quote_observation_journal_v2 ^
+  --journal-schema-version 2
+```
+
+Do not run schema-v1 pollers against a journal root where the target day's
+database has been initialized as schema v2. Use a dedicated root for a
+controlled transition until schema-v2 operation is formally adopted.
 
 ## Failure behavior and recovery
 
@@ -183,12 +239,13 @@ probes remain available for diagnosis.
 ## Current production boundary
 
 This version provides a repeatable, version-controlled, one-command build, but
-it deliberately retains three manual controls:
+it deliberately retains three operator controls:
 
 - the operator chooses the session and target trading dates;
 - Schwab authentication may require an interactive encrypted-config password;
-- the generated opening roster is passed manually to the schema-v1 poller.
+- schema-v2 journal publication requires the explicit
+  `--publish-journal-root` option.
 
-The next integration step is to publish the roster as the target session's
-schema-v2 hierarchical membership revision `r0`. Historical journal
+The next membership step is for the future OV producer to publish its selected
+opening Focus `BASE_SET` as the next hierarchy revision. Historical journal
 distillation and long-term database ingestion are separate downstream work.

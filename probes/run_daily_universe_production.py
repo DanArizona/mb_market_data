@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -52,9 +54,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--minimum-market-cap", default="4000000")
     parser.add_argument("--maximum-market-cap", default="40000000")
     parser.add_argument(
+        "--publish-journal-root",
+        type=Path,
+        help=(
+            "Opt in to immediate opening-r0 publication. The target "
+            "session's schema-v2 database is created below this root."
+        ),
+    )
+    parser.add_argument(
         "--plan",
         action="store_true",
-        help="Print the three commands without running or writing anything.",
+        help="Print all commands without running or writing anything.",
     )
     return parser.parse_args()
 
@@ -72,6 +82,12 @@ def main() -> int:
         else Path(args.output_root) / default_name
     )
     paths = workflow_paths(output_dir)
+    publish_database = (
+        args.publish_journal_root
+        / f"{args.target_date.isoformat()}.sqlite3"
+        if args.publish_journal_root is not None
+        else None
+    )
 
     try:
         validate_workflow_dates(args.session_date, args.target_date)
@@ -89,6 +105,7 @@ def main() -> int:
             minimum_close=args.minimum_close,
             minimum_market_cap=args.minimum_market_cap,
             maximum_market_cap=args.maximum_market_cap,
+            publish_database=publish_database,
         )
         if args.plan:
             print("Daily universe production plan")
@@ -98,7 +115,10 @@ def main() -> int:
             print(f"Output       : {paths.root}")
             for index, stage in enumerate(stages, start=1):
                 print(f"\n[{index}/{len(stages)}] {stage.name}")
-                print(shlex.join(stage.command))
+                if os.name == "nt":
+                    print(subprocess.list2cmdline(stage.command))
+                else:
+                    print(shlex.join(stage.command))
             return 0
 
         if paths.root.exists():
@@ -130,6 +150,9 @@ def main() -> int:
     print("=" * 79)
     print(f"Uni watchlist : {paths.universe / 'uni_watchlist.csv'}")
     print(f"Decision ledger: {paths.universe / 'decision_ledger.csv'}")
+    print(f"Opening r0    : {paths.opening_hierarchy}")
+    if publish_database is not None:
+        print(f"Schema-v2 journal: {publish_database}")
     print(f"Manifest      : {manifest}")
     return 0
 

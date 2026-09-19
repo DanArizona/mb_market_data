@@ -13,7 +13,7 @@ from typing import Callable, Sequence
 from mb_market_data.daily_universe import UniverseFilterConfig, sha256_file
 
 
-WORKFLOW_VERSION = "daily-universe-production-v1"
+WORKFLOW_VERSION = "daily-universe-production-v2"
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,7 @@ class WorkflowPaths:
     symbol_directory: Path
     market_snapshot: Path
     universe: Path
+    opening_hierarchy: Path
     manifest: Path
 
 
@@ -38,6 +39,7 @@ def workflow_paths(root: str | Path) -> WorkflowPaths:
         symbol_directory=path / "symbol_directory",
         market_snapshot=path / "market_snapshot",
         universe=path / "universe",
+        opening_hierarchy=path / "opening_hierarchy_r0.json",
         manifest=path / "workflow_manifest.json",
     )
 
@@ -62,6 +64,7 @@ def build_stage_commands(
     minimum_close: str = "0.10",
     minimum_market_cap: str = "4000000",
     maximum_market_cap: str = "40000000",
+    publish_database: str | Path | None = None,
 ) -> tuple[WorkflowStage, ...]:
     validate_workflow_dates(session_date, target_date)
     if batch_size < 1:
@@ -141,11 +144,32 @@ def build_stage_commands(
         "--output-dir",
         str(paths.universe),
     )
-    return (
+    opening_command = (
+        python_executable,
+        str(probes / "build_opening_sampling_hierarchy.py"),
+        str(paths.universe),
+        "--output",
+        str(paths.opening_hierarchy),
+    )
+    stages = [
         WorkflowStage("Nasdaq symbol directory", directory_command),
         WorkflowStage("Schwab post-close snapshot", tuple(snapshot_values)),
         WorkflowStage("Deterministic universe build", build_command),
-    )
+        WorkflowStage("Opening schema-v2 r0 proposal", opening_command),
+    ]
+    if publish_database is not None:
+        stages.append(
+            WorkflowStage(
+                "Opening schema-v2 r0 publication",
+                (
+                    python_executable,
+                    str(probes / "publish_sampling_hierarchy.py"),
+                    str(publish_database),
+                    str(paths.opening_hierarchy),
+                ),
+            )
+        )
+    return tuple(stages)
 
 
 Runner = Callable[..., subprocess.CompletedProcess[object]]
@@ -188,6 +212,7 @@ def write_workflow_manifest(
         "decision_ledger": paths.universe / "decision_ledger.csv",
         "uni_watchlist": paths.universe / "uni_watchlist.csv",
         "uni_symbols": paths.universe / "uni_symbols.csv",
+        "opening_hierarchy_r0": paths.opening_hierarchy,
     }
     missing = [str(path) for path in expected.values() if not path.is_file()]
     if missing:
