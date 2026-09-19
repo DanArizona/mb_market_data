@@ -150,7 +150,7 @@ of $4,296,859.65.
 
 ## Starting the next session
 
-### Existing schema-v1 handoff
+### Legacy schema-v1 fallback
 
 Without explicit publication, pass the generated Watchlist directly to the
 static schema-v1 Uni poller:
@@ -166,8 +166,8 @@ python probes\probe_universe_quote_watch.py ^
   --journal-schema-version 1
 ```
 
-Run Focus independently in its existing process. Both processes may share the
-same daily schema-v1 journal.
+This remains available for compatibility and controlled fallback. Do not run
+it alongside the schema-v2 Uni poller for the same session.
 
 ### Explicit schema-v2 opening publication
 
@@ -185,7 +185,7 @@ This adds a fifth stage. It immediately creates the target session's database
 and atomically publishes `r0`, effective at 09:30 ET. Opening membership is:
 
 - Uni: every included daily-universe symbol;
-- Focus: empty, awaiting the future OV `BASE_SET`;
+- Focus: empty, awaiting the pre-open OV `BASE_SET`;
 - Hot: empty, awaiting Focus selection.
 
 Publication must complete before the target session's 09:30 ET effective
@@ -220,6 +220,13 @@ Do not run schema-v1 pollers against a journal root where the target day's
 database has been initialized as schema v2. Use a dedicated root for a
 controlled transition until schema-v2 operation is formally adopted.
 
+Before the open, the implemented `schwab_watchlists` OV bridge can consume a
+complete same-day ToS `OV_DECISION` export, constrain the ranked selection to
+this opening Uni, and produce the strict Focus `r1` proposal. Publication of
+that proposal is a separate acceptance step. The maintained command sequence,
+including ToS source-roster preparation, `r1` validation/publication, and both
+schema-v2 pollers, is in `docs\Operations_Quick_Reference.md`.
+
 ## Failure behavior and recovery
 
 - Before 16:00 ET on `--session-date`, same-day snapshot acquisition fails.
@@ -244,8 +251,11 @@ it deliberately retains three operator controls:
 - the operator chooses the session and target trading dates;
 - Schwab authentication may require an interactive encrypted-config password;
 - schema-v2 journal publication requires the explicit
-  `--publish-journal-root` option.
+  `--publish-journal-root` option;
+- the operator explicitly chooses the OV Focus size and accepts its `r1`
+  decision ledger before publication.
 
-The next membership step is for the future OV producer to publish its selected
-opening Focus `BASE_SET` as the next hierarchy revision. Historical journal
-distillation and long-term database ingestion are separate downstream work.
+The current OV bridge still depends on the ToS custom `OV_DECISION` value.
+Replacing it with MasterBot-derived historical OV analytics, plus historical
+journal distillation and long-term database ingestion, remains downstream
+work.

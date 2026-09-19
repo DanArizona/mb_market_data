@@ -1,6 +1,6 @@
 # Canonical mb_package Project Roadmap and Decision Register
 
-**Canonical status date:** 2026-09-16
+**Canonical status date:** 2026-09-19
 
 **Scope:** The entire `mb_package` family of projects and their operating environment
 
@@ -147,8 +147,9 @@ Evidence includes 15 focused dashboard tests, 143 full tests, and manual demonst
 
 ### CP-2 — Dynamic, atomic membership changes
 
-**Status: In progress; contract, persistence, replay, audit, and synthetic
-poller handoff implemented. Live-like concurrent validation remains pending.**
+**Status: In progress; contract, persistence, replay, audit, synthetic poller
+handoff, and the daily OV-to-Focus `r1` producer implemented. First real-session
+schema-v2 validation remains pending.**
 
 Allow membership to change while polling and dashboard processes are running. The implementation must preserve **Hot ⊆ Focus ⊆ Uni**, never expose partial updates, and bind each acquisition to one unambiguous membership revision.
 
@@ -162,7 +163,7 @@ Completion requires:
 - durable journal evidence sufficient for exact replay;
 - concurrency, restart, and failure-injection tests.
 
-The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). Implemented work now includes the pure hierarchy contract, opt-in schema-v2 atomic persistence, schema-aware bundled replay, atomic projection, v2 audit checks, separated poller registration, slot-time membership resolution, fail-closed missing-membership behavior, durable empty-channel skips, and a controlled JSON publisher. The coordinator publication adapter and a recorded concurrent r0-to-r1 live-like transition remain pending.
+The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). Implemented work now includes the pure hierarchy contract, opt-in schema-v2 atomic persistence, schema-aware bundled replay, atomic projection, v2 audit checks, separated poller registration, slot-time membership resolution, fail-closed missing-membership behavior, durable empty-channel skips, and a controlled JSON publisher. The current OV bridge constrains the same-day ToS-derived `OV_DECISION` ranking to opening Uni, writes durable decision evidence and a complete ledger, and produces a strict schema-v2 Focus `r1` proposal. Publication remains an explicit operator acceptance step. The first real-session `r0`/`r1` polling run and the longer-term coordinator publication adapter remain pending.
 
 ### CP-3 — Deterministic daily universe selector
 
@@ -193,19 +194,22 @@ September 21 opening roster. The motivating DAIC case was correctly included
 from a $3.55 regular close, 4,105,261 shares of volume, 1,210,383 shares
 outstanding, and a calculated market capitalization of $4,296,859.65. Opening
 `r0` populates Uni from this roster while leaving Focus and Hot empty. The
-current operational handoff may remain schema v1; schema-v2 publication is an
-explicit opt-in until a controlled production cutover is accepted.
+September 21 opening `r0` was published to a dedicated schema-v2 journal and
+passed audit and replay before polling. The actual session run remains the
+cutover validation.
 
 ## 4. Near-term work
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
 1. **Deploy and live-smoke-test the Schwab credential preflight.** Upgrade to Schwabdev 4.x, confirm `mb-schwab-auth --status`, verify an insufficient refresh horizon fails before output/journal registration, and confirm two normal pollers start without interactive authorization.
-2. **Complete live-like validation of Slice B of the atomic-membership plan.** Run concurrent schema-v2 Uni and Focus pollers through a controlled r0-to-r1 transition, including one old-revision acquisition that completes after r1 becomes effective. Audit and replay the result exactly.
-3. **Validate the daily-universe opening `r0` on a controlled target session.**
-   Run schema-v2 polling from the published roster, audit and replay it, then
-   make the operational cutover decision. The following membership milestone
-   is an OV-derived Focus `BASE_SET` revision.
+2. **Produce and publish the first real OV-derived Focus `BASE_SET`.** Seed the
+   ToS source Watchlist from the accepted opening Uni, acquire a complete
+   same-day `OV_DECISION` export, build `r1` with an explicit Focus limit,
+   review its decision ledger, and publish it before 09:30 ET.
+3. **Validate the September 21 schema-v2 session.** Run concurrent Uni and
+   Focus pollers from the published `r0`/`r1`, then audit and replay the shared
+   daily journal exactly. Do not run duplicate legacy pollers for that session.
 4. **Use September 11, September 14, and September 15 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
 5. **Validate dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
 6. **Close the combined coordinator POC milestone when a genuine new LUDP/M event is available.** Verify the complete desired Watchlist, not merely command acceptance or a GUI action.

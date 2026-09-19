@@ -1,7 +1,7 @@
 # mb_market_data Operations Quick Reference
 
 **Purpose:** A concise operator manual for routine `mb_market_data` work.  
-**Last verified:** 2026-09-19, repository `main` at or after `39feb76`.  
+**Last verified:** 2026-09-19.
 **Shell:** Windows Command Prompt (`cmd.exe`).  
 **Working directory:** `C:\Users\danla\Documents\github\mb_market_data`.
 
@@ -10,9 +10,9 @@ documents and runbooks remain authoritative for implementation details, but an
 operator should be able to run and validate the normal workflow from this
 document.
 
-The current edition covers `mb_market_data` and the directly required
-`mb_tools` Schwab-auth command. Coordinator and ThinkOrSwim-adapter operations
-will be added here when they enter the routine integrated production flow.
+The current edition covers `mb_market_data`, the daily OV-to-Focus bridge in
+`schwab_watchlists`, and the directly required `mb_tools` scanner and
+Schwab-auth commands.
 
 ## 1. Rules that prevent the expensive mistakes
 
@@ -27,8 +27,8 @@ will be added here when they enter the routine integrated production flow.
    same session date.
 6. Do not run both the old static Uni poller and the schema-v2 Uni poller for
    the same session. That duplicates the Schwab requests.
-7. A schema-v2 opening revision must be published before its 09:30 ET effective
-   time. The publisher rejects backdating.
+7. Schema-v2 opening revisions `r0` and `r1` must be published before their
+   09:30 ET effective time. The publisher rejects backdating.
 8. Do not put an active SQLite journal or its WAL files on a network share.
 9. Preserve completed output directories and journals. Production artifacts
    are immutable evidence; use a new suffixed output directory for an
@@ -80,6 +80,9 @@ set SESSION_DATE=2026-09-18
 set TARGET_DATE=2026-09-21
 set ET_UTC_OFFSET=-04:00
 set V2_JOURNAL_ROOT=output\quote_observation_journal_v2
+set MARKET_DATA_ROOT=C:\Users\danla\Documents\github\mb_market_data
+set WATCHLIST_ROOT=C:\Users\danla\Documents\github\schwab_watchlists
+set FOCUS_LIMIT=40
 ```
 
 Definitions:
@@ -90,6 +93,9 @@ Definitions:
 | `TARGET_DATE` | The next intended trading session. |
 | `ET_UTC_OFFSET` | Eastern offset on `TARGET_DATE`, including daylight-saving time. |
 | `V2_JOURNAL_ROOT` | A dedicated schema-v2 journal root. Use a purpose/date suffix for a controlled test. |
+| `MARKET_DATA_ROOT` | Local `mb_market_data` repository root. |
+| `WATCHLIST_ROOT` | Local `schwab_watchlists` repository root. |
+| `FOCUS_LIMIT` | Explicit maximum size of the OV-derived opening Focus set. `40` is an example, not a hidden project default. |
 
 For the controlled September 21 opening test, the journal root was:
 
@@ -216,16 +222,148 @@ python probes\replay_quote_observation_journal.py ^
   --progress-every 0
 ```
 
-Before polling, the expected state is one hierarchy event, no acquisitions,
-and no observations. Replay should project `r0` with the accepted Uni count
-and empty Focus/Hot.
+At this point the expected state is one hierarchy event, no acquisitions, and
+no observations. Replay should project `r0` with the accepted Uni count and
+empty Focus/Hot.
 
-## 5. Before the open: start polling
+## 5. Before the open: build and publish OV-derived Focus
+
+This procedure produces the daily Focus `BASE_SET` as schema-v2 revision `r1`.
+It preserves `Focus ⊆ Uni`; it does not calculate historical OV on MasterBot.
+The current bridge consumes the same-day ToS `OV_DECISION` custom column.
+
+### 5.1 Seed the ToS source Watchlist with opening Uni
+
+After accepting the opening roster, replace the dedicated ToS `Default`
+Watchlist with the complete generated Uni. This is a GUI mutation, so first
+confirm that the El-Cheapo scanner command loop and ToS are operational:
+
+```cmd
+mb-scan-status
+mb-scan-command suspend_exports --wait 30
+```
+
+From the `mb_market_data` repository root:
+
+```cmd
+powershell -NoProfile -Command "$s=@((Import-Csv 'output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\universe\uni_symbols.csv').symbol); & mb-scan-command replace_wl_symbols --symbols $s --wait 120; exit $LASTEXITCODE"
+```
+
+Check `mb-scan-status` until the replacement job has finished, then resume
+scheduled exports:
+
+```cmd
+mb-scan-status
+mb-scan-command resume_exports --wait 30
+```
+
+Do not continue if the replacement failed or the observed Watchlist count does
+not match the generated Uni count.
+
+### 5.2 Obtain the same-day OV export
+
+Allow ToS to populate `OV_DECISION`, then request an explicitly dated export:
+
+```cmd
+mb-scan-command export_wl ^
+  --target-filename "%TARGET_DATE%-OV-WL.csv" ^
+  --wait 30
+mb-scan-status
+```
+
+Confirm the GUI job completed and locate the transported file in the configured
+`MB_SCANS` directory. Set its full path explicitly; for example:
+
+```cmd
+set OV_WATCHLIST=C:\Users\danla\Documents\github\stockScans\2026-09-21-OV-WL.csv
+```
+
+The filename date must equal `TARGET_DATE`. The CSV must contain `Symbol` and
+`OV_DECISION`, and it must include every opening-Uni symbol. The producer
+allows extra rows but labels them `outside_uni` and cannot select them.
+
+### 5.3 Build the Focus `BASE_SET` and `r1` proposal
+
+Run this from the `schwab_watchlists` repository:
+
+```cmd
+cd /d %WATCHLIST_ROOT%
+git pull --ff-only origin main
+
+python run_ov_focus_production.py ^
+  --watchlist "%OV_WATCHLIST%" ^
+  --opening-proposal "%MARKET_DATA_ROOT%\output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\opening_hierarchy_r0.json" ^
+  --limit %FOCUS_LIMIT%
+```
+
+Enter the encrypted Schwab configuration password when prompted. A successful
+run reports `OV Focus production: PASS` and writes an immutable directory under
+`output\ov_focus_production`. It contains:
+
+```text
+ov_decision_evidence.jsonl
+focus_decision_ledger.csv
+focus_symbols.csv
+sampling_hierarchy_r1.json
+manifest.json
+```
+
+Copy the printed output directory into a variable. Example:
+
+```cmd
+set OV_R1_DIR=C:\Users\danla\Documents\github\schwab_watchlists\output\ov_focus_production\2026-09-21-08-25-30
+```
+
+Review the reported source, eligible, and selected counts. The selected count
+may be below `FOCUS_LIMIT` only when fewer symbols were eligible. Inspect the
+complete decision-reason distribution:
+
+```cmd
+powershell -NoProfile -Command "Import-Csv '%OV_R1_DIR%\focus_decision_ledger.csv' | Group-Object primary_reason | Sort-Object Count -Descending | Format-Table Count,Name -AutoSize"
+```
+
+### 5.4 Publish and validate `r1`
+
+Return to `mb_market_data` and publish only after accepting the result:
+
+```cmd
+cd /d %MARKET_DATA_ROOT%
+
+python probes\publish_sampling_hierarchy.py ^
+  "%V2_JOURNAL_ROOT%\%TARGET_DATE%.sqlite3" ^
+  "%OV_R1_DIR%\sampling_hierarchy_r1.json"
+```
+
+Expected publication result:
+
+- `Result: inserted`;
+- revision `r1`;
+- the same 09:30 ET effective time as `r0`;
+- unchanged Uni count;
+- nonzero Focus count no greater than `FOCUS_LIMIT`;
+- Hot count zero.
+
+Validate before starting pollers:
+
+```cmd
+python probes\audit_quote_observation_journal.py ^
+  "%V2_JOURNAL_ROOT%\%TARGET_DATE%.sqlite3" ^
+  --show-missing 20
+
+python probes\replay_quote_observation_journal.py ^
+  "%V2_JOURNAL_ROOT%\%TARGET_DATE%.sqlite3" ^
+  --progress-every 0
+```
+
+Replay should now show two membership events, `r0` then `r1`, and project the
+accepted Uni and Focus counts with no acquisitions or observations.
+
+## 6. Before the open: start polling
 
 Use separate command windows for independent pollers. Start them before the
 first configured slot.
 
-### 5.1 Schema-v2 Uni poller
+### 6.1 Schema-v2 Uni poller
 
 ```cmd
 python probes\probe_universe_quote_watch.py ^
@@ -242,28 +380,9 @@ effective Uni membership from the schema-v2 journal before every slot.
 Uni slots are `:00` and `:30` each minute. The last regular-session slot is
 15:59:30 ET; the 16:00 stop is excluded.
 
-### 5.2 Transitional schema-v1 Focus poller
+### 6.2 Schema-v2 Focus poller
 
-Until an OV-derived Focus `BASE_SET` is published into schema v2, the existing
-four-symbol Focus collection may continue in a separate legacy journal:
-
-```cmd
-python probes\probe_universe_quote_watch.py ^
-  --symbols SPY QQQ AAPL NVDA ^
-  --watchlist-kind focus ^
-  --watchlist-revision 0 ^
-  --start-at %TARGET_DATE%T09:30:00%ET_UTC_OFFSET% ^
-  --stop-at %TARGET_DATE%T16:00:00%ET_UTC_OFFSET% ^
-  --journal-root output\quote_observation_journal ^
-  --journal-schema-version 1
-```
-
-Focus slots are `:05`, `:20`, `:35`, and `:50` each minute. This process does
-not write to the schema-v2 Uni journal.
-
-### 5.3 Future schema-v2 Focus poller
-
-After a valid nonempty Focus revision has been published, its poller will use:
+After `r1` passes audit and replay, start the Focus poller in its own window:
 
 ```cmd
 python probes\probe_universe_quote_watch.py ^
@@ -274,11 +393,13 @@ python probes\probe_universe_quote_watch.py ^
   --journal-schema-version 2
 ```
 
-Do not treat this as routine until the OV-to-Focus producer is implemented and
-validated. An empty schema-v2 Focus is a valid state; its configured slots are
-durably recorded as skips rather than sending empty Schwab requests.
+Focus slots are `:05`, `:20`, `:35`, and `:50` each minute. Both pollers write
+to the same schema-v2 daily journal, but each acquisition is bound to its own
+channel and the exact hierarchy revision effective for its scheduled slot.
 
-### 5.4 During polling
+Do not also run the legacy schema-v1 Focus poller for this session.
+
+### 6.3 During polling
 
 Each sample should show:
 
@@ -292,9 +413,9 @@ Use `Ctrl+C` only when an intentional early stop is required. At 16:00 ET the
 normal poller reports `Reached the end of the polling window` and a final
 summary.
 
-## 6. After the close: validate and replay
+## 7. After the close: validate and replay
 
-### 6.1 Schema-v2 journal
+### 7.1 Schema-v2 journal
 
 ```cmd
 python probes\audit_quote_observation_journal.py ^
@@ -320,7 +441,7 @@ The audit must report `PASS`. Check:
 Replay must reproduce the expected membership revisions, acquisition totals,
 observation totals, final projected state, and a deterministic sequence hash.
 
-### 6.2 Transitional schema-v1 Focus journal
+### 7.2 Legacy schema-v1 Focus journal
 
 If the separate legacy Focus process was used:
 
@@ -339,7 +460,7 @@ python probes\replay_quote_observation_journal.py ^
 Schema v1 should be labeled `legacy-independent-channels`. Do not copy or
 merge its tables into the schema-v2 daily database.
 
-## 7. Inspect a completed day in the dashboard
+## 8. Inspect a completed day in the dashboard
 
 Open a completed journal at its final state:
 
@@ -365,7 +486,7 @@ python probes\dashboard_quote_observation_journal.py ^
 Use the dashboard's **Stop server** control or `Ctrl+C` in the command window
 for a graceful shutdown.
 
-## 8. Useful diagnostic commands
+## 9. Useful diagnostic commands
 
 These probes answer focused questions; they are not all part of the routine
 daily production path.
@@ -427,7 +548,7 @@ python probes\probe_universe_quote_watch.py ^
 Choose a future window. The exact Focus cadence determines how many slots fall
 inside it; `--max-samples` is an upper bound, not a request to invent slots.
 
-## 9. Failure and recovery notes
+## 10. Failure and recovery notes
 
 | Symptom | Meaning and action |
 |---|---|
@@ -436,24 +557,31 @@ inside it; `--max-samples` is an upper bound, not a request to invent slots.
 | `--publish-at must be in the future` | The requested publication time has passed. Do not backdate; choose a genuinely future controlled window. |
 | Publication time is not before `effective_at` | The revision cannot be made causally valid. Build a proposal for a future effective time. |
 | No effective schema-v2 hierarchy | Publish the session's valid opening `r0` before starting its pollers. |
+| OV source does not cover complete opening Uni | Do not publish a partial Focus decision. Correct the ToS source roster/export and rerun into a new output directory. |
+| Watchlist date differs from opening session | Use a genuinely same-day export or supply `--watchlist-date` only for an undated filename. Do not rename stale evidence to bypass the check. |
+| OV selection produced no Focus symbols | Preserve the source export and investigate OV/custom-column and quote statuses. Do not publish an empty `r1`. |
 | Audit reports missing slots | Preserve the journal and investigate the poller console, error log, credentials, and process lifetime. Do not edit the database to hide the gap. |
 | Audit reports row mismatch or integrity failure | Stop using that journal as accepted evidence until the cause is understood. Preserve all raw files. |
 | Dashboard port 8050 is occupied | Stop the existing server or add `--port` with another local port. |
 
-## 10. Current capability boundary
+## 11. Current capability boundary
 
 Implemented and operational:
 
 - deterministic post-close Uni selection with a per-symbol decision ledger;
 - strict schema-v2 opening `r0` generation and publication;
+- Uni-constrained, ToS-derived OV Focus production with durable evidence and a
+  strict schema-v2 `r1` proposal;
 - independent exact-slot Uni and Focus polling;
 - daily SQLite journaling, read-only audit, deterministic replay, and dashboard;
 - Schwab quote/history diagnostics and Nasdaq halt acquisition/monitoring.
 
 Not yet part of routine production:
 
-- MasterBot-derived Overnight Volume analytics and automatic Focus `BASE_SET`;
-- routine schema-v2 Focus and Hot operation;
+- MasterBot-derived historical Overnight Volume analytics and a fully
+  automated Focus `BASE_SET` independent of ToS custom expressions;
+- routine schema-v2 Focus operation, pending the first full-session production
+  validation, and all Hot operation;
 - intraday admissions and promotions driven by developing facts;
 - automatic exchange-calendar date selection;
 - distillation of completed daily journals into the long-term historical
@@ -462,7 +590,7 @@ Not yet part of routine production:
 Until historical distillation exists, retain the daily SQLite journals and
 their associated raw evidence, CSV outputs, manifests, and logs.
 
-## 11. Maintaining this manual
+## 12. Maintaining this manual
 
 Update this document in the same pull request whenever an operator-facing
 command, default, output path, validation rule, schema boundary, or production
