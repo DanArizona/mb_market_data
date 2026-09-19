@@ -53,8 +53,9 @@ def parse_args() -> argparse.Namespace:
         "--market-data",
         required=True,
         help=(
-            "enriched_candidates_direct_market_cap.csv from "
-            "probe_daily_universe_direct_market_cap.py"
+            "Frozen post-close market_data_snapshot.csv. Legacy enriched "
+            "candidate CSVs are also accepted when they contain close, "
+            "volume, and shares-outstanding fields."
         ),
     )
     parser.add_argument("--session-date", required=True, type=date_argument)

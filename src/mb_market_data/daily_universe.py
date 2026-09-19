@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 
-SELECTOR_VERSION = "daily-universe-v1"
+SELECTOR_VERSION = "daily-universe-v2"
 
 
 @dataclass(frozen=True)
@@ -67,8 +67,11 @@ class UniverseDecision:
     acquisition_detail: str
     close_price: str
     total_volume: str
-    instrument_status: str
+    shares_outstanding: str
+    calculated_market_cap: str
     direct_market_cap: str
+    regular_market_trade_time_et: str
+    regular_market_session_match: str
 
     @property
     def included(self) -> bool:
@@ -110,6 +113,17 @@ def decimal_text(value: Decimal | None) -> str:
 
 def is_yes(value: Any) -> bool:
     return str(value or "").strip().upper() == "Y"
+
+
+def parse_bool(value: Any) -> bool | None:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    if text in {"true", "1", "yes", "y"}:
+        return True
+    if text in {"false", "0", "no", "n"}:
+        return False
+    return None
 
 
 def read_csv_rows(path: str | Path) -> list[dict[str, str]]:
@@ -197,15 +211,23 @@ def decide_daily_universe(
         acquisition_detail = _source_value(
             source, market, "acquisition_detail"
         )
-        instrument_status = _source_value(
-            source, market, "instrument_status"
-        )
-
         close = parse_decimal(market.get("close_price")) if market else None
         volume = parse_decimal(market.get("total_volume")) if market else None
-        market_cap = (
+        shares = (
+            parse_decimal(market.get("shares_outstanding")) if market else None
+        )
+        direct_market_cap = (
             parse_decimal(market.get("direct_market_cap")) if market else None
         )
+        calculated_market_cap = (
+            close * shares
+            if close is not None and shares is not None
+            else None
+        )
+        session_match_text = _source_value(
+            source, market, "regular_market_session_match"
+        )
+        session_match = parse_bool(session_match_text)
 
         # ETFs and test issues are conclusively excluded by the source record;
         # their absence from the candidate-only market snapshot is expected.
@@ -220,6 +242,13 @@ def decide_daily_universe(
                 elif acquisition_status != "quote":
                     reasons.append(f"acquisition_{acquisition_status}")
 
+                if session_match_text == "missing":
+                    reasons.append("missing_regular_market_trade_time")
+                elif session_match is False:
+                    reasons.append("regular_trade_not_in_session")
+                elif session_match_text and session_match is None:
+                    reasons.append("invalid_regular_session_match")
+
                 if volume is None:
                     reasons.append("missing_volume")
                 elif volume < config.minimum_volume:
@@ -230,15 +259,19 @@ def decide_daily_universe(
                 elif close < config.minimum_close:
                     reasons.append("close_below_min")
 
-                if not instrument_status:
-                    reasons.append("missing_instrument_status")
-                elif instrument_status != "returned":
-                    reasons.append("missing_instrument")
-                elif market_cap is None:
-                    reasons.append("missing_direct_market_cap")
-                elif market_cap < config.minimum_market_cap:
+                if shares is None:
+                    reasons.append("missing_shares_outstanding")
+                elif shares < 0:
+                    reasons.append("invalid_shares_outstanding")
+                elif (
+                    calculated_market_cap is not None
+                    and calculated_market_cap < config.minimum_market_cap
+                ):
                     reasons.append("market_cap_below_min")
-                elif market_cap > config.maximum_market_cap:
+                elif (
+                    calculated_market_cap is not None
+                    and calculated_market_cap > config.maximum_market_cap
+                ):
                     reasons.append("market_cap_above_max")
 
         if reasons:
@@ -278,8 +311,13 @@ def decide_daily_universe(
                 acquisition_detail=acquisition_detail,
                 close_price=decimal_text(close),
                 total_volume=decimal_text(volume),
-                instrument_status=instrument_status,
-                direct_market_cap=decimal_text(market_cap),
+                shares_outstanding=decimal_text(shares),
+                calculated_market_cap=decimal_text(calculated_market_cap),
+                direct_market_cap=decimal_text(direct_market_cap),
+                regular_market_trade_time_et=_source_value(
+                    source, market, "regular_market_trade_time_et"
+                ),
+                regular_market_session_match=session_match_text,
             )
         )
 
@@ -385,7 +423,10 @@ def write_daily_universe_artifacts(
             "minimum_close": decimal_text(config.minimum_close),
             "minimum_market_cap": decimal_text(config.minimum_market_cap),
             "maximum_market_cap": decimal_text(config.maximum_market_cap),
-            "market_cap_source": "Schwab Instruments fundamental.marketCap",
+            "close_source": "Schwab regular.regularMarketLastPrice",
+            "volume_source": "Schwab quote.totalVolume",
+            "shares_source": "Schwab quote fundamental.sharesOutstanding",
+            "market_cap_source": "completed close * sharesOutstanding",
         },
         "counts": {
             "source_symbols": len(decision_rows),

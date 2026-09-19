@@ -42,8 +42,8 @@ def market(symbol: str, **changes: str) -> dict[str, str]:
         "acquisition_detail": "",
         "close_price": "1.00",
         "total_volume": "10000",
-        "instrument_status": "returned",
-        "direct_market_cap": "4000000",
+        "shares_outstanding": "4000000",
+        "direct_market_cap": "1",
     }
     row.update(changes)
     return row
@@ -60,7 +60,7 @@ class TestDecideDailyUniverse(unittest.TestCase):
                     "HIGH",
                     close_price="0.10",
                     total_volume="10,000",
-                    direct_market_cap="$40,000,000",
+                    shares_outstanding="400,000,000",
                 ),
             ],
         )
@@ -82,7 +82,7 @@ class TestDecideDailyUniverse(unittest.TestCase):
                     "FAIL",
                     close_price="0.09",
                     total_volume="9999",
-                    direct_market_cap="40000001",
+                    shares_outstanding="500000000",
                 )
             ],
         )[0]
@@ -109,14 +109,14 @@ class TestDecideDailyUniverse(unittest.TestCase):
 
         self.assertEqual(decision.primary_reason, "missing_market_data")
 
-    def test_acquisition_and_instrument_failures_are_explicit(self) -> None:
+    def test_acquisition_and_missing_shares_are_explicit(self) -> None:
         decision = decide_daily_universe(
             [source("BAD")],
             [
                 market(
                     "BAD",
                     acquisition_status="invalid",
-                    instrument_status="missing",
+                    shares_outstanding="",
                     direct_market_cap="",
                 )
             ],
@@ -124,7 +124,7 @@ class TestDecideDailyUniverse(unittest.TestCase):
 
         self.assertEqual(
             decision.reason_codes,
-            "acquisition_invalid;missing_instrument",
+            "acquisition_invalid;missing_shares_outstanding",
         )
 
     def test_missing_required_status_and_values_are_explicit(self) -> None:
@@ -136,7 +136,7 @@ class TestDecideDailyUniverse(unittest.TestCase):
                     acquisition_status="",
                     total_volume="",
                     close_price="",
-                    instrument_status="",
+                    shares_outstanding="",
                     direct_market_cap="",
                 )
             ],
@@ -146,8 +146,41 @@ class TestDecideDailyUniverse(unittest.TestCase):
             decision.reason_codes,
             (
                 "missing_acquisition_status;missing_volume;missing_close;"
-                "missing_instrument_status"
+                "missing_shares_outstanding"
             ),
+        )
+
+    def test_daic_uses_local_cap_not_inconsistent_direct_cap(self) -> None:
+        decision = decide_daily_universe(
+            [source("DAIC")],
+            [
+                market(
+                    "DAIC",
+                    close_price="3.55",
+                    total_volume="4099267",
+                    shares_outstanding="1210383",
+                    direct_market_cap="2432869",
+                    regular_market_session_match="true",
+                    regular_market_trade_time_et=(
+                        "2026-09-18T16:00:00.596000-04:00"
+                    ),
+                )
+            ],
+        )[0]
+
+        self.assertTrue(decision.included)
+        self.assertEqual(decision.calculated_market_cap, "4296859.65")
+        self.assertEqual(decision.direct_market_cap, "2432869")
+
+    def test_rejects_stale_regular_market_trade(self) -> None:
+        decision = decide_daily_universe(
+            [source("STALE")],
+            [market("STALE", regular_market_session_match="false")],
+        )[0]
+
+        self.assertEqual(
+            decision.primary_reason,
+            "regular_trade_not_in_session",
         )
 
     def test_rejects_duplicate_and_unknown_symbols(self) -> None:
