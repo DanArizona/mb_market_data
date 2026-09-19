@@ -78,6 +78,7 @@ The journal and stable universe are intended to feed an explicit **Intraday Sign
 
 - `mb_tools` provides the shared configuration model and the operational CLIs used across machines, including `mb-scan-command`, `mb-scan-status`, `mb-schwab-auth`, `mb-env-report`, window/widget survey tools, and the encrypted-config editor.
 - Project `.env`, Windows `MB_*`, and packaged defaults have an established precedence model.
+- The cross-project [Credential Storage and Resolution Contract](https://github.com/DanArizona/mb_tools/blob/main/docs/Credential_Storage_and_Resolution_Contract.md) assigns shared credential mechanics and policy to `mb_tools`. Schwab follows the implemented model; Pushover and Massive entries are design reservations until their loaders, tests, and operating procedures exist.
 - `mb_tools` v0.5.0 was released and installed on MasterBot on 2026-07-31.
 - The `export_wl` change was committed and pushed as `f436c2f`; 9 targeted and 59 full tests passed.
 
@@ -372,6 +373,7 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-021 | Removal is represented by omission from the next complete membership snapshot. Timed removal categories are deferred; `FORCE_ABSENT` remains coordinator intent policy. | Active |
 | D-022 | Schema-v1 journals remain immutable legacy evidence. Hierarchy-governed journals use schema v2 and replay each hierarchy revision as one bundled event. | Active |
 | D-023 | The coordinator's flat `CanonicalWatchlist` and GUI materialization transaction are not the sampling hierarchy. A distinct coordinator-side hierarchy projection will publish to the journal contract. | Active |
+| D-024 | Programmatic credentials use provider-specific encrypted `.ecfg` files owned by `mb_tools`, kept outside repositories, resolved by explicit path, service override, then `MB_VAULT` default, and restricted by machine/service ownership. Plaintext credential fallback is prohibited. | Active |
 
 ## Maintenance protocol
 
@@ -421,3 +423,10 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Added a controlled JSON hierarchy publisher for r0/r1 testing; coordinator-side publication integration and concurrent live-like transition evidence remain pending.
 - Corrective review closed stale acquisition binding, sidecar-only empty-slot evidence, unchecked per-channel provenance/hash, and publication-time regression gaps; added concurrent readers-versus-publication coverage.
 - Diagnosed the interrupted-session token lock as a Schwabdev 3.0.5 failed-authorization transaction leak rather than a quote-journal lock. Prepared a Schwabdev 4.x requirement, read-only token-status command, and fail-before-artifacts poller horizon gate; Windows installation and live smoke validation remain pending.
+
+### 2026-09-19 — Credential architecture contract
+
+- Accepted `mb_tools` as the canonical owner of the cross-project Credential Storage and Resolution Contract.
+- Standardized provider-specific encrypted `.ecfg` files outside source repositories, explicit resolution precedence, least-privilege machine ownership, redacted failure behavior, and lifecycle requirements.
+- Recorded Schwab as implemented and Pushover/Massive as planned rather than operational.
+- Kept operator procedures and User Notes separate until each provider integration has tested commands and failure behavior.
