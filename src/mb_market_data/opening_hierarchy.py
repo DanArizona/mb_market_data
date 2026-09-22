@@ -16,6 +16,19 @@ from mb_market_data.sampling_membership import SamplingHierarchyRevision
 
 ET = ZoneInfo("America/New_York")
 OPENING_HIERARCHY_SOURCE = "daily-universe-production-v1"
+OPENING_PROPOSAL_FIELDS = frozenset(
+    {
+        "session_date",
+        "revision",
+        "effective_at",
+        "uni_symbols",
+        "focus_symbols",
+        "hot_symbols",
+        "source",
+        "reason",
+        "metadata",
+    }
+)
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:
@@ -165,6 +178,61 @@ def opening_proposal_payload(
         "reason": revision.reason,
         "metadata": _plain_json(revision.metadata),
     }
+
+
+def load_opening_proposal(
+    path: str | Path,
+) -> SamplingHierarchyRevision:
+    """Load and validate one exact opening-r0 proposal artifact."""
+
+    proposal_path = Path(path)
+    payload = _read_json_object(proposal_path)
+    fields = set(payload)
+    missing = sorted(OPENING_PROPOSAL_FIELDS - fields)
+    unexpected = sorted(fields - OPENING_PROPOSAL_FIELDS)
+    if missing or unexpected:
+        problems = []
+        if missing:
+            problems.append(f"missing fields: {', '.join(missing)}")
+        if unexpected:
+            problems.append(f"unexpected fields: {', '.join(unexpected)}")
+        raise ValueError(
+            "invalid opening proposal schema (" + "; ".join(problems) + ")"
+        )
+
+    for name in ("uni_symbols", "focus_symbols", "hot_symbols"):
+        value = payload[name]
+        if not isinstance(value, list) or any(
+            not isinstance(symbol, str) for symbol in value
+        ):
+            raise ValueError(f"opening proposal {name} must be a string list")
+    if not isinstance(payload["metadata"], Mapping):
+        raise ValueError("opening proposal metadata must be an object")
+    if payload["reason"] is not None and not isinstance(
+        payload["reason"], str
+    ):
+        raise ValueError("opening proposal reason must be a string or null")
+
+    revision = SamplingHierarchyRevision(
+        session_date=date.fromisoformat(
+            _required_text(payload["session_date"], "session_date")
+        ),
+        revision=payload["revision"],
+        effective_at=datetime.fromisoformat(
+            _required_text(payload["effective_at"], "effective_at")
+        ),
+        uni_symbols=payload["uni_symbols"],
+        focus_symbols=payload["focus_symbols"],
+        hot_symbols=payload["hot_symbols"],
+        source=payload["source"],
+        reason=payload["reason"],
+        metadata=payload["metadata"],
+    )
+    if revision.revision != 0:
+        raise ValueError("opening hierarchy proposal must be r0")
+    if revision.focus_symbols or revision.hot_symbols:
+        raise ValueError("opening r0 must have empty Focus and Hot rosters")
+    return revision
 
 
 def write_opening_proposal(

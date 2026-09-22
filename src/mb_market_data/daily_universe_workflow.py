@@ -241,7 +241,7 @@ def write_workflow_manifest(
         ],
         "artifacts": {
             name: {
-                "path": str(path.relative_to(paths.root)),
+                "path": path.relative_to(paths.root).as_posix(),
                 "sha256": sha256_file(path),
             }
             for name, path in expected.items()

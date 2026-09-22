@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from datetime import date, datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from mb_market_data.daily_universe import (
     decide_daily_universe,
@@ -13,6 +14,7 @@ from mb_market_data.daily_universe import (
 )
 from mb_market_data.opening_hierarchy import (
     build_opening_hierarchy,
+    load_opening_proposal,
     write_opening_proposal,
 )
 from mb_market_data.quote_observation_store import (
@@ -123,13 +125,41 @@ class TestOpeningHierarchy(unittest.TestCase):
             schema_version=HIERARCHY_SCHEMA_VERSION,
         )
         store.initialize()
-        result = store.record_membership_revision(revision)
+        with patch(
+            "mb_market_data.quote_observation_store._utc_now",
+            return_value=datetime(2026, 9, 21, 13, 29, tzinfo=timezone.utc),
+        ):
+            result = store.record_membership_revision(revision)
 
         self.assertEqual(payload["revision"], 0)
         self.assertEqual(payload["focus_symbols"], [])
         self.assertEqual(result, RecordResult.INSERTED)
         stored = store.membership_revisions_in_effective_order()[0]
         self.assertEqual(stored.content_sha256, revision.content_sha256)
+
+    def test_loads_written_opening_proposal_exactly(self) -> None:
+        revision = build_opening_hierarchy(self.universe_dir)
+        proposal_path = write_opening_proposal(
+            self.root / "r0.json",
+            revision,
+        )
+
+        loaded = load_opening_proposal(proposal_path)
+
+        self.assertEqual(loaded.content_sha256, revision.content_sha256)
+
+    def test_loader_rejects_unexpected_fields(self) -> None:
+        revision = build_opening_hierarchy(self.universe_dir)
+        proposal_path = write_opening_proposal(
+            self.root / "r0.json",
+            revision,
+        )
+        payload = json.loads(proposal_path.read_text(encoding="utf-8"))
+        payload["unreviewed"] = True
+        proposal_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with self.assertRaisesRegex(ValueError, "unexpected fields"):
+            load_opening_proposal(proposal_path)
 
     def test_rejects_tampered_uni_symbols(self) -> None:
         with (self.universe_dir / "uni_symbols.csv").open(
