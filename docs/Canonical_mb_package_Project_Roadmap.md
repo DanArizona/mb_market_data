@@ -1,6 +1,6 @@
 # Canonical mb_package Project Roadmap and Decision Register
 
-**Canonical status date:** 2026-09-19
+**Canonical status date:** 2026-09-22
 
 **Scope:** The entire `mb_package` family of projects and their operating environment
 
@@ -237,7 +237,7 @@ Near-term work should be handled in small, testable weekly increments—normally
 - Define source priority, capacity, eviction, and manual-override policy beyond the intentionally simple POC rules.
 - Strengthen full-target verification and drift reconciliation.
 - Improve GUI-collision prevention and adapter-health reporting.
-- Consider merging `scan_command_loop.py` and `scan_main_v2p0dev0.py` only after the coordinator concept and current scanner behavior are stable. Until then, keep them separate.
+- Evaluate El-Cheapo runtime consolidation—preferably a supervisor that preserves separate worker fault domains—versus directly merging `scan_command_loop.py` and `scan_main_v2p0dev0.py` only after the coordinator concept and current scanner behavior are stable. Until then, keep them separate and establish a durable logging/audit contract across both components.
 
 ### 5.3 Back-testing and trading
 
@@ -275,7 +275,7 @@ Near-term work should be handled in small, testable weekly increments—normally
 - **Dashboard print refinement:** deferred until higher-value replay and membership work is complete.
 - **Dashboard date selector:** deferred. Initial seek uses the journal/date selected outside the dashboard; a later selector may choose one daily journal but will not create a multi-day seek or backtesting interface.
 - **Universe-selector GUI:** deferred. The first selector remains CLI/config driven.
-- **Scanner-process merger:** deferred until behavior, coordinator ownership, and recovery semantics are stable.
+- **El-Cheapo runtime consolidation and durable logging:** deferred until behavior, coordinator ownership, and recovery semantics are stable. Evaluate a supervisor versus direct merger of `scan_command_loop.py` and `scan_main_v2p0dev0.py`; first address the command loop's console-only logging, session-based log naming, rotation, startup identity, and durable command/result/postcondition audit records.
 - **Full production trading/back-testing platform:** deferred behind data quality, replay fidelity, historical coverage, and risk controls.
 - **Separate strategy/back-testing repository:** previously postponed; keep market acquisition/history and its foundational replay work together until a real ownership boundary emerges.
 - **Complex source-priority and Watchlist-size policy:** deferred beyond the coordinator POC's intentionally simple rules.
@@ -358,7 +358,7 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-006 | Producers express intent; the coordinator owns canonical state and publication. | Active |
 | D-007 | Accepted is not satisfied; verify the full observed target and preserve unknown outcomes. | Active |
 | D-008 | Daily journals are the audit/replay basis; longer-term distillation must preserve reproducibility. | Active |
-| D-009 | Keep `scan_command_loop.py` and `scan_main_v2p0dev0.py` separate during current work. | Active |
+| D-009 | Keep `scan_command_loop.py` and `scan_main_v2p0dev0.py` separate during current work; revisit consolidation only after stable behavior, ownership, recovery, and durable logging are established. | Active |
 | D-010 | Keep live `sync_csv_v2` transport separate from the future after-market archive utility. | Active |
 | D-011 | Multi-symbol dashboard filtering is tabled. | Tabled |
 | D-012 | Dashboard print refinement is deferred. | Deferred |
@@ -430,3 +430,9 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Standardized provider-specific encrypted `.ecfg` files outside source repositories, explicit resolution precedence, least-privilege machine ownership, redacted failure behavior, and lifecycle requirements.
 - Recorded Schwab as implemented and Pushover/Massive as planned rather than operational.
 - Kept operator procedures and User Notes separate until each provider integration has tested commands and failure behavior.
+
+### 2026-09-22 — El-Cheapo runtime and logging follow-up
+
+- Confirmed that `scan_main_v2p0dev0.py` writes durable session logs whose filenames are based on process start time rather than calendar date.
+- Confirmed that `scan_command_loop.py` currently logs to its console rather than a durable file, leaving command-plane actions difficult to reconstruct after console output is lost.
+- Deferred El-Cheapo runtime consolidation and durable logging; keep the two processes separate until the behavior, ownership, recovery, and logging contract are stable.
