@@ -125,6 +125,27 @@ python probes\run_daily_universe_production.py ^
   --output-dir "output\daily_universe_production\2026-09-21-from-2026-09-18-r2"
 ```
 
+### Artifact path contract
+
+Two output layouts are valid because the stages remain independently runnable:
+
+| Producer | Universe artifact directory | Opening `r0` proposal |
+|---|---|---|
+| Preferred `run_daily_universe_production.py` workflow | `output\daily_universe_production\TARGET-from-SESSION\universe` | `output\daily_universe_production\TARGET-from-SESSION\opening_hierarchy_r0.json` |
+| Standalone `build_daily_universe.py` followed by `build_opening_sampling_hierarchy.py` | `output\daily_universe\TARGET-from-SESSION` | `output\daily_universe\TARGET-from-SESSION\opening_hierarchy_r0.json` |
+
+The accepted September 21 opening artifacts use the standalone layout under
+`output\daily_universe\2026-09-21-from-2026-09-18`. Its `uni_symbols.csv`,
+`uni_watchlist.csv`, `decision_ledger.csv`, and `manifest.json` are directly in
+that directory; there is no intermediate `universe` directory.
+
+Downstream validation, ToS seeding, OV Focus production, and publication must
+consume the accepted artifact paths from the producer that actually ran. Do
+not reconstruct a different path from the dates, and do not move or duplicate
+immutable evidence merely to make it resemble the other layout. The maintained
+operator commands in `docs\Operations_Quick_Reference.md` use `UNIVERSE_DIR`
+and `OPENING_R0` for this handoff.
+
 ## Acceptance checks
 
 Before using the roster, confirm:

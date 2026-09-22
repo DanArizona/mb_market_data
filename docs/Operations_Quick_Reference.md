@@ -1,7 +1,7 @@
 # mb_market_data Operations Quick Reference
 
 **Purpose:** A concise operator manual for routine `mb_market_data` work.  
-**Last verified:** 2026-09-19.
+**Last verified:** 2026-09-22.
 **Shell:** Windows Command Prompt (`cmd.exe`).  
 **Working directory:** `C:\Users\danla\Documents\github\mb_market_data`.
 
@@ -79,9 +79,11 @@ them for the session being operated.
 set SESSION_DATE=2026-09-18
 set TARGET_DATE=2026-09-21
 set ET_UTC_OFFSET=-04:00
-set V2_JOURNAL_ROOT=output\quote_observation_journal_v2
 set MARKET_DATA_ROOT=C:\Users\danla\Documents\github\mb_market_data
 set WATCHLIST_ROOT=C:\Users\danla\Documents\github\schwab_watchlists
+set UNIVERSE_DIR=%MARKET_DATA_ROOT%\output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\universe
+set OPENING_R0=%MARKET_DATA_ROOT%\output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\opening_hierarchy_r0.json
+set V2_JOURNAL_ROOT=output\quote_observation_journal_v2
 set FOCUS_LIMIT=40
 ```
 
@@ -92,16 +94,30 @@ Definitions:
 | `SESSION_DATE` | The just-completed regular trading session used to select Uni. |
 | `TARGET_DATE` | The next intended trading session. |
 | `ET_UTC_OFFSET` | Eastern offset on `TARGET_DATE`, including daylight-saving time. |
+| `UNIVERSE_DIR` | Accepted directory that directly contains `uni_symbols.csv`, `uni_watchlist.csv`, `decision_ledger.csv`, and the universe `manifest.json`. |
+| `OPENING_R0` | Exact accepted `opening_hierarchy_r0.json` proposal paired with `UNIVERSE_DIR`. |
 | `V2_JOURNAL_ROOT` | A dedicated schema-v2 journal root. Use a purpose/date suffix for a controlled test. |
 | `MARKET_DATA_ROOT` | Local `mb_market_data` repository root. |
 | `WATCHLIST_ROOT` | Local `schwab_watchlists` repository root. |
 | `FOCUS_LIMIT` | Explicit maximum size of the OV-derived opening Focus set. `40` is an example, not a hidden project default. |
 
-For the controlled September 21 opening test, the journal root was:
+The default `UNIVERSE_DIR` and `OPENING_R0` values above match the preferred
+one-command production workflow. If an explicit `--output-dir` or independently
+run stage produced the accepted artifacts, reset both variables to those
+actual paths before validation or publication.
+
+For the controlled September 21 opening test, the accepted artifacts came
+from the standalone build layout and the journal used a dedicated root:
 
 ```cmd
+set UNIVERSE_DIR=%MARKET_DATA_ROOT%\output\daily_universe\2026-09-21-from-2026-09-18
+set OPENING_R0=%MARKET_DATA_ROOT%\output\daily_universe\2026-09-21-from-2026-09-18\opening_hierarchy_r0.json
 set V2_JOURNAL_ROOT=output\quote_observation_journal_v2_opening_2026-09-21
 ```
+
+Do not move or copy accepted evidence to make one layout resemble the other.
+The handoff contract is the directory that directly contains the accepted Uni
+CSVs plus the exact paired opening proposal.
 
 ## 4. After the close: build the next session's Uni
 
@@ -162,13 +178,13 @@ Confirm in the console output:
 Count the generated Uni roster:
 
 ```cmd
-powershell -NoProfile -Command "$u=Import-Csv 'output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\universe\uni_symbols.csv'; 'UNI COUNT: ' + @($u).Count"
+powershell -NoProfile -Command "$u=Import-Csv '%UNIVERSE_DIR%\uni_symbols.csv'; 'UNI COUNT: ' + @($u).Count"
 ```
 
 Explain a particular symbol from the decision ledger:
 
 ```cmd
-powershell -NoProfile -Command "Import-Csv 'output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\universe\decision_ledger.csv' | Where-Object symbol -eq 'DAIC' | Format-List *"
+powershell -NoProfile -Command "Import-Csv '%UNIVERSE_DIR%\decision_ledger.csv' | Where-Object symbol -eq 'DAIC' | Format-List *"
 ```
 
 Replace `DAIC` with the symbol under investigation. The ledger is the
@@ -181,7 +197,7 @@ After accepting the roster, publish its already-generated `r0` proposal:
 ```cmd
 python probes\publish_sampling_hierarchy.py ^
   "%V2_JOURNAL_ROOT%\%TARGET_DATE%.sqlite3" ^
-  "output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\opening_hierarchy_r0.json"
+  "%OPENING_R0%"
 ```
 
 Expected result:
@@ -246,7 +262,7 @@ mb-scan-command suspend_exports --wait 30
 From the `mb_market_data` repository root:
 
 ```cmd
-powershell -NoProfile -Command "$s=@((Import-Csv 'output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\universe\uni_symbols.csv').symbol); & mb-scan-command replace_wl_symbols --symbols $s --wait 120; exit $LASTEXITCODE"
+powershell -NoProfile -Command "$s=@((Import-Csv '%UNIVERSE_DIR%\uni_symbols.csv').symbol); & mb-scan-command replace_wl_symbols --symbols $s --wait 120; exit $LASTEXITCODE"
 ```
 
 Check `mb-scan-status` until the replacement job has finished, then resume
@@ -292,7 +308,7 @@ git pull --ff-only origin main
 
 python run_ov_focus_production.py ^
   --watchlist "%OV_WATCHLIST%" ^
-  --opening-proposal "%MARKET_DATA_ROOT%\output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\opening_hierarchy_r0.json" ^
+  --opening-proposal "%OPENING_R0%" ^
   --limit %FOCUS_LIMIT%
 ```
 
