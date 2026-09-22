@@ -33,6 +33,9 @@ Schwab-auth commands.
 9. Preserve completed output directories and journals. Production artifacts
    are immutable evidence; use a new suffixed output directory for an
    intentional rerun.
+10. Before a ToS Watchlist mutation or export, verify the Setup, target
+    Watchlist, column set, and visible headers independently. Selecting a Setup
+    does not prove that the intended Watchlist or columns are active.
 
 ## 2. Start a command window
 
@@ -248,7 +251,22 @@ This procedure produces the daily Focus `BASE_SET` as schema-v2 revision `r1`.
 It preserves `Focus ⊆ Uni`; it does not calculate historical OV on MasterBot.
 The current bridge consumes the same-day ToS `OV_DECISION` custom column.
 
-### 5.1 Seed the ToS source Watchlist with opening Uni
+### 5.1 Verify ToS display state and seed the source Watchlist
+
+Before any Watchlist mutation or export, verify these four UI conditions
+independently:
+
+1. **Setup:** `Scanner3` is selected.
+2. **Watchlist:** the target pane is the static `Default` Watchlist, not a scan
+   or another Watchlist.
+3. **Column Set:** `mb_default` is selected explicitly.
+4. **Headers:** the visible columns, in order, are `Symbol`, `OV_DECISION`,
+   `Open`, `High`, `Low`, `Last`, and `Volume`.
+
+Do not treat the Setup name as evidence for the other three conditions. During
+the September 21 session, `Scanner3` was selected while the Watchlist initially
+showed `myRange` and `Day Close`; the intended columns had to be selected
+separately. Do not continue until the exact header contract is visible.
 
 After accepting the opening roster, replace the dedicated ToS `Default`
 Watchlist with the complete generated Uni. This is a GUI mutation, so first
