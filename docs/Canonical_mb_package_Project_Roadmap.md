@@ -141,8 +141,9 @@ canonical/journal verification. ToS readback is outside that acceptance path.
 ## 3. Current critical path
 
 The critical path now moves from validated acquisition, replay, and daily
-universe construction toward live hierarchical membership evolution and
-production integration.
+universe construction through the first live API-only opening, then to a
+narrowly bounded Observation Overlay/OOOHLCV diagnostic MVP, followed by live
+hierarchical membership evolution.
 
 ### CP-1 — Seek to historical time
 
@@ -205,16 +206,45 @@ September 21 opening `r0` and `r1` were published to a dedicated schema-v2
 journal. Concurrent Uni and Focus polling completed the full session and the
 journal passed audit and deterministic replay.
 
+### CP-4 — Observation Overlay/OOOHLCV diagnostic MVP
+
+**Status: Next development priority after the live API-only session and its
+audit pass.**
+
+Build a read-only, replay-causal view for one symbol and one session using a
+completed schema-v2 journal plus cached Schwab five-minute OHLCV. The MVP
+overlays exact acquisition-time observations and statuses with membership
+bands based on the highest active tier: gray outside Uni, cyan Uni, gold Focus,
+and magenta Hot.
+
+MVP guardrails:
+
+- playback only; no live input or influence on pollers;
+- one symbol and one session;
+- completed journals opened read-only;
+- cached OHLCV stored separately from the immutable observation journal;
+- acquisitions become visible at `completed_at_utc` and membership at
+  `effective_at_utc`;
+- a completed five-minute candle becomes visible only after its interval
+  closes, preventing look-ahead;
+- no indicators, signals, news/events, holdings, multi-symbol or multi-session
+  view, alternate provider, configurable period, or algorithm/backtesting use.
+
+Acceptance requires deterministic timestamp alignment, Eastern Time
+presentation, cache/source provenance, synthetic Uni→Focus→Hot/removal
+coverage, and successful playback against the September 21 and—if the live
+gate passes—September 23 schema-v2 journals. The overlay is supplemental
+diagnostic evidence; journal replay and audit remain authoritative.
+
 ## 4. Near-term work
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
-1. **Live-validate the API-only opening pipeline.** At 08:25 ET acquire complete opening-Uni OV evidence, require `production_eligible: true`, build and review Focus r1, publish before 09:30, and retain all immutable artifacts.
-2. **Operate ToS strictly as display-only.** Submit the accepted Focus roster outbound without export, CSV readback, or OV comparison; adapter acceptance is not market-data evidence.
-3. **Use September 11, September 14, September 15, and September 21 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
-4. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
-5. **Close the combined coordinator POC milestone when a genuinely new LUDP/M event is available.** Validate canonical/journal membership; ToS display readback is no longer a completion requirement.
-6. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
+1. **Live-validate and audit the API-only opening pipeline.** At 08:25 ET acquire complete opening-Uni OV evidence, require `production_eligible: true`, build and review Focus r1, publish before 09:30, retain all immutable artifacts, and complete the full-session hierarchy/replay/accounting audit. ToS submission is optional display-only output and is not market-data evidence.
+2. **Implement the guarded Observation Overlay/OOOHLCV MVP after the live gate passes.** Define the timestamp, completed-candle visibility, cache, and membership-band contract first; then implement playback for one symbol and one session without modifying live pollers or journals.
+3. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Apply a new Focus change—preferably from a genuine LUDP/M event—while pollers are active. Prove atomic reader handoff, exact revision binding, replay, and audit; use the overlay as a diagnostic view rather than acceptance authority.
+4. **Use September 11, September 14, September 15, and September 21 as standing real-day regression evidence, adding September 23 if its API-only session passes.** Preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
+5. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
 
 ## 5. Medium- and long-term work
 
@@ -260,6 +290,7 @@ Near-term work should be handled in small, testable weekly increments—normally
 | Focus publication | Relationship between API Focus, canonical coordinator membership, and ToS display membership | Prevents ToS from becoming an accidental source of truth again. |
 | Journal retention | Duration for full SQLite journals; distillation format; archive and deletion policy | Current full-day volume is substantial; auditability must survive compaction. |
 | Data quality | Treatment of invalid symbols, partial batches, stale timestamps, and API errors | A quote response is not automatically a valid observation. |
+| Observation Overlay MVP | Completed-candle visibility, timestamp alignment, OHLCV cache/provenance, and causal joining of observations with hierarchy state | Prevents look-ahead and keeps the diagnostic view reproducible without altering live acquisition or the journal. |
 | Coordinator POC | Availability of a genuinely new LUDP/M event for the combined live test | Final proof requires a real transition, not replaying a baseline as “new.” |
 | Scanner health | Independent proof that required El-Cheapo processes are alive and the GUI is unobstructed | Heartbeat/command acceptance alone cannot prove adapter readiness. |
 | Transport/archive | Exact boundary and handoff between `sync_csv_v2` live transport and future after-market archival | Avoids mixing real-time reliability concerns with long-term data management. |
@@ -279,6 +310,11 @@ Near-term work should be handled in small, testable weekly increments—normally
 - **Full production trading/back-testing platform:** deferred behind data quality, replay fidelity, historical coverage, and risk controls.
 - **Separate strategy/back-testing repository:** previously postponed; keep market acquisition/history and its foundational replay work together until a real ownership boundary emerges.
 - **Complex source-priority and Watchlist-size policy:** deferred beyond the coordinator POC's intentionally simple rules.
+- **Observation Overlay live mode:** deferred. The MVP is historical playback only and must not become an input to or burden on live pollers.
+- **Observation Overlay multi-symbol, multi-session, and multi-day views:** deferred. This does not revive the separately tabled general dashboard multi-symbol filtering feature.
+- **Observation Overlay indicators, signals, news/event markers, and holdings:** deferred until the diagnostic MVP and active-polling hierarchy transition are validated.
+- **Observation Overlay configurable bar periods and alternate providers, including Massive:** deferred; the MVP uses cached Schwab five-minute OHLCV.
+- **Observation Overlay algorithm, optimization, and backtesting integration:** deferred behind replay fidelity, historical-data quality, and the separate backtesting architecture.
 
 ### Superseded or rejected directions
 
@@ -381,6 +417,8 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-024 | Programmatic credentials use provider-specific encrypted `.ecfg` files owned by `mb_tools`, kept outside repositories, resolved by explicit path, service override, then `MB_VAULT` default, and restricted by machine/service ownership. Plaintext credential fallback is prohibited. | Active |
 | D-025 | Current-day `OV_DECISION` is calculated from Schwab API candles over `00:00 <= start < 08:25 ET`; ToS volume is neither an input nor a required match. | Active |
 | D-026 | ToS roster publication is outbound and unverified. No ToS CSV export/readback is required for OV, Focus, or adapter confirmation. | Active |
+| D-027 | After the first live API-only session and audit pass, the next development priority is a playback-only, read-only, one-symbol/one-session Observation Overlay/OOOHLCV MVP. The concurrent hierarchy transition follows immediately afterward. | Active |
+| D-028 | Observation Overlay expansion features—live mode; multi-symbol/session/day views; indicators, signals, events, and holdings; configurable periods; alternate providers; and algorithm/backtesting use—are deferred, not dropped. | Active |
 
 ## Maintenance protocol
 
@@ -443,6 +481,13 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Confirmed that `scan_main_v2p0dev0.py` writes durable session logs whose filenames are based on process start time rather than calendar date.
 - Confirmed that `scan_command_loop.py` currently logs to its console rather than a durable file, leaving command-plane actions difficult to reconstruct after console output is lost.
 - Deferred El-Cheapo runtime consolidation and durable logging; keep the two processes separate until the behavior, ownership, recovery, and logging contract are stable.
+
+### 2026-09-22 — Observation Overlay reprioritization
+
+- Promoted the guarded Observation Overlay/OOOHLCV diagnostic MVP to the first development milestone after the live API-only opening and audit pass.
+- Kept the MVP playback-only, read-only, one symbol, and one session, with cached Schwab five-minute OHLCV and replay-causal visibility.
+- Moved the genuine concurrent schema-v2 hierarchy transition—preferably from a new LUDP/M event—to immediately after the overlay MVP.
+- Recorded all excluded overlay expansion features as deferred rather than dropped.
 
 ### 2026-09-23 — API-only OV and display-only ToS boundary
 
