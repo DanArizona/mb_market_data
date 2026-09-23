@@ -1,7 +1,7 @@
 # mb_market_data Operations Quick Reference
 
 **Purpose:** A concise operator manual for routine `mb_market_data` work.  
-**Last verified:** 2026-09-22.
+**Last verified:** 2026-09-23.
 **Shell:** Windows Command Prompt (`cmd.exe`).  
 **Working directory:** `C:\Users\danla\Documents\github\mb_market_data`.
 
@@ -10,7 +10,7 @@ documents and runbooks remain authoritative for implementation details, but an
 operator should be able to run and validate the normal workflow from this
 document.
 
-The current edition covers `mb_market_data`, the daily OV-to-Focus bridge in
+The current edition covers `mb_market_data`, the API-only OV-to-Focus path in
 `schwab_watchlists`, and the directly required `mb_tools` scanner and
 Schwab-auth commands.
 
@@ -33,9 +33,10 @@ Schwab-auth commands.
 9. Preserve completed output directories and journals. Production artifacts
    are immutable evidence; use a new suffixed output directory for an
    intentional rerun.
-10. Before a ToS Watchlist mutation or export, verify the Setup, target
-    Watchlist, column set, and visible headers independently. Selecting a Setup
-    does not prove that the intended Watchlist or columns are active.
+10. ToS is display-only. Roster submission is outbound and unverified: do not
+    export a ToS CSV, read ToS membership back, or use ToS values in a market-
+    data decision. Command acceptance proves only that the adapter accepted
+    the request.
 
 ## 2. Start a command window
 
@@ -53,7 +54,7 @@ succeed.
 Optional code-health check after pulling:
 
 ```cmd
-python -m pytest -q
+python -m pytest -q tests
 ```
 
 Before a polling session, inspect the stored Schwab authorization lifetime:
@@ -86,6 +87,7 @@ set MARKET_DATA_ROOT=C:\Users\danla\Documents\github\mb_market_data
 set WATCHLIST_ROOT=C:\Users\danla\Documents\github\schwab_watchlists
 set UNIVERSE_DIR=%MARKET_DATA_ROOT%\output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\universe
 set OPENING_R0=%MARKET_DATA_ROOT%\output\daily_universe_production\%TARGET_DATE%-from-%SESSION_DATE%\opening_hierarchy_r0.json
+set API_OV_ROOT=%MARKET_DATA_ROOT%\output\api_overnight_volume
 set V2_JOURNAL_ROOT=output\quote_observation_journal_v2
 set FOCUS_LIMIT=40
 ```
@@ -99,6 +101,7 @@ Definitions:
 | `ET_UTC_OFFSET` | Eastern offset on `TARGET_DATE`, including daylight-saving time. |
 | `UNIVERSE_DIR` | Accepted directory that directly contains `uni_symbols.csv`, `uni_watchlist.csv`, `decision_ledger.csv`, and the universe `manifest.json`. |
 | `OPENING_R0` | Exact accepted `opening_hierarchy_r0.json` proposal paired with `UNIVERSE_DIR`. |
+| `API_OV_ROOT` | Root for immutable API-only OV acquisition bundles. |
 | `V2_JOURNAL_ROOT` | A dedicated schema-v2 journal root. Use a purpose/date suffix for a controlled test. |
 | `MARKET_DATA_ROOT` | Local `mb_market_data` repository root. |
 | `WATCHLIST_ROOT` | Local `schwab_watchlists` repository root. |
@@ -248,73 +251,57 @@ empty Focus/Hot.
 ## 5. Before the open: build and publish OV-derived Focus
 
 This procedure produces the daily Focus `BASE_SET` as schema-v2 revision `r1`.
-It preserves `Focus ⊆ Uni`; it does not calculate historical OV on MasterBot.
-The current bridge consumes the same-day ToS `OV_DECISION` custom column.
+It preserves `Focus ⊆ Uni`. `OV_DECISION` is calculated only from Schwab
+five-minute extended-hours candles whose starts satisfy
+`00:00 <= candle start < 08:25 ET`. ToS is not an input.
 
-### 5.1 Verify ToS display state and seed the source Watchlist
+### 5.1 Scheduled opening sequence
 
-Before any Watchlist mutation or export, verify these four UI conditions
-independently:
+For a normal 09:30 ET open, begin about one hour early:
 
-1. **Setup:** `Scanner3` is selected.
-2. **Watchlist:** the target pane is the static `Default` Watchlist, not a scan
-   or another Watchlist.
-3. **Column Set:** `mb_default` is selected explicitly.
-4. **Headers:** the visible columns, in order, are `Symbol`, `OV_DECISION`,
-   `Open`, `High`, `Low`, `Last`, and `Volume`.
+| ET | Action |
+|---|---|
+| 08:20 | Confirm both repositories are current, run `mb-schwab-auth --status`, verify `OPENING_R0`, journal path, dates, and Focus limit. |
+| 08:25 | Start the complete opening-Uni API OV acquisition. Do not start earlier; the decision window has not closed. |
+| About 08:30 | Confirm the API bundle reports zero failures and `production_eligible: true`. |
+| 08:31 | Build and review the API-OV Focus r1 bundle. |
+| 08:35 | Publish r1; audit and replay the journal. |
+| 08:40 | Start Uni and Focus pollers with a 09:30 start time. |
+| 08:45 or later | Optionally send the accepted Focus roster to ToS for display. Do not verify by export or readback. |
+| 09:30 | Confirm both pollers begin on schedule. |
 
-Do not treat the Setup name as evidence for the other three conditions. During
-the September 21 session, `Scanner3` was selected while the Watchlist initially
-showed `myRange` and `Day Close`; the intended columns had to be selected
-separately. Do not continue until the exact header contract is visible.
-
-After accepting the opening roster, replace the dedicated ToS `Default`
-Watchlist with the complete generated Uni. This is a GUI mutation, so first
-confirm that the El-Cheapo scanner command loop and ToS are operational:
-
-```cmd
-mb-scan-status
-mb-scan-command suspend_exports --wait 30
-```
+### 5.2 Acquire API-only `OV_DECISION`
 
 From the `mb_market_data` repository root:
 
 ```cmd
-powershell -NoProfile -Command "$s=@((Import-Csv '%UNIVERSE_DIR%\uni_symbols.csv').symbol); & mb-scan-command replace_wl_symbols --symbols $s --wait 120; exit $LASTEXITCODE"
+cd /d %MARKET_DATA_ROOT%
+
+python probes\acquire_api_overnight_volume.py ^
+  --opening-proposal "%OPENING_R0%" ^
+  --output-root "%API_OV_ROOT%"
 ```
 
-Check `mb-scan-status` until the replacement job has finished, then resume
-scheduled exports:
+Enter the encrypted Schwab configuration password when prompted. With 554
+symbols and the default 0.5-second request interval, the theoretical pacing
+minimum is about 4.6 minutes; retries can extend the run. The command writes:
+
+```text
+api_ov_observations.csv
+api_ov_candles.jsonl
+manifest.json
+```
+
+Set the printed manifest path explicitly:
 
 ```cmd
-mb-scan-status
-mb-scan-command resume_exports --wait 30
+set API_OV_MANIFEST=%API_OV_ROOT%\RUN_TIMESTAMP-session-%TARGET_DATE%\manifest.json
 ```
 
-Do not continue if the replacement failed or the observed Watchlist count does
-not match the generated Uni count.
-
-### 5.2 Obtain the same-day OV export
-
-Allow ToS to populate `OV_DECISION`, then request an explicitly dated export:
-
-```cmd
-mb-scan-command export_wl ^
-  --target-filename "%TARGET_DATE%-OV-WL.csv" ^
-  --wait 30
-mb-scan-status
-```
-
-Confirm the GUI job completed and locate the transported file in the configured
-`MB_SCANS` directory. Set its full path explicitly; for example:
-
-```cmd
-set OV_WATCHLIST=C:\Users\danla\Documents\github\stockScans\2026-09-21-OV-WL.csv
-```
-
-The filename date must equal `TARGET_DATE`. The CSV must contain `Symbol` and
-`OV_DECISION`, and it must include every opening-Uni symbol. The producer
-allows extra rows but labels them `outside_uni` and cannot select them.
+Accept the bundle only when all opening-Uni symbols succeeded,
+`complete_opening_uni` is true, `completed_before_opening` is true, and
+`production_eligible` is true. A smoke bundle created with `--max-symbols`
+can never be used for production Focus.
 
 ### 5.3 Build the Focus `BASE_SET` and `r1` proposal
 
@@ -325,17 +312,17 @@ cd /d %WATCHLIST_ROOT%
 git pull --ff-only origin main
 
 python run_ov_focus_production.py ^
-  --watchlist "%OV_WATCHLIST%" ^
+  --api-ov-manifest "%API_OV_MANIFEST%" ^
   --opening-proposal "%OPENING_R0%" ^
   --limit %FOCUS_LIMIT%
 ```
 
-Enter the encrypted Schwab configuration password when prompted. A successful
-run reports `OV Focus production: PASS` and writes an immutable directory under
-`output\ov_focus_production`. It contains:
+This step does not authenticate to Schwab and does not read ToS. It verifies
+the upstream hashes, exact opening-Uni roster, session, decision window, and
+production eligibility before ranking. A successful run reports
+`API OV Focus production: PASS` and writes:
 
 ```text
-ov_decision_evidence.jsonl
 focus_decision_ledger.csv
 focus_symbols.csv
 sampling_hierarchy_r1.json
@@ -348,9 +335,8 @@ Copy the printed output directory into a variable. Example:
 set OV_R1_DIR=C:\Users\danla\Documents\github\schwab_watchlists\output\ov_focus_production\2026-09-21-08-25-30
 ```
 
-Review the reported source, eligible, and selected counts. The selected count
-may be below `FOCUS_LIMIT` only when fewer symbols were eligible. Inspect the
-complete decision-reason distribution:
+Review the source, eligible, and selected counts and inspect the complete
+decision-reason distribution:
 
 ```cmd
 powershell -NoProfile -Command "Import-Csv '%OV_R1_DIR%\focus_decision_ledger.csv' | Group-Object primary_reason | Sort-Object Count -Descending | Format-Table Count,Name -AutoSize"
@@ -391,6 +377,22 @@ python probes\replay_quote_observation_journal.py ^
 
 Replay should now show two membership events, `r0` then `r1`, and project the
 accepted Uni and Focus counts with no acquisitions or observations.
+
+### 5.5 Optional ToS display publication
+
+ToS receives only the accepted Focus roster. It does not supply OV data and is
+not read back for verification. Confirm the display-only scanner loop is
+healthy, then submit the roster from `focus_symbols.csv`:
+
+```cmd
+mb-scan-status
+powershell -NoProfile -Command "$s=@((Import-Csv '%OV_R1_DIR%\focus_symbols.csv').symbol); & mb-scan-command replace_wl_symbols --symbols $s --wait 120; exit $LASTEXITCODE"
+mb-scan-status
+```
+
+`processed` means the display adapter completed its command path; it is not an
+observed-membership guarantee. Do not run `export_wl`, do not compare a ToS
+CSV, and do not block API polling or Focus publication on ToS display state.
 
 ## 6. Before the open: start polling
 
@@ -591,9 +593,10 @@ inside it; `--max-samples` is an upper bound, not a request to invent slots.
 | `--publish-at must be in the future` | The requested publication time has passed. Do not backdate; choose a genuinely future controlled window. |
 | Publication time is not before `effective_at` | The revision cannot be made causally valid. Build a proposal for a future effective time. |
 | No effective schema-v2 hierarchy | Publish the session's valid opening `r0` before starting its pollers. |
-| OV source does not cover complete opening Uni | Do not publish a partial Focus decision. Correct the ToS source roster/export and rerun into a new output directory. |
-| Watchlist date differs from opening session | Use a genuinely same-day export or supply `--watchlist-date` only for an undated filename. Do not rename stale evidence to bypass the check. |
-| OV selection produced no Focus symbols | Preserve the source export and investigate OV/custom-column and quote statuses. Do not publish an empty `r1`. |
+| API OV source does not cover complete opening Uni | Do not publish a partial Focus decision. Preserve the failed bundle, diagnose API failures, and rerun into a new output directory before 09:30. |
+| API OV opening/session/hash mismatch | Use the exact `OPENING_R0` that produced the API bundle. Never rename or edit evidence to bypass the check. |
+| API OV bundle is not production eligible | Do not build or publish r1. Inspect per-symbol status, completion time, and whether the run was only a smoke test. |
+| OV selection produced no Focus symbols | Preserve the API evidence and decision bundle and investigate before publishing. |
 | Audit reports missing slots | Preserve the journal and investigate the poller console, error log, credentials, and process lifetime. Do not edit the database to hide the gap. |
 | Audit reports row mismatch or integrity failure | Stop using that journal as accepted evidence until the cause is understood. Preserve all raw files. |
 | Dashboard port 8050 is occupied | Stop the existing server or add `--port` with another local port. |
@@ -604,18 +607,18 @@ Implemented and operational:
 
 - deterministic post-close Uni selection with a per-symbol decision ledger;
 - strict schema-v2 opening `r0` generation and publication;
-- Uni-constrained, ToS-derived OV Focus production with durable evidence and a
-  strict schema-v2 `r1` proposal;
+- complete opening-Uni API-only OV acquisition with immutable candle evidence;
+- Uni-constrained API-OV Focus production with durable evidence and a strict
+  schema-v2 `r1` proposal;
 - independent exact-slot Uni and Focus polling;
 - daily SQLite journaling, read-only audit, deterministic replay, and dashboard;
 - Schwab quote/history diagnostics and Nasdaq halt acquisition/monitoring.
 
 Not yet part of routine production:
 
-- MasterBot-derived historical Overnight Volume analytics and a fully
-  automated Focus `BASE_SET` independent of ToS custom expressions;
-- routine schema-v2 Focus operation, pending the first full-session production
-  validation, and all Hot operation;
+- historical 3/5/10/30-session OV statistics and richer scoring;
+- routine live validation of the new API-only opening pipeline and all Hot
+  operation;
 - intraday admissions and promotions driven by developing facts;
 - automatic exchange-calendar date selection;
 - distillation of completed daily journals into the long-term historical

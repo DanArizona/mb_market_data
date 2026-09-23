@@ -29,7 +29,8 @@ Build a reliable, explainable, replayable market-observation and watchlist-manag
 4. Preserve raw observations, membership revisions, timing, and acquisition history in a daily journal.
 5. Drive a dashboard from either live data or historical replay.
 6. Feed explainable intraday and overnight-volume signals into watchlist decisions.
-7. Publish selected membership to ToS as an execution/display adapter, while detecting drift and uncertain GUI outcomes.
+7. Optionally publish selected membership outbound to ToS as an unverified
+   display adapter; never use ToS readback as market-data evidence.
 8. Eventually support reproducible day replay, historical back-testing, algorithm optimization, and an independent algorithmic-trading component.
 
 The immediate project is a market-data and control foundation. Live algorithmic trading is not an immediate objective.
@@ -40,17 +41,17 @@ The immediate project is a market-data and control foundation. Live algorithmic 
 | --- | --- | --- |
 | `mb_market_data` | MasterBot | Schwab quote/history acquisition; Nasdaq halt acquisition; Uni/Focus/Hot polling; daily SQLite observation journal; replay; dashboard; future historical Overnight Volume (OV), signals, universe selection, and data-quality work. |
 | `mb_watchlist_coordinator` | MasterBot | Producer intents, canonical watchlist revisions, precedence, reconciliation, publication transactions, verification, recovery, and adapter health. |
-| `schwab_watchlists` | MasterBot | Existing Schwab-based watchlist prototypes and submission workflow; retained while capabilities migrate to their long-term owners. |
+| `schwab_watchlists` | MasterBot | API-OV evidence verification, deterministic Focus-r1 production, coordinator intents, and retained legacy watchlist prototypes. |
 | `mb_tools` | Shared, primarily MasterBot | Shared configuration and CLI utilities, secure Schwab configuration, scanner command/status interfaces, window/config tools, and reusable support functions. |
-| `ToS_scanner` | El-Cheapo | ToS GUI automation, scans, exports, Watchlist mutation, and scanner-side lifecycle. ToS is an output/execution adapter—not the authoritative market-data plane. |
+| `ToS_scanner` | El-Cheapo | Display-only ToS GUI automation and scanner-side lifecycle. Roster replacement is outbound; scheduled/explicit exports and readback verification are disabled in display-only mode. |
 | `sync_csv_v2` in `thousand_miles\toolkit\synccsv` | Transport layer | Live CSV/file transport. It remains separate from the future after-market archive utility. |
 
 ### 1.3 Data-plane hierarchy
 
 | Set | Purpose | Current direction |
 | --- | --- | --- |
-| **Uni** | Broad daily eligible universe | Built deterministically after the completed regular session; polled independently through the API. Current reference scale is about 759 symbols. |
-| **Focus** | Smaller working set requiring more frequent attention and possible ToS publication | Polling has been implemented and journaled. Anticipated steady-state size is roughly 30–50, although current tests used four symbols. |
+| **Uni** | Broad daily eligible universe | Built deterministically after the completed regular session and polled independently through the API. The first full schema-v2 session used 554 symbols. |
+| **Focus** | Smaller working set requiring more frequent attention and possible ToS display | API-OV Focus-r1 production and polling are implemented. The first full schema-v2 session used 40 symbols. |
 | **Hot** | Highest-priority, higher-frequency subset | Architectural requirement accepted; polling frequency, admission, and eviction policy remain pending. |
 
 Every membership update must preserve **Hot ⊆ Focus ⊆ Uni**. Membership changes must be deterministic, atomic, revisioned, journaled, and replayable. No observer may see a partially applied hierarchy.
@@ -62,9 +63,9 @@ The September 11, September 14, and September 15 test collections predate hierar
 - Producers express intent; they do not directly manipulate ToS.
 - The coordinator owns canonical membership and publication decisions.
 - OV is a baseline-set producer; Nasdaq LUDP/M is an ensure-present/add producer. Manual overrides have higher precedence where defined.
-- `accepted` means an operation was accepted for processing; it does not mean the desired state was satisfied.
-- Full satisfaction requires observed membership to equal the desired target.
-- An uncertain GUI result remains **unknown** until reconciled; it must not be treated as success.
+- For authoritative adapters, `accepted` means an operation was accepted for processing; it does not mean the desired state was satisfied.
+- Authoritative-adapter satisfaction requires observed membership to equal the desired target.
+- ToS is the deliberate exception: display submission is reported as submitted/unverified and never gates canonical state.
 - Network transport and GUI automation are separate failure domains.
 - Restart recovery should begin from the last confirmed state plus any in-flight transaction, not merely from the last command issued.
 
@@ -86,7 +87,8 @@ The journal and stable universe are intended to feed an explicit **Intraday Sign
 
 - The live file-command lifecycle—`start`, `pause`, `resume`, and `stop`—was validated through the MasterBot-to-El-Cheapo command directory.
 - Incoming, accepted, processed, and rejected command states are implemented, with heartbeat/status reporting.
-- ToS Watchlist export is implemented and has produced valid timestamped CSV output.
+- Legacy ToS Watchlist export produced valid timestamped CSV output. In the
+  current display-only mode, scheduled and explicit exports remain suspended.
 - `replace_wl_symbols` and `add_wl_symbols` were demonstrated after correcting the GUI sequence to Paste → Replace/Add → Save.
 - Watchlist-versus-scan behavior in the ToS Watchlist window is understood: a static Watchlist exposes `Import...`; a scan exposes `Edit ...` and is not suitable for static imported membership.
 - A critical GUI collision was identified: the JTM Scan Manager can cover the ToS `Symbols Import` dialog. This remains an operational hazard even when the scripted sequence itself is correct.
@@ -102,9 +104,13 @@ The journal and stable universe are intended to feed an explicit **Intraday Sign
 - The coordinator models producer intents, canonical/observed/confirmed state, revisions, pending reconciliation, and publication transactions.
 - OV baseline and LUDP/M add semantics have been modeled together.
 - Tests increased from 5 to 12 passing in the initial coordinator work.
-- OV-driven publication has been demonstrated live.
+- Legacy ToS-derived OV publication was demonstrated live. API-only OV-to-Focus
+  production is implemented and awaits its first live opening session.
 
-This is **not** equivalent to completing the entire combined live proof of concept. The remaining combined milestone is a genuinely new LUDP/M event applied on top of the OV-derived Watchlist through the coordinator, followed by full-target verification.
+This is **not** equivalent to completing the entire combined live proof of
+concept. The remaining combined milestone is a genuinely new LUDP/M event
+applied on top of API-OV Focus membership through the coordinator, followed by
+canonical/journal verification. ToS readback is outside that acceptance path.
 
 ### 2.5 Independent Uni and Focus acquisition
 
@@ -148,9 +154,9 @@ Evidence includes 15 focused dashboard tests, 143 full tests, and manual demonst
 
 ### CP-2 — Dynamic, atomic membership changes
 
-**Status: In progress; contract, persistence, replay, audit, synthetic poller
-handoff, and the daily OV-to-Focus `r1` producer implemented. First real-session
-schema-v2 validation remains pending.**
+**Status: Core hierarchy path implemented and first full schema-v2 session
+validated. API-only OV acquisition and Focus-r1 production are implemented;
+their first live opening remains pending.**
 
 Allow membership to change while polling and dashboard processes are running. The implementation must preserve **Hot ⊆ Focus ⊆ Uni**, never expose partial updates, and bind each acquisition to one unambiguous membership revision.
 
@@ -164,7 +170,7 @@ Completion requires:
 - durable journal evidence sufficient for exact replay;
 - concurrency, restart, and failure-injection tests.
 
-The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). Implemented work now includes the pure hierarchy contract, opt-in schema-v2 atomic persistence, schema-aware bundled replay, atomic projection, v2 audit checks, separated poller registration, slot-time membership resolution, fail-closed missing-membership behavior, durable empty-channel skips, and a controlled JSON publisher. The current OV bridge constrains the same-day ToS-derived `OV_DECISION` ranking to opening Uni, writes durable decision evidence and a complete ledger, and produces a strict schema-v2 Focus `r1` proposal. Publication remains an explicit operator acceptance step. The first real-session `r0`/`r1` polling run and the longer-term coordinator publication adapter remain pending.
+The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). Implemented work includes the pure hierarchy contract, schema-v2 atomic persistence, bundled replay, atomic projection, v2 audit checks, separated poller registration, slot-time membership resolution, fail-closed missing-membership behavior, durable empty-channel skips, and a controlled JSON publisher. The September 21 session exercised published `r0`/`r1` with Uni=554 and Focus=40 through a full day: audit and replay passed with 2,342 events, 2,340 acquisitions, and 494,520 observations. Current-day `OV_DECISION` is now calculated from Schwab five-minute extended-hours candles for the complete opening Uni; a separately verified consumer ranks that immutable API evidence and produces Focus `r1`. ToS is not an input and publication remains an explicit operator acceptance step.
 
 ### CP-3 — Deterministic daily universe selector
 
@@ -195,26 +201,20 @@ September 21 opening roster. The motivating DAIC case was correctly included
 from a $3.55 regular close, 4,105,261 shares of volume, 1,210,383 shares
 outstanding, and a calculated market capitalization of $4,296,859.65. Opening
 `r0` populates Uni from this roster while leaving Focus and Hot empty. The
-September 21 opening `r0` was published to a dedicated schema-v2 journal and
-passed audit and replay before polling. The actual session run remains the
-cutover validation.
+September 21 opening `r0` and `r1` were published to a dedicated schema-v2
+journal. Concurrent Uni and Focus polling completed the full session and the
+journal passed audit and deterministic replay.
 
 ## 4. Near-term work
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
-1. **Deploy and live-smoke-test the Schwab credential preflight.** Upgrade to Schwabdev 4.x, confirm `mb-schwab-auth --status`, verify an insufficient refresh horizon fails before output/journal registration, and confirm two normal pollers start without interactive authorization.
-2. **Produce and publish the first real OV-derived Focus `BASE_SET`.** Seed the
-   ToS source Watchlist from the accepted opening Uni, acquire a complete
-   same-day `OV_DECISION` export, build `r1` with an explicit Focus limit,
-   review its decision ledger, and publish it before 09:30 ET.
-3. **Validate the September 21 schema-v2 session.** Run concurrent Uni and
-   Focus pollers from the published `r0`/`r1`, then audit and replay the shared
-   daily journal exactly. Do not run duplicate legacy pollers for that session.
-4. **Use September 11, September 14, and September 15 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
-5. **Validate dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
-6. **Close the combined coordinator POC milestone when a genuine new LUDP/M event is available.** Verify the complete desired Watchlist, not merely command acceptance or a GUI action.
-7. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
+1. **Live-validate the API-only opening pipeline.** At 08:25 ET acquire complete opening-Uni OV evidence, require `production_eligible: true`, build and review Focus r1, publish before 09:30, and retain all immutable artifacts.
+2. **Operate ToS strictly as display-only.** Submit the accepted Focus roster outbound without export, CSV readback, or OV comparison; adapter acceptance is not market-data evidence.
+3. **Use September 11, September 14, September 15, and September 21 as standing real-day regression evidence.** Future replay or schema work should preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
+4. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Add Hot only after the hierarchy mechanism is correct; do not let Hot design broaden the first atomic-update milestone.
+5. **Close the combined coordinator POC milestone when a genuinely new LUDP/M event is available.** Validate canonical/journal membership; ToS display readback is no longer a completion requirement.
+6. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
 
 ## 5. Medium- and long-term work
 
@@ -222,7 +222,7 @@ Near-term work should be handled in small, testable weekly increments—normally
 
 - Add HotWatchlist as a higher-frequency subset after atomic hierarchy changes are proven. Decide cadence, capacity, admission, eviction, and back-pressure policy from measurement.
 - Build the Intraday Signals layer using current Uni/Focus/Hot observations plus historical features.
-- Replace ToS-supplied `OV_DECISION` with MasterBot-computed historical OV analytics.
+- Extend current-day API OV into historical 3/5/10/30-session analytics.
 - Maintain a historical OV store and compute 3/5/10/30-day medians and maxima, relative/unusual-volume measures, near-open volume, price versus previous close, and persistence metrics.
 - Add acquisition-time plots, per-symbol extraction, data-quality summaries, and operational health reporting where they aid validation.
 - Establish daily data distillation and retention rules so full journals remain auditable while longer historical storage remains manageable.
@@ -300,7 +300,8 @@ A previously deferred capability may move forward only when its prerequisite has
 4. Write acquisitions, observations, and membership revisions into the dated SQLite journal.
 5. Treat invalid symbols, missing quotes, API errors, overruns, and stale timestamps as explicit evidence categories.
 6. Use the dashboard against the selected daily journal. Both supported server-stop methods and single-day seek-to-historical-time are validated; journal/date selection remains external.
-7. Publish to ToS only through the coordinator/adapter path. Inspect observed membership after mutations; command acceptance is not final verification.
+7. Publish to ToS only as an outbound display adapter. Do not export or read
+   membership back; command completion is reported as submitted/unverified.
 8. Preserve logs, run metadata, journal, and relevant CSV evidence before any after-market distillation or archival step.
 
 ### 8.2 Established scanner command pattern
@@ -308,8 +309,10 @@ A previously deferred capability may move forward only when its prerequisite has
 - MasterBot publishes scanner commands to the El-Cheapo `SCANCTRL` share.
 - The command lifecycle separates incoming, accepted, processed, and rejected states.
 - Use `mb-scan-status` as one health input, not as sole proof that all required processes and GUI conditions are healthy.
-- Suspend/resume export operations deliberately when isolating Watchlist mutation or troubleshooting GUI behavior.
-- Before live mutation, make sure the ToS pane is a static Watchlist rather than a scan and ensure no manager window is covering the import dialog.
+- Run the El-Cheapo command loop in display-only mode; scheduled and explicit
+  exports remain suspended and export/add/resume-export commands are rejected.
+- Before outbound replacement, make sure the ToS pane is a static Watchlist
+  and ensure no manager window is covering the import dialog.
 
 ### 8.3 Key validation evidence register
 
@@ -332,6 +335,8 @@ A previously deferred capability may move forward only when its prerequisite has
 | 2026-09-16 | Atomic hierarchy replay | Commit `4667768`; v1/v2 schema detection, one bundled v2 membership event, atomic projector/dashboard behavior, and replay CLI support validated with 181 tests. |
 | 2026-09-16 | Dynamic poller handoff | Schema-v2 run registration separated from publication; slot-time membership provider, fail-closed lookup, durable empty-channel skips, controlled JSON publisher, and v2 audit checks implemented synthetically. Corrective review added latest-effective binding enforcement, journaled skip completeness, per-channel hash/provenance validation, publication-order enforcement, and concurrent atomic-read coverage. Full suite reached 211 tests before live-like process validation. |
 | 2026-09-16 | Interrupted credential-expiry session | Schwabdev 3.0.5 entered interactive refresh inside an exclusive token-database transaction; an empty callback left that transaction open, blocked the second poller, and required process termination plus `mb-schwab-auth`. The schema-v1 journal remained replayable: 2 revisions, 2,304 acquisitions, 584,526 observations, 18 missing slots per channel, and sequence SHA-256 `91da0974e80051c00cd0a52686cfb4c4eb85516142072f362800a2745a80a398`. |
+| 2026-09-21 | First full schema-v2 session | r0 Uni=554, r1 Focus=40; audit and replay passed with 2 hierarchy events, 2,340 acquisitions, and 494,520 observations. |
+| 2026-09-22/23 | API-only OV transition | `mb_market_data` commit `48526d3` added complete opening-Uni Schwab candle acquisition; `schwab_watchlists` commit `96af1dd` made Focus r1 consume only verified API OV evidence. ToS display-only support was already deployed in `ToS_scanner` and `mb_tools`. |
 
 ### 8.4 Evidence standard
 
@@ -352,11 +357,11 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | --- | --- | --- |
 | D-001 | ToS is an output/execution adapter, not the primary market-data plane. | Active |
 | D-002 | Maintain independent API-based Uni and smaller Focus/Hot sets. | Active |
-| D-003 | Preserve **Hot ⊆ Focus ⊆ Uni** through complete, atomically published hierarchy revisions. Invalid nesting is rejected before commit. | Active; implementation and synthetic validation complete, live-like acceptance pending |
+| D-003 | Preserve **Hot ⊆ Focus ⊆ Uni** through complete, atomically published hierarchy revisions. Invalid nesting is rejected before commit. | Active; hierarchy/session validation completed on 2026-09-21, with post-opening dynamic transitions still pending |
 | D-004 | Use completed regular-session close and completed-day volume to build the next trading day's universe. | Active |
 | D-005 | Keep universe-selector v1 CLI/config driven; GUI is deferred. | Active |
 | D-006 | Producers express intent; the coordinator owns canonical state and publication. | Active |
-| D-007 | Accepted is not satisfied; verify the full observed target and preserve unknown outcomes. | Active |
+| D-007 | For authoritative adapters, accepted is not satisfied and unknown outcomes must be preserved. ToS display-only publication is the explicit exception: it is reported submitted/unverified and does not gate canonical state. | Active, refined by D-026 |
 | D-008 | Daily journals are the audit/replay basis; longer-term distillation must preserve reproducibility. | Active |
 | D-009 | Keep `scan_command_loop.py` and `scan_main_v2p0dev0.py` separate during current work; revisit consolidation only after stable behavior, ownership, recovery, and durable logging are established. | Active |
 | D-010 | Keep live `sync_csv_v2` transport separate from the future after-market archive utility. | Active |
@@ -374,6 +379,8 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-022 | Schema-v1 journals remain immutable legacy evidence. Hierarchy-governed journals use schema v2 and replay each hierarchy revision as one bundled event. | Active |
 | D-023 | The coordinator's flat `CanonicalWatchlist` and GUI materialization transaction are not the sampling hierarchy. A distinct coordinator-side hierarchy projection will publish to the journal contract. | Active |
 | D-024 | Programmatic credentials use provider-specific encrypted `.ecfg` files owned by `mb_tools`, kept outside repositories, resolved by explicit path, service override, then `MB_VAULT` default, and restricted by machine/service ownership. Plaintext credential fallback is prohibited. | Active |
+| D-025 | Current-day `OV_DECISION` is calculated from Schwab API candles over `00:00 <= start < 08:25 ET`; ToS volume is neither an input nor a required match. | Active |
+| D-026 | ToS roster publication is outbound and unverified. No ToS CSV export/readback is required for OV, Focus, or adapter confirmation. | Active |
 
 ## Maintenance protocol
 
@@ -436,3 +443,17 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Confirmed that `scan_main_v2p0dev0.py` writes durable session logs whose filenames are based on process start time rather than calendar date.
 - Confirmed that `scan_command_loop.py` currently logs to its console rather than a durable file, leaving command-plane actions difficult to reconstruct after console output is lost.
 - Deferred El-Cheapo runtime consolidation and durable logging; keep the two processes separate until the behavior, ownership, recovery, and logging contract are stable.
+
+### 2026-09-23 — API-only OV and display-only ToS boundary
+
+- Recorded the first full schema-v2 session: Uni r0 contained 554 symbols,
+  Focus r1 contained 40, and the journal contained 2,342 events, 2,340
+  acquisitions, and 494,520 observations.
+- Implemented current-day API OV acquisition from Schwab five-minute candles
+  over `00:00 <= start < 08:25 ET`, with complete-Uni coverage, immutable
+  evidence hashes, and fail-closed production eligibility.
+- Implemented independent API-OV evidence verification and deterministic
+  Focus-r1 production in `schwab_watchlists`.
+- Made ToS an outbound display-only adapter: no ToS CSV export, membership
+  readback, or ToS volume comparison is part of OV, Focus, or canonical-state
+  acceptance.

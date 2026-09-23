@@ -9,12 +9,13 @@ Reusable market-data acquisition and normalization for the MasterBot project.
 > * Nasdaq Trade Halt acquisition and filtering;
 > * stateful Nasdaq LUDP/M monitoring;
 > * Schwab quote acquisition;
-> * Schwab price-history probes;
+> * production API-only current-day Overnight Volume acquisition;
 > * ThinkOrSwim Watchlist parsing;
-> * live decision-snapshot assembly combining ToS `OV_DECISION` data with Schwab quotes;
+> * legacy ToS Watchlist parsing and decision-snapshot compatibility;
 > * deterministic post-close construction of the next session's Uni roster.
 >
-> The full historical Overnight Volume database and MasterBot-computed OV analytics are **not yet implemented**.
+> Current-day `OV_DECISION` is computed on MasterBot. The historical OV
+> database and 3/5/10/30-session analytics are **not yet implemented**.
 
 Start with the maintained
 [`Operations Quick Reference`](docs/Operations_Quick_Reference.md) for routine
@@ -33,8 +34,9 @@ Its job is to answer questions such as:
 * which symbols have new volatility halts?
 * what are the current Schwab quote fields for a symbol set?
 * what historical price bars are available from Schwab?
-* what did ThinkOrSwim report for `OV_DECISION`?
-* how can ToS-derived fields and Schwab market data be combined into one normalized decision snapshot?
+* what is each opening-Uni symbol's Schwab-derived `OV_DECISION` for the
+  completed `00:00–08:25 ET` window?
+* is the complete, hashed API evidence bundle eligible for Focus production?
 
 Higher-level repositories decide what to do with that data.
 
@@ -58,8 +60,6 @@ external market-data sources
         |
         +--> Schwab API
         |
-        +--> ThinkOrSwim CSV exports
-        |
         v
 mb_market_data
         |
@@ -69,7 +69,7 @@ normalized acquisition objects
         +--> halt events
         +--> quote batches
         +--> price-history data
-        +--> decision snapshots
+        +--> API OV evidence bundles
         |
         v
 higher-level producer logic
@@ -78,18 +78,18 @@ higher-level producer logic
 For example:
 
 ```text
-ThinkOrSwim OV_DECISION
+opening Uni r0
         +
-live Schwab quotes
+Schwab five-minute extended-hours candles
         |
         v
-DecisionSnapshotBatch
+complete hashed API OV evidence
         |
         v
-schwab_watchlists OV producer
+schwab_watchlists Focus-r1 producer
         |
         v
-ProducerIntent(BASE_SET)
+schema-v2 Focus r1
 ```
 
 And:
@@ -274,7 +274,8 @@ Current goals include:
 * avoiding silent loss of symbols;
 * supporting higher-level decision-snapshot construction.
 
-The Watchlist POC uses live Schwab quotes as a companion source to ToS `OV_DECISION`.
+Live quotes support polling and other decisions. They are not a gate for the
+current API-only OV ranking.
 
 Conceptually:
 
@@ -313,13 +314,16 @@ The repository includes Schwab price-history probes for exploring:
 * returned OHLCV fields;
 * session interpretation.
 
-These probes are groundwork for future MasterBot-computed Overnight Volume.
-
-They are not yet a complete historical-data service or database layer.
+The price-history transport now also supports the production current-day API
+OV acquisition. A complete historical-data service/database remains future
+work.
 
 ---
 
-# ThinkOrSwim Watchlist parsing
+# Legacy ThinkOrSwim Watchlist parsing
+
+This parser remains for historical evidence, diagnostics, and compatibility.
+It is not used by the current production OV or Focus-r1 path.
 
 Core parsing logic reads ThinkOrSwim Watchlist CSV exports.
 
@@ -354,34 +358,23 @@ This allows higher layers to distinguish usable from unavailable decision inputs
 
 # OV_DECISION
 
-For the current proof of concept, `OV_DECISION` is calculated inside ThinkOrSwim as a custom Watchlist expression.
-
-`mb_market_data` currently treats that value as externally supplied evidence.
-
-The current live path is:
+Current production calculates `OV_DECISION` on MasterBot by summing Schwab
+five-minute extended-hours candle volume for:
 
 ```text
-ThinkOrSwim
-    |
-    v
-OV_DECISION
-    |
-    v
-Watchlist CSV
-    |
-    v
-mb_market_data parser
+00:00 <= candle start < 08:25 ET
 ```
 
-MasterBot does **not yet** independently calculate the full Overnight Volume model.
-
-That work is planned for later.
+The acquisition covers every symbol in opening Uni, preserves each candle and
+per-symbol terminal status, hashes its artifacts, and fails production
+eligibility for partial, failed, smoke-test, or late runs. ToS volume is not an
+input and does not need to match the API value.
 
 ---
 
-# Decision snapshots
+# Legacy decision snapshots
 
-The current decision-snapshot layer combines:
+The retained legacy decision-snapshot layer combines:
 
 ```text
 same-day ToS Watchlist data
@@ -415,7 +408,7 @@ Higher-level strategy belongs elsewhere.
 
 ---
 
-# Live decision-snapshot acquisition
+# Legacy live decision-snapshot acquisition
 
 The live acquisition sequence is:
 
@@ -439,13 +432,14 @@ This path has been used successfully by the current Overnight Volume POC.
 
 A development probe exists for validating the sequence.
 
-The current POC application layer in `schwab_watchlists` reuses the same acquisition model.
+The legacy POC application layer in `schwab_watchlists` used the same
+acquisition model. Current Focus production uses the API evidence bundle.
 
 ---
 
-# Current Overnight Volume POC role
+# Historical ToS-derived Overnight Volume POC
 
-The current MasterBot POC uses `mb_market_data` like this:
+The earlier POC used `mb_market_data` like this:
 
 ```text
 large ToS candidate Watchlist
@@ -473,9 +467,30 @@ rank by OV_DECISION
 ProducerIntent(BASE_SET)
 ```
 
-The current ranking is intentionally simple.
+This path is retained as historical compatibility code, not the production
+opening workflow.
 
-The purpose is to validate the producer/coordinator/adapter architecture before investing heavily in the final historical OV model.
+## Current API-only opening path
+
+```text
+opening_hierarchy_r0.json
+        |
+        v
+acquire_api_overnight_volume.py
+        |
+        v
+api_ov_observations.csv + api_ov_candles.jsonl + manifest.json
+        |
+        v
+schwab_watchlists run_ov_focus_production.py
+        |
+        v
+sampling_hierarchy_r1.json
+```
+
+The consumer independently verifies source hashes, session, exact opening-Uni
+coverage, decision window, completion time, and `production_eligible` before
+ranking. ToS is an optional outbound display adapter after acceptance.
 
 ---
 
@@ -919,7 +934,7 @@ the need for a separate compact historical feature store.
 
 ---
 
-# Symbol-universe considerations
+# Historical ToS symbol-universe observations
 
 The Overnight Volume universe may contain several hundred securities.
 
@@ -929,7 +944,7 @@ A large Watchlist of roughly 759 symbols was successfully exported when using a 
 
 Using multiple custom expressions caused subscription-limit errors for a substantial portion of the same universe.
 
-For the current POC:
+For the earlier ToS-derived POC:
 
 ```text
 one OV_DECISION custom column
@@ -937,11 +952,12 @@ one OV_DECISION custom column
 
 is preferred.
 
-Long term, moving OV analytics to MasterBot should reduce dependence on ThinkOrSwim custom-expression limits.
+Current API-only OV production is independent of these ToS custom-expression
+limits.
 
 ---
 
-# Current live POC result
+# Historical live POC result
 
 A recent live POC successfully used:
 
@@ -1025,13 +1041,13 @@ ToS_scanner
 Run:
 
 ```cmd
-pytest -q
+pytest -q tests
 ```
 
 or:
 
 ```cmd
-python -m pytest -q
+python -m pytest -q tests
 ```
 
 Tests should keep acquisition, parsing, filtering, and stateful-monitor behavior independently testable without requiring live ThinkOrSwim GUI automation.
@@ -1073,11 +1089,10 @@ A missing quote or unavailable custom expression should not silently disappear.
 
 Trading dates and market windows should be interpreted in `America/New_York`.
 
-## Keep the POC simple
+## Keep current-day and historical scope distinct
 
-The current ToS `OV_DECISION` bridge is intentionally temporary.
-
-Do not block architecture validation on the final historical analytics engine.
+Current-day API OV is implemented. Do not confuse that completed replacement
+with the still-pending historical feature store and multi-session statistics.
 
 ## Make future source replacement possible
 
@@ -1099,12 +1114,14 @@ The following are not yet complete:
 
 * historical OV database;
 * production intraday-bar collection;
-* MasterBot-computed Overnight Volume;
 * historical 3/5/10/30-day statistics;
 * final ranking/scoring model;
 * persistent market-data service;
 * production retention/archival;
 * provider abstraction across multiple market-data APIs.
+
+The new API-only opening path still requires live-session validation before it
+becomes routine production.
 
 These are post-POC development areas.
 

@@ -139,7 +139,7 @@ The accepted September 21 opening artifacts use the standalone layout under
 `uni_watchlist.csv`, `decision_ledger.csv`, and `manifest.json` are directly in
 that directory; there is no intermediate `universe` directory.
 
-Downstream validation, ToS seeding, OV Focus production, and publication must
+Downstream validation, API OV acquisition, Focus production, and publication must
 consume the accepted artifact paths from the producer that actually ran. Do
 not reconstruct a different path from the dates, and do not move or duplicate
 immutable evidence merely to make it resemble the other layout. The maintained
@@ -241,12 +241,14 @@ Do not run schema-v1 pollers against a journal root where the target day's
 database has been initialized as schema v2. Use a dedicated root for a
 controlled transition until schema-v2 operation is formally adopted.
 
-Before the open, the implemented `schwab_watchlists` OV bridge can consume a
-complete same-day ToS `OV_DECISION` export, constrain the ranked selection to
-this opening Uni, and produce the strict Focus `r1` proposal. Publication of
-that proposal is a separate acceptance step. The maintained command sequence,
-including ToS source-roster preparation, `r1` validation/publication, and both
-schema-v2 pollers, is in `docs\Operations_Quick_Reference.md`.
+Before the open, `acquire_api_overnight_volume.py` calculates `OV_DECISION`
+for every opening-Uni symbol from Schwab five-minute extended-hours candles in
+the half-open `00:00–08:25 ET` decision window. The immutable API bundle is
+then consumed by `schwab_watchlists` to produce the strict Focus `r1`
+proposal. Publication remains a separate acceptance step. ToS is optional
+outbound display only; no ToS CSV export or readback is part of this workflow.
+The timed command sequence, r1 validation/publication, and both schema-v2
+pollers are maintained in `docs\Operations_Quick_Reference.md`.
 
 ## Failure behavior and recovery
 
@@ -276,7 +278,6 @@ it deliberately retains three operator controls:
 - the operator explicitly chooses the OV Focus size and accepts its `r1`
   decision ledger before publication.
 
-The current OV bridge still depends on the ToS custom `OV_DECISION` value.
-Replacing it with MasterBot-derived historical OV analytics, plus historical
-journal distillation and long-term database ingestion, remains downstream
-work.
+Current-day opening `OV_DECISION` is now MasterBot-derived and independent of
+ToS. Historical 3/5/10/30-session OV features, journal distillation, and
+long-term database ingestion remain downstream work.
