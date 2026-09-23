@@ -13,8 +13,11 @@ from zoneinfo import ZoneInfo
 
 from mb_market_data.daily_universe import read_csv_rows
 from mb_market_data.daily_universe_snapshot import (
+    ACQUISITION_TIMING_POLICY,
+    VOLUME_SEMANTICS,
     build_market_data_snapshot,
     validate_acquisition_time,
+    validate_batch_acquisition_time,
     write_acquisition_json,
     write_snapshot_csv,
     write_snapshot_manifest,
@@ -108,10 +111,8 @@ def main() -> int:
                 raise ValueError("--max-symbols must be at least 1")
             candidates = candidates[: args.max_symbols]
         ecfg_path = resolve_ecfg(args.ecfg)
-        validate_acquisition_time(
-            args.session_date,
-            datetime.now(ET),
-        )
+        validated_at = datetime.now(ET)
+        validate_acquisition_time(args.session_date, validated_at)
     except (OSError, ValueError) as error:
         print(
             f"Daily universe snapshot ERROR: {type(error).__name__}: {error}",
@@ -125,6 +126,9 @@ def main() -> int:
     print(f"Session date     : {args.session_date}")
     print(f"Candidates       : {len(symbols):,}")
     print(f"Batch size       : {args.batch_size}")
+    print(f"Snapshot gate    : {ACQUISITION_TIMING_POLICY}")
+    print(f"Validated at ET  : {validated_at.isoformat()}")
+    print(f"Volume semantics : {VOLUME_SEMANTICS}")
     print(f"Encrypted config : {ecfg_path}")
     print()
 
@@ -137,12 +141,14 @@ def main() -> int:
             timeout=args.timeout,
             call_on_auth=console_auth_callback,
         )
+        print("Encrypted configuration accepted.", flush=True)
         acquisition = fetch_quotes_batched(
             client,
             symbols,
             fields="all",
             batch_size=args.batch_size,
         )
+        validate_batch_acquisition_time(args.session_date, acquisition)
         rows = build_market_data_snapshot(
             candidates,
             acquisition,
@@ -186,6 +192,7 @@ def main() -> int:
         acquisition_path=acquisition_path,
         acquisition=acquisition,
         rows=rows,
+        validated_at=validated_at,
     )
 
     statuses = Counter(row["acquisition_status"] for row in rows)

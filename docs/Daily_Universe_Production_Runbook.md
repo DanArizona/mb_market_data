@@ -38,8 +38,11 @@ an exclusion rule.
 
 ## Timing and dates
 
-Run the workflow after 16:00 Eastern Time on the completed trading day. The
-operator supplies both dates explicitly:
+Run the workflow after 16:00 Eastern Time on the completed trading day and
+before the Eastern calendar date changes. Version 1 uses Schwab
+`quote.totalVolume`, whose current-session meaning rolls forward before the
+next morning. A missed snapshot must not be reconstructed the following
+morning from that field. The operator supplies both dates explicitly:
 
 - `--session-date`: the completed regular trading session;
 - `--target-date`: the next intended trading session.
@@ -253,6 +256,9 @@ pollers are maintained in `docs\Operations_Quick_Reference.md`.
 ## Failure behavior and recovery
 
 - Before 16:00 ET on `--session-date`, same-day snapshot acquisition fails.
+- After the ET calendar date advances beyond `--session-date`, acquisition
+  also fails because `quote.totalVolume` is no longer accepted as the
+  completed session's volume evidence.
 - A stage failure stops the workflow; later stages do not run.
 - Partial output is retained as evidence and is never silently overwritten.
 - Invalid or unavailable Schwab symbols remain explicit snapshot and decision

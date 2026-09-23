@@ -23,7 +23,13 @@ from mb_market_data.schwab_quotes import QuoteBatchResult
 
 
 ET = ZoneInfo("America/New_York")
-SNAPSHOT_VERSION = "daily-universe-snapshot-v1"
+SNAPSHOT_VERSION = "daily-universe-snapshot-v2"
+ACQUISITION_TIMING_POLICY = "same-et-date-post-close-v1"
+VOLUME_SOURCE = "Schwab quote.totalVolume"
+VOLUME_SEMANTICS = (
+    "Current-session cumulative volume accepted as completed-session "
+    "evidence only when acquired on session_date at or after 16:00 ET"
+)
 
 SOURCE_FIELDS = [
     "symbol",
@@ -90,21 +96,65 @@ def validate_acquisition_time(
     session_date: date,
     observed_at: datetime,
 ) -> None:
-    """Reject a same-day snapshot attempted before the regular close."""
+    """Require quote.totalVolume acquisition in the same-day close window."""
 
     if observed_at.tzinfo is None or observed_at.utcoffset() is None:
         raise ValueError("observed_at must be timezone-aware")
     observed_et = observed_at.astimezone(ET)
     if session_date > observed_et.date():
         raise ValueError("session_date must not be in the future")
-    if (
-        session_date == observed_et.date()
-        and observed_et.time().replace(tzinfo=None) < time(16, 0)
-    ):
+    if session_date < observed_et.date():
+        raise ValueError(
+            "daily-universe quote.totalVolume acquisition must run on "
+            "session_date; next-day snapshots are not valid "
+            "completed-session volume evidence"
+        )
+    if observed_et.time().replace(tzinfo=None) < time(16, 0):
         raise ValueError(
             "same-day daily-universe acquisition must run at or after "
             "16:00 ET"
         )
+
+
+def validate_batch_acquisition_time(
+    session_date: date,
+    acquisition: QuoteBatchResult,
+) -> None:
+    """Validate every actual request boundary before writing artifacts."""
+
+    if not acquisition.results:
+        raise ValueError("quote acquisition returned no timestamped results")
+    observed_times = {
+        result.request_started_at_utc
+        for result in acquisition.results
+    }
+    observed_times.update(
+        result.response_received_at_utc
+        for result in acquisition.results
+        if result.response_received_at_utc is not None
+    )
+    for observed_at in sorted(observed_times):
+        validate_acquisition_time(session_date, observed_at)
+
+
+def acquisition_time_bounds(
+    acquisition: QuoteBatchResult,
+) -> tuple[datetime | None, datetime | None]:
+    """Return the first request and last recorded response in UTC."""
+
+    request_times = [
+        result.request_started_at_utc
+        for result in acquisition.results
+    ]
+    response_times = [
+        result.response_received_at_utc
+        for result in acquisition.results
+        if result.response_received_at_utc is not None
+    ]
+    return (
+        min(request_times) if request_times else None,
+        max(response_times) if response_times else None,
+    )
 
 
 def build_market_data_snapshot(
@@ -263,9 +313,13 @@ def write_snapshot_manifest(
     acquisition_path: str | Path,
     acquisition: QuoteBatchResult,
     rows: Iterable[Mapping[str, str]],
+    validated_at: datetime,
     created_at_utc: datetime | None = None,
 ) -> None:
+    validate_acquisition_time(session_date, validated_at)
+    validate_batch_acquisition_time(session_date, acquisition)
     created_at = created_at_utc or datetime.now(timezone.utc)
+    first_request, last_response = acquisition_time_bounds(acquisition)
     row_values = tuple(rows)
     status_counts = Counter(row["acquisition_status"] for row in row_values)
     session_counts = Counter(
@@ -278,15 +332,23 @@ def write_snapshot_manifest(
         "session_date": session_date.isoformat(),
         "sources": {
             "close": "Schwab regular.regularMarketLastPrice",
-            "volume": "Schwab quote.totalVolume",
+            "volume": VOLUME_SOURCE,
             "shares": "Schwab fundamental.sharesOutstanding",
             "market_cap": "completed close * sharesOutstanding",
+        },
+        "source_semantics": {
+            "volume": VOLUME_SEMANTICS,
         },
         "input": {
             "path": str(candidate_path),
             "sha256": sha256_file(candidate_path),
         },
         "acquisition": {
+            "timing_policy": ACQUISITION_TIMING_POLICY,
+            "validated_at_utc": utc_text(validated_at),
+            "validated_at_et": validated_at.astimezone(ET).isoformat(),
+            "first_request_started_at_utc": utc_text(first_request),
+            "last_response_received_at_utc": utc_text(last_response),
             "request_count": acquisition.request_count,
             "batch_size": acquisition.batch_size,
             "unexpected_symbols": list(acquisition.unexpected_symbols),

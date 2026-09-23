@@ -7,8 +7,10 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from mb_market_data.daily_universe_snapshot import (
+    SNAPSHOT_VERSION,
     build_market_data_snapshot,
     validate_acquisition_time,
+    validate_batch_acquisition_time,
     write_acquisition_json,
     write_snapshot_csv,
     write_snapshot_manifest,
@@ -99,10 +101,44 @@ class TestBuildMarketDataSnapshot(unittest.TestCase):
             date(2026, 9, 18),
             datetime(2026, 9, 18, 20, 0, tzinfo=UTC),
         )
-        validate_acquisition_time(
-            date(2026, 9, 18),
-            datetime(2026, 9, 19, 12, 0, tzinfo=UTC),
+
+    def test_rejects_september_23_premarket_for_september_22(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "next-day snapshots are not valid",
+        ):
+            validate_acquisition_time(
+                date(2026, 9, 22),
+                datetime(2026, 9, 23, 12, 46, 50, tzinfo=UTC),
+            )
+
+    def test_rejects_batch_that_crosses_out_of_valid_window(self) -> None:
+        result = quote_result(
+            "DAIC",
+            regular_trade_at=datetime(2026, 9, 22, 20, tzinfo=UTC),
         )
+        invalid_result = QuoteResult(
+            symbol=result.symbol,
+            status=result.status,
+            quote=result.quote,
+            detail=result.detail,
+            batch_number=result.batch_number,
+            request_started_at_utc=datetime(
+                2026, 9, 23, 12, 46, 50, tzinfo=UTC
+            ),
+            response_received_at_utc=datetime(
+                2026, 9, 23, 12, 46, 51, tzinfo=UTC
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "next-day snapshots are not valid",
+        ):
+            validate_batch_acquisition_time(
+                date(2026, 9, 22),
+                acquisition(invalid_result),
+            )
 
     def test_extracts_daic_regular_session_inputs(self) -> None:
         regular_trade = datetime(2026, 9, 18, 20, 0, 0, 596000, tzinfo=UTC)
@@ -200,6 +236,9 @@ class TestBuildMarketDataSnapshot(unittest.TestCase):
                 acquisition_path=acquisition_path,
                 acquisition=batch,
                 rows=rows,
+                validated_at=datetime(
+                    2026, 9, 18, 23, 51, tzinfo=UTC
+                ),
                 created_at_utc=datetime(2026, 9, 19, tzinfo=UTC),
             )
 
@@ -207,6 +246,19 @@ class TestBuildMarketDataSnapshot(unittest.TestCase):
             raw = json.loads(acquisition_path.read_text(encoding="utf-8"))
 
         self.assertEqual(manifest["acquisition"]["status_counts"], {"quote": 1})
+        self.assertEqual(manifest["snapshot_version"], SNAPSHOT_VERSION)
+        self.assertEqual(
+            manifest["acquisition"]["timing_policy"],
+            "same-et-date-post-close-v1",
+        )
+        self.assertEqual(
+            manifest["acquisition"]["validated_at_et"],
+            "2026-09-18T19:51:00-04:00",
+        )
+        self.assertIn(
+            "completed-session evidence only",
+            manifest["source_semantics"]["volume"],
+        )
         self.assertEqual(
             manifest["acquisition"]["regular_session_match_counts"],
             {"true": 1},

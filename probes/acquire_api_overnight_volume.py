@@ -140,6 +140,7 @@ def main() -> int:
             timeout=args.timeout,
             call_on_auth=console_auth_callback,
         )
+        print("Encrypted configuration accepted.", flush=True)
         batch = acquire_api_overnight_volume(
             client,
             symbols,
