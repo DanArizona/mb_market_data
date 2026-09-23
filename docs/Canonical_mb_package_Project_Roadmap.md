@@ -1,6 +1,6 @@
 # Canonical mb_package Project Roadmap and Decision Register
 
-**Canonical status date:** 2026-09-22
+**Canonical status date:** 2026-09-23
 
 **Scope:** The entire `mb_package` family of projects and their operating environment
 
@@ -104,8 +104,9 @@ The journal and stable universe are intended to feed an explicit **Intraday Sign
 - The coordinator models producer intents, canonical/observed/confirmed state, revisions, pending reconciliation, and publication transactions.
 - OV baseline and LUDP/M add semantics have been modeled together.
 - Tests increased from 5 to 12 passing in the initial coordinator work.
-- Legacy ToS-derived OV publication was demonstrated live. API-only OV-to-Focus
-  production is implemented and awaits its first live opening session.
+- Legacy ToS-derived OV publication was demonstrated live. The first API-only
+  OV-to-Focus opening session completed on 2026-09-23 with full-day audit and
+  replay evidence. ToS remained optional outbound display only.
 
 This is **not** equivalent to completing the entire combined live proof of
 concept. The remaining combined milestone is a genuinely new LUDP/M event
@@ -128,6 +129,12 @@ canonical/journal verification. ToS readback is outside that acceptance path.
 - Timing evidence showed normal Focus acquisition duration around 0.38–0.46 seconds, small journal-write overhead, and generally good quote freshness, with isolated outliers observable rather than hidden.
 - **Corrected September 14 evidence:** **2,342 replay events** consisting of 2 membership revisions and 2,340 acquisitions, with **598,260 observations**.
 - **Latest canonical evidence:** the September 15 journal passed the same full-day accounting with 2,342 replay events, 2 revisions, 2,340 acquisitions, and 598,260 observations. Uni contributed 780 acquisitions/592,020 observations; Focus contributed 1,560 acquisitions/6,240 observations.
+- **Latest schema-v2 API-only evidence:** the September 23 journal passed audit
+  and replay with 2 hierarchy revisions, 2,340 acquisitions, and 494,520
+  observations. Uni contributed 780 acquisitions/432,120 observations; Focus
+  contributed 1,560 acquisitions/62,400 observations; no slots were skipped or
+  missing and no observation-row mismatches occurred. Replay sequence SHA-256
+  was `9d8cddf55df11007b6ec6f771b2250d576e6f600d126011046c5525d99c3856a`.
 - The September 15 timestamp audit confirmed that all revision and acquisition control timestamps are non-null, normalized 27-character UTC text with microsecond precision. Acquisitions become replay-visible at `completed_at_utc`; scheduled and dispatched times remain provenance.
 
 ### 2.7 Dashboard lifecycle and replay
@@ -140,10 +147,11 @@ canonical/journal verification. ToS readback is outside that acceptance path.
 
 ## 3. Current critical path
 
-The critical path now moves from validated acquisition, replay, and daily
-universe construction through the first live API-only opening, then to a
-narrowly bounded Observation Overlay/OOOHLCV diagnostic MVP, followed by live
-hierarchical membership evolution.
+The first live API-only opening is complete. The critical path now closes the
+daily-universe timing/volume-source defect and two small authentication
+usability gaps discovered during that session, then proceeds to the narrowly
+bounded Observation Overlay/OOOHLCV diagnostic MVP and live hierarchical
+membership evolution.
 
 ### CP-1 — Seek to historical time
 
@@ -155,9 +163,8 @@ Evidence includes 15 focused dashboard tests, 143 full tests, and manual demonst
 
 ### CP-2 — Dynamic, atomic membership changes
 
-**Status: Core hierarchy path implemented and first full schema-v2 session
-validated. API-only OV acquisition and Focus-r1 production are implemented;
-their first live opening remains pending.**
+**Status: Core hierarchy path and the first full API-only schema-v2 opening are
+validated. A genuine post-opening membership transition remains pending.**
 
 Allow membership to change while polling and dashboard processes are running. The implementation must preserve **Hot ⊆ Focus ⊆ Uni**, never expose partial updates, and bind each acquisition to one unambiguous membership revision.
 
@@ -173,9 +180,17 @@ Completion requires:
 
 The approved design is recorded in **Atomic Hierarchical Membership Contract and Implementation Plan** (2026-09-16). Implemented work includes the pure hierarchy contract, schema-v2 atomic persistence, bundled replay, atomic projection, v2 audit checks, separated poller registration, slot-time membership resolution, fail-closed missing-membership behavior, durable empty-channel skips, and a controlled JSON publisher. The September 21 session exercised published `r0`/`r1` with Uni=554 and Focus=40 through a full day: audit and replay passed with 2,342 events, 2,340 acquisitions, and 494,520 observations. Current-day `OV_DECISION` is now calculated from Schwab five-minute extended-hours candles for the complete opening Uni; a separately verified consumer ranks that immutable API evidence and produces Focus `r1`. ToS is not an input and publication remains an explicit operator acceptance step.
 
+The September 23 API-only session repeated the same 554/40 hierarchy with
+current Schwab OV evidence for all 554 opening-Uni symbols and zero acquisition
+failures. Both pollers completed every scheduled slot; the journal passed its
+full audit and deterministic replay. This closes the API-only opening gate but
+does not replace the still-pending live concurrent hierarchy-transition test.
+
 ### CP-3 — Deterministic daily universe selector
 
-**Status: Implemented and production-style validation completed.**
+**Status: Implemented and production-style validation completed; a newly
+identified timing/volume-source validation defect requires correction before
+the complete daily opening pipeline is declared operational.**
 
 Build the next trading day's stable Uni set after the current regular session has completed.
 
@@ -206,10 +221,28 @@ September 21 opening `r0` and `r1` were published to a dedicated schema-v2
 journal. Concurrent Uni and Focus polling completed the full session and the
 journal passed audit and deterministic replay.
 
+On September 23, running the workflow premarket for source session September 22
+incorrectly returned `PASS` with only 133 symbols. The manifest showed 6,052
+`volume_below_min` decisions versus 1,233 in the validated September 18
+snapshot, demonstrating that `quote.totalVolume` was no longer reliable as
+completed-session evidence after the next session had begun. That 133-symbol
+proposal was preserved as failure evidence and never published. The live
+session used an explicit, hash-identical 554-symbol carry-forward from the
+frozen September 18 evidence; all downstream API-only stages then passed.
+
+After the September 23 close, the workflow ran in its intended window and
+selected 539 symbols for September 24, with 1,295 `volume_below_min` decisions.
+Its opening `r0`, content SHA-256
+`3c311dbf4543f23329cf8a56075e5c47b61aaf82d490b73908f05cf25f38a36e`,
+was published to a dedicated September 24 schema-v2 journal and passed audit
+and replay. Required hardening is to reject temporally invalid snapshots and
+to settle the durable completed-session volume source rather than relying on a
+morning-reconstructable interpretation of `quote.totalVolume`.
+
 ### CP-4 — Observation Overlay/OOOHLCV diagnostic MVP
 
-**Status: Next development priority after the live API-only session and its
-audit pass.**
+**Status: Next feature-development priority after the September 23 production
+hardening items are closed.**
 
 Build a read-only, replay-causal view for one symbol and one session using a
 completed schema-v2 journal plus cached Schwab five-minute OHLCV. The MVP
@@ -240,11 +273,12 @@ diagnostic evidence; journal replay and audit remain authoritative.
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
-1. **Live-validate and audit the API-only opening pipeline.** At 08:25 ET acquire complete opening-Uni OV evidence, require `production_eligible: true`, build and review Focus r1, publish before 09:30, retain all immutable artifacts, and complete the full-session hierarchy/replay/accounting audit. ToS submission is optional display-only output and is not market-data evidence.
-2. **Implement the guarded Observation Overlay/OOOHLCV MVP after the live gate passes.** Define the timestamp, completed-candle visibility, cache, and membership-band contract first; then implement playback for one symbol and one session without modifying live pollers or journals.
-3. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Apply a new Focus change—preferably from a genuine LUDP/M event—while pollers are active. Prove atomic reader handoff, exact revision binding, replay, and audit; use the overlay as a diagnostic view rather than acceptance authority.
-4. **Use September 11, September 14, September 15, and September 21 as standing real-day regression evidence, adding September 23 if its API-only session passes.** Preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
-5. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
+1. **Correct and validate the daily-universe timing/volume-source gate.** Reject a next-morning snapshot even when the regular-trade timestamp still matches the prior session; record acquisition timing and volume semantics explicitly; add regression coverage for the September 23 false-`PASS` condition; and decide whether completed daily-candle volume should replace time-sensitive `quote.totalVolume`.
+2. **Improve Schwab authentication operator feedback in `mb_tools`.** Print a non-secret confirmation after encrypted configuration is successfully decrypted and validated, before long silent work begins. Add `mb-schwab-auth --force-reauthorize` (or an equivalently explicit name) to back up the existing token database, force browser OAuth, verify the new expiry, and restore the prior database if replacement fails.
+3. **Implement the guarded Observation Overlay/OOOHLCV MVP.** Define the timestamp, completed-candle visibility, cache, and membership-band contract first; then implement playback for one symbol and one session without modifying live pollers or journals.
+4. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Apply a new Focus change—preferably from a genuine LUDP/M event—while pollers are active. Prove atomic reader handoff, exact revision binding, replay, and audit; use the overlay as a diagnostic view rather than acceptance authority.
+5. **Use September 11, September 14, September 15, September 21, and September 23 as standing real-day regression evidence.** Preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
+6. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
 
 ## 5. Medium- and long-term work
 
@@ -284,7 +318,8 @@ Near-term work should be handled in small, testable weekly increments—normally
 | Area | Dependency or unresolved decision | Why it matters |
 | --- | --- | --- |
 | Atomic membership | Transaction boundary, revision numbering, reader handoff, rollback/rejection behavior | Required to preserve Hot ⊆ Focus ⊆ Uni and make every acquisition replayable. |
-| Uni selector | Canonical symbol-directory source and availability; price/market-cap bounds; shares-outstanding source; handling of missing/stale fields | Determines daily membership and reproducibility. |
+| Uni selector | Canonical symbol-directory source and availability; price/market-cap bounds; shares-outstanding source; handling of missing/stale fields; post-close acquisition window; completed-session volume source and rollover detection | Determines daily membership and reproducibility; September 23 proved that regular-trade date alone cannot validate `quote.totalVolume`. |
+| Schwab authorization UX | Positive encrypted-config acceptance feedback; explicit forced browser reauthorization with recoverable token-database rotation | Prevents ambiguous silent waits and removes the current manual token-database rename procedure. |
 | Trading calendar | Holiday, early-close, and next-trading-day logic | Required to interpret “completed regular session” correctly. |
 | Hot | Poll frequency, size, admission/eviction, promotion/demotion, API budget | Must be evidence-driven and cannot break Focus/Uni schedules. |
 | Focus publication | Relationship between API Focus, canonical coordinator membership, and ToS display membership | Prevents ToS from becoming an accidental source of truth again. |
@@ -330,7 +365,7 @@ A previously deferred capability may move forward only when its prerequisite has
 
 ### 8.1 Daily operating model
 
-1. After the regular session closes, construct the next trading day's stable Uni snapshot from completed-session close and volume data.
+1. After the regular session closes—and before the next session begins—construct the next trading day's stable Uni snapshot from frozen symbol-directory and completed-session evidence. Do not recreate a missed `quote.totalVolume` snapshot the following morning; use an explicit, documented fallback or stop.
 2. Before the next session, validate configuration, credentials, output paths, symbol counts, revision identity, and scanner readiness where ToS publication is expected.
 3. Run Uni and Focus as separate long-running processes. Current established slots are Uni at `:00`/`:30` and Focus at `:05`/`:20`/`:35`/`:50`.
 4. Write acquisitions, observations, and membership revisions into the dated SQLite journal.
@@ -338,7 +373,11 @@ A previously deferred capability may move forward only when its prerequisite has
 6. Use the dashboard against the selected daily journal. Both supported server-stop methods and single-day seek-to-historical-time are validated; journal/date selection remains external.
 7. Publish to ToS only as an outbound display adapter. Do not export or read
    membership back; command completion is reported as submitted/unverified.
-8. Preserve logs, run metadata, journal, and relevant CSV evidence before any after-market distillation or archival step.
+8. Preserve logs, run metadata, journal, raw `nasdaqlisted.txt` and
+   `otherlisted.txt` snapshots, symbol-directory manifests, and relevant CSV
+   evidence before any after-market distillation or archival step. These are
+   currently local run artifacts; a formal retention/backup policy remains
+   pending.
 
 ### 8.2 Established scanner command pattern
 
@@ -349,6 +388,10 @@ A previously deferred capability may move forward only when its prerequisite has
   exports remain suspended and export/add/resume-export commands are rejected.
 - Before outbound replacement, make sure the ToS pane is a static Watchlist
   and ensure no manager window is covering the import dialog.
+- Stop display-only operation with `mb-scan-command stop --wait 10`. A processed
+  stop result with `shutdown=True` terminates `scan_command_loop.py`; use
+  `Ctrl+C` only when the command channel is unavailable or the process fails to
+  exit.
 
 ### 8.3 Key validation evidence register
 
@@ -373,6 +416,8 @@ A previously deferred capability may move forward only when its prerequisite has
 | 2026-09-16 | Interrupted credential-expiry session | Schwabdev 3.0.5 entered interactive refresh inside an exclusive token-database transaction; an empty callback left that transaction open, blocked the second poller, and required process termination plus `mb-schwab-auth`. The schema-v1 journal remained replayable: 2 revisions, 2,304 acquisitions, 584,526 observations, 18 missing slots per channel, and sequence SHA-256 `91da0974e80051c00cd0a52686cfb4c4eb85516142072f362800a2745a80a398`. |
 | 2026-09-21 | First full schema-v2 session | r0 Uni=554, r1 Focus=40; audit and replay passed with 2 hierarchy events, 2,340 acquisitions, and 494,520 observations. |
 | 2026-09-22/23 | API-only OV transition | `mb_market_data` commit `48526d3` added complete opening-Uni Schwab candle acquisition; `schwab_watchlists` commit `96af1dd` made Focus r1 consume only verified API OV evidence. ToS display-only support was already deployed in `ToS_scanner` and `mb_tools`. |
+| 2026-09-23 | First live API-only opening | Current OV evidence succeeded for all 554 opening-Uni symbols with zero failures; Focus r1 contained 40 symbols. Both pollers completed all 2,340 acquisitions and 494,520 observations with no skipped/missing slots or row mismatches. Audit and replay passed; sequence SHA-256 `9d8cddf55df11007b6ec6f771b2250d576e6f600d126011046c5525d99c3856a`. ToS received an optional 40-symbol unverified display snapshot. |
+| 2026-09-23 | Daily-universe timing defect and recovery | A next-morning run falsely passed with 133 symbols and 6,052 volume rejections; it was not published. A hash-identical 554-symbol September 18 carry-forward supported the live downstream test. A proper post-close run then selected 539 symbols for September 24; its published r0 passed audit/replay. |
 
 ### 8.4 Evidence standard
 
@@ -417,8 +462,9 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-024 | Programmatic credentials use provider-specific encrypted `.ecfg` files owned by `mb_tools`, kept outside repositories, resolved by explicit path, service override, then `MB_VAULT` default, and restricted by machine/service ownership. Plaintext credential fallback is prohibited. | Active |
 | D-025 | Current-day `OV_DECISION` is calculated from Schwab API candles over `00:00 <= start < 08:25 ET`; ToS volume is neither an input nor a required match. | Active |
 | D-026 | ToS roster publication is outbound and unverified. No ToS CSV export/readback is required for OV, Focus, or adapter confirmation. | Active |
-| D-027 | After the first live API-only session and audit pass, the next development priority is a playback-only, read-only, one-symbol/one-session Observation Overlay/OOOHLCV MVP. The concurrent hierarchy transition follows immediately afterward. | Active |
+| D-027 | After closing production defects exposed by the first live API-only session, the next feature priority is a playback-only, read-only, one-symbol/one-session Observation Overlay/OOOHLCV MVP. The concurrent hierarchy transition follows immediately afterward. | Active; September 23 daily-universe hardening precedes the MVP |
 | D-028 | Observation Overlay expansion features—live mode; multi-symbol/session/day views; indicators, signals, events, and holdings; configurable periods; alternate providers; and algorithm/backtesting use—are deferred, not dropped. | Active |
+| D-029 | A daily-universe snapshot must carry independently validated completed-session volume evidence. A next-morning `quote.totalVolume` snapshot is not accepted merely because the regular-trade timestamp still names the prior session. | Active; implementation hardening pending |
 
 ## Maintenance protocol
 
@@ -489,7 +535,7 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Moved the genuine concurrent schema-v2 hierarchy transition—preferably from a new LUDP/M event—to immediately after the overlay MVP.
 - Recorded all excluded overlay expansion features as deferred rather than dropped.
 
-### 2026-09-23 — API-only OV and display-only ToS boundary
+### 2026-09-23 — API-only live validation and daily-universe hardening
 
 - Recorded the first full schema-v2 session: Uni r0 contained 554 symbols,
   Focus r1 contained 40, and the journal contained 2,342 events, 2,340
@@ -502,3 +548,20 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Made ToS an outbound display-only adapter: no ToS CSV export, membership
   readback, or ToS volume comparison is part of OV, Focus, or canonical-state
   acceptance.
+- Completed the first live API-only opening with 554 Uni and 40 Focus symbols.
+  Both pollers completed all 2,340 acquisitions and 494,520 observations; audit
+  and replay passed with no skipped/missing slots or row mismatches and sequence
+  SHA-256 `9d8cddf55df11007b6ec6f771b2250d576e6f600d126011046c5525d99c3856a`.
+- Recorded that the session used an explicit 554-symbol September 18
+  carry-forward because a September 23 premarket attempt to reconstruct the
+  September 22 universe falsely passed with only 133 symbols. The invalid
+  proposal was not published.
+- Ran the universe workflow after the September 23 close and selected 539
+  symbols for September 24. Published r0 hash
+  `3c311dbf4543f23329cf8a56075e5c47b61aaf82d490b73908f05cf25f38a36e`
+  passed audit and replay.
+- Promoted timing/volume-source validation ahead of the Overlay MVP and added
+  encrypted-config acceptance feedback plus forced Schwab reauthorization to
+  the immediate production-hardening backlog.
+- Confirmed that a processed display-only stop command sets `shutdown=True`
+  and terminates `scan_command_loop.py`; manual `Ctrl+C` is fallback-only.
