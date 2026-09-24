@@ -394,6 +394,36 @@ mb-scan-status
 observed-membership guarantee. Do not run `export_wl`, do not compare a ToS
 CSV, and do not block API polling or Focus publication on ToS display state.
 
+### 5.6 Retrospective OV cutoff analysis
+
+This analysis is not part of opening production and does not change the
+accepted 08:25 selector. Run it only at or after 09:30 ET. One API request per
+opening-Uni symbol retrieves five-minute extended-hours candles through 09:30
+and calculates cumulative volume at 08:25, 09:00, 09:15, 09:25, and
+`OV_FINAL` at 09:30.
+
+```cmd
+python probes\analyze_api_ov_cutoffs.py ^
+  --opening-proposal "%OPENING_R0%" ^
+  --production-ov-manifest "%API_OV_MANIFEST%" ^
+  --limit %FOCUS_LIMIT%
+```
+
+The run is accepted only when all symbols succeed and every recalculated 08:25
+value matches the immutable production bundle. Its separate evidence directory
+contains:
+
+```text
+cutoff_metrics.csv
+cutoff_membership.json
+cutoff_candles.jsonl
+manifest.json
+```
+
+`OV_FINAL` includes the completed 09:25--09:30 candle. It is a retrospective
+benchmark and a possible input to a later post-open revision; it cannot be used
+to produce the hierarchy already effective at 09:30.
+
 ## 6. Before the open: start polling
 
 Use separate command windows for independent pollers. Start them before the

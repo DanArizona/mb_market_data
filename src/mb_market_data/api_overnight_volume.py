@@ -128,14 +128,27 @@ class APIOvernightVolumeArtifacts:
     manifest: Path
 
 
-def window_bounds(trade_date: date) -> tuple[datetime, datetime]:
-    """Return the configured API OV decision bounds in Eastern Time."""
+def window_bounds(
+    trade_date: date,
+    *,
+    window_end: time = OV_WINDOW_END,
+) -> tuple[datetime, datetime]:
+    """Return API OV acquisition bounds in Eastern Time.
+
+    Production callers use the default 08:25 boundary.  Retrospective
+    analysis may request a later boundary without changing production
+    behavior.
+    """
 
     if not isinstance(trade_date, date):
         raise TypeError("trade_date must be a date")
+    if not isinstance(window_end, time):
+        raise TypeError("window_end must be a time")
+    if window_end <= OV_WINDOW_START:
+        raise ValueError("window_end must follow the window start")
     return (
         datetime.combine(trade_date, OV_WINDOW_START, tzinfo=ET),
-        datetime.combine(trade_date, OV_WINDOW_END, tzinfo=ET),
+        datetime.combine(trade_date, window_end, tzinfo=ET),
     )
 
 
@@ -210,6 +223,7 @@ def parse_price_history_payload(
     *,
     symbol: str,
     trade_date: date,
+    window_end: time = OV_WINDOW_END,
 ) -> tuple[tuple[APIOvernightVolumeCandle, ...], int]:
     """Select the decision-window candles and return their volume sum."""
 
@@ -228,7 +242,7 @@ def parse_price_history_payload(
             "price-history response has no candle list"
         )
 
-    start_et, end_et = window_bounds(trade_date)
+    start_et, end_et = window_bounds(trade_date, window_end=window_end)
     selected: list[APIOvernightVolumeCandle] = []
     seen_starts: set[datetime] = set()
     for raw in raw_candles:
@@ -283,6 +297,7 @@ def acquire_api_overnight_volume(
     symbols: Sequence[str],
     *,
     trade_date: date,
+    window_end: time = OV_WINDOW_END,
     request_interval_seconds: float = 0.5,
     max_attempts: int = 3,
     now_factory: Callable[[], datetime] = lambda: datetime.now(UTC),
@@ -295,7 +310,7 @@ def acquire_api_overnight_volume(
         raise ValueError("request_interval_seconds cannot be negative")
     if max_attempts < 1:
         raise ValueError("max_attempts must be at least one")
-    start_et, end_et = window_bounds(trade_date)
+    start_et, end_et = window_bounds(trade_date, window_end=window_end)
     started_at = _aware_utc(now_factory(), "now_factory result")
     observations: list[APIOvernightVolumeObservation] = []
     first_request = True
@@ -367,6 +382,7 @@ def acquire_api_overnight_volume(
                         payload,
                         symbol=symbol,
                         trade_date=trade_date,
+                        window_end=window_end,
                     )
                 except APIOvernightVolumeDataError as error:
                     status = APIOvernightVolumeStatus.DATA_ERROR

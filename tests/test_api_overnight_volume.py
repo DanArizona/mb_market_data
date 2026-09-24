@@ -4,7 +4,7 @@ import csv
 import json
 import tempfile
 import unittest
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -105,6 +105,27 @@ class TestAPIOvernightVolumeParsing(unittest.TestCase):
         self.assertEqual([item.volume for item in selected], [10, 20])
         self.assertEqual(volume, 30)
 
+    def test_accepts_explicit_retrospective_0930_window(self) -> None:
+        payload = {
+            "symbol": "ABCD",
+            "candles": [
+                candle(8, 20, 10),
+                candle(8, 25, 20),
+                candle(9, 25, 30),
+                candle(9, 30, 999),
+            ],
+        }
+
+        selected, volume = parse_price_history_payload(
+            payload,
+            symbol="ABCD",
+            trade_date=TRADE_DATE,
+            window_end=time(9, 30),
+        )
+
+        self.assertEqual([item.volume for item in selected], [10, 20, 30])
+        self.assertEqual(volume, 60)
+
     def test_empty_candle_list_is_valid_zero_volume(self) -> None:
         selected, volume = parse_price_history_payload(
             {"symbol": "ABCD", "candles": []},
@@ -174,6 +195,27 @@ class TestAPIOvernightVolumeAcquisition(unittest.TestCase):
         self.assertEqual(
             (request["endDate"].hour, request["endDate"].minute),
             (8, 25),
+        )
+
+    def test_explicit_retrospective_window_changes_request_boundary(self) -> None:
+        client = FakeClient(
+            FakeResponse(payload={"symbol": "AAA", "candles": []})
+        )
+
+        acquire_api_overnight_volume(
+            client,
+            ["AAA"],
+            trade_date=TRADE_DATE,
+            window_end=time(9, 30),
+            request_interval_seconds=0,
+            now_factory=Clock(),
+            sleep=lambda _: None,
+        )
+
+        _, request = client.calls[0]
+        self.assertEqual(
+            (request["endDate"].hour, request["endDate"].minute),
+            (9, 30),
         )
 
     def test_retries_429_and_preserves_attempt_count(self) -> None:

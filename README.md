@@ -370,6 +370,15 @@ per-symbol terminal status, hashes its artifacts, and fails production
 eligibility for partial, failed, smoke-test, or late runs. ToS volume is not an
 input and does not need to match the API value.
 
+Retrospective cutoff analysis is intentionally separate from that production
+path. After 09:30 ET, `probes/analyze_api_ov_cutoffs.py` can acquire one
+complete `00:00 <= candle start < 09:30 ET` stream for the same opening Uni and
+compare cumulative volume at 08:25, 09:00, 09:15, 09:25, and `OV_FINAL` at
+09:30. The analysis must reproduce every immutable production 08:25 value
+before it is accepted. It reports deterministic top-N membership, interval
+volume increments, entrants, exits, ranks, and full candle evidence without
+changing the production selector.
+
 ---
 
 # Legacy decision snapshots
