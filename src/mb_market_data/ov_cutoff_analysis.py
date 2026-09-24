@@ -1,9 +1,9 @@
 """Retrospective comparison of API Overnight Volume cutoff landmarks.
 
 This module is deliberately separate from opening Focus production.  It
-acquires one complete 00:00--09:30 ET candle stream, verifies that its 08:25
-prefix reproduces immutable production evidence, and compares deterministic
-top-N membership at later pre-open landmarks.
+acquires one complete 00:00--09:30 ET candle stream, verifies the configured
+production-cutoff prefix against immutable production evidence, and compares
+deterministic top-N membership at the pre-open landmarks.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from mb_market_data.sampling_membership import SamplingHierarchyRevision
 
 
 UTC = timezone.utc
-OV_CUTOFF_ANALYSIS_VERSION = "api-ov-cutoff-analysis-v1"
+OV_CUTOFF_ANALYSIS_VERSION = "api-ov-cutoff-analysis-v2"
 ANALYSIS_WINDOW_END = time(9, 30)
 CUTOFFS: tuple[tuple[str, time], ...] = (
     ("ov_0825", time(8, 25)),
@@ -47,12 +47,14 @@ DELTAS: tuple[tuple[str, str, str], ...] = (
 
 @dataclass(frozen=True, slots=True)
 class ProductionOVBaseline:
-    """Verified immutable 08:25 production evidence."""
+    """Verified immutable production-cutoff evidence."""
 
     manifest_path: Path
     manifest_sha256: str
     observations_path: Path
     observations_sha256: str
+    cutoff_name: str
+    cutoff_et: time
     values: Mapping[str, int]
 
 
@@ -63,7 +65,7 @@ class OVCutoffMetric:
     symbol: str
     status: str
     candle_count: int
-    baseline_ov_0825: int
+    baseline_production_ov: int
     baseline_match: bool | None
     volumes: Mapping[str, int | None]
     deltas: Mapping[str, int | None]
@@ -141,7 +143,7 @@ def load_production_ov_baseline(
     manifest_path: str | Path,
     opening: SamplingHierarchyRevision,
 ) -> ProductionOVBaseline:
-    """Load and cryptographically verify production 08:25 evidence."""
+    """Load and cryptographically verify production-cutoff evidence."""
 
     path = Path(manifest_path).resolve()
     manifest = _read_json_object(path)
@@ -156,8 +158,19 @@ def load_production_ov_baseline(
     window_end = datetime.fromisoformat(
         _required_text(manifest.get("window_end_et"), "window_end_et")
     )
-    if (window_end.hour, window_end.minute) != (8, 25):
-        raise ValueError("production OV baseline must end at 08:25 ET")
+    cutoff_lookup = {
+        (cutoff.hour, cutoff.minute): (name, cutoff)
+        for name, cutoff in CUTOFFS
+        if name != "ov_final"
+    }
+    try:
+        cutoff_name, cutoff_et = cutoff_lookup[
+            (window_end.hour, window_end.minute)
+        ]
+    except KeyError as error:
+        raise ValueError(
+            "production OV baseline must end at a configured pre-open cutoff"
+        ) from error
     if _nonnegative_int(
         manifest.get("opening_uni_count"), "opening_uni_count"
     ) != len(opening.uni_symbols):
@@ -211,6 +224,8 @@ def load_production_ov_baseline(
         manifest_sha256=sha256_file(path),
         observations_path=observation_path,
         observations_sha256=actual_sha,
+        cutoff_name=cutoff_name,
+        cutoff_et=cutoff_et,
         values=values,
     )
 
@@ -261,7 +276,8 @@ def analyze_cutoff_batch(
                 trade_date=batch.trade_date,
             )
             baseline_match[observation.symbol] = (
-                values["ov_0825"] == baseline.values[observation.symbol]
+                values[baseline.cutoff_name]
+                == baseline.values[observation.symbol]
             )
         else:
             values = {name: None for name, _ in CUTOFFS}
@@ -325,7 +341,7 @@ def analyze_cutoff_batch(
                 symbol=symbol,
                 status=observation.status.value,
                 candle_count=observation.candle_count,
-                baseline_ov_0825=baseline.values[symbol],
+                baseline_production_ov=baseline.values[symbol],
                 baseline_match=baseline_match[symbol],
                 volumes=values,
                 deltas=deltas,
@@ -393,7 +409,8 @@ def write_cutoff_analysis_artifacts(
         "symbol",
         "status",
         "candle_count",
-        "baseline_ov_0825",
+        "baseline_production_cutoff",
+        "baseline_production_ov",
         "baseline_match",
         *[name for name, _ in CUTOFFS],
         *[name for name, _, _ in DELTAS],
@@ -413,7 +430,10 @@ def write_cutoff_analysis_artifacts(
                 "symbol": item.symbol,
                 "status": item.status,
                 "candle_count": item.candle_count,
-                "baseline_ov_0825": item.baseline_ov_0825,
+                "baseline_production_cutoff": (
+                    baseline.cutoff_et.strftime("%H:%M")
+                ),
+                "baseline_production_ov": item.baseline_production_ov,
                 "baseline_match": (
                     "" if item.baseline_match is None else item.baseline_match
                 ),
@@ -502,6 +522,8 @@ def write_cutoff_analysis_artifacts(
         "cutoffs": {
             name: cutoff.strftime("%H:%M") for name, cutoff in CUTOFFS
         },
+        "production_baseline_cutoff": baseline.cutoff_et.strftime("%H:%M"),
+        "production_baseline_cutoff_name": baseline.cutoff_name,
         "baseline_match_count": sum(
             item.baseline_match is True for item in analysis.metrics
         ),

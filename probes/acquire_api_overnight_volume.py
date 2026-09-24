@@ -122,7 +122,10 @@ def main() -> int:
     print("API-only Overnight Volume acquisition")
     print("=" * 79)
     print(f"Session date       : {opening.session_date}")
-    print("Decision window    : 00:00 <= candle start < 08:25 ET")
+    print(
+        "Decision window    : 00:00 <= candle start < "
+        f"{OV_WINDOW_END.strftime('%H:%M')} ET"
+    )
     print(f"Opening Uni        : {len(opening.uni_symbols):,}")
     print(f"Requested symbols  : {len(symbols):,}")
     print(f"Complete opening Uni: {'YES' if complete_opening_uni else 'NO (smoke)'}")

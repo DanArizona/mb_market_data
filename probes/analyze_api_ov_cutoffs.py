@@ -196,9 +196,8 @@ def main() -> int:
         item.baseline_match is True for item in analysis.metrics
     )
     print(
-        "08:25 baseline    : "
-        f"{baseline_match_count:,}/"
-        f"{len(symbols):,} match"
+        f"{baseline.cutoff_et.strftime('%H:%M')} baseline    : "
+        f"{baseline_match_count:,}/{len(symbols):,} match"
     )
     for name, cutoff in CUTOFFS:
         print(
@@ -231,7 +230,7 @@ def main() -> int:
         return 1
     if analysis.baseline_mismatch_symbols:
         print(
-            "API OV cutoff analysis: FAIL (08:25 baseline mismatch: "
+            "API OV cutoff analysis: FAIL (production baseline mismatch: "
             + " ".join(analysis.baseline_mismatch_symbols)
             + ")",
             file=sys.stderr,

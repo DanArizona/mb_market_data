@@ -147,11 +147,12 @@ canonical/journal verification. ToS readback is outside that acceptance path.
 
 ## 3. Current critical path
 
-The first live API-only opening is complete. The critical path now closes the
-daily-universe timing/volume-source defect and two small authentication
-usability gaps discovered during that session, then proceeds to the narrowly
-bounded Observation Overlay/OOOHLCV diagnostic MVP and live hierarchical
-membership evolution.
+Two full API-only openings are complete. The daily-universe timing gate and
+the authentication usability gaps exposed by the first session are closed.
+The critical path now proceeds to the narrowly bounded Observation
+Overlay/OOOHLCV diagnostic MVP and then live hierarchical membership
+evolution. The 09:00 OV cutoff requires an ordinary next-session live
+validation but does not displace those milestones.
 
 ### CP-1 — Seek to historical time
 
@@ -235,14 +236,14 @@ selected 539 symbols for September 24, with 1,295 `volume_below_min` decisions.
 Its opening `r0`, content SHA-256
 `3c311dbf4543f23329cf8a56075e5c47b61aaf82d490b73908f05cf25f38a36e`,
 was published to a dedicated September 24 schema-v2 journal and passed audit
-and replay. Required hardening is to reject temporally invalid snapshots and
-to settle the durable completed-session volume source rather than relying on a
-morning-reconstructable interpretation of `quote.totalVolume`.
+and replay. The same-date post-close gate now rejects temporally invalid
+snapshots and records its timing policy and volume semantics. It was
+live-validated at 16:44 ET on September 24 and selected 545 symbols for the
+September 25 opening.
 
 ### CP-4 — Observation Overlay/OOOHLCV diagnostic MVP
 
-**Status: Next feature-development priority after the September 23 production
-hardening items are closed.**
+**Status: Current feature-development priority.**
 
 Build a read-only, replay-causal view for one symbol and one session using a
 completed schema-v2 journal plus cached Schwab five-minute OHLCV. The MVP
@@ -273,12 +274,11 @@ diagnostic evidence; journal replay and audit remain authoritative.
 
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
-1. **Correct and validate the daily-universe timing/volume-source gate.** Reject a next-morning snapshot even when the regular-trade timestamp still matches the prior session; record acquisition timing and volume semantics explicitly; add regression coverage for the September 23 false-`PASS` condition; and decide whether completed daily-candle volume should replace time-sensitive `quote.totalVolume`.
-2. **Improve Schwab authentication operator feedback in `mb_tools`.** Print a non-secret confirmation after encrypted configuration is successfully decrypted and validated, before long silent work begins. Add `mb-schwab-auth --force-reauthorize` (or an equivalently explicit name) to back up the existing token database, force browser OAuth, verify the new expiry, and restore the prior database if replacement fails.
-3. **Implement the guarded Observation Overlay/OOOHLCV MVP.** Define the timestamp, completed-candle visibility, cache, and membership-band contract first; then implement playback for one symbol and one session without modifying live pollers or journals.
-4. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Apply a new Focus change—preferably from a genuine LUDP/M event—while pollers are active. Prove atomic reader handoff, exact revision binding, replay, and audit; use the overlay as a diagnostic view rather than acceptance authority.
-5. **Use September 11, September 14, September 15, September 21, and September 23 as standing real-day regression evidence.** Preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
-6. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
+1. **Live-validate the 09:00 OV production cutoff.** Keep Focus at 40, run the existing acceptance gates, and preserve the immutable bundle and hierarchy evidence. Do not delay the opening or alter membership manually to chase retrospective `OV_FINAL`.
+2. **Implement the guarded Observation Overlay/OOOHLCV MVP.** Define the timestamp, completed-candle visibility, cache, and membership-band contract first; then implement playback for one symbol and one session without modifying live pollers or journals.
+3. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Apply a new Focus change—preferably from a genuine LUDP/M event—while pollers are active. Prove atomic reader handoff, exact revision binding, replay, and audit; use the overlay as a diagnostic view rather than acceptance authority.
+4. **Use September 11, September 14, September 15, September 21, September 23, and September 24 as standing real-day regression evidence.** Preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
+5. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.
 
 ## 5. Medium- and long-term work
 
@@ -460,11 +460,12 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-022 | Schema-v1 journals remain immutable legacy evidence. Hierarchy-governed journals use schema v2 and replay each hierarchy revision as one bundled event. | Active |
 | D-023 | The coordinator's flat `CanonicalWatchlist` and GUI materialization transaction are not the sampling hierarchy. A distinct coordinator-side hierarchy projection will publish to the journal contract. | Active |
 | D-024 | Programmatic credentials use provider-specific encrypted `.ecfg` files owned by `mb_tools`, kept outside repositories, resolved by explicit path, service override, then `MB_VAULT` default, and restricted by machine/service ownership. Plaintext credential fallback is prohibited. | Active |
-| D-025 | Current-day `OV_DECISION` is calculated from Schwab API candles over `00:00 <= start < 08:25 ET`; ToS volume is neither an input nor a required match. | Active |
+| D-025 | Current-day `OV_DECISION` is calculated from Schwab API candles over `00:00 <= start < 09:00 ET`; ToS volume is neither an input nor a required match. The production cutoff moved from 08:25 to 09:00 after the September 24 cutoff study showed 38/40 final-member agreement at 09:00 versus 33/40 at 08:25, while retaining 30 minutes of operational margin. | Active |
 | D-026 | ToS roster publication is outbound and unverified. No ToS CSV export/readback is required for OV, Focus, or adapter confirmation. | Active |
-| D-027 | After closing production defects exposed by the first live API-only session, the next feature priority is a playback-only, read-only, one-symbol/one-session Observation Overlay/OOOHLCV MVP. The concurrent hierarchy transition follows immediately afterward. | Active; September 23 daily-universe hardening precedes the MVP |
+| D-027 | After closing production defects exposed by the first live API-only session, the next feature priority is a playback-only, read-only, one-symbol/one-session Observation Overlay/OOOHLCV MVP. The concurrent hierarchy transition follows immediately afterward. | Active; September 24 production hardening is complete and the MVP resumes |
 | D-028 | Observation Overlay expansion features—live mode; multi-symbol/session/day views; indicators, signals, events, and holdings; configurable periods; alternate providers; and algorithm/backtesting use—are deferred, not dropped. | Active |
-| D-029 | A daily-universe snapshot must carry independently validated completed-session volume evidence. A next-morning `quote.totalVolume` snapshot is not accepted merely because the regular-trade timestamp still names the prior session. | Active; implementation hardening pending |
+| D-029 | A daily-universe snapshot must carry independently validated completed-session volume evidence. A next-morning `quote.totalVolume` snapshot is not accepted merely because the regular-trade timestamp still names the prior session. | Completed; same-date post-close gate live-validated September 24 |
+| D-030 | Keep opening Focus at 40 symbols while operational experience and multi-session evidence accumulate. Membership-cutoff and size refinements must not block the next project milestone; their meaningful later test is coverage of symbols promoted—or that should have been promoted—into Hot. | Active |
 
 ## Maintenance protocol
 
@@ -565,3 +566,26 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
   the immediate production-hardening backlog.
 - Confirmed that a processed display-only stop command sets `shutdown=True`
   and terminates `scan_command_loop.py`; manual `Ctrl+C` is fallback-only.
+
+### 2026-09-24 — Repeated production validation and OV cutoff decision
+
+- Completed a second full schema-v2 session with Uni r0=539 and Focus r1=40:
+  2,340 acquisitions and 482,820 observations, with no skips, missing slots,
+  request errors, invalid symbols, or row mismatches. Audit and replay passed
+  with sequence SHA-256
+  `5650e9a355e9979a309d4fdcf3eb25da9a45f5fb275fb84519c07d122cf6358e`.
+- Live-validated the same-ET-date post-close daily-universe gate at 16:44 ET
+  and produced the September 25 opening Uni of 545 symbols.
+- Added explicit encrypted-configuration acceptance feedback and recoverable
+  `mb-schwab-auth --force-reauthorize` support in `mb_tools` commit `abdceb1`.
+- Added a separate retrospective cutoff study and reproduced all 539 immutable
+  08:25 production values exactly. For top 40, agreement with `OV_FINAL` was
+  33 at 08:25, 38 at 09:00, 39 at 09:15, and 40 at 09:25.
+- Adopted 09:00 ET as the production `OV_DECISION` cutoff. It materially
+  improves final-membership agreement while retaining 30 minutes for the
+  current sequential acquisition and operator-controlled opening procedure.
+  Keep 09:15 and 09:25 as later candidates as practice and automation reduce
+  launch latency.
+- Retained Focus size 40 pending multi-session evidence and Hot-promotion
+  criteria. Fine tuning of cutoff and size does not block the Observation
+  Overlay MVP or the subsequent concurrent hierarchy work.

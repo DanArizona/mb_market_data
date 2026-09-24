@@ -31,17 +31,17 @@ def opening() -> SamplingHierarchyRevision:
 
 
 class TestAPIOvernightVolumeProbe(unittest.TestCase):
-    def test_accepts_run_at_0825_et(self) -> None:
+    def test_accepts_run_at_0900_et(self) -> None:
         validate_run_time(
             opening(),
-            datetime(2026, 9, 21, 8, 25, tzinfo=ET),
+            datetime(2026, 9, 21, 9, 0, tzinfo=ET),
         )
 
     def test_rejects_run_before_decision_window_closes(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot start before"):
             validate_run_time(
                 opening(),
-                datetime(2026, 9, 21, 8, 24, 59, tzinfo=ET),
+                datetime(2026, 9, 21, 8, 59, 59, tzinfo=ET),
             )
 
     def test_rejects_run_at_opening_effective_time(self) -> None:

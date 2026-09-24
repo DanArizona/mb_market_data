@@ -4,6 +4,7 @@ import csv
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -85,14 +86,15 @@ class Clock:
 
 
 class TestAPIOvernightVolumeParsing(unittest.TestCase):
-    def test_uses_half_open_midnight_to_0825_et_window(self) -> None:
+    def test_uses_half_open_midnight_to_0900_et_window(self) -> None:
         payload = {
             "symbol": "ABCD",
             "candles": [
                 candle(23, 55, 99, day=20),
                 candle(0, 0, 10),
                 candle(8, 20, 20),
-                candle(8, 25, 999),
+                candle(8, 55, 30),
+                candle(9, 0, 999),
             ],
         }
 
@@ -102,8 +104,8 @@ class TestAPIOvernightVolumeParsing(unittest.TestCase):
             trade_date=TRADE_DATE,
         )
 
-        self.assertEqual([item.volume for item in selected], [10, 20])
-        self.assertEqual(volume, 30)
+        self.assertEqual([item.volume for item in selected], [10, 20, 30])
+        self.assertEqual(volume, 60)
 
     def test_accepts_explicit_retrospective_0930_window(self) -> None:
         payload = {
@@ -194,7 +196,7 @@ class TestAPIOvernightVolumeAcquisition(unittest.TestCase):
         self.assertEqual(request["startDate"].hour, 0)
         self.assertEqual(
             (request["endDate"].hour, request["endDate"].minute),
-            (8, 25),
+            (9, 0),
         )
 
     def test_explicit_retrospective_window_changes_request_boundary(self) -> None:
@@ -279,12 +281,12 @@ class TestAPIOvernightVolumeAcquisition(unittest.TestCase):
 
 class TestAPIOvernightVolumeArtifacts(unittest.TestCase):
     def test_writes_hashed_immutable_evidence_bundle(self) -> None:
-        start = datetime(2026, 9, 21, 12, 25, tzinfo=UTC)
+        start = datetime(2026, 9, 21, 13, 5, tzinfo=UTC)
         observation = APIOvernightVolumeObservation(
             symbol="AAA",
             trade_date=TRADE_DATE,
             window_start_et=datetime(2026, 9, 21, 0, 0, tzinfo=ET),
-            window_end_et=datetime(2026, 9, 21, 8, 25, tzinfo=ET),
+            window_end_et=datetime(2026, 9, 21, 9, 0, tzinfo=ET),
             status=APIOvernightVolumeStatus.OK,
             ov_decision=0,
             candle_count=0,
@@ -333,8 +335,34 @@ class TestAPIOvernightVolumeArtifacts(unittest.TestCase):
             self.assertEqual(manifest["failed_symbols"], 0)
             self.assertEqual(manifest["status_counts"], {"ok": 1})
             self.assertTrue(manifest["complete_opening_uni"])
+            self.assertTrue(manifest["started_at_or_after_window_end"])
             self.assertTrue(manifest["production_eligible"])
             self.assertEqual(rows[0]["ov_decision"], "0")
+
+            early_artifacts = write_api_overnight_volume_artifacts(
+                root / "early-evidence",
+                opening_proposal_path=opening,
+                opening_content_sha256="a" * 64,
+                opening_uni_count=1,
+                opening_effective_at=datetime(
+                    2026, 9, 21, 9, 30, tzinfo=ET
+                ),
+                complete_opening_uni=True,
+                batch=replace(
+                    batch,
+                    started_at_utc=datetime(
+                        2026, 9, 21, 12, 59, 59, tzinfo=UTC
+                    ),
+                ),
+            )
+            early_manifest = json.loads(
+                early_artifacts.manifest.read_text(encoding="utf-8")
+            )
+            self.assertFalse(
+                early_manifest["started_at_or_after_window_end"]
+            )
+            self.assertFalse(early_manifest["production_eligible"])
+
             with self.assertRaises(FileExistsError):
                 write_api_overnight_volume_artifacts(
                     output,

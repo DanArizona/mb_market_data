@@ -2,7 +2,7 @@
 
 The production decision window is interpreted in America/New_York:
 
-    00:00 <= candle start < 08:25
+    00:00 <= candle start < 09:00
 
 ThinkOrSwim is not an input.  One explicit result is retained for every
 requested symbol, including request and data failures.
@@ -29,7 +29,7 @@ ET = ZoneInfo("America/New_York")
 UTC = timezone.utc
 API_OV_VERSION = "schwab-price-history-ov-v1"
 OV_WINDOW_START = time(0, 0)
-OV_WINDOW_END = time(8, 25)
+OV_WINDOW_END = time(9, 0)
 OV_FREQUENCY_MINUTES = 5
 RETRYABLE_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504})
 
@@ -135,7 +135,7 @@ def window_bounds(
 ) -> tuple[datetime, datetime]:
     """Return API OV acquisition bounds in Eastern Time.
 
-    Production callers use the default 08:25 boundary.  Retrospective
+    Production callers use the default 09:00 boundary.  Retrospective
     analysis may request a later boundary without changing production
     behavior.
     """
@@ -555,11 +555,16 @@ def write_api_overnight_volume_artifacts(
             batch.status_counts().items(), key=lambda item: item[0].value
         )
     }
+    started_at_or_after_window_end = (
+        _aware_utc(batch.started_at_utc, "batch.started_at_utc")
+        >= batch.window_end_et.astimezone(UTC)
+    )
     completed_before_opening = batch.completed_at_utc < effective_at
     production_eligible = (
         complete_opening_uni
         and requested_count == opening_uni_count
         and batch.failed_count == 0
+        and started_at_or_after_window_end
         and completed_before_opening
     )
     manifest = {
@@ -579,6 +584,7 @@ def write_api_overnight_volume_artifacts(
         "status_counts": counts,
         "opening_uni_count": opening_uni_count,
         "complete_opening_uni": complete_opening_uni,
+        "started_at_or_after_window_end": started_at_or_after_window_end,
         "completed_before_opening": completed_before_opening,
         "production_eligible": production_eligible,
         "opening": {

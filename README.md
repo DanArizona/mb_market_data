@@ -35,7 +35,7 @@ Its job is to answer questions such as:
 * what are the current Schwab quote fields for a symbol set?
 * what historical price bars are available from Schwab?
 * what is each opening-Uni symbol's Schwab-derived `OV_DECISION` for the
-  completed `00:00–08:25 ET` window?
+  completed `00:00–09:00 ET` window?
 * is the complete, hashed API evidence bundle eligible for Focus production?
 
 Higher-level repositories decide what to do with that data.
@@ -362,7 +362,7 @@ Current production calculates `OV_DECISION` on MasterBot by summing Schwab
 five-minute extended-hours candle volume for:
 
 ```text
-00:00 <= candle start < 08:25 ET
+00:00 <= candle start < 09:00 ET
 ```
 
 The acquisition covers every symbol in opening Uni, preserves each candle and
@@ -374,10 +374,10 @@ Retrospective cutoff analysis is intentionally separate from that production
 path. After 09:30 ET, `probes/analyze_api_ov_cutoffs.py` can acquire one
 complete `00:00 <= candle start < 09:30 ET` stream for the same opening Uni and
 compare cumulative volume at 08:25, 09:00, 09:15, 09:25, and `OV_FINAL` at
-09:30. The analysis must reproduce every immutable production 08:25 value
-before it is accepted. It reports deterministic top-N membership, interval
-volume increments, entrants, exits, ranks, and full candle evidence without
-changing the production selector.
+09:30. The analysis must reproduce every immutable value at the production
+cutoff before it is accepted. It reports deterministic top-N membership,
+interval volume increments, entrants, exits, ranks, and full candle evidence
+without changing the production selector.
 
 ---
 
@@ -498,8 +498,9 @@ sampling_hierarchy_r1.json
 ```
 
 The consumer independently verifies source hashes, session, exact opening-Uni
-coverage, decision window, completion time, and `production_eligible` before
-ranking. ToS is an optional outbound display adapter after acceptance.
+coverage, decision window, acquisition start and completion times, and
+`production_eligible` before ranking. ToS is an optional outbound display
+adapter after acceptance.
 
 ---
 
@@ -545,10 +546,11 @@ Approximate decision window:
 ```text
 00:00 ET
 to
-08:25 ET
+09:00 ET
 ```
 
-A small buffer before 08:30 is used so that the decision can be completed before the market-open workflow.
+The 09:00 cutoff leaves 30 minutes for complete-Uni acquisition, Focus review,
+hierarchy publication, and poller startup before the regular-session open.
 
 ## Historical comparison window
 
@@ -571,7 +573,7 @@ SCHWAB_PREMARKET_V1
 covering approximately:
 
 ```text
-08:25 ET
+09:00 ET
 to
 09:30 ET
 ```

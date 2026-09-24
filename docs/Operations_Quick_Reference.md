@@ -253,7 +253,7 @@ empty Focus/Hot.
 This procedure produces the daily Focus `BASE_SET` as schema-v2 revision `r1`.
 It preserves `Focus ⊆ Uni`. `OV_DECISION` is calculated only from Schwab
 five-minute extended-hours candles whose starts satisfy
-`00:00 <= candle start < 08:25 ET`. ToS is not an input.
+`00:00 <= candle start < 09:00 ET`. ToS is not an input.
 
 ### 5.1 Scheduled opening sequence
 
@@ -262,12 +262,12 @@ For a normal 09:30 ET open, begin about one hour early:
 | ET | Action |
 |---|---|
 | 08:20 | Confirm both repositories are current, run `mb-schwab-auth --status`, verify `OPENING_R0`, journal path, dates, and Focus limit. |
-| 08:25 | Start the complete opening-Uni API OV acquisition. Do not start earlier; the decision window has not closed. |
-| About 08:30 | Confirm the API bundle reports zero failures and `production_eligible: true`. |
-| 08:31 | Build and review the API-OV Focus r1 bundle. |
-| 08:35 | Publish r1; audit and replay the journal. |
-| 08:40 | Start Uni and Focus pollers with a 09:30 start time. |
-| 08:45 or later | Optionally send the accepted Focus roster to ToS for display. Do not verify by export or readback. |
+| 09:00 | Start the complete opening-Uni API OV acquisition. Do not start earlier; the decision window has not closed. |
+| About 09:05 | Confirm the API bundle reports zero failures and `production_eligible: true`. |
+| 09:06 | Build and review the API-OV Focus r1 bundle. |
+| 09:10 | Publish r1; audit and replay the journal. |
+| 09:15 | Start Uni and Focus pollers with a 09:30 start time. |
+| 09:20 or later | Optionally send the accepted Focus roster to ToS for display. Do not verify by export or readback. |
 | 09:30 | Confirm both pollers begin on schedule. |
 
 ### 5.2 Acquire API-only `OV_DECISION`
@@ -299,9 +299,9 @@ set API_OV_MANIFEST=%API_OV_ROOT%\RUN_TIMESTAMP-session-%TARGET_DATE%\manifest.j
 ```
 
 Accept the bundle only when all opening-Uni symbols succeeded,
-`complete_opening_uni` is true, `completed_before_opening` is true, and
-`production_eligible` is true. A smoke bundle created with `--max-symbols`
-can never be used for production Focus.
+`complete_opening_uni` is true, `started_at_or_after_window_end` is true,
+`completed_before_opening` is true, and `production_eligible` is true. A smoke
+bundle created with `--max-symbols` can never be used for production Focus.
 
 ### 5.3 Build the Focus `BASE_SET` and `r1` proposal
 
@@ -397,7 +397,7 @@ CSV, and do not block API polling or Focus publication on ToS display state.
 ### 5.6 Retrospective OV cutoff analysis
 
 This analysis is not part of opening production and does not change the
-accepted 08:25 selector. Run it only at or after 09:30 ET. One API request per
+accepted 09:00 selector. Run it only at or after 09:30 ET. One API request per
 opening-Uni symbol retrieves five-minute extended-hours candles through 09:30
 and calculates cumulative volume at 08:25, 09:00, 09:15, 09:25, and
 `OV_FINAL` at 09:30.
@@ -409,9 +409,9 @@ python probes\analyze_api_ov_cutoffs.py ^
   --limit %FOCUS_LIMIT%
 ```
 
-The run is accepted only when all symbols succeed and every recalculated 08:25
-value matches the immutable production bundle. Its separate evidence directory
-contains:
+The run is accepted only when all symbols succeed and every recalculated value
+at the production cutoff matches the immutable production bundle. Its separate
+evidence directory contains:
 
 ```text
 cutoff_metrics.csv

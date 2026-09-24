@@ -4,7 +4,7 @@ import csv
 import json
 import tempfile
 import unittest
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 from mb_market_data.api_overnight_volume import (
@@ -137,6 +137,8 @@ class TestCutoffAnalysis(unittest.TestCase):
             manifest_sha256="a" * 64,
             observations_path=Path("baseline.csv"),
             observations_sha256="b" * 64,
+            cutoff_name="ov_0825",
+            cutoff_et=time(8, 25),
             values={"AAA": 100, "BBB": 90, "CCC": 80},
         )
 
@@ -163,6 +165,8 @@ class TestCutoffAnalysis(unittest.TestCase):
             manifest_sha256="a" * 64,
             observations_path=Path("baseline.csv"),
             observations_sha256="b" * 64,
+            cutoff_name="ov_0825",
+            cutoff_et=time(8, 25),
             values={"AAA": 99},
         )
 
@@ -199,7 +203,7 @@ class TestCutoffEvidence(unittest.TestCase):
             manifest_path = root / "production_manifest.json"
             manifest = {
                 "session_date": "2026-09-24",
-                "window_end_et": "2026-09-24T08:25:00-04:00",
+                "window_end_et": "2026-09-24T09:00:00-04:00",
                 "opening_uni_count": 1,
                 "complete_opening_uni": True,
                 "production_eligible": True,
@@ -216,6 +220,8 @@ class TestCutoffEvidence(unittest.TestCase):
             )
 
             baseline = load_production_ov_baseline(manifest_path, revision)
+            self.assertEqual(baseline.cutoff_name, "ov_0900")
+            self.assertEqual(baseline.cutoff_et, time(9, 0))
             acquired = batch(
                 (observation("AAA", (candle(8, 20, 100), candle(9, 25, 5))),)
             )
@@ -238,6 +244,9 @@ class TestCutoffEvidence(unittest.TestCase):
             )
 
             self.assertTrue(result_manifest["analysis_complete"])
+            self.assertEqual(
+                result_manifest["production_baseline_cutoff"], "09:00"
+            )
             self.assertEqual(result_manifest["baseline_match_count"], 1)
             self.assertEqual(result_manifest["baseline_mismatch_count"], 0)
             self.assertTrue(artifacts.metrics.is_file())

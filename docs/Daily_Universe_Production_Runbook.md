@@ -246,7 +246,7 @@ controlled transition until schema-v2 operation is formally adopted.
 
 Before the open, `acquire_api_overnight_volume.py` calculates `OV_DECISION`
 for every opening-Uni symbol from Schwab five-minute extended-hours candles in
-the half-open `00:00–08:25 ET` decision window. The immutable API bundle is
+the half-open `00:00–09:00 ET` decision window. The immutable API bundle is
 then consumed by `schwab_watchlists` to produce the strict Focus `r1`
 proposal. Publication remains a separate acceptance step. ToS is optional
 outbound display only; no ToS CSV export or readback is part of this workflow.
