@@ -300,6 +300,127 @@ class ObservationOverlayData:
         return self.quote_points[-1] if self.quote_points else None
 
 
+class ObservationOverlayProjector:
+    """Incrementally retain one symbol's replay-causal overlay evidence.
+
+    The projector is intentionally small: it keeps membership transitions and
+    selected-symbol quote outcomes only.  It does not retain the complete
+    journal event stream, so attaching it to a full-day dashboard does not
+    duplicate every universe observation in memory.
+    """
+
+    def __init__(
+        self,
+        *,
+        cache: ObservationOverlayOHLCVCache,
+        symbol: str,
+        session_date: date,
+    ) -> None:
+        normalized_symbol = _symbol(symbol)
+        if cache.symbol != normalized_symbol:
+            raise ValueError("OHLCV cache symbol differs from overlay symbol")
+        if cache.session_date != session_date:
+            raise ValueError("OHLCV cache session differs from overlay session")
+        self.cache = cache
+        self.symbol = normalized_symbol
+        self.session_date = session_date
+        self._transitions: list[OverlayMembershipTransition] = []
+        self._quote_points: list[OverlayQuotePoint] = []
+        self._current_band = MembershipBand.OUTSIDE_UNI
+        self._last_available: datetime | None = None
+        self._last_revision = -1
+
+    def apply(self, event: ReplayEvent) -> None:
+        """Validate and incorporate one causally ordered journal event."""
+
+        available = _utc(event.available_at_utc, "event.available_at_utc")
+        if (
+            self._last_available is not None
+            and available < self._last_available
+        ):
+            raise ObservationOverlayError(
+                "journal events are not in causal availability order"
+            )
+        if _event_session_date(event) != self.session_date:
+            raise ObservationOverlayError(
+                "journal event belongs to another session"
+            )
+        if isinstance(event, ChannelRevisionEvent):
+            raise ObservationOverlayError(
+                "Observation Overlay MVP requires a schema-v2 hierarchy journal"
+            )
+
+        self._last_available = available
+        if isinstance(event, MembershipRevisionEvent):
+            if event.revision.revision <= self._last_revision:
+                raise ObservationOverlayError(
+                    "hierarchy revisions are not strictly increasing"
+                )
+            self._last_revision = event.revision.revision
+            next_band = membership_band(event.revision, self.symbol)
+            if next_band is not self._current_band:
+                self._transitions.append(
+                    OverlayMembershipTransition(
+                        available_at_utc=available,
+                        revision=event.revision.revision,
+                        band=next_band,
+                        source=event.revision.source,
+                        reason=event.revision.reason,
+                    )
+                )
+                self._current_band = next_band
+            return
+
+        matches = tuple(
+            observation
+            for observation in event.observations
+            if observation.symbol == self.symbol
+        )
+        if len(matches) > 1:
+            raise ObservationOverlayError(
+                "acquisition contains duplicate selected-symbol observations"
+            )
+        if not matches:
+            return
+        observation = matches[0]
+        self._quote_points.append(
+            OverlayQuotePoint(
+                available_at_utc=available,
+                scheduled_at_utc=observation.scheduled_at_utc,
+                acquisition_id=event.acquisition.acquisition_id,
+                channel=event.acquisition.channel,
+                channel_revision=event.acquisition.channel_revision,
+                status=observation.status,
+                detail=observation.detail,
+                values=MappingProxyType(dict(observation.values)),
+            )
+        )
+
+    def snapshot(self, replay_time_utc: datetime) -> ObservationOverlayData:
+        """Return the evidence visible through one inclusive replay cutoff."""
+
+        cutoff = _utc(replay_time_utc, "replay_time_utc")
+        if cutoff.astimezone(ET).date() != self.session_date:
+            raise ValueError("replay_time_utc must fall on session_date in ET")
+        return ObservationOverlayData(
+            session_date=self.session_date,
+            symbol=self.symbol,
+            replay_time_utc=cutoff,
+            cache=self.cache,
+            candles=self.cache.visible_candles(cutoff),
+            membership_transitions=tuple(
+                item
+                for item in self._transitions
+                if item.available_at_utc <= cutoff
+            ),
+            quote_points=tuple(
+                item
+                for item in self._quote_points
+                if item.available_at_utc <= cutoff
+            ),
+        )
+
+
 def membership_band(
     revision: SamplingHierarchyRevision,
     symbol: str,
@@ -336,94 +457,14 @@ def prepare_observation_overlay(
     :class:`QuoteJournalReplayReader`.  The replay cutoff is inclusive.
     """
 
-    normalized_symbol = _symbol(symbol)
-    cutoff = _utc(replay_time_utc, "replay_time_utc")
-    if cutoff.astimezone(ET).date() != session_date:
-        raise ValueError("replay_time_utc must fall on session_date in ET")
-    if cache.symbol != normalized_symbol:
-        raise ValueError("OHLCV cache symbol differs from overlay symbol")
-    if cache.session_date != session_date:
-        raise ValueError("OHLCV cache session differs from overlay session")
-
-    transitions: list[OverlayMembershipTransition] = []
-    quote_points: list[OverlayQuotePoint] = []
-    current_band = MembershipBand.OUTSIDE_UNI
-    last_available: datetime | None = None
-    last_revision = -1
-
-    for event in events:
-        available = _utc(event.available_at_utc, "event.available_at_utc")
-        if last_available is not None and available < last_available:
-            raise ObservationOverlayError(
-                "journal events are not in causal availability order"
-            )
-        last_available = available
-        if _event_session_date(event) != session_date:
-            raise ObservationOverlayError(
-                "journal event belongs to another session"
-            )
-        if isinstance(event, ChannelRevisionEvent):
-            raise ObservationOverlayError(
-                "Observation Overlay MVP requires a schema-v2 hierarchy journal"
-            )
-        if isinstance(event, MembershipRevisionEvent):
-            if event.revision.revision <= last_revision:
-                raise ObservationOverlayError(
-                    "hierarchy revisions are not strictly increasing"
-                )
-            last_revision = event.revision.revision
-            if available > cutoff:
-                continue
-            next_band = membership_band(event.revision, normalized_symbol)
-            if next_band is not current_band:
-                transitions.append(
-                    OverlayMembershipTransition(
-                        available_at_utc=available,
-                        revision=event.revision.revision,
-                        band=next_band,
-                        source=event.revision.source,
-                        reason=event.revision.reason,
-                    )
-                )
-                current_band = next_band
-            continue
-        if available > cutoff:
-            continue
-
-        matches = tuple(
-            observation
-            for observation in event.observations
-            if observation.symbol == normalized_symbol
-        )
-        if len(matches) > 1:
-            raise ObservationOverlayError(
-                "acquisition contains duplicate selected-symbol observations"
-            )
-        if not matches:
-            continue
-        observation = matches[0]
-        quote_points.append(
-            OverlayQuotePoint(
-                available_at_utc=available,
-                scheduled_at_utc=observation.scheduled_at_utc,
-                acquisition_id=event.acquisition.acquisition_id,
-                channel=event.acquisition.channel,
-                channel_revision=event.acquisition.channel_revision,
-                status=observation.status,
-                detail=observation.detail,
-                values=MappingProxyType(dict(observation.values)),
-            )
-        )
-
-    return ObservationOverlayData(
-        session_date=session_date,
-        symbol=normalized_symbol,
-        replay_time_utc=cutoff,
+    projector = ObservationOverlayProjector(
         cache=cache,
-        candles=cache.visible_candles(cutoff),
-        membership_transitions=tuple(transitions),
-        quote_points=tuple(quote_points),
+        symbol=symbol,
+        session_date=session_date,
     )
+    for event in events:
+        projector.apply(event)
+    return projector.snapshot(replay_time_utc)
 
 
 def _cache_payload(cache: ObservationOverlayOHLCVCache) -> dict[str, Any]:

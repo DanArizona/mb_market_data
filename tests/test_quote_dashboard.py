@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from threading import Event
 from typing import Any
 
+from mb_market_data.observation_overlay import (
+    ET as OVERLAY_ET,
+    ObservationOverlayOHLCVCache,
+    ObservationOverlayProjector,
+    OverlayCandle,
+)
 from mb_market_data.quote_dashboard import (
     _column_definitions,
     _parse_seek_time_utc,
@@ -15,9 +21,11 @@ from mb_market_data.quote_dashboard_replay import (
 )
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
+    MembershipRevisionEvent,
     ReplayTimeline,
 )
 from mb_market_data.quote_observation_store import SamplingChannelRevision
+from mb_market_data.sampling_membership import SamplingHierarchyRevision
 
 
 SESSION_DATE = date(2026, 9, 11)
@@ -78,6 +86,62 @@ def two_event_controller() -> QuoteDashboardReplayController:
             events[-1].available_at_utc,
         ),
         event_factory=lambda: iter(events),
+    )
+
+
+def overlay_controller() -> QuoteDashboardReplayController:
+    available_at = datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc)
+    event = MembershipRevisionEvent(
+        SamplingHierarchyRevision(
+            session_date=SESSION_DATE,
+            revision=0,
+            effective_at=available_at,
+            uni_symbols=("SPY",),
+            focus_symbols=("SPY",),
+            hot_symbols=(),
+            source="unit-test",
+        )
+    )
+    cache = ObservationOverlayOHLCVCache(
+        symbol="SPY",
+        session_date=SESSION_DATE,
+        provider="Schwab",
+        source="unit-test",
+        acquired_at_utc=available_at + timedelta(hours=8),
+        request_start_et=datetime(
+            2026, 9, 11, 0, 0, tzinfo=OVERLAY_ET
+        ),
+        request_end_et=datetime(
+            2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET
+        ),
+        source_payload_sha256="a" * 64,
+        candles=(
+            OverlayCandle(
+                symbol="SPY",
+                start_et=datetime(
+                    2026, 9, 11, 9, 25, tzinfo=OVERLAY_ET
+                ),
+                open=100,
+                high=102,
+                low=99,
+                close=101,
+                volume=10_000,
+            ),
+        ),
+    )
+    return QuoteDashboardReplayController(
+        timeline=ReplayTimeline(
+            SESSION_DATE,
+            1,
+            available_at,
+            available_at,
+        ),
+        event_factory=lambda: iter((event,)),
+        overlay_projector_factory=lambda: ObservationOverlayProjector(
+            cache=cache,
+            symbol=cache.symbol,
+            session_date=SESSION_DATE,
+        ),
     )
 
 
@@ -162,6 +226,77 @@ def replay_callback_payload(
 
 
 class TestQuoteDashboard(unittest.TestCase):
+    def test_optional_observation_overlay_is_in_layout_and_callbacks(self) -> None:
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+
+        layout = client.get("/_dash-layout")
+        self.addCleanup(layout.close)
+
+        self.assertEqual(layout.status_code, 200)
+        self.assertIn(b"observation-overlay-panel", layout.data)
+        self.assertIn(b"observation-overlay-chart", layout.data)
+        self.assertIn(b"Observation Overlay", layout.data)
+        self.assertIn(b"Focus", layout.data)
+        overlay_callbacks = [
+            (key, callback)
+            for key, callback in app.callback_map.items()
+            if any(
+                item["id"] == "replay-clock"
+                for item in callback["inputs"]
+            )
+        ]
+        self.assertEqual(len(overlay_callbacks), 1)
+        callback_key, callback = overlay_callbacks[0]
+        outputs = [
+            {
+                "id": item.component_id,
+                "property": item.component_property,
+            }
+            for item in callback["output"]
+        ]
+        response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": callback_key,
+                "outputs": outputs,
+                "changedPropIds": ["replay-clock.children"],
+                "inputs": [
+                    {
+                        "id": "replay-clock",
+                        "property": "children",
+                        "value": "2026-09-11 09:30:00.000 ET",
+                    },
+                    {
+                        "id": "theme-preference",
+                        "property": "modified_timestamp",
+                        "value": 0,
+                    },
+                ],
+                "state": [
+                    {
+                        "id": "theme-preference",
+                        "property": "data",
+                        "value": "dark",
+                    }
+                ],
+            },
+        )
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()["response"]
+        self.assertEqual(
+            body["observation-overlay-band"]["children"],
+            "Focus",
+        )
+        traces = body["observation-overlay-chart"]["figure"]["data"]
+        self.assertEqual(
+            tuple(trace["name"] for trace in traces),
+            ("5-minute OHLC", "Volume"),
+        )
+
     def test_explains_membership_and_quote_provenance_columns(self) -> None:
         columns = {
             column["field"]: column for column in _column_definitions()
@@ -205,6 +340,7 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"theme-preference", layout.data)
         self.assertIn(b"replay-speed-dropdown", layout.data)
         self.assertIn(b"server-stop", layout.data)
+        self.assertNotIn(b"observation-overlay-panel", layout.data)
         self.assertEqual(len(app.callback_map), 5)
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)

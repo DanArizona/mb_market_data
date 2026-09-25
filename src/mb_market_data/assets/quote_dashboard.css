@@ -449,6 +449,61 @@ h1 {
   font-size: 0.82rem;
 }
 
+.overlay-panel {
+  margin-top: 0.85rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface-glass);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
+}
+
+.overlay-heading,
+.overlay-metadata {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.overlay-heading {
+  padding: 1rem 1rem 0.6rem;
+}
+
+.overlay-heading h2 {
+  font-size: 1.08rem;
+}
+
+.overlay-heading p {
+  margin-top: 0.22rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.overlay-band {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.overlay-metadata {
+  padding: 0 1rem 0.35rem;
+  color: var(--muted);
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.overlay-chart {
+  min-height: 520px;
+}
+
 .table-panel {
   margin-top: 0.85rem;
   padding: 1rem;
@@ -556,6 +611,12 @@ h1 {
     flex-direction: row-reverse;
   }
 
+  .overlay-heading,
+  .overlay-metadata {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -610,6 +671,7 @@ h1 {
 
   .metric-card,
   .channel-card,
+  .overlay-panel,
   .table-panel {
     background: #ffffff !important;
     box-shadow: none;

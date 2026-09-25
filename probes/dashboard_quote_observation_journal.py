@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from functools import partial
 from pathlib import Path
 from threading import Event
 
@@ -15,6 +16,10 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from mb_market_data.local_dashboard_server import LocalDashboardServer
+from mb_market_data.observation_overlay import (
+    ObservationOverlayProjector,
+    load_observation_overlay_cache,
+)
 from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
@@ -49,6 +54,14 @@ def parse_args() -> argparse.Namespace:
             "the completed final state"
         ),
     )
+    parser.add_argument(
+        "--observation-overlay-cache",
+        type=Path,
+        help=(
+            "Validated immutable five-minute OHLCV cache for one symbol. "
+            "When supplied, add the read-only Observation Overlay panel."
+        ),
+    )
     args = parser.parse_args()
     if not 1 <= args.port <= 65_535:
         parser.error("--port must be between 1 and 65535")
@@ -68,9 +81,25 @@ def main() -> int:
     try:
         reader = QuoteJournalReplayReader(args.database)
         timeline = reader.timeline()
+        overlay_cache = (
+            load_observation_overlay_cache(args.observation_overlay_cache)
+            if args.observation_overlay_cache is not None
+            else None
+        )
+        overlay_projector_factory = (
+            partial(
+                ObservationOverlayProjector,
+                cache=overlay_cache,
+                symbol=overlay_cache.symbol,
+                session_date=reader.session_date,
+            )
+            if overlay_cache is not None
+            else None
+        )
         controller = QuoteDashboardReplayController(
             timeline=timeline,
             event_factory=reader.events,
+            overlay_projector_factory=overlay_projector_factory,
         )
         if not args.start_at_beginning:
             controller.finish()
@@ -92,6 +121,9 @@ def main() -> int:
     elapsed = time.perf_counter() - started
     url = f"http://{args.host}:{args.port}"
     print(f"Session date     : {reader.session_date.isoformat()}")
+    if overlay_cache is not None:
+        print(f"OO symbol        : {overlay_cache.symbol}")
+        print(f"OO cache         : {args.observation_overlay_cache}")
     print(f"Replay events    : {timeline.event_count:,}")
     print(
         "Initial position : "

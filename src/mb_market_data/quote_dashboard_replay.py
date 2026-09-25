@@ -10,6 +10,10 @@ from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
 from zoneinfo import ZoneInfo
 
+from mb_market_data.observation_overlay import (
+    ObservationOverlayData,
+    ObservationOverlayProjector,
+)
 from mb_market_data.quote_event_state import (
     QuoteEventStateProjector,
     QuoteEventStateSnapshot,
@@ -39,6 +43,7 @@ class DashboardReplaySnapshot:
     first_event_time_utc: datetime | None
     last_event_time_utc: datetime | None
     total_event_count: int
+    observation_overlay: ObservationOverlayData | None = None
 
     @property
     def applied_event_count(self) -> int:
@@ -61,6 +66,9 @@ class QuoteDashboardReplayController:
         event_factory: Callable[[], Iterator[ReplayEvent]],
         speed: float = 60.0,
         monotonic: Callable[[], float] = time.monotonic,
+        overlay_projector_factory: (
+            Callable[[], ObservationOverlayProjector] | None
+        ) = None,
     ) -> None:
         if isinstance(speed, bool) or not isinstance(speed, (int, float)):
             raise TypeError("speed must be a number")
@@ -70,12 +78,14 @@ class QuoteDashboardReplayController:
         self._event_factory = event_factory
         self._speed = float(speed)
         self._monotonic = monotonic
+        self._overlay_projector_factory = overlay_projector_factory
         self._lock = threading.RLock()
         self._projector: QuoteEventStateProjector
         self._events: Iterator[ReplayEvent]
         self._pending: ReplayEvent | None
         self._status: DashboardReplayStatus
         self._position_utc: datetime | None
+        self._overlay_projector: ObservationOverlayProjector | None
         self._anchor_position_utc: datetime | None = None
         self._anchor_monotonic: float | None = None
         self._reset_unlocked()
@@ -83,6 +93,11 @@ class QuoteDashboardReplayController:
     def _reset_unlocked(self) -> None:
         self._projector = QuoteEventStateProjector(
             session_date=self._timeline.session_date
+        )
+        self._overlay_projector = (
+            self._overlay_projector_factory()
+            if self._overlay_projector_factory is not None
+            else None
         )
         self._events = iter(self._event_factory())
         self._pending = next(self._events, None)
@@ -100,6 +115,8 @@ class QuoteDashboardReplayController:
             self._status = DashboardReplayStatus.COMPLETE
             return False
         event = self._pending
+        if self._overlay_projector is not None:
+            self._overlay_projector.apply(event)
         self._projector.apply(event)
         self._position_utc = event.available_at_utc
         self._pending = next(self._events, None)
@@ -143,6 +160,14 @@ class QuoteDashboardReplayController:
 
     def snapshot(self) -> DashboardReplaySnapshot:
         with self._lock:
+            overlay = (
+                self._overlay_projector.snapshot(self._position_utc)
+                if (
+                    self._overlay_projector is not None
+                    and self._position_utc is not None
+                )
+                else None
+            )
             return DashboardReplaySnapshot(
                 state=self._projector.snapshot(),
                 status=self._status,
@@ -153,6 +178,7 @@ class QuoteDashboardReplayController:
                 ),
                 last_event_time_utc=self._timeline.last_available_at_utc,
                 total_event_count=self._timeline.event_count,
+                observation_overlay=overlay,
             )
 
     def play(self) -> DashboardReplaySnapshot:

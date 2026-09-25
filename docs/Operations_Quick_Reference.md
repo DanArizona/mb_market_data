@@ -549,6 +549,20 @@ python probes\dashboard_quote_observation_journal.py ^
   --start-at-beginning
 ```
 
+Add the optional one-symbol Observation Overlay when a validated immutable
+five-minute cache already exists for the same ET session:
+
+```cmd
+python probes\dashboard_quote_observation_journal.py ^
+  "%V2_JOURNAL_ROOT%\%TARGET_DATE%.sqlite3" ^
+  --observation-overlay-cache "%OO_CACHE%" ^
+  --start-at-beginning
+```
+
+This is read-only playback. The command does not acquire OHLCV, authenticate
+to Schwab, or write to the journal. A missing, malformed, wrong-symbol, or
+wrong-session cache fails closed before the server starts.
+
 Use the dashboard's **Stop server** control or `Ctrl+C` in the command window
 for a graceful shutdown.
 

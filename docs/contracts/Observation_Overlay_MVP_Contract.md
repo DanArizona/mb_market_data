@@ -1,6 +1,7 @@
 # Observation Overlay MVP Contract
 
-**Status:** Implemented domain contract; visual integration pending
+**Status:** Visual integration implemented; cache acquisition and real-day
+validation pending
 **Scope:** One symbol, one ET session, historical playback only
 
 ## 1. Purpose
@@ -138,5 +139,11 @@ Automated coverage must prove:
 7. rejection of legacy journals and causally unordered input; and
 8. unchanged existing journal, replay, and dashboard behavior.
 
-After the pure layer passes, the next increment may add a one-symbol visual
-surface and exercise it against completed September 21, 23, and 24 journals.
+The implemented optional dashboard surface renders completed five-minute
+candles and volume, numeric quote outcomes, evidence/status counts, and
+membership intervals from the same replay clock. Restart and historical seek
+rebuild both the main state and overlay projection together. With no cache
+argument, dashboard behavior and callback structure remain unchanged.
+
+The next increment must acquire and persist validated cache artifacts, then
+exercise the surface against completed September 21, 23, and 24 journals.

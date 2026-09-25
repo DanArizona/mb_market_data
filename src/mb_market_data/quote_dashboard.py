@@ -9,6 +9,11 @@ from threading import Timer
 from typing import Any, Callable, Mapping
 from zoneinfo import ZoneInfo
 
+from mb_market_data.observation_overlay import ObservationOverlayData
+from mb_market_data.observation_overlay_view import (
+    build_observation_overlay_figure,
+    build_observation_overlay_view,
+)
 from mb_market_data.quote_dashboard_replay import (
     DashboardReplaySnapshot,
     DashboardReplayStatus,
@@ -76,6 +81,67 @@ def _channel_cards(html: Any, view: QuoteDashboardView) -> list[Any]:
         )
         for summary in view.channels
     ]
+
+
+def _observation_overlay_panel(
+    html: Any,
+    dcc: Any,
+    overlay: ObservationOverlayData,
+) -> Any:
+    view = build_observation_overlay_view(overlay)
+    return html.Section(
+        [
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.H2(f"Observation Overlay · {view.symbol}"),
+                            html.P(
+                                "Completed five-minute OHLCV with "
+                                "replay-causal quote and membership evidence."
+                            ),
+                        ]
+                    ),
+                    html.Span(
+                        view.current_band_label,
+                        id="observation-overlay-band",
+                        className="overlay-band",
+                        style={
+                            "borderColor": view.current_band_color,
+                            "color": view.current_band_color,
+                        },
+                    ),
+                ],
+                className="overlay-heading",
+            ),
+            html.Div(
+                [
+                    html.Span(
+                        view.replay_time_et_text,
+                        id="observation-overlay-as-of",
+                    ),
+                    html.Span(
+                        view.evidence_text,
+                        id="observation-overlay-evidence",
+                    ),
+                ],
+                className="overlay-metadata",
+            ),
+            dcc.Graph(
+                id="observation-overlay-chart",
+                figure=build_observation_overlay_figure(overlay),
+                config={
+                    "displaylogo": False,
+                    "responsive": True,
+                    "scrollZoom": True,
+                },
+                className="overlay-chart",
+            ),
+        ],
+        id="observation-overlay-panel",
+        className="overlay-panel",
+        **{"aria-label": f"Observation Overlay for {view.symbol}"},
+    )
 
 
 def _column_definitions() -> list[dict[str, Any]]:
@@ -558,6 +624,17 @@ def create_quote_dashboard(
                 className="channel-grid",
                 **{"aria-label": "Sampling channels"},
             ),
+            *(
+                [
+                    _observation_overlay_panel(
+                        html,
+                        dcc,
+                        replay.observation_overlay,
+                    )
+                ]
+                if replay.observation_overlay is not None
+                else []
+            ),
             html.Section(
                 [
                     html.Div(
@@ -637,6 +714,39 @@ def create_quote_dashboard(
         theme = "light" if stored_theme == "light" else "dark"
         next_theme = "Dark mode" if theme == "light" else "Light mode"
         return f"dashboard-shell theme-{theme}", next_theme
+
+    if replay.observation_overlay is not None:
+
+        @app.callback(
+            Output("observation-overlay-band", "children"),
+            Output("observation-overlay-band", "style"),
+            Output("observation-overlay-as-of", "children"),
+            Output("observation-overlay-evidence", "children"),
+            Output("observation-overlay-chart", "figure"),
+            Input("replay-clock", "children"),
+            Input("theme-preference", "modified_timestamp"),
+            State("theme-preference", "data"),
+        )
+        def update_observation_overlay(
+            _replay_clock: str,
+            _theme_modified: int | None,
+            stored_theme: str | None,
+        ) -> tuple[Any, ...]:
+            overlay = controller.snapshot().observation_overlay
+            if overlay is None:
+                return (no_update,) * 5
+            overlay_view = build_observation_overlay_view(overlay)
+            theme = "light" if stored_theme == "light" else "dark"
+            return (
+                overlay_view.current_band_label,
+                {
+                    "borderColor": overlay_view.current_band_color,
+                    "color": overlay_view.current_band_color,
+                },
+                overlay_view.replay_time_et_text,
+                overlay_view.evidence_text,
+                build_observation_overlay_figure(overlay, theme=theme),
+            )
 
     if request_server_stop is not None:
 

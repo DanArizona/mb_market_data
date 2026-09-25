@@ -48,10 +48,11 @@ mb_watchlist_coordinator
 ```
 
 The playback-only Observation Overlay MVP contract is documented in
-`docs/contracts/Observation_Overlay_MVP_Contract.md`. Its first implementation layer
-prepares one symbol/session from a read-only schema-v2 replay stream and a
-separate immutable Schwab five-minute OHLCV cache. Membership, quotes, and
-candles retain distinct causal visibility boundaries to prevent look-ahead.
+`docs/contracts/Observation_Overlay_MVP_Contract.md`. Its implementation
+prepares and displays one symbol/session from a read-only schema-v2 replay
+stream and a separate immutable Schwab five-minute OHLCV cache. Membership,
+quotes, and candles retain distinct causal visibility boundaries to prevent
+look-ahead.
 
 ---
 
@@ -854,6 +855,21 @@ speed, and then click **Play**. To open already positioned at the beginning:
 ```cmd
 python probes\dashboard_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3 --start-at-beginning
 ```
+
+To add the one-symbol Observation Overlay, supply an already validated,
+immutable `observation-overlay-ohlcv-v1` cache for the same ET session:
+
+```cmd
+python probes\dashboard_quote_observation_journal.py ^
+  output\quote_observation_journal_v2_api_opening_2026-09-24\2026-09-24.sqlite3 ^
+  --observation-overlay-cache output\observation_overlay_ohlcv\2026-09-24\TEST.json ^
+  --start-at-beginning
+```
+
+The optional panel shows completed five-minute candles and volume, causal
+quote markers, and gray/cyan/gold/magenta membership intervals for Outside,
+Uni, Focus, and Hot. The dashboard only reads the supplied cache; it does not
+authenticate to Schwab, acquire bars, or modify the journal.
 
 The controls provide play, pause, restart, single-event step, 1x/10x/60x/390x
 speed selection, a historical clock, and event progress. At 60x, one historical

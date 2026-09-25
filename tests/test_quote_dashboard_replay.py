@@ -3,6 +3,12 @@ from __future__ import annotations
 import unittest
 from datetime import date, datetime, timedelta, timezone
 
+from mb_market_data.observation_overlay import (
+    ET as OVERLAY_ET,
+    MembershipBand,
+    ObservationOverlayOHLCVCache,
+    ObservationOverlayProjector,
+)
 from mb_market_data.quote_dashboard_replay import (
     DashboardReplayStatus,
     QuoteDashboardReplayController,
@@ -59,7 +65,65 @@ def membership_event(seconds: int) -> MembershipRevisionEvent:
     )
 
 
+def overlay_projector() -> ObservationOverlayProjector:
+    return ObservationOverlayProjector(
+        cache=ObservationOverlayOHLCVCache(
+            symbol="FOCUS",
+            session_date=SESSION_DATE,
+            provider="Schwab",
+            source="unit-test",
+            acquired_at_utc=START + timedelta(hours=8),
+            request_start_et=datetime(
+                2026, 9, 11, 0, 0, tzinfo=OVERLAY_ET
+            ),
+            request_end_et=datetime(
+                2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET
+            ),
+            source_payload_sha256="a" * 64,
+            candles=(),
+        ),
+        symbol="FOCUS",
+        session_date=SESSION_DATE,
+    )
+
+
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_optional_overlay_restarts_and_seeks_with_main_projection(self) -> None:
+        event = membership_event(0)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(
+                session_date=SESSION_DATE,
+                event_count=1,
+                first_available_at_utc=event.available_at_utc,
+                last_available_at_utc=event.available_at_utc,
+            ),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=overlay_projector,
+        )
+
+        initial = controller.snapshot()
+        self.assertIsNotNone(initial.observation_overlay)
+        self.assertEqual(
+            initial.observation_overlay.current_band,
+            MembershipBand.OUTSIDE_UNI,
+        )
+
+        applied = controller.step()
+        self.assertEqual(
+            applied.observation_overlay.current_band,
+            MembershipBand.FOCUS,
+        )
+        restarted = controller.restart()
+        self.assertEqual(
+            restarted.observation_overlay.current_band,
+            MembershipBand.OUTSIDE_UNI,
+        )
+        sought = controller.seek(START)
+        self.assertEqual(
+            sought.observation_overlay.current_band,
+            MembershipBand.FOCUS,
+        )
+
     def test_one_step_applies_complete_hierarchy_revision(self) -> None:
         event = membership_event(0)
         controller = QuoteDashboardReplayController(

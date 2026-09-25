@@ -11,6 +11,7 @@ from mb_market_data.observation_overlay import (
     MembershipBand,
     ObservationOverlayError,
     ObservationOverlayOHLCVCache,
+    ObservationOverlayProjector,
     OverlayCandle,
     load_observation_overlay_cache,
     prepare_observation_overlay,
@@ -259,6 +260,32 @@ class TestObservationOverlayProjection(unittest.TestCase):
                 session_date=SESSION_DATE,
                 replay_time_utc=OPEN_UTC + timedelta(minutes=1),
             )
+
+    def test_incremental_projector_keeps_only_selected_symbol_evidence(self) -> None:
+        projector = ObservationOverlayProjector(
+            cache=cache(),
+            symbol="TEST",
+            session_date=SESSION_DATE,
+        )
+
+        projector.apply(events()[0])
+        at_open = projector.snapshot(OPEN_UTC)
+        self.assertEqual(at_open.current_band, MembershipBand.UNI)
+        self.assertEqual(at_open.quote_points, ())
+
+        projector.apply(events()[1])
+        projector.apply(events()[2])
+        after_quote = projector.snapshot(OPEN_UTC + timedelta(seconds=5))
+        self.assertEqual(after_quote.current_band, MembershipBand.FOCUS)
+        self.assertEqual(len(after_quote.quote_points), 1)
+        self.assertEqual(after_quote.latest_quote.channel, "focus")
+
+        # Time alone reveals a completed candle without retaining or applying
+        # another journal event.
+        at_candle_close = projector.snapshot(
+            datetime(2026, 9, 24, 9, 35, tzinfo=ET)
+        )
+        self.assertEqual(len(at_candle_close.candles), 2)
 
 
 class TestObservationOverlayCacheArtifact(unittest.TestCase):
