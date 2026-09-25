@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from mb_market_data.observation_overlay import (
     MEMBERSHIP_BAND_COLORS,
+    OHLCV_INTERVAL,
     MembershipBand,
     ObservationOverlayData,
     OverlayQuotePoint,
@@ -90,6 +91,36 @@ def _rgba(color: str, alpha: float) -> str:
     return f"rgba({red},{green},{blue},{alpha})"
 
 
+def _panel_membership_shape(
+    *,
+    shape_type: str,
+    panel: int,
+    x0: datetime,
+    x1: datetime,
+    color: str,
+) -> dict[str, Any]:
+    """Build one membership shape confined to a plotted data panel."""
+
+    shape: dict[str, Any] = {
+        "type": shape_type,
+        "xref": "x3" if panel == 1 else "x2",
+        "yref": "y domain" if panel == 1 else "y2 domain",
+        "x0": x0,
+        "x1": x1,
+        "y0": 0,
+        "y1": 1,
+        "layer": "below",
+    }
+    if shape_type == "rect":
+        shape.update(
+            line={"width": 0},
+            fillcolor=_rgba(color, 0.08),
+        )
+    else:
+        shape["line"] = {"color": color, "width": 1, "dash": "dot"}
+    return shape
+
+
 def _membership_shapes(overlay: ObservationOverlayData) -> list[dict[str, Any]]:
     start = overlay.cache.request_start_et
     end = overlay.replay_time_utc.astimezone(ET)
@@ -102,56 +133,84 @@ def _membership_shapes(overlay: ObservationOverlayData) -> list[dict[str, Any]]:
     for transition in overlay.membership_transitions:
         boundary = transition.available_at_utc.astimezone(ET)
         if boundary > cursor:
-            shapes.append(
-                {
-                    "type": "rect",
-                    "xref": "x",
-                    "yref": "paper",
-                    "x0": cursor,
-                    "x1": min(boundary, end),
-                    "y0": 0,
-                    "y1": 1,
-                    "line": {"width": 0},
-                    "fillcolor": _rgba(MEMBERSHIP_BAND_COLORS[band], 0.08),
-                    "layer": "below",
-                }
-            )
+            for panel in (1, 2):
+                shapes.append(
+                    _panel_membership_shape(
+                        shape_type="rect",
+                        panel=panel,
+                        x0=cursor,
+                        x1=min(boundary, end),
+                        color=MEMBERSHIP_BAND_COLORS[band],
+                    )
+                )
         if boundary <= end:
-            shapes.append(
-                {
-                    "type": "line",
-                    "xref": "x",
-                    "yref": "paper",
-                    "x0": boundary,
-                    "x1": boundary,
-                    "y0": 0,
-                    "y1": 1,
-                    "line": {
-                        "color": MEMBERSHIP_BAND_COLORS[transition.band],
-                        "width": 1,
-                        "dash": "dot",
-                    },
-                    "layer": "below",
-                }
-            )
+            for panel in (1, 2):
+                shapes.append(
+                    _panel_membership_shape(
+                        shape_type="line",
+                        panel=panel,
+                        x0=boundary,
+                        x1=boundary,
+                        color=MEMBERSHIP_BAND_COLORS[transition.band],
+                    )
+                )
         cursor = max(cursor, boundary)
         band = transition.band
     if cursor < end:
-        shapes.append(
-            {
-                "type": "rect",
-                "xref": "x",
-                "yref": "paper",
-                "x0": cursor,
-                "x1": end,
-                "y0": 0,
-                "y1": 1,
-                "line": {"width": 0},
-                "fillcolor": _rgba(MEMBERSHIP_BAND_COLORS[band], 0.08),
-                "layer": "below",
-            }
-        )
+        for panel in (1, 2):
+            shapes.append(
+                _panel_membership_shape(
+                    shape_type="rect",
+                    panel=panel,
+                    x0=cursor,
+                    x1=end,
+                    color=MEMBERSHIP_BAND_COLORS[band],
+                )
+            )
     return shapes
+
+
+def apply_observation_overlay_view_state(
+    figure: Any,
+    relayout_data: Mapping[str, Any] | None,
+) -> Any:
+    """Reapply explicit browser axis ranges to a replacement figure."""
+
+    if not isinstance(relayout_data, Mapping):
+        return figure
+
+    for axis_name in (
+        "xaxis",
+        "xaxis2",
+        "xaxis3",
+        "yaxis",
+        "yaxis2",
+    ):
+        axis = getattr(figure.layout, axis_name)
+        autorange = relayout_data.get(f"{axis_name}.autorange")
+        if autorange is True:
+            axis.autorange = True
+            axis.range = None
+            continue
+
+        direct_range = relayout_data.get(f"{axis_name}.range")
+        if (
+            isinstance(direct_range, (list, tuple))
+            and len(direct_range) == 2
+        ):
+            axis.autorange = False
+            axis.range = list(direct_range)
+            continue
+
+        lower_key = f"{axis_name}.range[0]"
+        upper_key = f"{axis_name}.range[1]"
+        if lower_key in relayout_data and upper_key in relayout_data:
+            axis.autorange = False
+            axis.range = [
+                relayout_data[lower_key],
+                relayout_data[upper_key],
+            ]
+    return figure
 
 
 def build_observation_overlay_figure(
@@ -173,15 +232,17 @@ def build_observation_overlay_figure(
         ) from exc
 
     figure = make_subplots(
-        rows=2,
+        rows=3,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.035,
-        row_heights=(0.78, 0.22),
+        vertical_spacing=0.025,
+        row_heights=(0.779, 0.22, 0.001),
     )
     candles = overlay.candles
     if candles:
-        candle_times = [item.start_et for item in candles]
+        candle_times = [
+            item.start_et + OHLCV_INTERVAL / 2 for item in candles
+        ]
         figure.add_trace(
             go.Candlestick(
                 x=candle_times,
@@ -196,6 +257,7 @@ def build_observation_overlay_figure(
             row=1,
             col=1,
         )
+        figure.data[-1].xaxis = "x3"
         figure.add_trace(
             go.Bar(
                 x=candle_times,
@@ -242,6 +304,28 @@ def build_observation_overlay_figure(
             row=1,
             col=1,
         )
+        figure.data[-1].xaxis = "x3"
+
+    # Plotly positions a range slider below the lowest data-bearing subplot
+    # associated with its x-axis.  Price traces deliberately use x3 so that
+    # their candlesticks appear in the navigator, but without this inert host
+    # trace Plotly considers the Price panel to be x3's lowest subplot and
+    # draws the navigator over Volume.  Registering x3/y3 makes the hidden
+    # third row the positioning host without adding visible or hoverable data.
+    figure.add_trace(
+        go.Scatter(
+            x=[None],
+            y=[None],
+            mode="lines",
+            name="Navigator host",
+            line={"width": 0},
+            opacity=0,
+            showlegend=False,
+            hoverinfo="skip",
+        ),
+        row=3,
+        col=1,
+    )
 
     figure.update_layout(
         template="plotly_white" if theme == "light" else "plotly_dark",
@@ -254,7 +338,20 @@ def build_observation_overlay_figure(
         uirevision=f"{overlay.session_date.isoformat()}:{overlay.symbol}",
         shapes=_membership_shapes(overlay),
     )
-    figure.update_xaxes(rangeslider_visible=False, title_text="Eastern Time", row=2)
+    figure.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    figure.update_xaxes(
+        rangeslider_visible=False,
+        row=2,
+        col=1,
+    )
+    figure.update_xaxes(
+        rangeslider_visible=True,
+        rangeslider_thickness=0.14,
+        title_text="Eastern Time",
+        row=3,
+        col=1,
+    )
     figure.update_yaxes(title_text="Price", row=1, col=1)
     figure.update_yaxes(title_text="Volume", row=2, col=1)
+    figure.update_yaxes(visible=False, fixedrange=True, row=3, col=1)
     return figure

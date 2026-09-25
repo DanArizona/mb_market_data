@@ -14,6 +14,7 @@ from mb_market_data.observation_overlay import (
     OverlayQuotePoint,
 )
 from mb_market_data.observation_overlay_view import (
+    apply_observation_overlay_view_state,
     build_observation_overlay_figure,
     build_observation_overlay_view,
 )
@@ -122,12 +123,83 @@ class TestObservationOverlayView(unittest.TestCase):
 
         self.assertEqual(
             tuple(trace.name for trace in figure.data),
-            ("5-minute OHLC", "Volume", "Focus quote"),
+            (
+                "5-minute OHLC",
+                "Volume",
+                "Focus quote",
+                "Navigator host",
+            ),
         )
         self.assertGreaterEqual(len(figure.layout.shapes), 3)
         self.assertFalse(figure.layout.xaxis.rangeslider.visible)
+        self.assertFalse(figure.layout.xaxis2.rangeslider.visible)
+        self.assertTrue(figure.layout.xaxis3.rangeslider.visible)
+        self.assertEqual(figure.data[0].xaxis, "x3")
+        self.assertEqual(figure.data[1].xaxis, "x2")
+        self.assertEqual(figure.data[2].xaxis, "x3")
+        self.assertEqual(figure.data[3].xaxis, "x3")
+        self.assertEqual(figure.data[3].yaxis, "y3")
+        self.assertFalse(figure.data[3].showlegend)
+        self.assertEqual(figure.data[3].hoverinfo, "skip")
+        self.assertEqual(figure.data[3].opacity, 0)
         self.assertEqual(figure.layout.yaxis.title.text, "Price")
         self.assertEqual(figure.layout.yaxis2.title.text, "Volume")
+        self.assertFalse(figure.layout.yaxis3.visible)
+
+    def test_centers_candles_and_volume_on_five_minute_intervals(self) -> None:
+        figure = build_observation_overlay_figure(overlay())
+
+        expected = (
+            datetime(2026, 9, 24, 9, 27, 30, tzinfo=ET),
+            datetime(2026, 9, 24, 9, 32, 30, tzinfo=ET),
+        )
+        self.assertEqual(tuple(figure.data[0].x), expected)
+        self.assertEqual(tuple(figure.data[1].x), expected)
+
+    def test_membership_shapes_are_confined_to_data_panels(self) -> None:
+        figure = build_observation_overlay_figure(overlay())
+
+        self.assertEqual(
+            {shape.yref for shape in figure.layout.shapes},
+            {"y domain", "y2 domain"},
+        )
+        self.assertEqual(
+            {shape.xref for shape in figure.layout.shapes},
+            {"x2", "x3"},
+        )
+
+    def test_reapplies_browser_axis_ranges_to_updated_figure(self) -> None:
+        figure = build_observation_overlay_figure(overlay())
+
+        result = apply_observation_overlay_view_state(
+            figure,
+            {
+                "xaxis3.range[0]": "2026-09-24 09:25:00",
+                "xaxis3.range[1]": "2026-09-24 09:35:00",
+                "yaxis.range": [10.0, 11.0],
+            },
+        )
+
+        self.assertIs(result, figure)
+        self.assertEqual(
+            tuple(figure.layout.xaxis3.range),
+            ("2026-09-24 09:25:00", "2026-09-24 09:35:00"),
+        )
+        self.assertEqual(tuple(figure.layout.yaxis.range), (10.0, 11.0))
+        self.assertFalse(figure.layout.xaxis3.autorange)
+        self.assertFalse(figure.layout.yaxis.autorange)
+
+    def test_reapplies_axis_autorange_reset(self) -> None:
+        figure = build_observation_overlay_figure(overlay())
+        figure.layout.yaxis.range = [10.0, 11.0]
+
+        apply_observation_overlay_view_state(
+            figure,
+            {"yaxis.autorange": True},
+        )
+
+        self.assertTrue(figure.layout.yaxis.autorange)
+        self.assertIsNone(figure.layout.yaxis.range)
 
 
 if __name__ == "__main__":

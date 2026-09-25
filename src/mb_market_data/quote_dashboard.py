@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 from mb_market_data.observation_overlay import ObservationOverlayData
 from mb_market_data.observation_overlay_view import (
+    apply_observation_overlay_view_state,
     build_observation_overlay_figure,
     build_observation_overlay_view,
 )
@@ -726,17 +727,24 @@ def create_quote_dashboard(
             Input("replay-clock", "children"),
             Input("theme-preference", "modified_timestamp"),
             State("theme-preference", "data"),
+            State("observation-overlay-chart", "relayoutData"),
         )
         def update_observation_overlay(
             _replay_clock: str,
             _theme_modified: int | None,
             stored_theme: str | None,
+            relayout_data: Mapping[str, Any] | None,
         ) -> tuple[Any, ...]:
             overlay = controller.snapshot().observation_overlay
             if overlay is None:
                 return (no_update,) * 5
             overlay_view = build_observation_overlay_view(overlay)
             theme = "light" if stored_theme == "light" else "dark"
+            figure = build_observation_overlay_figure(
+                overlay,
+                theme=theme,
+            )
+            apply_observation_overlay_view_state(figure, relayout_data)
             return (
                 overlay_view.current_band_label,
                 {
@@ -745,7 +753,7 @@ def create_quote_dashboard(
                 },
                 overlay_view.replay_time_et_text,
                 overlay_view.evidence_text,
-                build_observation_overlay_figure(overlay, theme=theme),
+                figure,
             )
 
     if request_server_stop is not None:

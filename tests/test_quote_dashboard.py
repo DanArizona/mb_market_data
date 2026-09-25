@@ -280,6 +280,16 @@ class TestQuoteDashboard(unittest.TestCase):
                         "id": "theme-preference",
                         "property": "data",
                         "value": "dark",
+                    },
+                    {
+                        "id": "observation-overlay-chart",
+                        "property": "relayoutData",
+                        "value": {
+                            "xaxis3.range": [
+                                "2026-09-11 09:25:00",
+                                "2026-09-11 09:35:00",
+                            ]
+                        },
                     }
                 ],
             },
@@ -294,7 +304,16 @@ class TestQuoteDashboard(unittest.TestCase):
         traces = body["observation-overlay-chart"]["figure"]["data"]
         self.assertEqual(
             tuple(trace["name"] for trace in traces),
-            ("5-minute OHLC", "Volume"),
+            ("5-minute OHLC", "Volume", "Navigator host"),
+        )
+        self.assertEqual(traces[-1]["xaxis"], "x3")
+        self.assertEqual(traces[-1]["yaxis"], "y3")
+        self.assertFalse(traces[-1]["showlegend"])
+        self.assertEqual(traces[-1]["hoverinfo"], "skip")
+        layout = body["observation-overlay-chart"]["figure"]["layout"]
+        self.assertEqual(
+            layout["xaxis3"]["range"],
+            ["2026-09-11 09:25:00", "2026-09-11 09:35:00"],
         )
 
     def test_explains_membership_and_quote_provenance_columns(self) -> None:
@@ -345,6 +364,14 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)
+        self.assertIn(b"--overlay-navigator-selected", stylesheet.data)
+        self.assertIn(b"--overlay-navigator-unselected", stylesheet.data)
+        self.assertIn(b"--overlay-navigator-selected: #131f2e", stylesheet.data)
+        self.assertIn(b"--overlay-navigator-unselected: #0b131c", stylesheet.data)
+        self.assertIn(b".rangeslider-bg", stylesheet.data)
+        self.assertIn(b".rangeslider-mask-min", stylesheet.data)
+        self.assertIn(b".rangeslider-mask-max", stylesheet.data)
+        self.assertIn(b"fill-opacity: 1 !important", stylesheet.data)
         self.assertEqual(favicon.status_code, 200)
 
     def test_parses_seek_time_as_end_of_displayed_et_second(self) -> None:
