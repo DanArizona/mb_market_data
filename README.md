@@ -20,7 +20,7 @@ Reusable market-data acquisition and normalization for the MasterBot project.
 Start with the maintained
 [`Operations Quick Reference`](docs/Operations_Quick_Reference.md) for routine
 commands and validation checks. The detailed daily-universe procedure is in
-[`docs/Daily_Universe_Production_Runbook.md`](docs/Daily_Universe_Production_Runbook.md).
+[`docs/runbooks/Daily_Universe_Production_Runbook.md`](docs/runbooks/Daily_Universe_Production_Runbook.md).
 
 ## Purpose
 
@@ -46,6 +46,12 @@ Current consumers include:
 schwab_watchlists
 mb_watchlist_coordinator
 ```
+
+The playback-only Observation Overlay MVP contract is documented in
+`docs/contracts/Observation_Overlay_MVP_Contract.md`. Its first implementation layer
+prepares one symbol/session from a read-only schema-v2 replay stream and a
+separate immutable Schwab five-minute OHLCV cache. Membership, quotes, and
+candles retain distinct causal visibility boundaries to prevent look-ahead.
 
 ---
 
@@ -728,7 +734,7 @@ For a precisely timed concurrency test, the publisher accepts a timezone-aware
 pollers accept `--start-at` so a short controlled window has matching audit
 expectations rather than appearing to have missed every earlier session slot.
 The recorded September 17 procedure is in
-`docs\Schema_v2_Live_Like_Transition_Runbook.md`.
+`docs\runbooks\Schema_v2_Live_Like_Transition_Runbook.md`.
 
 Each probe sample now reports three separate durations:
 

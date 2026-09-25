@@ -672,7 +672,7 @@ status changes. Each update should:
 
 Related detailed documents:
 
-- `docs\Daily_Universe_Production_Runbook.md`
-- `docs\Schema_v2_Live_Like_Transition_Runbook.md`
-- `docs\Atomic_Hierarchical_Membership_Contract_and_Implementation_Plan.md`
+- `docs\runbooks\Daily_Universe_Production_Runbook.md`
+- `docs\runbooks\Schema_v2_Live_Like_Transition_Runbook.md`
+- `docs\contracts\Atomic_Hierarchical_Membership_Contract_and_Implementation_Plan.md`
 - `docs\Canonical_mb_package_Project_Roadmap.md`

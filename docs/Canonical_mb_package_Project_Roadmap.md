@@ -243,7 +243,8 @@ September 25 opening.
 
 ### CP-4 — Observation Overlay/OOOHLCV diagnostic MVP
 
-**Status: Current feature-development priority.**
+**Status: In progress. The domain contract and replay-causal preparation layer
+are implemented; cache acquisition and the one-symbol visual surface remain.**
 
 Build a read-only, replay-causal view for one symbol and one session using a
 completed schema-v2 journal plus cached Schwab five-minute OHLCV. The MVP
@@ -589,3 +590,8 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 - Retained Focus size 40 pending multi-session evidence and Hot-promotion
   criteria. Fine tuning of cutoff and size does not block the Observation
   Overlay MVP or the subsequent concurrent hierarchy work.
+- Began the Observation Overlay MVP without waiting for the next-session 09:00
+  cutoff validation. Fixed separate inclusive visibility boundaries for
+  membership, quote acquisitions, and completed five-minute candles; added an
+  immutable Schwab OHLCV cache contract and pure one-symbol/session preparation
+  layer. Live polling and journal persistence remain unchanged.
