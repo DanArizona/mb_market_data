@@ -549,8 +549,18 @@ python probes\dashboard_quote_observation_journal.py ^
   --start-at-beginning
 ```
 
-Add the optional one-symbol Observation Overlay when a validated immutable
-five-minute cache already exists for the same ET session:
+Acquire the optional one-symbol Observation Overlay cache only after the
+requested ET session has completed. This performs one Schwab price-history
+request and writes a new immutable evidence directory:
+
+```cmd
+python probes\acquire_observation_overlay_ohlcv.py ^
+  --symbol ATCH ^
+  --session-date 2026-09-24
+```
+
+Set `OO_CACHE` to the reported cache path, then start playback against the
+completed journal from the same ET session:
 
 ```cmd
 python probes\dashboard_quote_observation_journal.py ^

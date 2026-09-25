@@ -243,9 +243,9 @@ September 25 opening.
 
 ### CP-4 — Observation Overlay/OOOHLCV diagnostic MVP
 
-**Status: In progress. The domain contract, replay-causal preparation, and
-optional one-symbol visual surface are implemented; cache acquisition and
-real-day validation remain.**
+**Status: In progress. The domain contract, replay-causal preparation,
+optional one-symbol visual surface, and immutable Schwab cache acquisition are
+implemented; completed real-day validation remains.**
 
 Build a read-only, replay-causal view for one symbol and one session using a
 completed schema-v2 journal plus cached Schwab five-minute OHLCV. The MVP
@@ -277,7 +277,7 @@ diagnostic evidence; journal replay and audit remain authoritative.
 Near-term work should be handled in small, testable weekly increments—normally one or two implementable steps per weekly plan.
 
 1. **Live-validate the 09:00 OV production cutoff.** Keep Focus at 40, run the existing acceptance gates, and preserve the immutable bundle and hierarchy evidence. Do not delay the opening or alter membership manually to chase retrospective `OV_FINAL`.
-2. **Finish validating the guarded Observation Overlay/OOOHLCV MVP.** Add immutable cache acquisition, then exercise one-symbol causal playback against completed real-day journals without modifying live pollers or journals.
+2. **Finish validating the guarded Observation Overlay/OOOHLCV MVP.** Exercise the immutable one-request cache acquisition and one-symbol causal playback against completed real-day journals without modifying live pollers or journals.
 3. **Validate post-opening dynamic membership with live-like concurrent Uni and Focus polling.** Apply a new Focus change—preferably from a genuine LUDP/M event—while pollers are active. Prove atomic reader handoff, exact revision binding, replay, and audit; use the overlay as a diagnostic view rather than acceptance authority.
 4. **Use September 11, September 14, September 15, September 21, September 23, and September 24 as standing real-day regression evidence.** Preserve the recorded per-day accounting and sequence evidence where the underlying journal is unchanged.
 5. **Document `sync_csv_v2` operationally.** Expand its minimal README to cover the production launcher/stop workflow, transport semantics, testing, and separation from the future after-market archive utility.

@@ -52,7 +52,9 @@ The playback-only Observation Overlay MVP contract is documented in
 prepares and displays one symbol/session from a read-only schema-v2 replay
 stream and a separate immutable Schwab five-minute OHLCV cache. Membership,
 quotes, and candles retain distinct causal visibility boundaries to prevent
-look-ahead.
+look-ahead. A dedicated completed-session probe acquires the raw Schwab
+response, normalized cache, and a hash-linked manifest without touching the
+journal.
 
 ---
 
@@ -856,13 +858,24 @@ speed, and then click **Play**. To open already positioned at the beginning:
 python probes\dashboard_quote_observation_journal.py output\quote_observation_journal\2026-09-11.sqlite3 --start-at-beginning
 ```
 
-To add the one-symbol Observation Overlay, supply an already validated,
-immutable `observation-overlay-ohlcv-v1` cache for the same ET session:
+First acquire an immutable cache for one completed session. This command makes
+one Schwab price-history request and refuses a current session before 16:00 ET:
+
+```cmd
+python probes\acquire_observation_overlay_ohlcv.py ^
+  --symbol ATCH ^
+  --session-date 2026-09-24
+```
+
+The resulting directory contains the exact raw response, a normalized
+`observation-overlay-ohlcv-v1` cache, and a manifest binding both artifacts by
+SHA-256. To add the one-symbol Observation Overlay, supply that cache for the
+same ET session:
 
 ```cmd
 python probes\dashboard_quote_observation_journal.py ^
   output\quote_observation_journal_v2_api_opening_2026-09-24\2026-09-24.sqlite3 ^
-  --observation-overlay-cache output\observation_overlay_ohlcv\2026-09-24\TEST.json ^
+  --observation-overlay-cache output\observation_overlay_ohlcv\2026-09-24-ATCH-...\ATCH-2026-09-24.json ^
   --start-at-beginning
 ```
 

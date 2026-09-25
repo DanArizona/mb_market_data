@@ -21,7 +21,7 @@ implementation plans, and project roadmap for `mb_market_data`.
   - Authoritative behavior for historical journal seeking.
 
 - [Observation Overlay MVP Contract](contracts/Observation_Overlay_MVP_Contract.md)
-  - **Status:** Visual integration implemented; acquisition/validation pending
+  - **Status:** Acquisition and visual integration implemented; real-day validation pending
   - Authoritative OO MVP causal-preparation and eligibility rules.
 
 ## Operational documentation

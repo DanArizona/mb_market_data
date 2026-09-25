@@ -1,6 +1,6 @@
 # Observation Overlay MVP Contract
 
-**Status:** Visual integration implemented; cache acquisition and real-day
+**Status:** Cache acquisition and visual integration implemented; real-day
 validation pending
 **Scope:** One symbol, one ET session, historical playback only
 
@@ -37,6 +37,12 @@ The OHLCV cache records:
 
 The cache is never stored inside, attached to, or written through the journal.
 Cache files are immutable: an existing path is not overwritten.
+
+The completed-session acquisition probe makes one Schwab five-minute
+price-history request for `00:00 <= candle start < 16:00 ET`. It refuses to run
+before 16:00 ET for the requested session and persists three linked artifacts:
+the exact raw response body, the normalized cache, and a manifest containing
+their SHA-256 digests and request/response timestamps.
 
 ## 3. One replay clock, three visibility rules
 
@@ -145,5 +151,5 @@ membership intervals from the same replay clock. Restart and historical seek
 rebuild both the main state and overlay projection together. With no cache
 argument, dashboard behavior and callback structure remain unchanged.
 
-The next increment must acquire and persist validated cache artifacts, then
-exercise the surface against completed September 21, 23, and 24 journals.
+The next increment must exercise the acquisition and visual surface against
+completed September 21, 23, and 24 journals.
