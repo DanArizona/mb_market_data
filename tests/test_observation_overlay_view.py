@@ -14,9 +14,12 @@ from mb_market_data.observation_overlay import (
     OverlayQuotePoint,
 )
 from mb_market_data.observation_overlay_view import (
+    OverlayPointStyle,
     apply_observation_overlay_view_state,
     build_observation_overlay_figure,
     build_observation_overlay_view,
+    normalize_overlay_height,
+    normalize_overlay_point_style,
 )
 
 
@@ -155,6 +158,66 @@ class TestObservationOverlayView(unittest.TestCase):
         )
         self.assertEqual(tuple(figure.data[0].x), expected)
         self.assertEqual(tuple(figure.data[1].x), expected)
+
+    def test_applies_independent_quote_point_display_styles(self) -> None:
+        figure = build_observation_overlay_figure(
+            overlay(),
+            point_styles={
+                "focus": OverlayPointStyle(
+                    visible=True,
+                    size="small",
+                    opacity=0.35,
+                )
+            },
+        )
+
+        focus = next(
+            trace for trace in figure.data if trace.name == "Focus quote"
+        )
+        self.assertEqual(focus.marker.size, 2)
+        self.assertEqual(focus.marker.opacity, 0.35)
+
+        hidden = build_observation_overlay_figure(
+            overlay(),
+            point_styles={"focus": OverlayPointStyle(visible=False)},
+        )
+        self.assertNotIn(
+            "Focus quote", tuple(trace.name for trace in hidden.data)
+        )
+        self.assertGreaterEqual(len(hidden.layout.shapes), 3)
+
+    def test_bounds_point_style_and_height_presets(self) -> None:
+        self.assertEqual(
+            normalize_overlay_point_style(
+                OverlayPointStyle(size="unknown", opacity=0.0)
+            ),
+            OverlayPointStyle(size="big", opacity=0.1),
+        )
+        self.assertEqual(normalize_overlay_height("tall"), "tall")
+        self.assertEqual(normalize_overlay_height("unknown"), "standard")
+
+        tall = build_observation_overlay_figure(overlay(), height="tall")
+        full = build_observation_overlay_figure(overlay(), height="full")
+        self.assertEqual(tall.layout.height, 720)
+        self.assertEqual(full.layout.height, 900)
+
+    def test_uses_readable_theme_specific_unified_hover(self) -> None:
+        dark = build_observation_overlay_figure(overlay(), theme="dark")
+        light = build_observation_overlay_figure(overlay(), theme="light")
+
+        self.assertEqual(dark.layout.hovermode, "x unified")
+        self.assertEqual(
+            dark.layout.hoverlabel.bgcolor,
+            "rgba(11,24,40,0.50)",
+        )
+        self.assertEqual(dark.layout.hoverlabel.font.color, "#eef7ff")
+        self.assertEqual(
+            light.layout.hoverlabel.bgcolor,
+            "rgba(255,255,255,0.50)",
+        )
+        focus = next(trace for trace in dark.data if trace.name == "Focus quote")
+        self.assertNotIn("%{x}", focus.hovertemplate)
+        self.assertIn("Acquisition", focus.hovertemplate)
 
     def test_membership_shapes_are_confined_to_data_panels(self) -> None:
         figure = build_observation_overlay_figure(overlay())

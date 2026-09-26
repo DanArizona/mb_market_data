@@ -11,9 +11,12 @@ from zoneinfo import ZoneInfo
 
 from mb_market_data.observation_overlay import ObservationOverlayData
 from mb_market_data.observation_overlay_view import (
+    CHANNEL_COLORS,
+    OverlayPointStyle,
     apply_observation_overlay_view_state,
     build_observation_overlay_figure,
     build_observation_overlay_view,
+    normalize_overlay_height,
 )
 from mb_market_data.quote_dashboard_replay import (
     DashboardReplaySnapshot,
@@ -28,6 +31,84 @@ from mb_market_data.quote_dashboard_view import (
 
 ASSETS_DIRECTORY = Path(__file__).with_name("assets")
 ET = ZoneInfo("America/New_York")
+OVERLAY_CHANNELS = ("uni", "focus", "hot")
+
+
+def _overlay_point_style(
+    visible: list[str] | None,
+    size: str | None,
+    opacity_percent: float | None,
+) -> OverlayPointStyle:
+    """Translate browser controls into a bounded display-only style."""
+
+    opacity = (
+        float(opacity_percent) / 100.0
+        if isinstance(opacity_percent, (int, float))
+        and not isinstance(opacity_percent, bool)
+        else 1.0
+    )
+    return OverlayPointStyle(
+        visible=isinstance(visible, list) and "show" in visible,
+        size=size if size in {"small", "medium", "big"} else "big",
+        opacity=min(1.0, max(0.1, opacity)),
+    )
+
+
+def _overlay_chart_class(height: str | None) -> str:
+    return f"overlay-chart overlay-height-{normalize_overlay_height(height)}"
+
+
+def _overlay_channel_control(html: Any, dcc: Any, channel: str) -> Any:
+    label = channel.title()
+    return html.Fieldset(
+        [
+            html.Legend(
+                label,
+                style={"color": CHANNEL_COLORS[channel]},
+            ),
+            dcc.Checklist(
+                id=f"observation-overlay-{channel}-visible",
+                options=[{"label": "Show", "value": "show"}],
+                value=["show"],
+                className="overlay-show-control",
+            ),
+            html.Label(
+                [
+                    html.Span("Point size"),
+                    dcc.RadioItems(
+                        id=f"observation-overlay-{channel}-size",
+                        options=[
+                            {"label": "Small", "value": "small"},
+                            {"label": "Medium", "value": "medium"},
+                            {"label": "Big", "value": "big"},
+                        ],
+                        value="big",
+                        inline=True,
+                        className="overlay-size-control",
+                    ),
+                ]
+            ),
+            html.Label(
+                [
+                    html.Span("Opacity"),
+                    dcc.Slider(
+                        id=f"observation-overlay-{channel}-opacity",
+                        min=10,
+                        max=100,
+                        step=1,
+                        value=100,
+                        marks={10: "10%", 50: "50%", 100: "100%"},
+                        tooltip={
+                            "placement": "bottom",
+                            "always_visible": False,
+                        },
+                    ),
+                ],
+                className="overlay-opacity-control",
+            ),
+        ],
+        className=f"overlay-channel-control overlay-channel-{channel}",
+    )
 
 
 def _status_text(status_counts: Mapping[str, int]) -> str:
@@ -128,6 +209,45 @@ def _observation_overlay_panel(
                 ],
                 className="overlay-metadata",
             ),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Strong("Quote points"),
+                            html.Span(
+                                "Display settings only; evidence is unchanged."
+                            ),
+                        ],
+                        className="overlay-control-intro",
+                    ),
+                    *[
+                        _overlay_channel_control(html, dcc, channel)
+                        for channel in OVERLAY_CHANNELS
+                    ],
+                    html.Fieldset(
+                        [
+                            html.Legend("Plot height"),
+                            dcc.RadioItems(
+                                id="observation-overlay-height",
+                                options=[
+                                    {
+                                        "label": "Standard",
+                                        "value": "standard",
+                                    },
+                                    {"label": "Tall", "value": "tall"},
+                                    {"label": "Full window", "value": "full"},
+                                ],
+                                value="standard",
+                                inline=True,
+                                className="overlay-height-control",
+                            ),
+                        ],
+                        className="overlay-height-picker",
+                    ),
+                ],
+                className="overlay-display-controls",
+                **{"aria-label": "Observation Overlay display controls"},
+            ),
             dcc.Graph(
                 id="observation-overlay-chart",
                 figure=build_observation_overlay_figure(overlay),
@@ -136,7 +256,7 @@ def _observation_overlay_panel(
                     "responsive": True,
                     "scrollZoom": True,
                 },
-                className="overlay-chart",
+                className=_overlay_chart_class("standard"),
             ),
         ],
         id="observation-overlay-panel",
@@ -724,25 +844,58 @@ def create_quote_dashboard(
             Output("observation-overlay-as-of", "children"),
             Output("observation-overlay-evidence", "children"),
             Output("observation-overlay-chart", "figure"),
+            Output("observation-overlay-chart", "className"),
             Input("replay-clock", "children"),
             Input("theme-preference", "modified_timestamp"),
+            Input("observation-overlay-uni-visible", "value"),
+            Input("observation-overlay-uni-size", "value"),
+            Input("observation-overlay-uni-opacity", "value"),
+            Input("observation-overlay-focus-visible", "value"),
+            Input("observation-overlay-focus-size", "value"),
+            Input("observation-overlay-focus-opacity", "value"),
+            Input("observation-overlay-hot-visible", "value"),
+            Input("observation-overlay-hot-size", "value"),
+            Input("observation-overlay-hot-opacity", "value"),
+            Input("observation-overlay-height", "value"),
             State("theme-preference", "data"),
             State("observation-overlay-chart", "relayoutData"),
         )
         def update_observation_overlay(
             _replay_clock: str,
             _theme_modified: int | None,
+            uni_visible: list[str] | None,
+            uni_size: str | None,
+            uni_opacity: float | None,
+            focus_visible: list[str] | None,
+            focus_size: str | None,
+            focus_opacity: float | None,
+            hot_visible: list[str] | None,
+            hot_size: str | None,
+            hot_opacity: float | None,
+            height: str | None,
             stored_theme: str | None,
             relayout_data: Mapping[str, Any] | None,
         ) -> tuple[Any, ...]:
             overlay = controller.snapshot().observation_overlay
             if overlay is None:
-                return (no_update,) * 5
+                return (no_update,) * 6
             overlay_view = build_observation_overlay_view(overlay)
             theme = "light" if stored_theme == "light" else "dark"
             figure = build_observation_overlay_figure(
                 overlay,
                 theme=theme,
+                point_styles={
+                    "uni": _overlay_point_style(
+                        uni_visible, uni_size, uni_opacity
+                    ),
+                    "focus": _overlay_point_style(
+                        focus_visible, focus_size, focus_opacity
+                    ),
+                    "hot": _overlay_point_style(
+                        hot_visible, hot_size, hot_opacity
+                    ),
+                },
+                height=normalize_overlay_height(height),
             )
             apply_observation_overlay_view_state(figure, relayout_data)
             return (
@@ -754,6 +907,7 @@ def create_quote_dashboard(
                 overlay_view.replay_time_et_text,
                 overlay_view.evidence_text,
                 figure,
+                _overlay_chart_class(height),
             )
 
     if request_server_stop is not None:

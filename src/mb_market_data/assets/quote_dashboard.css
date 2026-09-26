@@ -504,8 +504,85 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
-.overlay-chart {
-  min-height: 520px;
+.overlay-display-controls {
+  display: grid;
+  grid-template-columns:
+    minmax(150px, 0.7fr) repeat(3, minmax(210px, 1fr))
+    minmax(220px, 1fr);
+  gap: 0.65rem;
+  align-items: stretch;
+  padding: 0.5rem 1rem 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.overlay-control-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.overlay-control-intro strong {
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.overlay-channel-control,
+.overlay-height-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 0.45rem 0.65rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+}
+
+.overlay-channel-control legend,
+.overlay-height-picker legend {
+  padding: 0 0.3rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.overlay-channel-control label,
+.overlay-height-picker label {
+  font-size: 0.72rem;
+}
+
+.overlay-size-control,
+.overlay-height-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.55rem;
+  margin-top: 0.18rem;
+}
+
+.overlay-show-control {
+  margin-bottom: 0.28rem;
+}
+
+.overlay-opacity-control {
+  display: block;
+  margin-top: 0.35rem;
+}
+
+.overlay-opacity-control .rc-slider {
+  margin: 0.12rem 0 0.55rem;
+}
+
+.overlay-chart.overlay-height-standard {
+  height: 520px;
+}
+
+.overlay-chart.overlay-height-tall {
+  height: 720px;
+}
+
+.overlay-chart.overlay-height-full {
+  height: 900px;
 }
 
 .overlay-chart .rangeslider-bg {
@@ -723,5 +800,15 @@ h1 {
 
   .button-row {
     flex-wrap: wrap;
+  }
+
+  .overlay-display-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 521px) and (max-width: 1180px) {
+  .overlay-display-controls {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 }

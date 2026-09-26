@@ -23,6 +23,44 @@ ET = ZoneInfo("America/New_York")
 CHANNEL_COLORS: Mapping[str, str] = MappingProxyType(
     {"uni": "#00bcd4", "focus": "#d4a017", "hot": "#d100d1"}
 )
+POINT_SIZE_PIXELS: Mapping[str, int] = MappingProxyType(
+    {"small": 2, "medium": 4, "big": 6}
+)
+OVERLAY_HEIGHT_PIXELS: Mapping[str, int | None] = MappingProxyType(
+    {"standard": 520, "tall": 720, "full": 900}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class OverlayPointStyle:
+    """Display-only styling for one quote-observation channel."""
+
+    visible: bool = True
+    size: str = "big"
+    opacity: float = 1.0
+
+
+def normalize_overlay_point_style(
+    value: OverlayPointStyle | None,
+) -> OverlayPointStyle:
+    """Return a bounded point style safe for rendering."""
+
+    style = (
+        value if isinstance(value, OverlayPointStyle) else OverlayPointStyle()
+    )
+    size = style.size if style.size in POINT_SIZE_PIXELS else "big"
+    opacity = min(1.0, max(0.1, float(style.opacity)))
+    return OverlayPointStyle(
+        visible=bool(style.visible),
+        size=size,
+        opacity=opacity,
+    )
+
+
+def normalize_overlay_height(value: str | None) -> str:
+    """Return a supported chart-height preset."""
+
+    return value if value in OVERLAY_HEIGHT_PIXELS else "standard"
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,11 +255,14 @@ def build_observation_overlay_figure(
     overlay: ObservationOverlayData,
     *,
     theme: str = "dark",
+    point_styles: Mapping[str, OverlayPointStyle] | None = None,
+    height: str = "standard",
 ) -> Any:
     """Build a Plotly candlestick/volume figure with causal quote points."""
 
     if theme not in {"dark", "light"}:
         raise ValueError("theme must be 'dark' or 'light'")
+    height = normalize_overlay_height(height)
 
     try:
         import plotly.graph_objects as go
@@ -273,6 +314,11 @@ def build_observation_overlay_figure(
 
     channels = tuple(sorted({point.channel for point in overlay.quote_points}))
     for channel in channels:
+        style = normalize_overlay_point_style(
+            point_styles.get(channel) if point_styles is not None else None
+        )
+        if not style.visible:
+            continue
         priced = tuple(
             (point, price)
             for point in overlay.quote_points
@@ -289,7 +335,8 @@ def build_observation_overlay_figure(
                 name=f"{channel.title()} quote",
                 marker={
                     "color": CHANNEL_COLORS.get(channel, "#eef7ff"),
-                    "size": 6,
+                    "size": POINT_SIZE_PIXELS[style.size],
+                    "opacity": style.opacity,
                     "line": {"color": "#06101c", "width": 0.5},
                 },
                 customdata=[
@@ -297,8 +344,9 @@ def build_observation_overlay_figure(
                     for point, _ in priced
                 ],
                 hovertemplate=(
-                    "%{x}<br>Last %{y}<br>Status %{customdata[0]}<br>"
-                    "Revision r%{customdata[1]}<br>%{customdata[2]}<extra></extra>"
+                    "Last %{y}<br>Status %{customdata[0]}<br>"
+                    "Revision r%{customdata[1]}<br>"
+                    "Acquisition %{customdata[2]}<extra></extra>"
                 ),
             ),
             row=1,
@@ -327,20 +375,48 @@ def build_observation_overlay_figure(
         col=1,
     )
 
-    figure.update_layout(
-        template="plotly_white" if theme == "light" else "plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        margin={"l": 54, "r": 22, "t": 16, "b": 34},
-        height=520,
-        hovermode="x unified",
-        legend={"orientation": "h", "y": 1.02, "x": 0},
-        uirevision=f"{overlay.session_date.isoformat()}:{overlay.symbol}",
-        shapes=_membership_shapes(overlay),
+    hoverlabel = (
+        {
+            "bgcolor": "rgba(255,255,255,0.50)",
+            "bordercolor": "#708091",
+            "font": {"color": "#172431", "size": 13},
+            "align": "left",
+        }
+        if theme == "light"
+        else {
+            "bgcolor": "rgba(11,24,40,0.50)",
+            "bordercolor": "#6f8598",
+            "font": {"color": "#eef7ff", "size": 13},
+            "align": "left",
+        }
     )
-    figure.update_xaxes(rangeslider_visible=False, row=1, col=1)
+    layout_height = OVERLAY_HEIGHT_PIXELS[height]
+    layout_options: dict[str, Any] = {
+        "template": "plotly_white" if theme == "light" else "plotly_dark",
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "margin": {"l": 54, "r": 22, "t": 16, "b": 34},
+        "autosize": True,
+        "hovermode": "x unified",
+        "hoverlabel": hoverlabel,
+        "legend": {"orientation": "h", "y": 1.02, "x": 0},
+        "uirevision": f"{overlay.session_date.isoformat()}:{overlay.symbol}",
+        "shapes": _membership_shapes(overlay),
+    }
+    if layout_height is not None:
+        layout_options["height"] = layout_height
+    figure.update_layout(
+        **layout_options,
+    )
     figure.update_xaxes(
         rangeslider_visible=False,
+        hoverformat="%H:%M:%S ET",
+        row=1,
+        col=1,
+    )
+    figure.update_xaxes(
+        rangeslider_visible=False,
+        hoverformat="%H:%M:%S ET",
         row=2,
         col=1,
     )
@@ -348,6 +424,7 @@ def build_observation_overlay_figure(
         rangeslider_visible=True,
         rangeslider_thickness=0.14,
         title_text="Eastern Time",
+        hoverformat="%H:%M:%S ET",
         row=3,
         col=1,
     )

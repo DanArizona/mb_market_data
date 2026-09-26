@@ -13,6 +13,8 @@ from mb_market_data.observation_overlay import (
 )
 from mb_market_data.quote_dashboard import (
     _column_definitions,
+    _overlay_chart_class,
+    _overlay_point_style,
     _parse_seek_time_utc,
     create_quote_dashboard,
 )
@@ -240,6 +242,20 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"observation-overlay-chart", layout.data)
         self.assertIn(b"Observation Overlay", layout.data)
         self.assertIn(b"Focus", layout.data)
+        for channel in ("uni", "focus", "hot"):
+            self.assertIn(
+                f"observation-overlay-{channel}-visible".encode(),
+                layout.data,
+            )
+            self.assertIn(
+                f"observation-overlay-{channel}-size".encode(),
+                layout.data,
+            )
+            self.assertIn(
+                f"observation-overlay-{channel}-opacity".encode(),
+                layout.data,
+            )
+        self.assertIn(b"observation-overlay-height", layout.data)
         overlay_callbacks = [
             (key, callback)
             for key, callback in app.callback_map.items()
@@ -265,15 +281,37 @@ class TestQuoteDashboard(unittest.TestCase):
                 "changedPropIds": ["replay-clock.children"],
                 "inputs": [
                     {
-                        "id": "replay-clock",
-                        "property": "children",
-                        "value": "2026-09-11 09:30:00.000 ET",
-                    },
-                    {
-                        "id": "theme-preference",
-                        "property": "modified_timestamp",
-                        "value": 0,
-                    },
+                        "id": item["id"],
+                        "property": item["property"],
+                        "value": {
+                            ("replay-clock", "children"):
+                                "2026-09-11 09:30:00.000 ET",
+                            ("theme-preference", "modified_timestamp"): 0,
+                            ("observation-overlay-uni-visible", "value"): [],
+                            ("observation-overlay-uni-size", "value"): "small",
+                            ("observation-overlay-uni-opacity", "value"): 25,
+                            (
+                                "observation-overlay-focus-visible",
+                                "value",
+                            ): ["show"],
+                            (
+                                "observation-overlay-focus-size",
+                                "value",
+                            ): "medium",
+                            (
+                                "observation-overlay-focus-opacity",
+                                "value",
+                            ): 55,
+                            (
+                                "observation-overlay-hot-visible",
+                                "value",
+                            ): ["show"],
+                            ("observation-overlay-hot-size", "value"): "big",
+                            ("observation-overlay-hot-opacity", "value"): 100,
+                            ("observation-overlay-height", "value"): "tall",
+                        }[(item["id"], item["property"])],
+                    }
+                    for item in callback["inputs"]
                 ],
                 "state": [
                     {
@@ -314,6 +352,29 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(
             layout["xaxis3"]["range"],
             ["2026-09-11 09:25:00", "2026-09-11 09:35:00"],
+        )
+        self.assertEqual(layout["height"], 720)
+        self.assertEqual(
+            body["observation-overlay-chart"]["className"],
+            "overlay-chart overlay-height-tall",
+        )
+
+    def test_normalizes_overlay_display_controls(self) -> None:
+        self.assertEqual(
+            _overlay_point_style(["show"], "small", 10).opacity,
+            0.1,
+        )
+        self.assertFalse(_overlay_point_style([], "big", 100).visible)
+        bounded = _overlay_point_style(["show"], "invalid", 500)
+        self.assertEqual(bounded.size, "big")
+        self.assertEqual(bounded.opacity, 1.0)
+        self.assertEqual(
+            _overlay_chart_class("full"),
+            "overlay-chart overlay-height-full",
+        )
+        self.assertEqual(
+            _overlay_chart_class("invalid"),
+            "overlay-chart overlay-height-standard",
         )
 
     def test_explains_membership_and_quote_provenance_columns(self) -> None:
@@ -372,6 +433,10 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b".rangeslider-mask-min", stylesheet.data)
         self.assertIn(b".rangeslider-mask-max", stylesheet.data)
         self.assertIn(b"fill-opacity: 1 !important", stylesheet.data)
+        self.assertIn(b".overlay-display-controls", stylesheet.data)
+        self.assertIn(b".overlay-height-standard", stylesheet.data)
+        self.assertIn(b".overlay-height-tall", stylesheet.data)
+        self.assertIn(b".overlay-height-full", stylesheet.data)
         self.assertEqual(favicon.status_code, 200)
 
     def test_parses_seek_time_as_end_of_displayed_et_second(self) -> None:
