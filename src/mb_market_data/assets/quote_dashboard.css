@@ -357,6 +357,23 @@ h1 {
   margin-top: 0.85rem;
 }
 
+.dashboard-tabs {
+  margin-top: 0.85rem;
+}
+
+.dashboard-tab {
+  padding: 0.7rem 1.2rem !important;
+  border: 1px solid var(--line) !important;
+  background: var(--surface-raised) !important;
+  color: var(--muted) !important;
+  font-weight: 800;
+}
+
+.dashboard-tab-selected {
+  border-bottom: 2px solid var(--sea) !important;
+  color: var(--sea) !important;
+}
+
 .metric-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -505,14 +522,23 @@ h1 {
 }
 
 .overlay-display-controls {
-  display: grid;
-  grid-template-columns:
-    minmax(150px, 0.7fr) repeat(3, minmax(210px, 1fr))
-    minmax(220px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 0.65rem;
-  align-items: stretch;
-  padding: 0.5rem 1rem 0.8rem;
-  border-top: 1px solid var(--line);
+  min-width: 215px;
+  max-width: 250px;
+  padding: 0.8rem;
+  border-right: 1px solid var(--line);
+}
+
+.overlay-workspace {
+  display: grid;
+  grid-template-columns: minmax(215px, 250px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.overlay-workspace .overlay-chart {
+  min-width: 0;
 }
 
 .overlay-control-intro {
@@ -530,7 +556,9 @@ h1 {
 }
 
 .overlay-channel-control,
-.overlay-height-picker {
+.overlay-height-picker,
+.overlay-axis-control,
+.overlay-session-control {
   min-width: 0;
   margin: 0;
   padding: 0.45rem 0.65rem 0.6rem;
@@ -539,7 +567,9 @@ h1 {
 }
 
 .overlay-channel-control legend,
-.overlay-height-picker legend {
+.overlay-height-picker legend,
+.overlay-axis-control legend,
+.overlay-session-control legend {
   padding: 0 0.3rem;
   font-size: 0.76rem;
   font-weight: 800;
@@ -548,7 +578,9 @@ h1 {
 }
 
 .overlay-channel-control label,
-.overlay-height-picker label {
+.overlay-height-picker label,
+.overlay-axis-control label,
+.overlay-session-control label {
   font-size: 0.72rem;
 }
 
@@ -560,8 +592,32 @@ h1 {
   margin-top: 0.18rem;
 }
 
-.overlay-show-control {
-  margin-bottom: 0.28rem;
+.overlay-units-control {
+  display: flex;
+  gap: 0.65rem;
+  margin-bottom: 0.6rem;
+}
+
+.overlay-reference-button,
+.overlay-reset-button {
+  width: 100%;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+}
+
+.overlay-reset-button {
+  padding: 0.3rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.overlay-reference-label {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
 }
 
 .overlay-opacity-control {
@@ -720,6 +776,18 @@ h1 {
   .replay-position {
     grid-column: 1 / -1;
   }
+
+  .overlay-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .overlay-display-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
 }
 
 @media print {
@@ -804,11 +872,5 @@ h1 {
 
   .overlay-display-controls {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 521px) and (max-width: 1180px) {
-  .overlay-display-controls {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 }

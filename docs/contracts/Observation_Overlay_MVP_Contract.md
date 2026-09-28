@@ -39,8 +39,10 @@ The cache is never stored inside, attached to, or written through the journal.
 Cache files are immutable: an existing path is not overwritten.
 
 The completed-session acquisition probe makes one Schwab five-minute
-price-history request for `00:00 <= candle start < 16:00 ET`. It refuses to run
-before 16:00 ET for the requested session and persists three linked artifacts:
+price-history request for `00:00 <= candle start < 16:00 ET` by default.
+`--through-after-hours` extends the bound to `20:00 ET` and requires that the
+requested session has reached 20:00 ET. The default refuses to run before
+16:00 ET. Each run persists three linked artifacts:
 the exact raw response body, the normalized cache, and a manifest containing
 their SHA-256 digests and request/response timestamps.
 
@@ -64,6 +66,9 @@ Consequences:
   candle completion controls historical visibility.
 - Seeking backward rebuilds the overlay from immutable inputs. It does not
   preserve later state.
+- With an Overlay cache, the display clock may continue after the last journal
+  acquisition through the cache request end. This adds no replay events or
+  observations; after-market candles appear only after their own interval closes.
 
 ## 4. Membership bands
 

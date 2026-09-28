@@ -20,7 +20,6 @@ from mb_market_data.quote_event_state import (
 )
 from mb_market_data.quote_journal_replay import ReplayEvent, ReplayTimeline
 
-
 ET = ZoneInfo("America/New_York")
 
 
@@ -69,6 +68,7 @@ class QuoteDashboardReplayController:
         overlay_projector_factory: (
             Callable[[], ObservationOverlayProjector] | None
         ) = None,
+        overlay_end_at_utc: datetime | None = None,
     ) -> None:
         if isinstance(speed, bool) or not isinstance(speed, (int, float)):
             raise TypeError("speed must be a number")
@@ -79,6 +79,27 @@ class QuoteDashboardReplayController:
         self._speed = float(speed)
         self._monotonic = monotonic
         self._overlay_projector_factory = overlay_projector_factory
+        if overlay_end_at_utc is not None:
+            if overlay_projector_factory is None:
+                raise ValueError("overlay_end_at_utc requires an overlay projector")
+            if (
+                overlay_end_at_utc.tzinfo is None
+                or overlay_end_at_utc.utcoffset() is None
+            ):
+                raise ValueError("overlay_end_at_utc must be timezone-aware")
+            if overlay_end_at_utc.astimezone(ET).date() != timeline.session_date:
+                raise ValueError(
+                    "overlay_end_at_utc must be on the journal session date"
+                )
+            overlay_end_at_utc = overlay_end_at_utc.astimezone(timezone.utc)
+        self._end_time_utc = max(
+            (
+                value
+                for value in (timeline.last_available_at_utc, overlay_end_at_utc)
+                if value is not None
+            ),
+            default=None,
+        )
         self._lock = threading.RLock()
         self._projector: QuoteEventStateProjector
         self._events: Iterator[ReplayEvent]
@@ -107,6 +128,11 @@ class QuoteDashboardReplayController:
         self._status = (
             DashboardReplayStatus.PAUSED
             if self._pending is not None
+            or (
+                self._position_utc is not None
+                and self._end_time_utc is not None
+                and self._position_utc < self._end_time_utc
+            )
             else DashboardReplayStatus.COMPLETE
         )
 
@@ -120,21 +146,18 @@ class QuoteDashboardReplayController:
         self._projector.apply(event)
         self._position_utc = event.available_at_utc
         self._pending = next(self._events, None)
-        if self._pending is None:
+        if self._pending is None and (
+            self._end_time_utc is None or self._position_utc >= self._end_time_utc
+        ):
             self._status = DashboardReplayStatus.COMPLETE
         return True
 
     def _target_time_unlocked(self, now: float) -> datetime | None:
-        if (
-            self._anchor_position_utc is None
-            or self._anchor_monotonic is None
-        ):
+        if self._anchor_position_utc is None or self._anchor_monotonic is None:
             return self._position_utc
         elapsed = max(0.0, now - self._anchor_monotonic)
-        target = self._anchor_position_utc + timedelta(
-            seconds=elapsed * self._speed
-        )
-        last = self._timeline.last_available_at_utc
+        target = self._anchor_position_utc + timedelta(seconds=elapsed * self._speed)
+        last = self._end_time_utc
         return min(target, last) if last is not None else target
 
     def _advance_unlocked(self, now: float) -> None:
@@ -144,15 +167,14 @@ class QuoteDashboardReplayController:
         if target is None:
             self._status = DashboardReplayStatus.COMPLETE
             return
-        while (
-            self._pending is not None
-            and self._pending.available_at_utc <= target
-        ):
+        while self._pending is not None and self._pending.available_at_utc <= target:
             self._next_unlocked()
         self._position_utc = target
-        if self._pending is None:
+        if self._pending is None and (
+            self._end_time_utc is None or target >= self._end_time_utc
+        ):
             self._status = DashboardReplayStatus.COMPLETE
-            self._position_utc = self._timeline.last_available_at_utc
+            self._position_utc = self._end_time_utc
 
     def _reanchor_unlocked(self, now: float) -> None:
         self._anchor_position_utc = self._position_utc
@@ -173,9 +195,7 @@ class QuoteDashboardReplayController:
                 status=self._status,
                 speed=self._speed,
                 replay_time_utc=self._position_utc,
-                first_event_time_utc=(
-                    self._timeline.first_available_at_utc
-                ),
+                first_event_time_utc=(self._timeline.first_available_at_utc),
                 last_event_time_utc=self._timeline.last_available_at_utc,
                 total_event_count=self._timeline.event_count,
                 observation_overlay=overlay,
@@ -216,7 +236,11 @@ class QuoteDashboardReplayController:
     def step(self) -> DashboardReplaySnapshot:
         with self._lock:
             self.pause()
-            self._next_unlocked()
+            if self._pending is None and self._end_time_utc is not None:
+                self._position_utc = self._end_time_utc
+                self._status = DashboardReplayStatus.COMPLETE
+            else:
+                self._next_unlocked()
             return self.snapshot()
 
     def restart(self) -> DashboardReplaySnapshot:
@@ -233,9 +257,7 @@ class QuoteDashboardReplayController:
             raise ValueError("target_utc must be timezone-aware")
         target_utc = target_utc.astimezone(timezone.utc)
         if target_utc.astimezone(ET).date() != self._timeline.session_date:
-            raise ValueError(
-                "target_utc must fall on the journal session date in ET"
-            )
+            raise ValueError("target_utc must fall on the journal session date in ET")
 
         with self._lock:
             self._reset_unlocked()
@@ -250,6 +272,7 @@ class QuoteDashboardReplayController:
             self._status = (
                 DashboardReplayStatus.PAUSED
                 if self._pending is not None
+                or (self._end_time_utc is not None and target_utc < self._end_time_utc)
                 else DashboardReplayStatus.COMPLETE
             )
             return self.snapshot()
@@ -273,6 +296,6 @@ class QuoteDashboardReplayController:
         with self._lock:
             while self._pending is not None:
                 self._next_unlocked()
-            self._position_utc = self._timeline.last_available_at_utc
+            self._position_utc = self._end_time_utc
             self._status = DashboardReplayStatus.COMPLETE
             return self.snapshot()

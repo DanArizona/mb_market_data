@@ -20,11 +20,11 @@ from mb_market_data.observation_overlay import (
     write_observation_overlay_cache,
 )
 
-
 UTC = timezone.utc
 ACQUISITION_VERSION = "observation-overlay-acquisition-v1"
 REQUEST_START = time(0, 0)
 REQUEST_END = time(16, 0)
+AFTER_HOURS_END = time(20, 0)
 SOURCE_METHOD = "schwabdev.Client.price_history"
 
 
@@ -61,24 +61,34 @@ class ObservationOverlayAcquisitionArtifacts:
     manifest: Path
 
 
-def request_bounds(session_date: date) -> tuple[datetime, datetime]:
-    """Return the fixed one-session MVP request interval in ET."""
+def request_bounds(
+    session_date: date, *, through_after_hours: bool = False
+) -> tuple[datetime, datetime]:
+    """Return the selected one-session request interval in ET."""
 
     if not isinstance(session_date, date):
         raise TypeError("session_date must be a date")
     return (
         datetime.combine(session_date, REQUEST_START, tzinfo=ET),
-        datetime.combine(session_date, REQUEST_END, tzinfo=ET),
+        datetime.combine(
+            session_date,
+            AFTER_HOURS_END if through_after_hours else REQUEST_END,
+            tzinfo=ET,
+        ),
     )
 
 
 def validate_completed_session(
     session_date: date,
     now_et: datetime,
+    *,
+    through_after_hours: bool = False,
 ) -> None:
     """Reject current/future sessions whose full candle interval is open."""
 
-    _, required_through = request_bounds(session_date)
+    _, required_through = request_bounds(
+        session_date, through_after_hours=through_after_hours
+    )
     if not isinstance(now_et, datetime):
         raise TypeError("now_et must be a datetime")
     if now_et.tzinfo is None or now_et.utcoffset() is None:
@@ -176,21 +186,15 @@ def _number(candle: Mapping[str, Any], name: str) -> float:
 def _volume(candle: Mapping[str, Any]) -> int:
     value = candle.get("volume")
     if isinstance(value, bool):
-        raise ObservationOverlayDataError(
-            "candle volume must be a nonnegative integer"
-        )
+        raise ObservationOverlayDataError("candle volume must be a nonnegative integer")
     if isinstance(value, int):
         result = value
     elif isinstance(value, float) and math.isfinite(value) and value.is_integer():
         result = int(value)
     else:
-        raise ObservationOverlayDataError(
-            "candle volume must be a nonnegative integer"
-        )
+        raise ObservationOverlayDataError("candle volume must be a nonnegative integer")
     if result < 0:
-        raise ObservationOverlayDataError(
-            "candle volume must be a nonnegative integer"
-        )
+        raise ObservationOverlayDataError("candle volume must be a nonnegative integer")
     return result
 
 
@@ -201,6 +205,7 @@ def parse_observation_overlay_payload(
     session_date: date,
     acquired_at_utc: datetime,
     source_payload_sha256: str,
+    through_after_hours: bool = False,
 ) -> ObservationOverlayOHLCVCache:
     """Normalize one Schwab response into the strict OO cache schema."""
 
@@ -220,11 +225,11 @@ def parse_observation_overlay_payload(
         )
     raw_candles = payload.get("candles")
     if not isinstance(raw_candles, list):
-        raise ObservationOverlayDataError(
-            "price-history response has no candle list"
-        )
+        raise ObservationOverlayDataError("price-history response has no candle list")
 
-    request_start, request_end = request_bounds(session_date)
+    request_start, request_end = request_bounds(
+        session_date, through_after_hours=through_after_hours
+    )
     candles: list[OverlayCandle] = []
     seen_starts: set[datetime] = set()
     for raw_candle in raw_candles:
@@ -276,12 +281,15 @@ def acquire_observation_overlay_ohlcv(
     *,
     symbol: str,
     session_date: date,
+    through_after_hours: bool = False,
     now_factory: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> ObservationOverlayAcquisition:
     """Acquire one completed session without authenticating or persisting."""
 
     normalized_symbol = _symbol(symbol)
-    request_start, request_end = request_bounds(session_date)
+    request_start, request_end = request_bounds(
+        session_date, through_after_hours=through_after_hours
+    )
     request_started = _utc(now_factory(), "now_factory result")
     try:
         response = client.price_history(
@@ -312,6 +320,7 @@ def acquire_observation_overlay_ohlcv(
         session_date=session_date,
         acquired_at_utc=response_received,
         source_payload_sha256=payload_sha256,
+        through_after_hours=through_after_hours,
     )
     return ObservationOverlayAcquisition(
         cache=cache,
@@ -372,12 +381,8 @@ def write_observation_overlay_acquisition(
         "extended_hours": acquisition.cache.extended_hours,
         "request_start_et": acquisition.cache.request_start_et.isoformat(),
         "request_end_et": acquisition.cache.request_end_et.isoformat(),
-        "request_started_at_utc": _utc_text(
-            acquisition.request_started_at_utc
-        ),
-        "response_received_at_utc": _utc_text(
-            acquisition.response_received_at_utc
-        ),
+        "request_started_at_utc": _utc_text(acquisition.request_started_at_utc),
+        "response_received_at_utc": _utc_text(acquisition.response_received_at_utc),
         "http_status": acquisition.http_status,
         "candle_count": len(acquisition.cache.candles),
         "first_candle_et": acquisition.cache.candles[0].start_et.isoformat(),

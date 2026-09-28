@@ -9,7 +9,6 @@ from functools import partial
 from pathlib import Path
 from threading import Event
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
@@ -100,6 +99,9 @@ def main() -> int:
             timeline=timeline,
             event_factory=reader.events,
             overlay_projector_factory=overlay_projector_factory,
+            overlay_end_at_utc=(
+                overlay_cache.request_end_et if overlay_cache is not None else None
+            ),
         )
         if not args.start_at_beginning:
             controller.finish()

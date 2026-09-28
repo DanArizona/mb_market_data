@@ -8,6 +8,7 @@ from mb_market_data.observation_overlay import (
     MembershipBand,
     ObservationOverlayOHLCVCache,
     ObservationOverlayProjector,
+    OverlayCandle,
 )
 from mb_market_data.quote_dashboard_replay import (
     DashboardReplayStatus,
@@ -20,7 +21,6 @@ from mb_market_data.quote_journal_replay import (
 )
 from mb_market_data.quote_observation_store import SamplingChannelRevision
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
-
 
 UTC = timezone.utc
 SESSION_DATE = date(2026, 9, 11)
@@ -73,12 +73,8 @@ def overlay_projector() -> ObservationOverlayProjector:
             provider="Schwab",
             source="unit-test",
             acquired_at_utc=START + timedelta(hours=8),
-            request_start_et=datetime(
-                2026, 9, 11, 0, 0, tzinfo=OVERLAY_ET
-            ),
-            request_end_et=datetime(
-                2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET
-            ),
+            request_start_et=datetime(2026, 9, 11, 0, 0, tzinfo=OVERLAY_ET),
+            request_end_et=datetime(2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET),
             source_payload_sha256="a" * 64,
             candles=(),
         ),
@@ -88,6 +84,86 @@ def overlay_projector() -> ObservationOverlayProjector:
 
 
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_overlay_clock_continues_after_last_journal_event(self) -> None:
+        event = membership_event(0)
+        clock = FakeClock()
+        end = START + timedelta(seconds=20)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            speed=2,
+            monotonic=clock.monotonic,
+            overlay_projector_factory=overlay_projector,
+            overlay_end_at_utc=end,
+        )
+
+        playing = controller.play()
+        self.assertEqual(playing.applied_event_count, 1)
+        self.assertEqual(playing.status, DashboardReplayStatus.PLAYING)
+        clock.advance(5)
+        middle = controller.tick()
+        self.assertEqual(middle.replay_time_utc, START + timedelta(seconds=10))
+        self.assertEqual(middle.applied_event_count, 1)
+        self.assertEqual(middle.status, DashboardReplayStatus.PLAYING)
+        self.assertEqual(
+            controller.seek(end - timedelta(seconds=1)).status,
+            DashboardReplayStatus.PAUSED,
+        )
+        finished = controller.finish()
+        self.assertEqual(finished.replay_time_utc, end)
+        self.assertEqual(finished.status, DashboardReplayStatus.COMPLETE)
+        self.assertEqual(finished.applied_event_count, 1)
+
+    def test_after_hours_candle_appears_only_after_completion(self) -> None:
+        event = membership_event(0)
+        candle = OverlayCandle(
+            symbol="FOCUS",
+            start_et=datetime(2026, 9, 11, 16, 0, tzinfo=OVERLAY_ET),
+            open=10.0,
+            high=10.5,
+            low=9.9,
+            close=10.2,
+            volume=100,
+        )
+        cache = ObservationOverlayOHLCVCache(
+            symbol="FOCUS",
+            session_date=SESSION_DATE,
+            provider="Schwab",
+            source="unit-test",
+            acquired_at_utc=datetime(2026, 9, 12, 1, tzinfo=UTC),
+            request_start_et=datetime(2026, 9, 11, 0, tzinfo=OVERLAY_ET),
+            request_end_et=datetime(2026, 9, 11, 20, tzinfo=OVERLAY_ET),
+            source_payload_sha256="a" * 64,
+            candles=(candle,),
+        )
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: ObservationOverlayProjector(
+                cache=cache, symbol="FOCUS", session_date=SESSION_DATE
+            ),
+            overlay_end_at_utc=cache.request_end_et,
+        )
+        self.assertEqual(
+            len(
+                controller.seek(
+                    datetime(2026, 9, 11, 16, 4, 59, tzinfo=OVERLAY_ET)
+                ).observation_overlay.candles
+            ),
+            0,
+        )
+        self.assertEqual(
+            len(
+                controller.seek(
+                    datetime(2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET)
+                ).observation_overlay.candles
+            ),
+            1,
+        )
+        self.assertEqual(
+            controller.finish().replay_time_utc, cache.request_end_et.astimezone(UTC)
+        )
+
     def test_optional_overlay_restarts_and_seeks_with_main_projection(self) -> None:
         event = membership_event(0)
         controller = QuoteDashboardReplayController(
@@ -216,9 +292,7 @@ class TestQuoteDashboardReplayController(unittest.TestCase):
         self.assertEqual(finished.state.channels, ("focus", "hot", "uni"))
 
     def test_seek_reconstructs_the_inclusive_event_prefix(self) -> None:
-        before_first = self.controller.seek(
-            START - timedelta(microseconds=1)
-        )
+        before_first = self.controller.seek(START - timedelta(microseconds=1))
         self.assertEqual(before_first.status, DashboardReplayStatus.PAUSED)
         self.assertEqual(before_first.applied_event_count, 0)
         self.assertEqual(
@@ -230,9 +304,7 @@ class TestQuoteDashboardReplayController(unittest.TestCase):
         self.assertEqual(at_first.applied_event_count, 1)
         self.assertEqual(at_first.state.channels, ("uni",))
 
-        between_events = self.controller.seek(
-            START + timedelta(seconds=7)
-        )
+        between_events = self.controller.seek(START + timedelta(seconds=7))
         self.assertEqual(between_events.status, DashboardReplayStatus.PAUSED)
         self.assertEqual(between_events.applied_event_count, 2)
         self.assertEqual(
@@ -248,9 +320,7 @@ class TestQuoteDashboardReplayController(unittest.TestCase):
         repeated = self.controller.seek(START + timedelta(seconds=1))
         self.assertEqual(repeated, backward)
 
-        after_last = self.controller.seek(
-            START + timedelta(seconds=20)
-        )
+        after_last = self.controller.seek(START + timedelta(seconds=20))
         self.assertEqual(after_last.status, DashboardReplayStatus.COMPLETE)
         self.assertEqual(after_last.applied_event_count, 3)
         self.assertEqual(

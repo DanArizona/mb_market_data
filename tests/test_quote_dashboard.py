@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from threading import Event
@@ -28,7 +29,6 @@ from mb_market_data.quote_journal_replay import (
 )
 from mb_market_data.quote_observation_store import SamplingChannelRevision
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
-
 
 SESSION_DATE = date(2026, 9, 11)
 
@@ -110,19 +110,13 @@ def overlay_controller() -> QuoteDashboardReplayController:
         provider="Schwab",
         source="unit-test",
         acquired_at_utc=available_at + timedelta(hours=8),
-        request_start_et=datetime(
-            2026, 9, 11, 0, 0, tzinfo=OVERLAY_ET
-        ),
-        request_end_et=datetime(
-            2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET
-        ),
+        request_start_et=datetime(2026, 9, 11, 0, 0, tzinfo=OVERLAY_ET),
+        request_end_et=datetime(2026, 9, 11, 16, 5, tzinfo=OVERLAY_ET),
         source_payload_sha256="a" * 64,
         candles=(
             OverlayCandle(
                 symbol="SPY",
-                start_et=datetime(
-                    2026, 9, 11, 9, 25, tzinfo=OVERLAY_ET
-                ),
+                start_et=datetime(2026, 9, 11, 9, 25, tzinfo=OVERLAY_ET),
                 open=100,
                 high=102,
                 low=99,
@@ -171,30 +165,22 @@ def replay_callback_payload(
         {
             "id": "replay-toggle",
             "property": "n_clicks",
-            "value": 1
-            if changed_prop_id == "replay-toggle.n_clicks"
-            else None,
+            "value": 1 if changed_prop_id == "replay-toggle.n_clicks" else None,
         },
         {
             "id": "replay-step",
             "property": "n_clicks",
-            "value": 1
-            if changed_prop_id == "replay-step.n_clicks"
-            else None,
+            "value": 1 if changed_prop_id == "replay-step.n_clicks" else None,
         },
         {
             "id": "replay-restart",
             "property": "n_clicks",
-            "value": 1
-            if changed_prop_id == "replay-restart.n_clicks"
-            else None,
+            "value": 1 if changed_prop_id == "replay-restart.n_clicks" else None,
         },
         {
             "id": "replay-seek",
             "property": "n_clicks",
-            "value": 1
-            if changed_prop_id == "replay-seek.n_clicks"
-            else None,
+            "value": 1 if changed_prop_id == "replay-seek.n_clicks" else None,
         },
         {
             "id": "replay-tick",
@@ -228,6 +214,74 @@ def replay_callback_payload(
 
 
 class TestQuoteDashboard(unittest.TestCase):
+    def test_clicked_candle_field_sets_visible_reference(self) -> None:
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, value)
+            for key, value in app.callback_map.items()
+            if any(
+                item["id"] == "observation-overlay-chart"
+                and item["property"] == "clickData"
+                for item in value["inputs"]
+            )
+        )
+        from mb_market_data.observation_overlay_view import (
+            build_observation_overlay_figure,
+        )
+
+        figure = json.loads(
+            build_observation_overlay_figure(
+                controller.snapshot().observation_overlay
+            ).to_json()
+        )
+        values = {
+            ("observation-overlay-set-reference", "n_clicks"): 1,
+            ("observation-overlay-reset-reference", "n_clicks"): None,
+            ("observation-overlay-chart", "clickData"): {
+                "points": [{"curveNumber": 0, "pointNumber": 0}]
+            },
+            ("observation-overlay-reference-mode", "data"): True,
+            ("observation-overlay-chart", "figure"): figure,
+            ("observation-overlay-candle-field", "value"): "high",
+        }
+        response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": callback_key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in callback["output"]
+                ],
+                "changedPropIds": ["observation-overlay-chart.clickData"],
+                "inputs": [
+                    dict(
+                        id=item["id"],
+                        property=item["property"],
+                        value=values[(item["id"], item["property"])],
+                    )
+                    for item in callback["inputs"]
+                ],
+                "state": [
+                    dict(
+                        id=item["id"],
+                        property=item["property"],
+                        value=values[(item["id"], item["property"])],
+                    )
+                    for item in callback["state"]
+                ],
+            },
+        )
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        selected = response.get_json()["response"]["observation-overlay-reference"][
+            "data"
+        ]
+        self.assertEqual(selected["price"], 102.0)
+        self.assertIn("candle high", selected["label"])
+
     def test_optional_observation_overlay_is_in_layout_and_callbacks(self) -> None:
         controller = overlay_controller()
         controller.finish()
@@ -242,11 +296,9 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"observation-overlay-chart", layout.data)
         self.assertIn(b"Observation Overlay", layout.data)
         self.assertIn(b"Focus", layout.data)
+        self.assertIn(b"dashboard-tabs", layout.data)
+        self.assertIn(b'"value":"monitor"', layout.data)
         for channel in ("uni", "focus", "hot"):
-            self.assertIn(
-                f"observation-overlay-{channel}-visible".encode(),
-                layout.data,
-            )
             self.assertIn(
                 f"observation-overlay-{channel}-size".encode(),
                 layout.data,
@@ -256,13 +308,14 @@ class TestQuoteDashboard(unittest.TestCase):
                 layout.data,
             )
         self.assertIn(b"observation-overlay-height", layout.data)
+        self.assertIn(b"observation-overlay-off-hours", layout.data)
+        self.assertIn(b"observation-overlay-units", layout.data)
+        self.assertIn(b"observation-overlay-set-reference", layout.data)
+        self.assertNotIn(b"observation-overlay-uni-visible", layout.data)
         overlay_callbacks = [
             (key, callback)
             for key, callback in app.callback_map.items()
-            if any(
-                item["id"] == "replay-clock"
-                for item in callback["inputs"]
-            )
+            if any(item["id"] == "replay-clock" for item in callback["inputs"])
         ]
         self.assertEqual(len(overlay_callbacks), 1)
         callback_key, callback = overlay_callbacks[0]
@@ -284,16 +337,10 @@ class TestQuoteDashboard(unittest.TestCase):
                         "id": item["id"],
                         "property": item["property"],
                         "value": {
-                            ("replay-clock", "children"):
-                                "2026-09-11 09:30:00.000 ET",
+                            ("replay-clock", "children"): "2026-09-11 09:30:00.000 ET",
                             ("theme-preference", "modified_timestamp"): 0,
-                            ("observation-overlay-uni-visible", "value"): [],
                             ("observation-overlay-uni-size", "value"): "small",
                             ("observation-overlay-uni-opacity", "value"): 25,
-                            (
-                                "observation-overlay-focus-visible",
-                                "value",
-                            ): ["show"],
                             (
                                 "observation-overlay-focus-size",
                                 "value",
@@ -302,13 +349,12 @@ class TestQuoteDashboard(unittest.TestCase):
                                 "observation-overlay-focus-opacity",
                                 "value",
                             ): 55,
-                            (
-                                "observation-overlay-hot-visible",
-                                "value",
-                            ): ["show"],
                             ("observation-overlay-hot-size", "value"): "big",
                             ("observation-overlay-hot-opacity", "value"): 100,
                             ("observation-overlay-height", "value"): "tall",
+                            ("observation-overlay-off-hours", "value"): ["show"],
+                            ("observation-overlay-units", "value"): "percent",
+                            ("observation-overlay-reference", "data"): None,
                         }[(item["id"], item["property"])],
                     }
                     for item in callback["inputs"]
@@ -328,7 +374,7 @@ class TestQuoteDashboard(unittest.TestCase):
                                 "2026-09-11 09:35:00",
                             ]
                         },
-                    }
+                    },
                 ],
             },
         )
@@ -354,6 +400,10 @@ class TestQuoteDashboard(unittest.TestCase):
             ["2026-09-11 09:25:00", "2026-09-11 09:35:00"],
         )
         self.assertEqual(layout["height"], 720)
+        self.assertEqual(layout["yaxis"]["title"]["text"], "Price")
+        self.assertIn(
+            "waits for", body["observation-overlay-reference-label"]["children"]
+        )
         self.assertEqual(
             body["observation-overlay-chart"]["className"],
             "overlay-chart overlay-height-tall",
@@ -361,11 +411,10 @@ class TestQuoteDashboard(unittest.TestCase):
 
     def test_normalizes_overlay_display_controls(self) -> None:
         self.assertEqual(
-            _overlay_point_style(["show"], "small", 10).opacity,
+            _overlay_point_style("small", 10).opacity,
             0.1,
         )
-        self.assertFalse(_overlay_point_style([], "big", 100).visible)
-        bounded = _overlay_point_style(["show"], "invalid", 500)
+        bounded = _overlay_point_style("invalid", 500)
         self.assertEqual(bounded.size, "big")
         self.assertEqual(bounded.opacity, 1.0)
         self.assertEqual(
@@ -378,9 +427,7 @@ class TestQuoteDashboard(unittest.TestCase):
         )
 
     def test_explains_membership_and_quote_provenance_columns(self) -> None:
-        columns = {
-            column["field"]: column for column in _column_definitions()
-        }
+        columns = {column["field"]: column for column in _column_definitions()}
 
         for field in (
             "uni_revision",
@@ -547,9 +594,7 @@ class TestQuoteDashboard(unittest.TestCase):
                     "id": "server-stop-status",
                     "property": "children",
                 },
-                "changedPropIds": [
-                    "server-stop-confirm.submit_n_clicks"
-                ],
+                "changedPropIds": ["server-stop-confirm.submit_n_clicks"],
                 "inputs": [
                     {
                         "id": "server-stop-confirm",
@@ -575,10 +620,7 @@ class TestQuoteDashboard(unittest.TestCase):
         remember_key, remember = next(
             (key, value)
             for key, value in app.callback_map.items()
-            if any(
-                item["id"] == "theme-toggle"
-                for item in value["inputs"]
-            )
+            if any(item["id"] == "theme-toggle" for item in value["inputs"])
         )
         remember_response = client.post(
             "/_dash-update-component",
@@ -609,9 +651,7 @@ class TestQuoteDashboard(unittest.TestCase):
 
         self.assertEqual(remember_response.status_code, 200)
         self.assertEqual(
-            remember_response.get_json()["response"]["theme-preference"][
-                "data"
-            ],
+            remember_response.get_json()["response"]["theme-preference"]["data"],
             "light",
         )
 
@@ -636,9 +676,7 @@ class TestQuoteDashboard(unittest.TestCase):
             json={
                 "output": apply_key,
                 "outputs": apply_outputs,
-                "changedPropIds": [
-                    "theme-preference.modified_timestamp"
-                ],
+                "changedPropIds": ["theme-preference.modified_timestamp"],
                 "inputs": [
                     {
                         "id": "theme-preference",

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from mb_market_data.observation_overlay import ET
 from mb_market_data.observation_overlay_acquisition import (
+    AFTER_HOURS_END,
     ObservationOverlayAcquisitionError,
     REQUEST_END,
     REQUEST_START,
@@ -35,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--session-date", required=True)
     parser.add_argument("--ecfg")
     parser.add_argument("--timeout", type=int, default=30)
+    parser.add_argument(
+        "--through-after-hours",
+        action="store_true",
+        help="Include candles through 20:00 ET; requires the session to have reached 20:00 ET.",
+    )
     parser.add_argument(
         "--output-root",
         default="output/observation_overlay_ohlcv",
@@ -62,8 +68,7 @@ def resolve_ecfg(explicit_path: str | None) -> Path:
             return path.resolve()
     searched = "\n".join(f"  {path}" for path in candidates)
     raise FileNotFoundError(
-        "Could not find secure_schwabdev.ecfg.\n"
-        f"Paths checked:\n{searched}"
+        "Could not find secure_schwabdev.ecfg.\n" f"Paths checked:\n{searched}"
     )
 
 
@@ -84,7 +89,11 @@ def main() -> int:
             raise ValueError("--symbol must be nonblank")
         session_date = parse_session_date(args.session_date)
         now_et = datetime.now(ET)
-        validate_completed_session(session_date, now_et)
+        validate_completed_session(
+            session_date,
+            now_et,
+            through_after_hours=args.through_after_hours,
+        )
         ecfg_path = resolve_ecfg(args.ecfg)
     except (
         ObservationOverlayAcquisitionError,
@@ -105,7 +114,7 @@ def main() -> int:
     print(
         "Request interval   : "
         f"{REQUEST_START.strftime('%H:%M')} <= candle start < "
-        f"{REQUEST_END.strftime('%H:%M')} ET"
+        f"{(AFTER_HOURS_END if args.through_after_hours else REQUEST_END).strftime('%H:%M')} ET"
     )
     print("Frequency          : 5 minutes")
     print("Extended hours     : YES")
@@ -126,6 +135,7 @@ def main() -> int:
             client,
             symbol=symbol,
             session_date=session_date,
+            through_after_hours=args.through_after_hours,
         )
     except Exception as error:
         print(
@@ -145,8 +155,7 @@ def main() -> int:
     output_dir = (
         Path(args.output_dir)
         if args.output_dir
-        else Path(args.output_root)
-        / f"{session_date}-{symbol}-{run_stamp}"
+        else Path(args.output_root) / f"{session_date}-{symbol}-{run_stamp}"
     )
     try:
         artifacts = write_observation_overlay_acquisition(

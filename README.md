@@ -869,8 +869,13 @@ python probes\acquire_observation_overlay_ohlcv.py ^
 
 The resulting directory contains the exact raw response, a normalized
 `observation-overlay-ohlcv-v1` cache, and a manifest binding both artifacts by
-SHA-256. To add the one-symbol Observation Overlay, supply that cache for the
-same ET session:
+SHA-256. To include after-market candles, run the same acquisition with
+`--through-after-hours` after 20:00 ET; it creates a separate immutable bundle.
+The chart's Off-hours checkbox only controls visibility of candles present in
+the selected cache. With an Overlay cache, the replay clock continues from the
+last journal event through the cache's request end so completed after-market
+candles can become visible without adding journal events. To add the one-symbol
+Observation Overlay, supply that cache for the same ET session:
 
 ```cmd
 python probes\dashboard_quote_observation_journal.py ^
@@ -879,10 +884,18 @@ python probes\dashboard_quote_observation_journal.py ^
   --start-at-beginning
 ```
 
-The optional panel shows completed five-minute candles and volume, causal
+The Chart tab shows completed five-minute candles and volume, causal
 quote markers, and gray/cyan/gold/magenta membership intervals for Outside,
 Uni, Focus, and Hot. The dashboard only reads the supplied cache; it does not
 authenticate to Schwab, acquire bars, or modify the journal.
+
+Replay controls remain above the Monitor and Chart tabs. The Chart tab has
+left-side display settings for off-hours, quote point size and opacity, and
+Price/Percent labels. The zero-percent reference defaults to the first
+completed regular-hours candle's open. To choose another visible price, select
+the candle field (Open/High/Low/Close), click **Set 0% reference**, then click a
+candle or quote point. **Reset to first regular open** restores the default.
+The price range and plotted data stay fixed when axis labels switch units.
 
 The controls provide play, pause, restart, single-event step, 1x/10x/60x/390x
 speed selection, a historical clock, and event progress. At 60x, one historical

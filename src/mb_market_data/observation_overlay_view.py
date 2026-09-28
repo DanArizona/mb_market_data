@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 from types import MappingProxyType
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
@@ -18,7 +18,6 @@ from mb_market_data.observation_overlay import (
     OverlayQuotePoint,
 )
 
-
 ET = ZoneInfo("America/New_York")
 CHANNEL_COLORS: Mapping[str, str] = MappingProxyType(
     {"uni": "#00bcd4", "focus": "#d4a017", "hot": "#d100d1"}
@@ -29,6 +28,8 @@ POINT_SIZE_PIXELS: Mapping[str, int] = MappingProxyType(
 OVERLAY_HEIGHT_PIXELS: Mapping[str, int | None] = MappingProxyType(
     {"standard": 520, "tall": 720, "full": 900}
 )
+REGULAR_OPEN = time(9, 30)
+REGULAR_CLOSE = time(16, 0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,9 +46,7 @@ def normalize_overlay_point_style(
 ) -> OverlayPointStyle:
     """Return a bounded point style safe for rendering."""
 
-    style = (
-        value if isinstance(value, OverlayPointStyle) else OverlayPointStyle()
-    )
+    style = value if isinstance(value, OverlayPointStyle) else OverlayPointStyle()
     size = style.size if style.size in POINT_SIZE_PIXELS else "big"
     opacity = min(1.0, max(0.1, float(style.opacity)))
     return OverlayPointStyle(
@@ -82,8 +81,7 @@ class ObservationOverlayView:
     @property
     def evidence_text(self) -> str:
         statuses = ", ".join(
-            f"{name} {count:,}"
-            for name, count in self.quote_status_counts.items()
+            f"{name} {count:,}" for name, count in self.quote_status_counts.items()
         )
         quote_text = statuses or "no quote outcomes"
         return (
@@ -101,9 +99,7 @@ def build_observation_overlay_view(
     return ObservationOverlayView(
         symbol=overlay.symbol,
         replay_time_et_text=(
-            overlay.replay_time_utc.astimezone(ET).strftime(
-                "%Y-%m-%d %H:%M:%S.%f"
-            )[:-3]
+            overlay.replay_time_utc.astimezone(ET).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             + " ET"
         ),
         current_band=overlay.current_band,
@@ -120,6 +116,196 @@ def _quote_price(point: OverlayQuotePoint) -> float | None:
         return None
     result = float(value)
     return result if math.isfinite(result) else None
+
+
+def _regular_hours(value: datetime) -> bool:
+    return REGULAR_OPEN <= value.astimezone(ET).time() < REGULAR_CLOSE
+
+
+def default_reference(overlay: ObservationOverlayData) -> tuple[float, str] | None:
+    """Use the first *visible* regular-session candle without future leakage."""
+
+    for candle in overlay.candles:
+        if _regular_hours(candle.start_et) and candle.open > 0:
+            return candle.open, f"{candle.start_et:%H:%M} ET candle open"
+    return None
+
+
+def resolve_reference(
+    overlay: ObservationOverlayData,
+    selected: Mapping[str, Any] | None,
+) -> tuple[float, str] | None:
+    """Accept a selected price only after its source is replay-visible."""
+
+    if isinstance(selected, Mapping):
+        try:
+            available_at = datetime.fromisoformat(selected["available_at_utc"])
+            price = float(selected["price"])
+            if (
+                selected.get("session_date") == overlay.session_date.isoformat()
+                and selected.get("symbol") == overlay.symbol
+                and available_at.tzinfo is not None
+                and available_at <= overlay.replay_time_utc
+                and math.isfinite(price)
+                and price > 0
+            ):
+                return price, str(selected.get("label") or "Selected price")
+        except (KeyError, TypeError, ValueError):
+            pass
+    return default_reference(overlay)
+
+
+def selected_reference_from_click(
+    overlay: ObservationOverlayData,
+    click_data: Mapping[str, Any] | None,
+    figure_data: Mapping[str, Any] | None,
+    candle_field: str,
+) -> dict[str, Any] | None:
+    """Resolve a clicked candle field or quote marker to visible evidence."""
+
+    if candle_field not in {"open", "high", "low", "close"}:
+        return None
+    try:
+        point = click_data["points"][0]
+        trace = figure_data["data"][point["curveNumber"]]
+        index = point["pointNumber"]
+        if not isinstance(index, int) or index < 0:
+            return None
+        if trace["name"] == "5-minute OHLC":
+            row = trace["customdata"][index]
+            start = datetime.fromisoformat(row[0])
+            price = float(
+                row[{"open": 1, "high": 2, "low": 3, "close": 4}[candle_field]]
+            )
+            available_at = start + OHLCV_INTERVAL
+            label = f"{start.astimezone(ET):%H:%M} ET candle {candle_field}"
+        elif trace["name"].endswith(" quote"):
+            available_value = trace["x"][index]
+            available_at = (
+                datetime.fromisoformat(available_value)
+                if isinstance(available_value, str)
+                else available_value
+            )
+            price = float(trace["y"][index])
+            label = f"{available_at.astimezone(ET):%H:%M:%S} ET {trace['name']} last"
+        else:
+            return None
+        if (
+            available_at.tzinfo is None
+            or available_at > overlay.replay_time_utc
+            or not math.isfinite(price)
+            or price <= 0
+        ):
+            return None
+        return {
+            "session_date": overlay.session_date.isoformat(),
+            "symbol": overlay.symbol,
+            "available_at_utc": available_at.isoformat(),
+            "price": price,
+            "label": label,
+        }
+    except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+        return None
+
+
+def _nice_percent_ticks(
+    low: float, high: float, reference: float
+) -> tuple[list[float], list[str]]:
+    """Choose round percent labels while retaining price coordinates."""
+
+    percent_low = 100 * (low / reference - 1)
+    percent_high = 100 * (high / reference - 1)
+    span = max(percent_high - percent_low, 0.0001)
+    rough = span / 6
+    magnitude = 10 ** math.floor(math.log10(rough))
+    step = next(
+        (v * magnitude for v in (1, 2, 5, 10) if v * magnitude >= rough), 10 * magnitude
+    )
+    first = math.ceil(percent_low / step)
+    last = math.floor(percent_high / step)
+    percents = [index * step for index in range(first, last + 1)]
+    decimals = max(0, min(4, -math.floor(math.log10(step))))
+    return (
+        [reference * (1 + value / 100) for value in percents],
+        [f"{value:.{decimals}f}%" for value in percents],
+    )
+
+
+def configure_overlay_axis(
+    figure: Any,
+    overlay: ObservationOverlayData,
+    *,
+    units: str,
+    reference: tuple[float, str] | None,
+    off_hours: bool,
+) -> Any:
+    """Label price coordinates in either price or percent without rescaling."""
+
+    candles = tuple(
+        c for c in overlay.candles if off_hours or _regular_hours(c.start_et)
+    )
+    points = tuple(
+        price
+        for point in overlay.quote_points
+        if off_hours or _regular_hours(point.available_at_utc)
+        if (price := _quote_price(point)) is not None
+    )
+    prices = [
+        value for candle in candles for value in (candle.low, candle.high)
+    ] + list(points)
+    axis = figure.layout.yaxis
+    if units != "percent" or reference is None:
+        axis.title.text = "Price"
+        axis.tickmode = "auto"
+        axis.tickvals = None
+        axis.ticktext = None
+    else:
+        price, _ = reference
+        axis.title.text = "Change from reference"
+        if prices:
+            lower, upper = min(prices), max(prices)
+            if axis.range is not None:
+                lower, upper = axis.range
+            else:
+                margin = max((upper - lower) * 0.05, price * 0.001)
+                lower -= margin
+                upper += margin
+            ticks, labels = _nice_percent_ticks(lower, upper, price)
+            axis.tickmode = "array"
+            axis.tickvals = ticks
+            axis.ticktext = labels
+
+    if reference is not None and prices:
+        price, _ = reference
+        data_low, data_high = min(prices), max(prices)
+        for percent, dash, width, opacity in (
+            (0, "solid", 2, 0.9),
+            (1, "solid", 1, 0.5),
+            (-1, "solid", 1, 0.5),
+            (2, "dash", 1, 0.35),
+            (-2, "dash", 1, 0.35),
+        ):
+            level = price * (1 + percent / 100)
+            # A hidden off-hours reference may lie outside the visible data.
+            # Shapes participate in autorange, so omit every offscreen level.
+            if not data_low <= level <= data_high:
+                continue
+            figure.add_shape(
+                type="line",
+                xref="paper",
+                yref="y",
+                x0=0,
+                x1=1,
+                y0=level,
+                y1=level,
+                layer="above",
+                line={
+                    "color": f"rgba(241,185,93,{opacity})",
+                    "width": width,
+                    "dash": dash,
+                },
+            )
+    return figure
 
 
 def _rgba(color: str, alpha: float) -> str:
@@ -232,10 +418,7 @@ def apply_observation_overlay_view_state(
             continue
 
         direct_range = relayout_data.get(f"{axis_name}.range")
-        if (
-            isinstance(direct_range, (list, tuple))
-            and len(direct_range) == 2
-        ):
+        if isinstance(direct_range, (list, tuple)) and len(direct_range) == 2:
             axis.autorange = False
             axis.range = list(direct_range)
             continue
@@ -257,6 +440,10 @@ def build_observation_overlay_figure(
     theme: str = "dark",
     point_styles: Mapping[str, OverlayPointStyle] | None = None,
     height: str = "standard",
+    off_hours: bool = True,
+    units: str = "price",
+    selected_reference: Mapping[str, Any] | None = None,
+    relayout_data: Mapping[str, Any] | None = None,
 ) -> Any:
     """Build a Plotly candlestick/volume figure with causal quote points."""
 
@@ -279,11 +466,11 @@ def build_observation_overlay_figure(
         vertical_spacing=0.025,
         row_heights=(0.779, 0.22, 0.001),
     )
-    candles = overlay.candles
+    candles = tuple(
+        item for item in overlay.candles if off_hours or _regular_hours(item.start_et)
+    )
     if candles:
-        candle_times = [
-            item.start_et + OHLCV_INTERVAL / 2 for item in candles
-        ]
+        candle_times = [item.start_et + OHLCV_INTERVAL / 2 for item in candles]
         figure.add_trace(
             go.Candlestick(
                 x=candle_times,
@@ -291,6 +478,16 @@ def build_observation_overlay_figure(
                 high=[item.high for item in candles],
                 low=[item.low for item in candles],
                 close=[item.close for item in candles],
+                customdata=[
+                    [
+                        item.start_et.isoformat(),
+                        item.open,
+                        item.high,
+                        item.low,
+                        item.close,
+                    ]
+                    for item in candles
+                ],
                 name="5-minute OHLC",
                 increasing_line_color="#34d6ad",
                 decreasing_line_color="#ff7b85",
@@ -323,6 +520,7 @@ def build_observation_overlay_figure(
             (point, price)
             for point in overlay.quote_points
             if point.channel == channel
+            if off_hours or _regular_hours(point.available_at_utc)
             if (price := _quote_price(point)) is not None
         )
         if not priced:
@@ -431,4 +629,17 @@ def build_observation_overlay_figure(
     figure.update_yaxes(title_text="Price", row=1, col=1)
     figure.update_yaxes(title_text="Volume", row=2, col=1)
     figure.update_yaxes(visible=False, fixedrange=True, row=3, col=1)
+    if not off_hours:
+        figure.layout.xaxis3.range = [
+            datetime.combine(overlay.session_date, REGULAR_OPEN, tzinfo=ET),
+            datetime.combine(overlay.session_date, REGULAR_CLOSE, tzinfo=ET),
+        ]
+    apply_observation_overlay_view_state(figure, relayout_data)
+    configure_overlay_axis(
+        figure,
+        overlay,
+        units=units,
+        reference=resolve_reference(overlay, selected_reference),
+        off_hours=off_hours,
+    )
     return figure

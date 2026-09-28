@@ -18,10 +18,12 @@ from mb_market_data.observation_overlay_view import (
     apply_observation_overlay_view_state,
     build_observation_overlay_figure,
     build_observation_overlay_view,
+    default_reference,
     normalize_overlay_height,
     normalize_overlay_point_style,
+    resolve_reference,
+    selected_reference_from_click,
 )
-
 
 UTC = timezone.utc
 SESSION_DATE = date(2026, 9, 24)
@@ -67,9 +69,7 @@ def overlay() -> ObservationOverlayData:
         candles=candles,
         membership_transitions=(
             OverlayMembershipTransition(
-                available_at_utc=datetime(
-                    2026, 9, 24, 13, 30, tzinfo=UTC
-                ),
+                available_at_utc=datetime(2026, 9, 24, 13, 30, tzinfo=UTC),
                 revision=0,
                 band=MembershipBand.FOCUS,
                 source="unit-test",
@@ -78,12 +78,8 @@ def overlay() -> ObservationOverlayData:
         ),
         quote_points=(
             OverlayQuotePoint(
-                available_at_utc=datetime(
-                    2026, 9, 24, 13, 30, 5, tzinfo=UTC
-                ),
-                scheduled_at_utc=datetime(
-                    2026, 9, 24, 13, 30, 5, tzinfo=UTC
-                ),
+                available_at_utc=datetime(2026, 9, 24, 13, 30, 5, tzinfo=UTC),
+                scheduled_at_utc=datetime(2026, 9, 24, 13, 30, 5, tzinfo=UTC),
                 acquisition_id="focus-1",
                 channel="focus",
                 channel_revision=0,
@@ -92,12 +88,8 @@ def overlay() -> ObservationOverlayData:
                 values=MappingProxyType({"quote_last_price": 10.4}),
             ),
             OverlayQuotePoint(
-                available_at_utc=datetime(
-                    2026, 9, 24, 13, 30, 30, tzinfo=UTC
-                ),
-                scheduled_at_utc=datetime(
-                    2026, 9, 24, 13, 30, 30, tzinfo=UTC
-                ),
+                available_at_utc=datetime(2026, 9, 24, 13, 30, 30, tzinfo=UTC),
+                scheduled_at_utc=datetime(2026, 9, 24, 13, 30, 30, tzinfo=UTC),
                 acquisition_id="uni-1",
                 channel="uni",
                 channel_revision=0,
@@ -171,9 +163,7 @@ class TestObservationOverlayView(unittest.TestCase):
             },
         )
 
-        focus = next(
-            trace for trace in figure.data if trace.name == "Focus quote"
-        )
+        focus = next(trace for trace in figure.data if trace.name == "Focus quote")
         self.assertEqual(focus.marker.size, 2)
         self.assertEqual(focus.marker.opacity, 0.35)
 
@@ -181,9 +171,7 @@ class TestObservationOverlayView(unittest.TestCase):
             overlay(),
             point_styles={"focus": OverlayPointStyle(visible=False)},
         )
-        self.assertNotIn(
-            "Focus quote", tuple(trace.name for trace in hidden.data)
-        )
+        self.assertNotIn("Focus quote", tuple(trace.name for trace in hidden.data))
         self.assertGreaterEqual(len(hidden.layout.shapes), 3)
 
     def test_bounds_point_style_and_height_presets(self) -> None:
@@ -223,13 +211,77 @@ class TestObservationOverlayView(unittest.TestCase):
         figure = build_observation_overlay_figure(overlay())
 
         self.assertEqual(
-            {shape.yref for shape in figure.layout.shapes},
+            {shape.yref for shape in figure.layout.shapes if shape.layer == "below"},
             {"y domain", "y2 domain"},
         )
         self.assertEqual(
-            {shape.xref for shape in figure.layout.shapes},
+            {shape.xref for shape in figure.layout.shapes if shape.layer == "below"},
             {"x2", "x3"},
         )
+
+    def test_percent_ticks_preserve_price_range_and_reference_lines(self) -> None:
+        evidence = overlay()
+        zoom = {"yaxis.range": [9.0, 11.0]}
+        price = build_observation_overlay_figure(evidence, relayout_data=zoom)
+        percent = build_observation_overlay_figure(
+            evidence, units="percent", relayout_data=zoom
+        )
+
+        self.assertEqual(default_reference(evidence), (10.25, "09:30 ET candle open"))
+        self.assertEqual(
+            tuple(price.layout.yaxis.range), tuple(percent.layout.yaxis.range)
+        )
+        self.assertEqual(tuple(price.data[0].open), tuple(percent.data[0].open))
+        self.assertEqual(percent.layout.yaxis.tickmode, "array")
+        self.assertEqual(percent.layout.yaxis.title.text, "Change from reference")
+        self.assertIn("0%", tuple(percent.layout.yaxis.ticktext))
+        reference_lines = [
+            shape for shape in percent.layout.shapes if shape.yref == "y"
+        ]
+        self.assertEqual(reference_lines[0].y0, 10.25)
+        self.assertEqual(reference_lines[0].line.dash, "solid")
+        self.assertIn("dash", {shape.line.dash for shape in reference_lines})
+
+    def test_off_hours_filter_and_reference_causality(self) -> None:
+        evidence = overlay()
+        regular = build_observation_overlay_figure(evidence, off_hours=False)
+        self.assertEqual(len(regular.data[0].x), 1)
+        self.assertEqual(len(regular.data[1].x), 1)
+        self.assertEqual(
+            tuple(value.strftime("%H:%M") for value in regular.layout.xaxis3.range),
+            ("09:30", "16:00"),
+        )
+        candle_click = {"points": [{"curveNumber": 0, "pointNumber": 1}]}
+        selected = selected_reference_from_click(
+            evidence, candle_click, {"data": regular.to_plotly_json()["data"]}, "high"
+        )
+        self.assertIsNone(selected)  # second candle is absent after filtering
+        full = build_observation_overlay_figure(evidence)
+        selected = selected_reference_from_click(
+            evidence, candle_click, full.to_plotly_json(), "high"
+        )
+        self.assertEqual(selected["price"], 11.0)
+        self.assertEqual(resolve_reference(evidence, selected)[0], 11.0)
+        earlier = dict(selected, available_at_utc="2026-09-24T13:36:00+00:00")
+        self.assertEqual(
+            resolve_reference(evidence, earlier), default_reference(evidence)
+        )
+
+    def test_offscreen_reference_does_not_expand_regular_hours_axis(self) -> None:
+        evidence = overlay()
+        selected = {
+            "session_date": evidence.session_date.isoformat(),
+            "symbol": evidence.symbol,
+            "available_at_utc": "2026-09-24T13:30:00+00:00",
+            "price": 50.0,
+            "label": "Selected off-hours price",
+        }
+        figure = build_observation_overlay_figure(
+            evidence, off_hours=False, units="percent", selected_reference=selected
+        )
+
+        self.assertEqual(figure.layout.yaxis.tickmode, "array")
+        self.assertFalse(any(shape.yref == "y" for shape in figure.layout.shapes))
 
     def test_reapplies_browser_axis_ranges_to_updated_figure(self) -> None:
         figure = build_observation_overlay_figure(overlay())

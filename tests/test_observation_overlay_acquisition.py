@@ -18,7 +18,6 @@ from mb_market_data.observation_overlay_acquisition import (
     write_observation_overlay_acquisition,
 )
 
-
 UTC = timezone.utc
 SESSION_DATE = date(2026, 9, 24)
 
@@ -181,6 +180,43 @@ class TestObservationOverlayAcquisition(unittest.TestCase):
             datetime(2026, 9, 24, 16, 0, tzinfo=ET),
         )
 
+    def test_optional_after_hours_window_is_guarded_and_preserved(self) -> None:
+        with self.assertRaisesRegex(ValueError, "20:00"):
+            validate_completed_session(
+                SESSION_DATE,
+                datetime(2026, 9, 24, 19, 59, tzinfo=ET),
+                through_after_hours=True,
+            )
+        validate_completed_session(
+            SESSION_DATE,
+            datetime(2026, 9, 24, 20, 0, tzinfo=ET),
+            through_after_hours=True,
+        )
+        client = FakeClient(
+            FakeResponse(
+                {
+                    "symbol": "TEST",
+                    "candles": [raw_candle(9, 30), raw_candle(19, 55)],
+                }
+            )
+        )
+        result = acquire_observation_overlay_ohlcv(
+            client,
+            symbol="TEST",
+            session_date=SESSION_DATE,
+            through_after_hours=True,
+            now_factory=clock(),  # type: ignore[arg-type]
+        )
+        self.assertEqual(result.cache.request_end_et.strftime("%H:%M"), "20:00")
+        self.assertEqual(
+            tuple(item.start_et.strftime("%H:%M") for item in result.cache.candles),
+            ("09:30", "19:55"),
+        )
+        self.assertEqual(
+            client.calls[0][1]["endDate"].astimezone(ET).strftime("%H:%M"),
+            "20:00",
+        )
+
     def test_writes_verifiable_immutable_evidence_bundle(self) -> None:
         payload = {"symbol": "TEST", "candles": [raw_candle(9, 30)]}
         response = FakeResponse(payload)
@@ -202,7 +238,9 @@ class TestObservationOverlayAcquisition(unittest.TestCase):
             loaded = load_observation_overlay_cache(artifacts.cache)
             self.assertEqual(loaded, acquisition.cache)
             manifest = json.loads(artifacts.manifest.read_text(encoding="utf-8"))
-            self.assertEqual(manifest["acquisition_version"], "observation-overlay-acquisition-v1")
+            self.assertEqual(
+                manifest["acquisition_version"], "observation-overlay-acquisition-v1"
+            )
             self.assertEqual(manifest["candle_count"], 1)
             self.assertEqual(
                 manifest["artifacts"]["raw_payload"]["sha256"],
