@@ -23,11 +23,9 @@ CHANNEL_COLORS: Mapping[str, str] = MappingProxyType(
     {"uni": "#00bcd4", "focus": "#d4a017", "hot": "#d100d1"}
 )
 POINT_SIZE_PIXELS: Mapping[str, int] = MappingProxyType(
-    {"small": 2, "medium": 4, "big": 6}
+    {"standard": 4, "big": 6}
 )
-OVERLAY_HEIGHT_PIXELS: Mapping[str, int | None] = MappingProxyType(
-    {"standard": 520, "tall": 720, "full": 900}
-)
+OVERLAY_HEIGHT_PIXELS = 800
 REGULAR_OPEN = time(9, 30)
 REGULAR_CLOSE = time(16, 0)
 
@@ -54,12 +52,6 @@ def normalize_overlay_point_style(
         size=size,
         opacity=opacity,
     )
-
-
-def normalize_overlay_height(value: str | None) -> str:
-    """Return a supported chart-height preset."""
-
-    return value if value in OVERLAY_HEIGHT_PIXELS else "standard"
 
 
 @dataclass(frozen=True, slots=True)
@@ -439,7 +431,6 @@ def build_observation_overlay_figure(
     *,
     theme: str = "dark",
     point_styles: Mapping[str, OverlayPointStyle] | None = None,
-    height: str = "standard",
     off_hours: bool = True,
     units: str = "price",
     selected_reference: Mapping[str, Any] | None = None,
@@ -449,7 +440,6 @@ def build_observation_overlay_figure(
 
     if theme not in {"dark", "light"}:
         raise ValueError("theme must be 'dark' or 'light'")
-    height = normalize_overlay_height(height)
 
     try:
         import plotly.graph_objects as go
@@ -588,7 +578,6 @@ def build_observation_overlay_figure(
             "align": "left",
         }
     )
-    layout_height = OVERLAY_HEIGHT_PIXELS[height]
     layout_options: dict[str, Any] = {
         "template": "plotly_white" if theme == "light" else "plotly_dark",
         "paper_bgcolor": "rgba(0,0,0,0)",
@@ -601,8 +590,7 @@ def build_observation_overlay_figure(
         "uirevision": f"{overlay.session_date.isoformat()}:{overlay.symbol}",
         "shapes": _membership_shapes(overlay),
     }
-    if layout_height is not None:
-        layout_options["height"] = layout_height
+    layout_options["height"] = OVERLAY_HEIGHT_PIXELS
     figure.update_layout(
         **layout_options,
     )

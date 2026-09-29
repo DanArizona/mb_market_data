@@ -15,7 +15,6 @@ from mb_market_data.observation_overlay_view import (
     OverlayPointStyle,
     build_observation_overlay_figure,
     build_observation_overlay_view,
-    normalize_overlay_height,
     resolve_reference,
     selected_reference_from_click,
 )
@@ -47,13 +46,9 @@ def _overlay_point_style(
         else 1.0
     )
     return OverlayPointStyle(
-        size=size if size in {"small", "medium", "big"} else "big",
+        size=size if size in {"standard", "big"} else "standard",
         opacity=min(1.0, max(0.1, opacity)),
     )
-
-
-def _overlay_chart_class(height: str | None) -> str:
-    return f"overlay-chart overlay-height-{normalize_overlay_height(height)}"
 
 
 def _overlay_channel_control(html: Any, dcc: Any, channel: str) -> Any:
@@ -70,11 +65,10 @@ def _overlay_channel_control(html: Any, dcc: Any, channel: str) -> Any:
                     dcc.RadioItems(
                         id=f"observation-overlay-{channel}-size",
                         options=[
-                            {"label": "Small", "value": "small"},
-                            {"label": "Medium", "value": "medium"},
+                            {"label": "Standard", "value": "standard"},
                             {"label": "Big", "value": "big"},
                         ],
-                        value="big",
+                        value="standard",
                         inline=True,
                         className="overlay-size-control",
                     ),
@@ -277,26 +271,6 @@ def _observation_overlay_panel(
                                 _overlay_channel_control(html, dcc, channel)
                                 for channel in OVERLAY_CHANNELS
                             ],
-                            html.Fieldset(
-                                [
-                                    html.Legend("Plot height"),
-                                    dcc.RadioItems(
-                                        id="observation-overlay-height",
-                                        options=[
-                                            {
-                                                "label": "Standard",
-                                                "value": "standard",
-                                            },
-                                            {"label": "Tall", "value": "tall"},
-                                            {"label": "Full window", "value": "full"},
-                                        ],
-                                        value="standard",
-                                        inline=True,
-                                        className="overlay-height-control",
-                                    ),
-                                ],
-                                className="overlay-height-picker",
-                            ),
                         ],
                         className="overlay-display-controls",
                         **{"aria-label": "Observation Overlay display controls"},
@@ -309,7 +283,7 @@ def _observation_overlay_panel(
                             "responsive": True,
                             "scrollZoom": True,
                         },
-                        className=_overlay_chart_class("standard"),
+                        className="overlay-chart",
                     ),
                 ],
                 className="overlay-workspace",
@@ -972,7 +946,6 @@ def create_quote_dashboard(
             Input("observation-overlay-focus-opacity", "value"),
             Input("observation-overlay-hot-size", "value"),
             Input("observation-overlay-hot-opacity", "value"),
-            Input("observation-overlay-height", "value"),
             Input("observation-overlay-off-hours", "value"),
             Input("observation-overlay-units", "value"),
             Input("observation-overlay-reference", "data"),
@@ -988,7 +961,6 @@ def create_quote_dashboard(
             focus_opacity: float | None,
             hot_size: str | None,
             hot_opacity: float | None,
-            height: str | None,
             off_hours_value: list[str] | None,
             units: str | None,
             selected_reference: Mapping[str, Any] | None,
@@ -1017,7 +989,6 @@ def create_quote_dashboard(
                     "focus": _overlay_point_style(focus_size, focus_opacity),
                     "hot": _overlay_point_style(hot_size, hot_opacity),
                 },
-                height=normalize_overlay_height(height),
                 off_hours=off_hours,
                 units=units if units in {"price", "percent"} else "price",
                 selected_reference=selected_reference,
@@ -1038,7 +1009,7 @@ def create_quote_dashboard(
                 overlay_view.replay_time_et_text,
                 overlay_view.evidence_text,
                 figure,
-                _overlay_chart_class(height),
+                "overlay-chart",
                 reference_label,
             )
 

@@ -19,7 +19,6 @@ from mb_market_data.observation_overlay_view import (
     build_observation_overlay_figure,
     build_observation_overlay_view,
     default_reference,
-    normalize_overlay_height,
     normalize_overlay_point_style,
     resolve_reference,
     selected_reference_from_click,
@@ -157,14 +156,14 @@ class TestObservationOverlayView(unittest.TestCase):
             point_styles={
                 "focus": OverlayPointStyle(
                     visible=True,
-                    size="small",
+                    size="standard",
                     opacity=0.35,
                 )
             },
         )
 
         focus = next(trace for trace in figure.data if trace.name == "Focus quote")
-        self.assertEqual(focus.marker.size, 2)
+        self.assertEqual(focus.marker.size, 4)
         self.assertEqual(focus.marker.opacity, 0.35)
 
         hidden = build_observation_overlay_figure(
@@ -174,20 +173,15 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertNotIn("Focus quote", tuple(trace.name for trace in hidden.data))
         self.assertGreaterEqual(len(hidden.layout.shapes), 3)
 
-    def test_bounds_point_style_and_height_presets(self) -> None:
+    def test_bounds_point_style_and_uses_fixed_chart_height(self) -> None:
         self.assertEqual(
             normalize_overlay_point_style(
                 OverlayPointStyle(size="unknown", opacity=0.0)
             ),
             OverlayPointStyle(size="big", opacity=0.1),
         )
-        self.assertEqual(normalize_overlay_height("tall"), "tall")
-        self.assertEqual(normalize_overlay_height("unknown"), "standard")
-
-        tall = build_observation_overlay_figure(overlay(), height="tall")
-        full = build_observation_overlay_figure(overlay(), height="full")
-        self.assertEqual(tall.layout.height, 720)
-        self.assertEqual(full.layout.height, 900)
+        figure = build_observation_overlay_figure(overlay())
+        self.assertEqual(figure.layout.height, 800)
 
     def test_uses_readable_theme_specific_unified_hover(self) -> None:
         dark = build_observation_overlay_figure(overlay(), theme="dark")

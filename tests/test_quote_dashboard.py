@@ -14,7 +14,6 @@ from mb_market_data.observation_overlay import (
 )
 from mb_market_data.quote_dashboard import (
     _column_definitions,
-    _overlay_chart_class,
     _overlay_point_style,
     _parse_seek_time_utc,
     create_quote_dashboard,
@@ -307,7 +306,9 @@ class TestQuoteDashboard(unittest.TestCase):
                 f"observation-overlay-{channel}-opacity".encode(),
                 layout.data,
             )
-        self.assertIn(b"observation-overlay-height", layout.data)
+        self.assertNotIn(b"observation-overlay-height", layout.data)
+        self.assertIn(b'"label":"Standard","value":"standard"', layout.data)
+        self.assertNotIn(b'"label":"Small","value":"small"', layout.data)
         self.assertIn(b"observation-overlay-off-hours", layout.data)
         self.assertIn(b"observation-overlay-units", layout.data)
         self.assertIn(b"observation-overlay-set-reference", layout.data)
@@ -339,19 +340,18 @@ class TestQuoteDashboard(unittest.TestCase):
                         "value": {
                             ("replay-clock", "children"): "2026-09-11 09:30:00.000 ET",
                             ("theme-preference", "modified_timestamp"): 0,
-                            ("observation-overlay-uni-size", "value"): "small",
+                            ("observation-overlay-uni-size", "value"): "standard",
                             ("observation-overlay-uni-opacity", "value"): 25,
                             (
                                 "observation-overlay-focus-size",
                                 "value",
-                            ): "medium",
+                            ): "standard",
                             (
                                 "observation-overlay-focus-opacity",
                                 "value",
                             ): 55,
                             ("observation-overlay-hot-size", "value"): "big",
                             ("observation-overlay-hot-opacity", "value"): 100,
-                            ("observation-overlay-height", "value"): "tall",
                             ("observation-overlay-off-hours", "value"): ["show"],
                             ("observation-overlay-units", "value"): "percent",
                             ("observation-overlay-reference", "data"): None,
@@ -399,32 +399,24 @@ class TestQuoteDashboard(unittest.TestCase):
             layout["xaxis3"]["range"],
             ["2026-09-11 09:25:00", "2026-09-11 09:35:00"],
         )
-        self.assertEqual(layout["height"], 720)
+        self.assertEqual(layout["height"], 800)
         self.assertEqual(layout["yaxis"]["title"]["text"], "Price")
         self.assertIn(
             "waits for", body["observation-overlay-reference-label"]["children"]
         )
         self.assertEqual(
             body["observation-overlay-chart"]["className"],
-            "overlay-chart overlay-height-tall",
+            "overlay-chart",
         )
 
     def test_normalizes_overlay_display_controls(self) -> None:
         self.assertEqual(
-            _overlay_point_style("small", 10).opacity,
+            _overlay_point_style("standard", 10).opacity,
             0.1,
         )
         bounded = _overlay_point_style("invalid", 500)
-        self.assertEqual(bounded.size, "big")
+        self.assertEqual(bounded.size, "standard")
         self.assertEqual(bounded.opacity, 1.0)
-        self.assertEqual(
-            _overlay_chart_class("full"),
-            "overlay-chart overlay-height-full",
-        )
-        self.assertEqual(
-            _overlay_chart_class("invalid"),
-            "overlay-chart overlay-height-standard",
-        )
 
     def test_explains_membership_and_quote_provenance_columns(self) -> None:
         columns = {column["field"]: column for column in _column_definitions()}
@@ -481,9 +473,7 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b".rangeslider-mask-max", stylesheet.data)
         self.assertIn(b"fill-opacity: 1 !important", stylesheet.data)
         self.assertIn(b".overlay-display-controls", stylesheet.data)
-        self.assertIn(b".overlay-height-standard", stylesheet.data)
-        self.assertIn(b".overlay-height-tall", stylesheet.data)
-        self.assertIn(b".overlay-height-full", stylesheet.data)
+        self.assertIn(b".overlay-chart {\n  height: 800px;", stylesheet.data)
         self.assertEqual(favicon.status_code, 200)
 
     def test_parses_seek_time_as_end_of_displayed_et_second(self) -> None:
