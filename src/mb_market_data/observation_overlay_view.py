@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from types import MappingProxyType
 from typing import Any, Mapping, NamedTuple
 from zoneinfo import ZoneInfo
@@ -30,6 +30,8 @@ REGULAR_OPEN = time(9, 30)
 REGULAR_CLOSE = time(16, 0)
 HALT_COLOR = "#d100d1"
 HALT_LINE_WIDTH = 7
+REQUEST_ERROR_COLOR = "#ff4d5d"
+REQUEST_ERROR_LINE_WIDTH = 7
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +121,14 @@ class OverlayHaltSegment(NamedTuple):
     reason_code: str
 
 
+class OverlayRequestErrorSegment(NamedTuple):
+    channel: str
+    start_et: datetime
+    end_et: datetime
+    count: int
+    detail: str
+
+
 def resolve_halt_segments(
     overlay: ObservationOverlayData,
     *,
@@ -156,6 +166,96 @@ def resolve_halt_segments(
             )
         )
     return tuple(segments)
+
+
+def resolve_request_error_segments(
+    overlay: ObservationOverlayData,
+    *,
+    off_hours: bool,
+) -> tuple[OverlayRequestErrorSegment, ...]:
+    """Group consecutive request-error outcomes by channel and slot time."""
+
+    replay_time_et = overlay.replay_time_utc.astimezone(ET)
+    segments: list[OverlayRequestErrorSegment] = []
+    for channel in sorted({point.channel for point in overlay.quote_points}):
+        points = sorted(
+            (point for point in overlay.quote_points if point.channel == channel),
+            key=lambda point: point.scheduled_at_utc,
+        )
+        start_et: datetime | None = None
+        count = 0
+        detail = ""
+        for point in points:
+            scheduled_et = point.scheduled_at_utc.astimezone(ET)
+            if point.status == "request_error":
+                if start_et is None:
+                    start_et = scheduled_et
+                    detail = point.detail or "Request failed"
+                count += 1
+                continue
+            if start_et is not None:
+                _append_request_error_segment(
+                    segments,
+                    channel=channel,
+                    start_et=start_et,
+                    end_et=scheduled_et,
+                    count=count,
+                    detail=detail,
+                    session_date=overlay.session_date,
+                    off_hours=off_hours,
+                )
+                start_et = None
+                count = 0
+                detail = ""
+        if start_et is not None:
+            cadence = timedelta(seconds=15 if channel == "focus" else 30)
+            _append_request_error_segment(
+                segments,
+                channel=channel,
+                start_et=start_et,
+                end_et=min(
+                    replay_time_et,
+                    points[-1].scheduled_at_utc.astimezone(ET) + cadence,
+                ),
+                count=count,
+                detail=detail,
+                session_date=overlay.session_date,
+                off_hours=off_hours,
+            )
+    return tuple(segments)
+
+
+def _append_request_error_segment(
+    segments: list[OverlayRequestErrorSegment],
+    *,
+    channel: str,
+    start_et: datetime,
+    end_et: datetime,
+    count: int,
+    detail: str,
+    session_date: Any,
+    off_hours: bool,
+) -> None:
+    if not off_hours:
+        start_et = max(
+            start_et,
+            datetime.combine(session_date, REGULAR_OPEN, tzinfo=ET),
+        )
+        end_et = min(
+            end_et,
+            datetime.combine(session_date, REGULAR_CLOSE, tzinfo=ET),
+        )
+    if end_et <= start_et:
+        return
+    segments.append(
+        OverlayRequestErrorSegment(
+            channel,
+            start_et,
+            end_et,
+            count,
+            detail,
+        )
+    )
 
 
 def _regular_hours(value: datetime) -> bool:
@@ -620,6 +720,53 @@ def build_observation_overlay_figure(
         )
         figure.data[-1].xaxis = "x3"
 
+    error_segments = resolve_request_error_segments(
+        overlay,
+        off_hours=off_hours,
+    )
+    for channel in sorted({segment.channel for segment in error_segments}):
+        channel_segments = tuple(
+            segment for segment in error_segments if segment.channel == channel
+        )
+        x: list[Any] = []
+        y: list[float | None] = []
+        customdata: list[list[Any] | None] = []
+        for segment in channel_segments:
+            values = [
+                segment.channel.title(),
+                segment.start_et.strftime("%H:%M:%S"),
+                segment.end_et.strftime("%H:%M:%S"),
+                segment.count,
+                segment.detail,
+            ]
+            x.extend((segment.start_et, segment.end_et, None))
+            y.extend((0.985, 0.985, None))
+            customdata.extend((values, values, None))
+        figure.add_trace(
+            go.Scatter(
+                x=x,
+                y=y,
+                mode="lines",
+                name=f"{channel.title()} request errors",
+                legendgroup=f"{channel}-request-errors",
+                line={
+                    "color": REQUEST_ERROR_COLOR,
+                    "width": REQUEST_ERROR_LINE_WIDTH,
+                },
+                customdata=customdata,
+                hovertemplate=(
+                    "%{customdata[0]} request errors<br>"
+                    "%{customdata[1]}–%{customdata[2]} ET<br>"
+                    "%{customdata[3]} outcomes<br>"
+                    "%{customdata[4]}<extra></extra>"
+                ),
+            ),
+            row=1,
+            col=1,
+        )
+        figure.data[-1].xaxis = "x3"
+        figure.data[-1].yaxis = "y4"
+
     # Plotly positions a range slider below the lowest data-bearing subplot
     # associated with its x-axis.  Price traces deliberately use x3 so that
     # their candlesticks appear in the navigator, but without this inert host
@@ -667,6 +814,14 @@ def build_observation_overlay_figure(
         "legend": {"orientation": "h", "y": 1.02, "x": 0},
         "uirevision": f"{overlay.session_date.isoformat()}:{overlay.symbol}",
         "shapes": _membership_shapes(overlay),
+        "yaxis4": {
+            "overlaying": "y",
+            "range": [0, 1],
+            "visible": False,
+            "fixedrange": True,
+            "showgrid": False,
+            "zeroline": False,
+        },
     }
     layout_options["height"] = OVERLAY_HEIGHT_PIXELS
     figure.update_layout(

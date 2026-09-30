@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import MappingProxyType
 
 from mb_market_data.observation_overlay import (
@@ -21,6 +21,7 @@ from mb_market_data.observation_overlay_view import (
     build_observation_overlay_view,
     default_reference,
     normalize_overlay_point_style,
+    resolve_request_error_segments,
     resolve_reference,
     resolve_halt_segments,
     selected_reference_from_click,
@@ -119,6 +120,38 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(segments[0].start_et, halt.start_et)
         self.assertEqual(segments[0].end_et, halt.end_et)
         self.assertEqual(segments[0].price, 10.4)
+
+    def test_consecutive_request_errors_form_one_scheduled_time_span(self) -> None:
+        def point(second: int, status: str) -> OverlayQuotePoint:
+            scheduled = datetime(2026, 9, 24, 13, 30, tzinfo=UTC) + timedelta(
+                seconds=second
+            )
+            return OverlayQuotePoint(
+                available_at_utc=scheduled,
+                scheduled_at_utc=scheduled,
+                acquisition_id=f"uni-{second}",
+                channel="uni",
+                channel_revision=0,
+                status=status,
+                detail="bad JSON" if status == "request_error" else None,
+                values=MappingProxyType(
+                    {"quote_last_price": 10.5} if status == "quote" else {}
+                ),
+            )
+
+        value = replace(
+            overlay(),
+            quote_points=(
+                point(0, "request_error"),
+                point(30, "request_error"),
+                point(60, "quote"),
+            ),
+        )
+        segments = resolve_request_error_segments(value, off_hours=True)
+        self.assertEqual(len(segments), 1)
+        self.assertEqual(segments[0].start_et.strftime("%H:%M:%S"), "09:30:00")
+        self.assertEqual(segments[0].end_et.strftime("%H:%M:%S"), "09:31:00")
+        self.assertEqual(segments[0].count, 2)
 
     def test_summarizes_visible_evidence_and_current_band(self) -> None:
         view = build_observation_overlay_view(overlay())
