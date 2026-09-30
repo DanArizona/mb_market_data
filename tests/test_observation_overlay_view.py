@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from types import MappingProxyType
 
@@ -21,8 +22,10 @@ from mb_market_data.observation_overlay_view import (
     default_reference,
     normalize_overlay_point_style,
     resolve_reference,
+    resolve_halt_segments,
     selected_reference_from_click,
 )
+from mb_market_data.overlay_halts import OverlayHaltInterval
 
 UTC = timezone.utc
 SESSION_DATE = date(2026, 9, 24)
@@ -101,6 +104,22 @@ def overlay() -> ObservationOverlayData:
 
 
 class TestObservationOverlayView(unittest.TestCase):
+    def test_halt_segment_uses_first_in_halt_quote_and_recorded_release(self) -> None:
+        value = overlay()
+        halt = OverlayHaltInterval(
+            datetime(2026, 9, 24, 9, 30, 0, tzinfo=ET),
+            datetime(2026, 9, 24, 9, 31, 0, tzinfo=ET),
+            "M",
+        )
+        segments = resolve_halt_segments(
+            replace(value, halt_intervals=(halt,)),
+            off_hours=True,
+        )
+        self.assertEqual(len(segments), 1)
+        self.assertEqual(segments[0].start_et, halt.start_et)
+        self.assertEqual(segments[0].end_et, halt.end_et)
+        self.assertEqual(segments[0].price, 10.4)
+
     def test_summarizes_visible_evidence_and_current_band(self) -> None:
         view = build_observation_overlay_view(overlay())
 

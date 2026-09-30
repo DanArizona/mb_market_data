@@ -15,7 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from mb_market_data.local_dashboard_server import LocalDashboardServer
-from mb_market_data.overlay_halts import load_overlay_halt_markers
+from mb_market_data.overlay_halts import load_overlay_halt_intervals
 from mb_market_data.observation_overlay import (
     ObservationOverlayProjector,
     load_observation_overlay_cache,
@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--nasdaq-halts-json",
         type=Path,
-        help="Historical Nasdaq probe normalized.json for Overlay halt markers",
+        help="Historical Nasdaq probe normalized.json for Overlay halt intervals",
     )
     args = parser.parse_args()
     if not 1 <= args.port <= 65_535:
@@ -99,8 +99,8 @@ def main() -> int:
                 cache=overlay_cache,
                 symbol=overlay_cache.symbol,
                 session_date=reader.session_date,
-                halt_markers=(
-                    load_overlay_halt_markers(
+                halt_intervals=(
+                    load_overlay_halt_intervals(
                         args.nasdaq_halts_json,
                         symbol=overlay_cache.symbol,
                         session_date=reader.session_date,

@@ -1,4 +1,4 @@
-"""Validated Nasdaq historical halt markers for one replay session."""
+"""Validated Nasdaq historical halt intervals for one replay session."""
 
 from __future__ import annotations
 
@@ -12,21 +12,21 @@ ET = ZoneInfo("America/New_York")
 
 
 @dataclass(frozen=True, slots=True)
-class OverlayHaltMarker:
-    time_et: datetime
-    kind: str
+class OverlayHaltInterval:
+    start_et: datetime
+    end_et: datetime | None
     reason_code: str
 
 
-def load_overlay_halt_markers(
+def load_overlay_halt_intervals(
     path: Path, *, symbol: str, session_date: date
-) -> tuple[OverlayHaltMarker, ...]:
-    """Load confirmed events from the probe's normalized.json, without inference."""
+) -> tuple[OverlayHaltInterval, ...]:
+    """Load confirmed intervals from the probe's normalized.json."""
 
     records = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(records, list):
         raise ValueError("Nasdaq halt evidence must be a JSON record list")
-    markers: list[OverlayHaltMarker] = []
+    intervals: list[OverlayHaltInterval] = []
     for record in records:
         if not isinstance(record, dict):
             raise ValueError("Nasdaq halt record must be an object")
@@ -40,8 +40,8 @@ def load_overlay_halt_markers(
         if not reason:
             raise ValueError("Nasdaq halt reason is missing")
         halt = _time(session_date, record.get("halt_time"))
-        markers.append(OverlayHaltMarker(halt, "halt", reason))
         resume_text = record.get("resumption_trade_time")
+        resume: datetime | None = None
         if resume_text:
             resume_date = record.get("resumption_date")
             if resume_date != session_date.strftime("%m/%d/%Y"):
@@ -49,8 +49,17 @@ def load_overlay_halt_markers(
             resume = _time(session_date, resume_text)
             if resume < halt:
                 raise ValueError("Resumption trade precedes halt")
-            markers.append(OverlayHaltMarker(resume, "resume", reason))
-    return tuple(sorted(set(markers), key=lambda marker: (marker.time_et, marker.kind)))
+        intervals.append(OverlayHaltInterval(halt, resume, reason))
+    return tuple(
+        sorted(
+            set(intervals),
+            key=lambda interval: (
+                interval.start_et,
+                interval.end_et or interval.start_et,
+                interval.reason_code,
+            ),
+        )
+    )
 
 
 def _time(session_date: date, value: object) -> datetime:

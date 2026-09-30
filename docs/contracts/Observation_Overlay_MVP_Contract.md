@@ -1,7 +1,7 @@
 # Observation Overlay MVP Contract
 
 **Status:** Cache acquisition and visual integration implemented; historical
-Nasdaq halt markers optional; real-day visual validation pending
+Nasdaq halt intervals optional; real-day visual validation pending
 **Scope:** One symbol, one ET session, historical playback only
 
 ## 1. Purpose
@@ -125,12 +125,15 @@ SQLite store is already opened read-only for replay.
 ## 7. Explicit exclusions
 
 Historical Nasdaq halt evidence can be supplied separately as the halt probe's
-`normalized.json`. The replay chart marks only the selected symbol's confirmed
-halt and recorded trade-resumption timestamps. An earlier quote or candle gap
-does not create a halt. These markers are retrospective historical annotations:
-their event times position them on the replay chart, but the historical feed's
-later retrieval time does not establish when a live observer first learned of
-the event. Live halt knowledge and symbol promotion require a separate design.
+`normalized.json`. For each selected-symbol record, the replay chart draws a
+thick magenta segment from the confirmed halt time through the recorded trade
+resumption time at the first replay-visible quote price sampled during the
+halt. While replay has not yet reached resumption, the segment ends at the
+replay clock. An earlier quote or candle gap does not create a halt. These are
+retrospective historical annotations: the historical feed's later retrieval
+time does not establish when a live observer first learned of the event. Live
+halt knowledge, an immediate quote request, and symbol promotion require a
+separate design.
 
 The MVP does not include:
 
