@@ -127,6 +127,8 @@ class OverlayRequestErrorSegment(NamedTuple):
     end_et: datetime
     count: int
     detail: str
+    start_price: float | None
+    end_price: float | None
 
 
 def resolve_halt_segments(
@@ -182,6 +184,11 @@ def resolve_request_error_segments(
             (point for point in overlay.quote_points if point.channel == channel),
             key=lambda point: point.scheduled_at_utc,
         )
+        priced_points = [
+            (point.scheduled_at_utc.astimezone(ET), price)
+            for point in points
+            if (price := _quote_price(point)) is not None
+        ]
         start_et: datetime | None = None
         count = 0
         detail = ""
@@ -203,6 +210,7 @@ def resolve_request_error_segments(
                     detail=detail,
                     session_date=overlay.session_date,
                     off_hours=off_hours,
+                    priced_points=priced_points,
                 )
                 start_et = None
                 count = 0
@@ -221,6 +229,7 @@ def resolve_request_error_segments(
                 detail=detail,
                 session_date=overlay.session_date,
                 off_hours=off_hours,
+                priced_points=priced_points,
             )
     return tuple(segments)
 
@@ -235,6 +244,7 @@ def _append_request_error_segment(
     detail: str,
     session_date: Any,
     off_hours: bool,
+    priced_points: list[tuple[datetime, float]],
 ) -> None:
     if not off_hours:
         start_et = max(
@@ -254,8 +264,45 @@ def _append_request_error_segment(
             end_et,
             count,
             detail,
+            _nearest_quote_price(priced_points, start_et),
+            _nearest_quote_price(priced_points, end_et),
         )
     )
+
+
+def _nearest_quote_price(
+    priced_points: list[tuple[datetime, float]],
+    target_et: datetime,
+) -> float | None:
+    if not priced_points:
+        return None
+    return min(
+        priced_points,
+        key=lambda item: abs((item[0] - target_et).total_seconds()),
+    )[1]
+
+
+def _request_error_band_price(
+    overlay: ObservationOverlayData,
+    *,
+    off_hours: bool,
+) -> float | None:
+    prices = [
+        value
+        for candle in overlay.candles
+        if off_hours or _regular_hours(candle.start_et)
+        for value in (candle.low, candle.high)
+    ] + [
+        price
+        for point in overlay.quote_points
+        if off_hours or _regular_hours(point.available_at_utc)
+        if (price := _quote_price(point)) is not None
+    ]
+    if not prices:
+        return None
+    lower, upper = min(prices), max(prices)
+    span = upper - lower
+    return upper - span * 0.08 if span > 0 else upper
 
 
 def _regular_hours(value: datetime) -> bool:
@@ -724,7 +771,15 @@ def build_observation_overlay_figure(
         overlay,
         off_hours=off_hours,
     )
-    for channel in sorted({segment.channel for segment in error_segments}):
+    error_band_price = _request_error_band_price(
+        overlay,
+        off_hours=off_hours,
+    )
+    for channel in (
+        sorted({segment.channel for segment in error_segments})
+        if error_band_price is not None
+        else ()
+    ):
         channel_segments = tuple(
             segment for segment in error_segments if segment.channel == channel
         )
@@ -740,7 +795,7 @@ def build_observation_overlay_figure(
                 segment.detail,
             ]
             x.extend((segment.start_et, segment.end_et, None))
-            y.extend((0.985, 0.985, None))
+            y.extend((error_band_price, error_band_price, None))
             customdata.extend((values, values, None))
         figure.add_trace(
             go.Scatter(
@@ -765,7 +820,34 @@ def build_observation_overlay_figure(
             col=1,
         )
         figure.data[-1].xaxis = "x3"
-        figure.data[-1].yaxis = "y4"
+
+        connector_x: list[Any] = []
+        connector_y: list[float | None] = []
+        for segment in channel_segments:
+            if segment.start_price is not None:
+                connector_x.extend((segment.start_et, segment.start_et, None))
+                connector_y.extend(
+                    (error_band_price, segment.start_price, None)
+                )
+            if segment.end_price is not None:
+                connector_x.extend((segment.end_et, segment.end_et, None))
+                connector_y.extend((error_band_price, segment.end_price, None))
+        if connector_x:
+            figure.add_trace(
+                go.Scatter(
+                    x=connector_x,
+                    y=connector_y,
+                    mode="lines",
+                    name=f"{channel.title()} request error endpoints",
+                    legendgroup=f"{channel}-request-errors",
+                    showlegend=False,
+                    line={"color": REQUEST_ERROR_COLOR, "width": 1},
+                    hoverinfo="skip",
+                ),
+                row=1,
+                col=1,
+            )
+            figure.data[-1].xaxis = "x3"
 
     # Plotly positions a range slider below the lowest data-bearing subplot
     # associated with its x-axis.  Price traces deliberately use x3 so that
@@ -814,14 +896,6 @@ def build_observation_overlay_figure(
         "legend": {"orientation": "h", "y": 1.02, "x": 0},
         "uirevision": f"{overlay.session_date.isoformat()}:{overlay.symbol}",
         "shapes": _membership_shapes(overlay),
-        "yaxis4": {
-            "overlaying": "y",
-            "range": [0, 1],
-            "visible": False,
-            "fixedrange": True,
-            "showgrid": False,
-            "zeroline": False,
-        },
     }
     layout_options["height"] = OVERLAY_HEIGHT_PIXELS
     figure.update_layout(

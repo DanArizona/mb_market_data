@@ -142,6 +142,7 @@ class TestObservationOverlayView(unittest.TestCase):
         value = replace(
             overlay(),
             quote_points=(
+                point(-30, "quote"),
                 point(0, "request_error"),
                 point(30, "request_error"),
                 point(60, "quote"),
@@ -152,6 +153,8 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(segments[0].start_et.strftime("%H:%M:%S"), "09:30:00")
         self.assertEqual(segments[0].end_et.strftime("%H:%M:%S"), "09:31:00")
         self.assertEqual(segments[0].count, 2)
+        self.assertEqual(segments[0].start_price, 10.5)
+        self.assertEqual(segments[0].end_price, 10.5)
 
     def test_summarizes_visible_evidence_and_current_band(self) -> None:
         view = build_observation_overlay_view(overlay())

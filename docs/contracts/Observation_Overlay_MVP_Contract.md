@@ -107,11 +107,11 @@ visible. The preparation layer does not resample, deduplicate, interpolate, or
 replace one channel with another.
 
 Quote outcomes with a usable last price appear as channel-colored points.
-Consecutive `request_error` outcomes appear as a separate red status band at
+Consecutive `request_error` outcomes appear as a separate red status band near
 the top of the price panel, spanning their scheduled slot times through the
-next successful outcome. The status band uses an independent hidden display
-axis, so it does not alter the price scale, and its Plotly legend entry can
-toggle it independently.
+next successful outcome. Thin endpoint connectors descend to the nearest
+successful quote price before or after the error span. The Plotly legend entry
+can toggle the band and its connectors together.
 
 ## 6. Read-only and fail-closed behavior
 
