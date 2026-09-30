@@ -473,7 +473,11 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b".rangeslider-mask-max", stylesheet.data)
         self.assertIn(b"fill-opacity: 1 !important", stylesheet.data)
         self.assertIn(b".overlay-display-controls", stylesheet.data)
-        self.assertIn(b".overlay-chart {\n  height: 800px;", stylesheet.data)
+        normalized_stylesheet = stylesheet.data.replace(b"\r\n", b"\n")
+        self.assertIn(
+            b".overlay-chart {\n  height: 800px;",
+            normalized_stylesheet,
+        )
         self.assertEqual(favicon.status_code, 200)
 
     def test_parses_seek_time_as_end_of_displayed_et_second(self) -> None:
