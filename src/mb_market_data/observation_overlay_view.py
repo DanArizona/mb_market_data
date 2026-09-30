@@ -841,7 +841,11 @@ def build_observation_overlay_figure(
                     name=f"{channel.title()} request error endpoints",
                     legendgroup=f"{channel}-request-errors",
                     showlegend=False,
-                    line={"color": REQUEST_ERROR_COLOR, "width": 1},
+                    line={
+                        "color": REQUEST_ERROR_COLOR,
+                        "width": 1,
+                        "dash": "dot",
+                    },
                     hoverinfo="skip",
                 ),
                 row=1,
