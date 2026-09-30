@@ -32,6 +32,7 @@ from mb_market_data.quote_journal_replay import (
     ReplayEvent,
 )
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
+from mb_market_data.overlay_halts import OverlayHaltMarker
 
 
 ET = ZoneInfo("America/New_York")
@@ -284,6 +285,7 @@ class ObservationOverlayData:
     candles: tuple[OverlayCandle, ...]
     membership_transitions: tuple[OverlayMembershipTransition, ...]
     quote_points: tuple[OverlayQuotePoint, ...]
+    halt_markers: tuple[OverlayHaltMarker, ...] = ()
 
     @property
     def current_band(self) -> MembershipBand:
@@ -315,6 +317,7 @@ class ObservationOverlayProjector:
         cache: ObservationOverlayOHLCVCache,
         symbol: str,
         session_date: date,
+        halt_markers: tuple[OverlayHaltMarker, ...] = (),
     ) -> None:
         normalized_symbol = _symbol(symbol)
         if cache.symbol != normalized_symbol:
@@ -324,6 +327,9 @@ class ObservationOverlayProjector:
         self.cache = cache
         self.symbol = normalized_symbol
         self.session_date = session_date
+        self.halt_markers = tuple(halt_markers)
+        if any(marker.time_et.date() != session_date for marker in self.halt_markers):
+            raise ValueError("halt marker belongs to another session")
         self._transitions: list[OverlayMembershipTransition] = []
         self._quote_points: list[OverlayQuotePoint] = []
         self._current_band = MembershipBand.OUTSIDE_UNI
@@ -417,6 +423,10 @@ class ObservationOverlayProjector:
                 item
                 for item in self._quote_points
                 if item.available_at_utc <= cutoff
+            ),
+            halt_markers=tuple(
+                marker for marker in self.halt_markers
+                if marker.time_et <= cutoff.astimezone(ET)
             ),
         )
 

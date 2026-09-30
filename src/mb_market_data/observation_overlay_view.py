@@ -386,6 +386,21 @@ def _membership_shapes(overlay: ObservationOverlayData) -> list[dict[str, Any]]:
     return shapes
 
 
+def _halt_shapes(overlay: ObservationOverlayData, off_hours: bool) -> list[dict[str, Any]]:
+    shapes: list[dict[str, Any]] = []
+    for marker in overlay.halt_markers:
+        if not off_hours and not _regular_hours(marker.time_et):
+            continue
+        color = "#ff775e" if marker.kind == "halt" else "#58d5a2"
+        shapes.append({
+            "type": "line", "xref": "x3", "yref": "y domain",
+            "x0": marker.time_et, "x1": marker.time_et,
+            "y0": 0, "y1": 1, "layer": "above",
+            "line": {"color": color, "width": 2, "dash": "dash"},
+        })
+    return shapes
+
+
 def apply_observation_overlay_view_state(
     figure: Any,
     relayout_data: Mapping[str, Any] | None,
@@ -588,8 +603,20 @@ def build_observation_overlay_figure(
         "hoverlabel": hoverlabel,
         "legend": {"orientation": "h", "y": 1.02, "x": 0},
         "uirevision": f"{overlay.session_date.isoformat()}:{overlay.symbol}",
-        "shapes": _membership_shapes(overlay),
+        "shapes": _membership_shapes(overlay) + _halt_shapes(overlay, off_hours),
     }
+    layout_options["annotations"] = [
+        {
+            "x": marker.time_et, "xref": "x3", "y": 1, "yref": "y domain",
+            "text": f"Nasdaq {'halt' if marker.kind == 'halt' else 'resume'} "
+                    f"{marker.reason_code} {marker.time_et:%H:%M:%S}",
+            "showarrow": False, "textangle": -90,
+            "xanchor": "left", "yanchor": "top",
+            "font": {"size": 10, "color": "#ff775e" if marker.kind == "halt" else "#58d5a2"},
+        }
+        for marker in overlay.halt_markers
+        if off_hours or _regular_hours(marker.time_et)
+    ]
     layout_options["height"] = OVERLAY_HEIGHT_PIXELS
     figure.update_layout(
         **layout_options,

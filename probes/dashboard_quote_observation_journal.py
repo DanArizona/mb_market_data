@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from mb_market_data.local_dashboard_server import LocalDashboardServer
+from mb_market_data.overlay_halts import load_overlay_halt_markers
 from mb_market_data.observation_overlay import (
     ObservationOverlayProjector,
     load_observation_overlay_cache,
@@ -61,9 +62,16 @@ def parse_args() -> argparse.Namespace:
             "When supplied, add the read-only Observation Overlay panel."
         ),
     )
+    parser.add_argument(
+        "--nasdaq-halts-json",
+        type=Path,
+        help="Historical Nasdaq probe normalized.json for Overlay halt markers",
+    )
     args = parser.parse_args()
     if not 1 <= args.port <= 65_535:
         parser.error("--port must be between 1 and 65535")
+    if args.nasdaq_halts_json and not args.observation_overlay_cache:
+        parser.error("--nasdaq-halts-json requires --observation-overlay-cache")
     return args
 
 
@@ -91,6 +99,14 @@ def main() -> int:
                 cache=overlay_cache,
                 symbol=overlay_cache.symbol,
                 session_date=reader.session_date,
+                halt_markers=(
+                    load_overlay_halt_markers(
+                        args.nasdaq_halts_json,
+                        symbol=overlay_cache.symbol,
+                        session_date=reader.session_date,
+                    )
+                    if args.nasdaq_halts_json is not None else ()
+                ),
             )
             if overlay_cache is not None
             else None
@@ -126,6 +142,8 @@ def main() -> int:
     if overlay_cache is not None:
         print(f"OO symbol        : {overlay_cache.symbol}")
         print(f"OO cache         : {args.observation_overlay_cache}")
+    if args.nasdaq_halts_json is not None:
+        print(f"Nasdaq halts     : {args.nasdaq_halts_json}")
     print(f"Replay events    : {timeline.event_count:,}")
     print(
         "Initial position : "
