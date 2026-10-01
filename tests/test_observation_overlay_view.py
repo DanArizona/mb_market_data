@@ -22,6 +22,7 @@ from mb_market_data.observation_overlay_view import (
     default_reference,
     normalize_overlay_point_style,
     resolve_request_error_segments,
+    resolve_overlay_time_viewport,
     resolve_reference,
     resolve_halt_segments,
     selected_reference_from_click,
@@ -204,6 +205,8 @@ class TestObservationOverlayView(unittest.TestCase):
         )
         self.assertEqual(tuple(figure.data[0].x), expected)
         self.assertEqual(tuple(figure.data[1].x), expected)
+        self.assertEqual(figure.data[0].increasing.line.color, "#1A6B57")
+        self.assertEqual(figure.data[0].decreasing.line.color, "#803D43")
 
     def test_applies_independent_quote_point_display_styles(self) -> None:
         figure = build_observation_overlay_figure(
@@ -289,6 +292,8 @@ class TestObservationOverlayView(unittest.TestCase):
         ]
         self.assertEqual(reference_lines[0].y0, 10.25)
         self.assertEqual(reference_lines[0].line.dash, "solid")
+        self.assertEqual(reference_lines[0].line.width, 1)
+        self.assertEqual(reference_lines[0].line.color, "rgba(241,185,93,0.7)")
         self.assertIn("dash", {shape.line.dash for shape in reference_lines})
 
     def test_off_hours_filter_and_reference_causality(self) -> None:
@@ -298,6 +303,13 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(len(regular.data[1].x), 1)
         self.assertEqual(
             tuple(value.strftime("%H:%M") for value in regular.layout.xaxis3.range),
+            ("09:30", "16:00"),
+        )
+        self.assertEqual(
+            tuple(
+                value.strftime("%H:%M")
+                for value in regular.layout.xaxis3.rangeslider.range
+            ),
             ("09:30", "16:00"),
         )
         candle_click = {"points": [{"curveNumber": 0, "pointNumber": 1}]}
@@ -352,6 +364,140 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(tuple(figure.layout.yaxis.range), (10.0, 11.0))
         self.assertFalse(figure.layout.xaxis3.autorange)
         self.assertFalse(figure.layout.yaxis.autorange)
+
+    def test_replay_starts_with_full_session_and_keeps_navigator_fixed(self) -> None:
+        evidence = overlay()
+        figure = build_observation_overlay_figure(evidence, off_hours=True)
+        self.assertEqual(
+            tuple(value.strftime("%H:%M") for value in figure.layout.xaxis3.range),
+            ("09:30", "16:00"),
+        )
+        self.assertEqual(
+            tuple(
+                value.strftime("%H:%M")
+                for value in figure.layout.xaxis3.rangeslider.range
+            ),
+            ("09:30", "16:00"),
+        )
+
+    def test_manual_zoom_stays_put_when_replay_crosses_view_edge(self) -> None:
+        evidence = replace(
+            overlay(),
+            replay_time_utc=datetime(2026, 9, 24, 20, 5, tzinfo=UTC),
+        )
+        zoom = {"xaxis3.range": ["2026-09-24 09:30:00", "2026-09-24 10:00:00"]}
+        figure = build_observation_overlay_figure(evidence, relayout_data=zoom)
+        self.assertEqual(tuple(figure.layout.xaxis3.range), tuple(zoom["xaxis3.range"]))
+        self.assertEqual(
+            tuple(
+                value.strftime("%H:%M")
+                for value in figure.layout.xaxis3.rangeslider.range
+            ),
+            ("09:30", "16:00"),
+        )
+        volume_zoom = {
+            "xaxis2.range[0]": "2026-09-24 09:35:00",
+            "xaxis2.range[1]": "2026-09-24 10:05:00",
+        }
+        volume_figure = build_observation_overlay_figure(
+            evidence, relayout_data=volume_zoom
+        )
+        self.assertEqual(
+            tuple(volume_figure.layout.xaxis3.range),
+            (volume_zoom["xaxis2.range[0]"], volume_zoom["xaxis2.range[1]"]),
+        )
+
+    def test_zoom_ahead_of_data_follows_when_data_reaches_right_edge(self) -> None:
+        first = overlay()
+        zoom = {"xaxis3.range": ["2026-09-24 09:30:00", "2026-09-24 09:45:00"]}
+        viewport = resolve_overlay_time_viewport(
+            first, None, zoom, off_hours=True
+        )
+        self.assertEqual(viewport["mode"], "follow")
+        self.assertEqual(
+            [
+                datetime.fromisoformat(item).strftime("%H:%M")
+                for item in viewport["range"]
+            ],
+            ["09:30", "09:45"],
+        )
+        point = replace(
+            first.quote_points[0],
+            available_at_utc=datetime(2026, 9, 24, 13, 50, tzinfo=UTC),
+        )
+        evidence = replace(
+            first,
+            replay_time_utc=datetime(2026, 9, 24, 13, 50, tzinfo=UTC),
+            quote_points=(point,),
+        )
+        viewport = resolve_overlay_time_viewport(
+            evidence, viewport, None, off_hours=True
+        )
+        self.assertEqual(viewport["mode"], "follow")
+        self.assertEqual(
+            [
+                datetime.fromisoformat(item).strftime("%H:%M")
+                for item in viewport["range"]
+            ],
+            ["09:35", "09:50"],
+        )
+        figure = build_observation_overlay_figure(evidence, viewport=viewport)
+        self.assertEqual(
+            tuple(
+                value.strftime("%H:%M")
+                for value in figure.layout.xaxis3.rangeslider.range
+            ),
+            ("09:30", "16:00"),
+        )
+
+    def test_zoom_inside_existing_data_stays_fixed_through_replay(self) -> None:
+        first = overlay()
+        viewport = resolve_overlay_time_viewport(
+            first,
+            None,
+            {"xaxis3.range": ["2026-09-24 09:25:00", "2026-09-24 09:31:00"]},
+            off_hours=True,
+        )
+        self.assertEqual(viewport["mode"], "inspect")
+        point = replace(
+            first.quote_points[0],
+            available_at_utc=datetime(2026, 9, 24, 14, 0, tzinfo=UTC),
+        )
+        later = replace(
+            first, replay_time_utc=point.available_at_utc, quote_points=(point,)
+        )
+        later_viewport = resolve_overlay_time_viewport(
+            later, viewport, {"yaxis.range": [9, 12]}, off_hours=True
+        )
+        self.assertEqual(later_viewport["mode"], "inspect")
+        self.assertEqual(later_viewport["range"], viewport["range"])
+
+    def test_no_zoom_stays_at_regular_session_even_after_close(self) -> None:
+        first = overlay()
+        point = replace(
+            first.quote_points[0],
+            available_at_utc=datetime(2026, 9, 24, 20, 5, tzinfo=UTC),
+        )
+        evidence = replace(
+            first, replay_time_utc=point.available_at_utc, quote_points=(point,)
+        )
+        viewport = resolve_overlay_time_viewport(evidence, None, None, off_hours=True)
+        self.assertEqual(viewport["mode"], "full")
+        figure = build_observation_overlay_figure(evidence, viewport=viewport)
+        self.assertEqual(
+            tuple(value.strftime("%H:%M") for value in figure.layout.xaxis3.range),
+            ("09:30", "16:00"),
+        )
+
+    def test_horizontal_autorange_reset_restores_regular_session(self) -> None:
+        figure = build_observation_overlay_figure(
+            overlay(), relayout_data={"xaxis3.autorange": True}
+        )
+        self.assertFalse(figure.layout.xaxis3.autorange)
+        self.assertEqual(
+            tuple(value.strftime("%H:%M") for value in figure.layout.xaxis3.range),
+            ("09:30", "16:00"),
+        )
 
     def test_reapplies_axis_autorange_reset(self) -> None:
         figure = build_observation_overlay_figure(overlay())

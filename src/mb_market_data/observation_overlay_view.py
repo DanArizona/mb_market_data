@@ -466,7 +466,7 @@ def configure_overlay_axis(
         price, _ = reference
         data_low, data_high = min(prices), max(prices)
         for percent, dash, width, opacity in (
-            (0, "solid", 2, 0.9),
+            (0, "solid", 1, 0.7),
             (1, "solid", 1, 0.5),
             (-1, "solid", 1, 0.5),
             (2, "dash", 1, 0.35),
@@ -608,6 +608,8 @@ def apply_observation_overlay_view_state(
         if isinstance(direct_range, (list, tuple)) and len(direct_range) == 2:
             axis.autorange = False
             axis.range = list(direct_range)
+            if axis_name in {"xaxis", "xaxis2"}:
+                figure.layout.xaxis3.range = list(direct_range)
             continue
 
         lower_key = f"{axis_name}.range[0]"
@@ -618,7 +620,110 @@ def apply_observation_overlay_view_state(
                 relayout_data[lower_key],
                 relayout_data[upper_key],
             ]
+            if axis_name in {"xaxis", "xaxis2"}:
+                figure.layout.xaxis3.range = list(axis.range)
     return figure
+
+
+def _overlay_session_range(session_date: Any) -> list[datetime]:
+    return [
+        datetime.combine(session_date, REGULAR_OPEN, tzinfo=ET),
+        datetime.combine(session_date, REGULAR_CLOSE, tzinfo=ET),
+    ]
+
+
+def _latest_plotted_time(
+    overlay: ObservationOverlayData, *, off_hours: bool
+) -> datetime:
+    """Time coordinate of the rightmost replay-visible price/volume outcome."""
+
+    start, _ = _overlay_session_range(overlay.session_date)
+    visible_times = (
+        [
+            candle.start_et + OHLCV_INTERVAL
+            for candle in overlay.candles
+            if off_hours or _regular_hours(candle.start_et)
+        ]
+        + [
+            point.available_at_utc.astimezone(ET)
+            for point in overlay.quote_points
+            if off_hours or _regular_hours(point.available_at_utc)
+        ]
+    )
+    return max(visible_times, default=start)
+
+
+def _horizontal_relayout_range(
+    relayout_data: Mapping[str, Any],
+) -> list[datetime] | None:
+    for axis in ("xaxis3", "xaxis2", "xaxis"):
+        direct = relayout_data.get(f"{axis}.range")
+        if isinstance(direct, (list, tuple)) and len(direct) == 2:
+            raw = direct
+        else:
+            raw = (
+                relayout_data.get(f"{axis}.range[0]"),
+                relayout_data.get(f"{axis}.range[1]"),
+            )
+        try:
+            values = [datetime.fromisoformat(str(item)) for item in raw]
+            values = [
+                item.replace(tzinfo=ET) if item.tzinfo is None else item.astimezone(ET)
+                for item in values
+            ]
+            if values[0] < values[1]:
+                return values
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def resolve_overlay_time_viewport(
+    overlay: ObservationOverlayData,
+    previous: Mapping[str, Any] | None,
+    relayout_data: Mapping[str, Any] | None,
+    *,
+    off_hours: bool,
+) -> dict[str, Any]:
+    """Persist user zoom intent and advance only a future-facing viewport."""
+
+    session = _overlay_session_range(overlay.session_date)
+    identity = {
+        "session_date": overlay.session_date.isoformat(),
+        "symbol": overlay.symbol,
+    }
+    mode = "full"
+    current = session
+    if isinstance(previous, Mapping) and all(
+        previous.get(key) == value for key, value in identity.items()
+    ):
+        saved = _horizontal_relayout_range({"xaxis3.range": previous.get("range")})
+        if saved is not None and previous.get("mode") in {"full", "follow", "inspect"}:
+            current = saved
+            mode = str(previous["mode"])
+
+    if isinstance(relayout_data, Mapping):
+        if any(
+            relayout_data.get(f"{axis}.autorange") is True
+            for axis in ("xaxis3", "xaxis2", "xaxis")
+        ):
+            mode, current = "full", session
+        else:
+            selected = _horizontal_relayout_range(relayout_data)
+            if selected is not None and selected != current:
+                current = selected
+                mode = (
+                    "follow"
+                    if current[1] > _latest_plotted_time(overlay, off_hours=off_hours)
+                    else "inspect"
+                )
+
+    if mode == "follow":
+        latest = _latest_plotted_time(overlay, off_hours=off_hours)
+        if latest > current[1]:
+            offset = latest - current[1]
+            current = [current[0] + offset, current[1] + offset]
+    return {**identity, "mode": mode, "range": [item.isoformat() for item in current]}
 
 
 def build_observation_overlay_figure(
@@ -630,6 +735,7 @@ def build_observation_overlay_figure(
     units: str = "price",
     selected_reference: Mapping[str, Any] | None = None,
     relayout_data: Mapping[str, Any] | None = None,
+    viewport: Mapping[str, Any] | None = None,
 ) -> Any:
     """Build a Plotly candlestick/volume figure with causal quote points."""
 
@@ -674,8 +780,8 @@ def build_observation_overlay_figure(
                     for item in candles
                 ],
                 name="5-minute OHLC",
-                increasing_line_color="#34d6ad",
-                decreasing_line_color="#ff7b85",
+                increasing_line_color="#1A6B57",
+                decreasing_line_color="#803D43",
             ),
             row=1,
             col=1,
@@ -920,6 +1026,7 @@ def build_observation_overlay_figure(
     figure.update_xaxes(
         rangeslider_visible=True,
         rangeslider_thickness=0.14,
+        rangeslider_range=_overlay_session_range(overlay.session_date),
         title_text="Eastern Time",
         hoverformat="%H:%M:%S ET",
         row=3,
@@ -928,12 +1035,21 @@ def build_observation_overlay_figure(
     figure.update_yaxes(title_text="Price", row=1, col=1)
     figure.update_yaxes(title_text="Volume", row=2, col=1)
     figure.update_yaxes(visible=False, fixedrange=True, row=3, col=1)
-    if not off_hours:
-        figure.layout.xaxis3.range = [
-            datetime.combine(overlay.session_date, REGULAR_OPEN, tzinfo=ET),
-            datetime.combine(overlay.session_date, REGULAR_CLOSE, tzinfo=ET),
-        ]
+    figure.layout.xaxis3.range = _overlay_session_range(overlay.session_date)
+    if isinstance(viewport, Mapping):
+        selected = _horizontal_relayout_range({"xaxis3.range": viewport.get("range")})
+        if selected is not None:
+            figure.layout.xaxis3.range = selected
     apply_observation_overlay_view_state(figure, relayout_data)
+    if isinstance(relayout_data, Mapping):
+        # A browser double-click restores the fixed session window, not an
+        # autorange inferred from the incomplete replay evidence.
+        if any(
+            relayout_data.get(f"{axis}.autorange") is True
+            for axis in ("xaxis", "xaxis2", "xaxis3")
+        ):
+            figure.layout.xaxis3.autorange = False
+            figure.layout.xaxis3.range = _overlay_session_range(overlay.session_date)
     configure_overlay_axis(
         figure,
         overlay,

@@ -310,6 +310,7 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b'"label":"Standard","value":"standard"', layout.data)
         self.assertNotIn(b'"label":"Small","value":"small"', layout.data)
         self.assertIn(b"observation-overlay-off-hours", layout.data)
+        self.assertIn(b"observation-overlay-viewport", layout.data)
         self.assertIn(b"observation-overlay-units", layout.data)
         self.assertIn(b"observation-overlay-set-reference", layout.data)
         self.assertNotIn(b"observation-overlay-uni-visible", layout.data)
@@ -332,7 +333,7 @@ class TestQuoteDashboard(unittest.TestCase):
             json={
                 "output": callback_key,
                 "outputs": outputs,
-                "changedPropIds": ["replay-clock.children"],
+                "changedPropIds": ["observation-overlay-chart.relayoutData"],
                 "inputs": [
                     {
                         "id": item["id"],
@@ -355,6 +356,12 @@ class TestQuoteDashboard(unittest.TestCase):
                             ("observation-overlay-off-hours", "value"): ["show"],
                             ("observation-overlay-units", "value"): "percent",
                             ("observation-overlay-reference", "data"): None,
+                            ("observation-overlay-chart", "relayoutData"): {
+                                "xaxis3.range": [
+                                    "2026-09-11 09:25:00",
+                                    "2026-09-11 09:35:00",
+                                ]
+                            },
                         }[(item["id"], item["property"])],
                     }
                     for item in callback["inputs"]
@@ -366,14 +373,9 @@ class TestQuoteDashboard(unittest.TestCase):
                         "value": "dark",
                     },
                     {
-                        "id": "observation-overlay-chart",
-                        "property": "relayoutData",
-                        "value": {
-                            "xaxis3.range": [
-                                "2026-09-11 09:25:00",
-                                "2026-09-11 09:35:00",
-                            ]
-                        },
+                        "id": "observation-overlay-viewport",
+                        "property": "data",
+                        "value": None,
                     },
                 ],
             },
@@ -396,8 +398,14 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(traces[-1]["hoverinfo"], "skip")
         layout = body["observation-overlay-chart"]["figure"]["layout"]
         self.assertEqual(
-            layout["xaxis3"]["range"],
-            ["2026-09-11 09:25:00", "2026-09-11 09:35:00"],
+            tuple(
+                datetime.fromisoformat(value).strftime("%H:%M")
+                for value in layout["xaxis3"]["range"]
+            ),
+            ("09:25", "09:35"),
+        )
+        self.assertEqual(
+            body["observation-overlay-viewport"]["data"]["mode"], "follow"
         )
         self.assertEqual(layout["height"], 800)
         self.assertEqual(layout["yaxis"]["title"]["text"], "Price")
