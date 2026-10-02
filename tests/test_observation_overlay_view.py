@@ -380,6 +380,47 @@ class TestObservationOverlayView(unittest.TestCase):
             ("09:30", "16:00"),
         )
 
+    def test_all_time_axes_stay_on_session_when_first_candle_appears(self) -> None:
+        evidence = overlay()
+        for frame in (
+            replace(evidence, candles=(), quote_points=()),
+            replace(evidence, candles=(evidence.candles[1],)),
+        ):
+            figure = build_observation_overlay_figure(frame)
+            for name in ("xaxis", "xaxis2", "xaxis3"):
+                axis = getattr(figure.layout, name)
+                self.assertEqual(axis.type, "date")
+                self.assertFalse(axis.autorange)
+                self.assertEqual(
+                    tuple(value.strftime("%H:%M") for value in axis.range),
+                    ("09:30", "16:00"),
+                )
+
+    def test_zoom_keeps_price_volume_and_navigator_viewports_aligned(self) -> None:
+        figure = build_observation_overlay_figure(
+            overlay(),
+            relayout_data={
+                "xaxis2.range[0]": "2026-09-24 09:35:00",
+                "xaxis2.range[1]": "2026-09-24 10:05:00",
+            },
+        )
+        for name in ("xaxis", "xaxis2", "xaxis3"):
+            axis = getattr(figure.layout, name)
+            self.assertEqual(
+                tuple(
+                    datetime.fromisoformat(str(value)).strftime("%H:%M")
+                    for value in axis.range
+                ),
+                ("09:35", "10:05"),
+            )
+        self.assertEqual(
+            tuple(
+                value.strftime("%H:%M")
+                for value in figure.layout.xaxis3.rangeslider.range
+            ),
+            ("09:30", "16:00"),
+        )
+
     def test_manual_zoom_stays_put_when_replay_crosses_view_edge(self) -> None:
         evidence = replace(
             overlay(),

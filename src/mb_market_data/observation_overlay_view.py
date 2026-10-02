@@ -1035,21 +1035,35 @@ def build_observation_overlay_figure(
     figure.update_yaxes(title_text="Price", row=1, col=1)
     figure.update_yaxes(title_text="Volume", row=2, col=1)
     figure.update_yaxes(visible=False, fixedrange=True, row=3, col=1)
-    figure.layout.xaxis3.range = _overlay_session_range(overlay.session_date)
+    session_range = _overlay_session_range(overlay.session_date)
+    time_range: list[Any] = session_range
     if isinstance(viewport, Mapping):
         selected = _horizontal_relayout_range({"xaxis3.range": viewport.get("range")})
         if selected is not None:
-            figure.layout.xaxis3.range = selected
+            time_range = selected
+    figure.layout.xaxis3.range = list(time_range)
     apply_observation_overlay_view_state(figure, relayout_data)
     if isinstance(relayout_data, Mapping):
-        # A browser double-click restores the fixed session window, not an
-        # autorange inferred from the incomplete replay evidence.
+        selected = _horizontal_relayout_range(relayout_data)
+        if selected is not None:
+            time_range = list(figure.layout.xaxis3.range)
+        # A browser double-click restores the session window.  It must not
+        # autorange from whichever replay evidence happens to be visible.
         if any(
             relayout_data.get(f"{axis}.autorange") is True
             for axis in ("xaxis", "xaxis2", "xaxis3")
         ):
-            figure.layout.xaxis3.autorange = False
-            figure.layout.xaxis3.range = _overlay_session_range(overlay.session_date)
+            time_range = session_range
+    # Every subplot needs an explicit date axis from the first replay frame.
+    # Otherwise the empty Price/Volume panels start with numeric autoranges,
+    # and the first OHLC trace can replace the common session window with its
+    # own data-derived range.  Keep all three matched axes in one viewport.
+    for axis_name in ("xaxis", "xaxis2", "xaxis3"):
+        axis = getattr(figure.layout, axis_name)
+        axis.type = "date"
+        axis.autorange = False
+        axis.range = list(time_range)
+    figure.layout.xaxis3.rangeslider.range = session_range
     configure_overlay_axis(
         figure,
         overlay,
