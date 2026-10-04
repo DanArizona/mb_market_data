@@ -241,11 +241,11 @@ class TestObservationOverlayView(unittest.TestCase):
         figure = build_observation_overlay_figure(overlay())
         self.assertEqual(figure.layout.height, 800)
 
-    def test_uses_readable_theme_specific_unified_hover(self) -> None:
+    def test_uses_readable_theme_specific_hover(self) -> None:
         dark = build_observation_overlay_figure(overlay(), theme="dark")
         light = build_observation_overlay_figure(overlay(), theme="light")
 
-        self.assertEqual(dark.layout.hovermode, "x unified")
+        self.assertEqual(dark.layout.hovermode, "closest")
         self.assertEqual(
             dark.layout.hoverlabel.bgcolor,
             "rgba(11,24,40,0.50)",
@@ -257,7 +257,62 @@ class TestObservationOverlayView(unittest.TestCase):
         )
         focus = next(trace for trace in dark.data if trace.name == "Focus quote")
         self.assertNotIn("%{x}", focus.hovertemplate)
-        self.assertIn("Acquisition", focus.hovertemplate)
+        self.assertIn("Price", focus.hovertemplate)
+        self.assertNotIn("Acquisition", focus.hovertemplate)
+
+    def test_four_hover_modes_keep_observations_and_features_distinct(self) -> None:
+        evidence = overlay()
+        for detailed in (False, True):
+            for shift in (False, True):
+                with self.subTest(detailed=detailed, shift=shift):
+                    figure = build_observation_overlay_figure(
+                        evidence, detailed_hover=detailed, shift_hover=shift
+                    )
+                    candle, volume, point = figure.data[:3]
+                    self.assertEqual(point.hoverinfo == "all", not shift)
+                    self.assertEqual(candle.hoverinfo == "all", shift)
+                    self.assertEqual(volume.hoverinfo == "all", shift)
+                    if shift:
+                        self.assertIn("09:30–09:35", candle.customdata[1][5])
+                        self.assertIn("Volume", candle.hovertemplate)
+                        self.assertEqual(point.hovertemplate, None)
+                    else:
+                        self.assertIn("Price", point.hovertemplate)
+                        self.assertEqual(candle.hovertemplate, None)
+                        self.assertEqual("Acquisition" in point.hovertemplate, detailed)
+                    self.assertEqual(
+                        "Schwab 5-minute" in (candle.hovertemplate or ""),
+                        detailed and shift,
+                    )
+
+    def test_detailed_observation_fields_describe_quote_result_and_trade_age(self) -> None:
+        evidence = overlay()
+        point = replace(
+            evidence.quote_points[0],
+            values=MappingProxyType(
+                {
+                    "quote_last_price": 10.4,
+                    "quote_total_volume": 12_345,
+                    "quote_security_status": "Normal",
+                    "quote_trade_time_ms": int(
+                        datetime(2026, 9, 24, 13, 30, tzinfo=UTC).timestamp() * 1000
+                    ),
+                }
+            ),
+        )
+        figure = build_observation_overlay_figure(
+            replace(evidence, quote_points=(point,)), detailed_hover=True
+        )
+        custom = figure.data[2].customdata[0]
+        self.assertEqual(custom[0], "quote")
+        self.assertEqual(custom[3], "+1.46%")
+        self.assertEqual(custom[7], "5.0 s")
+        self.assertEqual(custom[8], "12,345")
+        self.assertEqual(custom[9], "Normal")
+        self.assertIn(
+            "API result: %{customdata[0]} object returned (trade may be stale)",
+            figure.data[2].hovertemplate,
+        )
 
     def test_membership_shapes_are_confined_to_data_panels(self) -> None:
         figure = build_observation_overlay_figure(overlay())
@@ -358,8 +413,11 @@ class TestObservationOverlayView(unittest.TestCase):
 
         self.assertIs(result, figure)
         self.assertEqual(
-            tuple(figure.layout.xaxis3.range),
-            ("2026-09-24 09:25:00", "2026-09-24 09:35:00"),
+            tuple(
+                datetime.fromisoformat(str(value)).strftime("%H:%M")
+                for value in figure.layout.xaxis3.range
+            ),
+            ("09:30", "09:40"),
         )
         self.assertEqual(tuple(figure.layout.yaxis.range), (10.0, 11.0))
         self.assertFalse(figure.layout.xaxis3.autorange)
@@ -420,6 +478,43 @@ class TestObservationOverlayView(unittest.TestCase):
             ),
             ("09:30", "16:00"),
         )
+        self.assertEqual(figure.layout.xaxis3.rangeslider.yaxis.rangemode, "auto")
+        self.assertEqual(figure.layout.yaxis2.rangemode, "tozero")
+        self.assertTrue(figure.layout.xaxis2.showgrid)
+
+    def test_pan_and_zoom_cannot_leave_session_and_volume_stays_on_zero(self) -> None:
+        evidence = overlay()
+        for requested, expected in (
+            (("09:25", "09:35"), ("09:30", "09:40")),
+            (("15:55", "16:05"), ("15:50", "16:00")),
+            (("09:00", "17:00"), ("09:30", "16:00")),
+        ):
+            with self.subTest(requested=requested):
+                selected = [f"2026-09-24 {time}:00" for time in requested]
+                viewport = resolve_overlay_time_viewport(
+                    evidence, None, {"xaxis3.range": selected}, off_hours=False
+                )
+                figure = build_observation_overlay_figure(
+                    evidence,
+                    viewport=viewport,
+                    relayout_data={"yaxis2.range": [100, 500]},
+                )
+                for name in ("xaxis", "xaxis2", "xaxis3"):
+                    axis = getattr(figure.layout, name)
+                    self.assertEqual(
+                        tuple(value.strftime("%H:%M") for value in axis.range),
+                        expected,
+                    )
+                    self.assertEqual(axis.minallowed.strftime("%H:%M"), "09:30")
+                    self.assertEqual(axis.maxallowed.strftime("%H:%M"), "16:00")
+                self.assertEqual(tuple(figure.layout.yaxis2.range), (0, 500))
+                self.assertEqual(
+                    tuple(
+                        value.strftime("%H:%M")
+                        for value in figure.layout.xaxis3.rangeslider.range
+                    ),
+                    ("09:30", "16:00"),
+                )
 
     def test_manual_zoom_stays_put_when_replay_crosses_view_edge(self) -> None:
         evidence = replace(
@@ -428,7 +523,13 @@ class TestObservationOverlayView(unittest.TestCase):
         )
         zoom = {"xaxis3.range": ["2026-09-24 09:30:00", "2026-09-24 10:00:00"]}
         figure = build_observation_overlay_figure(evidence, relayout_data=zoom)
-        self.assertEqual(tuple(figure.layout.xaxis3.range), tuple(zoom["xaxis3.range"]))
+        self.assertEqual(
+            tuple(
+                datetime.fromisoformat(str(value)).strftime("%H:%M")
+                for value in figure.layout.xaxis3.range
+            ),
+            ("09:30", "10:00"),
+        )
         self.assertEqual(
             tuple(
                 value.strftime("%H:%M")
@@ -444,8 +545,11 @@ class TestObservationOverlayView(unittest.TestCase):
             evidence, relayout_data=volume_zoom
         )
         self.assertEqual(
-            tuple(volume_figure.layout.xaxis3.range),
-            (volume_zoom["xaxis2.range[0]"], volume_zoom["xaxis2.range[1]"]),
+            tuple(
+                datetime.fromisoformat(str(value)).strftime("%H:%M")
+                for value in volume_figure.layout.xaxis3.range
+            ),
+            ("09:35", "10:05"),
         )
 
     def test_zoom_ahead_of_data_follows_when_data_reaches_right_edge(self) -> None:
@@ -496,7 +600,7 @@ class TestObservationOverlayView(unittest.TestCase):
         viewport = resolve_overlay_time_viewport(
             first,
             None,
-            {"xaxis3.range": ["2026-09-24 09:25:00", "2026-09-24 09:31:00"]},
+            {"xaxis3.range": ["2026-09-24 09:30:00", "2026-09-24 09:34:00"]},
             off_hours=True,
         )
         self.assertEqual(viewport["mode"], "inspect")

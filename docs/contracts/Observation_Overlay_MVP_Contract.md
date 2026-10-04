@@ -113,6 +113,26 @@ next successful outcome. Thin endpoint connectors descend to the nearest
 successful quote price before or after the error span. The Plotly legend entry
 can toggle the band and its connectors together.
 
+The display uses regular hours, 09:30–16:00 ET. Price and volume begin with
+that full time range; all horizontal zooms and pans remain inside it. The
+navigator retains the full session and shows replay-visible evidence outside
+the selected viewport, with its own vertical scale. Volume stays anchored at
+zero. A zoom whose right edge is still ahead of plotted data follows replay;
+a zoom within existing data remains in inspection mode.
+
+The Detailed hover control and Shift key select four hover presentations:
+
+| Detailed hover | Shift | Hover target | Fields |
+|---|---|---|---|
+| Off | Up | Quote point | Time, channel, last price, percent from reference |
+| Off | Down | Candle, volume, halt, error span | Five-minute interval and OHLCV, or concise feature summary |
+| On | Up | Quote point | Compact fields plus schedule, completion, trade time and age, volume, security status, result, revision, acquisition ID |
+| On | Down | Candle, volume, halt, error span | Compact fields plus evidence provenance or error detail |
+
+`status=quote` means the API returned a quote object. It does not establish
+that a new trade occurred or that trading was normal. The detailed point
+hover shows last-trade age separately for this reason.
+
 ## 6. Read-only and fail-closed behavior
 
 The preparation layer:

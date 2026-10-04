@@ -309,7 +309,13 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertNotIn(b"observation-overlay-height", layout.data)
         self.assertIn(b'"label":"Standard","value":"standard"', layout.data)
         self.assertNotIn(b'"label":"Small","value":"small"', layout.data)
-        self.assertIn(b"observation-overlay-off-hours", layout.data)
+        self.assertNotIn(b"observation-overlay-off-hours", layout.data)
+        self.assertIn(b"observation-overlay-detailed-hover", layout.data)
+        self.assertIn(b"observation-overlay-shift-hover", layout.data)
+        asset = client.get("/assets/observation_overlay_hover.js")
+        self.addCleanup(asset.close)
+        self.assertEqual(asset.status_code, 200)
+        self.assertIn(b"observation-overlay-shift-hover", asset.data)
         self.assertIn(b"observation-overlay-viewport", layout.data)
         self.assertIn(b"observation-overlay-units", layout.data)
         self.assertIn(b"observation-overlay-set-reference", layout.data)
@@ -353,7 +359,8 @@ class TestQuoteDashboard(unittest.TestCase):
                             ): 55,
                             ("observation-overlay-hot-size", "value"): "big",
                             ("observation-overlay-hot-opacity", "value"): 100,
-                            ("observation-overlay-off-hours", "value"): ["show"],
+                            ("observation-overlay-detailed-hover", "value"): ["show"],
+                            ("observation-overlay-shift-hover", "data"): True,
                             ("observation-overlay-units", "value"): "percent",
                             ("observation-overlay-reference", "data"): None,
                             ("observation-overlay-chart", "relayoutData"): {
@@ -390,7 +397,7 @@ class TestQuoteDashboard(unittest.TestCase):
         traces = body["observation-overlay-chart"]["figure"]["data"]
         self.assertEqual(
             tuple(trace["name"] for trace in traces),
-            ("5-minute OHLC", "Volume", "Navigator host"),
+            ("Navigator host",),
         )
         self.assertEqual(traces[-1]["xaxis"], "x3")
         self.assertEqual(traces[-1]["yaxis"], "y3")
@@ -402,12 +409,13 @@ class TestQuoteDashboard(unittest.TestCase):
                 datetime.fromisoformat(value).strftime("%H:%M")
                 for value in layout["xaxis3"]["range"]
             ),
-            ("09:25", "09:35"),
+            ("09:30", "09:40"),
         )
         self.assertEqual(
             body["observation-overlay-viewport"]["data"]["mode"], "follow"
         )
         self.assertEqual(layout["height"], 800)
+        self.assertEqual(layout["hovermode"], "closest")
         self.assertEqual(layout["yaxis"]["title"]["text"], "Price")
         self.assertIn(
             "waits for", body["observation-overlay-reference-label"]["children"]

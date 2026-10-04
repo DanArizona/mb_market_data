@@ -6,6 +6,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from html import escape
 from types import MappingProxyType
 from typing import Any, Mapping, NamedTuple
 from zoneinfo import ZoneInfo
@@ -112,6 +113,72 @@ def _quote_price(point: OverlayQuotePoint) -> float | None:
         return None
     result = float(value)
     return result if math.isfinite(result) else None
+
+
+def _et_time(value: datetime) -> str:
+    return value.astimezone(ET).strftime("%H:%M:%S.%f")[:-3] + " ET"
+
+
+def _trade_time(point: OverlayQuotePoint) -> tuple[str, str]:
+    milliseconds = point.values.get("quote_trade_time_ms")
+    if not isinstance(milliseconds, (int, float)) or isinstance(milliseconds, bool):
+        return "unavailable", "unavailable"
+    try:
+        trade = datetime.fromtimestamp(milliseconds / 1000, tz=ET)
+    except (OverflowError, OSError, ValueError):
+        return "unavailable", "unavailable"
+    age = (point.available_at_utc - trade).total_seconds()
+    return _et_time(trade), f"{age:.1f} s" if age >= 0 else "unavailable"
+
+
+def _observation_customdata(
+    point: OverlayQuotePoint, price: float, reference: tuple[float, str] | None
+) -> list[Any]:
+    trade_time, trade_age = _trade_time(point)
+    volume = point.values.get("quote_total_volume")
+    return [
+        point.status,
+        point.channel_revision,
+        point.acquisition_id,
+        (
+            f"{(100 * (price / reference[0] - 1)):+.2f}%"
+            if reference is not None
+            else "unavailable"
+        ),
+        _et_time(point.scheduled_at_utc),
+        _et_time(point.available_at_utc),
+        trade_time,
+        trade_age,
+        (
+            f"{volume:,}"
+            if isinstance(volume, int) and not isinstance(volume, bool)
+            else "unavailable"
+        ),
+        str(point.values.get("quote_security_status") or "unavailable"),
+    ]
+
+
+def _hover_variants(
+    trace: Any,
+    *,
+    category: str,
+    standard: str,
+    detailed: str,
+    detailed_hover: bool,
+    shift_hover: bool,
+) -> None:
+    """Display one hover target class at a time."""
+
+    trace.meta = {
+        "overlay_hover": {
+            "category": category,
+            "standard": standard,
+            "detailed": detailed,
+        }
+    }
+    active = (category == "feature") if shift_hover else (category == "observation")
+    trace.hovertemplate = (detailed if detailed_hover else standard) if active else None
+    trace.hoverinfo = "all" if active else "skip"
 
 
 class OverlayHaltSegment(NamedTuple):
@@ -590,38 +657,42 @@ def apply_observation_overlay_view_state(
     if not isinstance(relayout_data, Mapping):
         return figure
 
-    for axis_name in (
-        "xaxis",
-        "xaxis2",
-        "xaxis3",
-        "yaxis",
-        "yaxis2",
-    ):
+    session = list(figure.layout.xaxis3.rangeslider.range)
+    for axis_name in ("xaxis", "xaxis2", "xaxis3", "yaxis", "yaxis2"):
         axis = getattr(figure.layout, axis_name)
         autorange = relayout_data.get(f"{axis_name}.autorange")
         if autorange is True:
-            axis.autorange = True
-            axis.range = None
+            if axis_name.startswith("xaxis"):
+                axis.autorange = False
+                axis.range = session
+            else:
+                axis.autorange = True
+                axis.range = None
             continue
 
         direct_range = relayout_data.get(f"{axis_name}.range")
-        if isinstance(direct_range, (list, tuple)) and len(direct_range) == 2:
-            axis.autorange = False
-            axis.range = list(direct_range)
-            if axis_name in {"xaxis", "xaxis2"}:
-                figure.layout.xaxis3.range = list(direct_range)
-            continue
-
         lower_key = f"{axis_name}.range[0]"
         upper_key = f"{axis_name}.range[1]"
-        if lower_key in relayout_data and upper_key in relayout_data:
+        if not isinstance(direct_range, (list, tuple)) or len(direct_range) != 2:
+            if lower_key not in relayout_data or upper_key not in relayout_data:
+                continue
+            direct_range = (relayout_data[lower_key], relayout_data[upper_key])
+        if axis_name.startswith("xaxis"):
+            selected = _horizontal_relayout_range({f"{axis_name}.range": direct_range})
+            if selected is None:
+                continue
+            bounded = _clamp_session_range(selected, session)
+            for name in ("xaxis", "xaxis2", "xaxis3"):
+                target = getattr(figure.layout, name)
+                target.autorange = False
+                target.range = bounded
+        else:
             axis.autorange = False
-            axis.range = [
-                relayout_data[lower_key],
-                relayout_data[upper_key],
-            ]
-            if axis_name in {"xaxis", "xaxis2"}:
-                figure.layout.xaxis3.range = list(axis.range)
+            axis.range = (
+                [0, max(float(direct_range[1]), 1.0)]
+                if axis_name == "yaxis2"
+                else list(direct_range)
+            )
     return figure
 
 
@@ -630,6 +701,19 @@ def _overlay_session_range(session_date: Any) -> list[datetime]:
         datetime.combine(session_date, REGULAR_OPEN, tzinfo=ET),
         datetime.combine(session_date, REGULAR_CLOSE, tzinfo=ET),
     ]
+
+
+def _clamp_session_range(
+    selected: list[datetime], session: list[datetime]
+) -> list[datetime]:
+    """Keep the selected width while moving it inside regular hours."""
+
+    start, end = session
+    width = selected[1] - selected[0]
+    if width >= end - start:
+        return [start, end]
+    bounded_start = min(max(selected[0], start), end - width)
+    return [bounded_start, bounded_start + width]
 
 
 def _latest_plotted_time(
@@ -699,7 +783,7 @@ def resolve_overlay_time_viewport(
     ):
         saved = _horizontal_relayout_range({"xaxis3.range": previous.get("range")})
         if saved is not None and previous.get("mode") in {"full", "follow", "inspect"}:
-            current = saved
+            current = _clamp_session_range(saved, session)
             mode = str(previous["mode"])
 
     if isinstance(relayout_data, Mapping):
@@ -710,6 +794,8 @@ def resolve_overlay_time_viewport(
             mode, current = "full", session
         else:
             selected = _horizontal_relayout_range(relayout_data)
+            if selected is not None:
+                selected = _clamp_session_range(selected, session)
             if selected is not None and selected != current:
                 current = selected
                 mode = (
@@ -722,7 +808,9 @@ def resolve_overlay_time_viewport(
         latest = _latest_plotted_time(overlay, off_hours=off_hours)
         if latest > current[1]:
             offset = latest - current[1]
-            current = [current[0] + offset, current[1] + offset]
+            current = _clamp_session_range(
+                [current[0] + offset, current[1] + offset], session
+            )
     return {**identity, "mode": mode, "range": [item.isoformat() for item in current]}
 
 
@@ -736,6 +824,8 @@ def build_observation_overlay_figure(
     selected_reference: Mapping[str, Any] | None = None,
     relayout_data: Mapping[str, Any] | None = None,
     viewport: Mapping[str, Any] | None = None,
+    detailed_hover: bool = False,
+    shift_hover: bool = False,
 ) -> Any:
     """Build a Plotly candlestick/volume figure with causal quote points."""
 
@@ -757,11 +847,24 @@ def build_observation_overlay_figure(
         vertical_spacing=0.025,
         row_heights=(0.779, 0.22, 0.001),
     )
+    reference = resolve_reference(overlay, selected_reference)
     candles = tuple(
         item for item in overlay.candles if off_hours or _regular_hours(item.start_et)
     )
     if candles:
         candle_times = [item.start_et + OHLCV_INTERVAL / 2 for item in candles]
+        candle_customdata = [
+            [
+                item.start_et.isoformat(),
+                item.open,
+                item.high,
+                item.low,
+                item.close,
+                f"{item.start_et:%H:%M}–{item.end_et:%H:%M}",
+                f"{item.volume:,}",
+            ]
+            for item in candles
+        ]
         figure.add_trace(
             go.Candlestick(
                 x=candle_times,
@@ -769,16 +872,7 @@ def build_observation_overlay_figure(
                 high=[item.high for item in candles],
                 low=[item.low for item in candles],
                 close=[item.close for item in candles],
-                customdata=[
-                    [
-                        item.start_et.isoformat(),
-                        item.open,
-                        item.high,
-                        item.low,
-                        item.close,
-                    ]
-                    for item in candles
-                ],
+                customdata=candle_customdata,
                 name="5-minute OHLC",
                 increasing_line_color="#1A6B57",
                 decreasing_line_color="#803D43",
@@ -787,6 +881,21 @@ def build_observation_overlay_figure(
             col=1,
         )
         figure.data[-1].xaxis = "x3"
+        candle_standard = (
+            "<b>5-minute OHLCV</b><br>%{customdata[5]} ET<br>"
+            "Open %{open}<br>High %{high}<br>Low %{low}<br>Close %{close}"
+            "<br>Volume %{customdata[6]}<extra></extra>"
+        )
+        _hover_variants(
+            figure.data[-1],
+            category="feature",
+            standard=candle_standard,
+            detailed=candle_standard.replace(
+                "<extra>", "<br>Schwab 5-minute price history; available at interval end<extra>"
+            ),
+            detailed_hover=detailed_hover,
+            shift_hover=shift_hover,
+        )
         figure.add_trace(
             go.Bar(
                 x=candle_times,
@@ -794,10 +903,27 @@ def build_observation_overlay_figure(
                 name="Volume",
                 marker_color="#6fc8ff",
                 opacity=0.55,
-                hovertemplate="%{x}<br>Volume %{y:,}<extra></extra>",
+                customdata=candle_customdata,
             ),
             row=2,
             col=1,
+        )
+        _hover_variants(
+            figure.data[-1],
+            category="feature",
+            standard=candle_standard.replace("%{open}", "%{customdata[1]}")
+            .replace("%{high}", "%{customdata[2]}")
+            .replace("%{low}", "%{customdata[3]}")
+            .replace("%{close}", "%{customdata[4]}"),
+            detailed=candle_standard.replace("%{open}", "%{customdata[1]}")
+            .replace("%{high}", "%{customdata[2]}")
+            .replace("%{low}", "%{customdata[3]}")
+            .replace("%{close}", "%{customdata[4]}")
+            .replace(
+                "<extra>", "<br>Schwab 5-minute price history; available at interval end<extra>"
+            ),
+            detailed_hover=detailed_hover,
+            shift_hover=shift_hover,
         )
 
     channels = tuple(sorted({point.channel for point in overlay.quote_points}))
@@ -816,6 +942,28 @@ def build_observation_overlay_figure(
         )
         if not priced:
             continue
+        percent_line = (
+            "<br>Percent %{customdata[3]}"
+            if reference is not None
+            else ""
+        )
+        standard_hover = (
+            f"<b>{channel.title()} observation</b><br>"
+            "%{x|%H:%M:%S} ET<br>Price %{y}"
+            f"{percent_line}<extra></extra>"
+        )
+        observation_detailed_template = standard_hover.replace(
+            "<extra>",
+            "<br>Scheduled %{customdata[4]}"
+            "<br>Available %{customdata[5]}"
+            "<br>Last trade %{customdata[6]}"
+            "<br>Trade age %{customdata[7]}"
+            "<br>Cumulative volume %{customdata[8]}"
+            "<br>Security status %{customdata[9]}"
+            "<br>API result: %{customdata[0]} object returned (trade may be stale)"
+            "<br>Revision r%{customdata[1]}"
+            "<br>Acquisition %{customdata[2]}<extra>",
+        )
         figure.add_trace(
             go.Scatter(
                 x=[point.available_at_utc.astimezone(ET) for point, _ in priced],
@@ -829,19 +977,22 @@ def build_observation_overlay_figure(
                     "line": {"color": "#06101c", "width": 0.5},
                 },
                 customdata=[
-                    [point.status, point.channel_revision, point.acquisition_id]
-                    for point, _ in priced
+                    _observation_customdata(point, price, reference)
+                    for point, price in priced
                 ],
-                hovertemplate=(
-                    "Last %{y}<br>Status %{customdata[0]}<br>"
-                    "Revision r%{customdata[1]}<br>"
-                    "Acquisition %{customdata[2]}<extra></extra>"
-                ),
             ),
             row=1,
             col=1,
         )
         figure.data[-1].xaxis = "x3"
+        _hover_variants(
+            figure.data[-1],
+            category="observation",
+            standard=standard_hover,
+            detailed=observation_detailed_template,
+            detailed_hover=detailed_hover,
+            shift_hover=shift_hover,
+        )
 
     for index, segment in enumerate(
         resolve_halt_segments(overlay, off_hours=off_hours)
@@ -862,16 +1013,28 @@ def build_observation_overlay_figure(
                         segment.end_et.strftime("%H:%M:%S.%f")[:-3],
                     ]
                 ] * 2,
-                hovertemplate=(
-                    "Nasdaq halt %{customdata[0]}<br>"
-                    "%{customdata[1]}–%{customdata[2]} ET<br>"
-                    "Halt price %{y}<extra></extra>"
-                ),
             ),
             row=1,
             col=1,
         )
         figure.data[-1].xaxis = "x3"
+        _hover_variants(
+            figure.data[-1],
+            category="feature",
+            standard=(
+                "<b>Confirmed Nasdaq halt</b><br>"
+                "%{customdata[1]}–%{customdata[2]} ET<br>"
+                "Marker price %{y}<extra></extra>"
+            ),
+            detailed=(
+                "<b>Confirmed Nasdaq halt</b><br>"
+                "%{customdata[1]}–%{customdata[2]} ET<br>"
+                "Reason code %{customdata[0]}<br>"
+                "Marker price %{y} (first in-halt observation)<extra></extra>"
+            ),
+            detailed_hover=detailed_hover,
+            shift_hover=shift_hover,
+        )
 
     error_segments = resolve_request_error_segments(
         overlay,
@@ -898,7 +1061,7 @@ def build_observation_overlay_figure(
                 segment.start_et.strftime("%H:%M:%S"),
                 segment.end_et.strftime("%H:%M:%S"),
                 segment.count,
-                segment.detail,
+                escape(segment.detail[:240]) + ("…" if len(segment.detail) > 240 else ""),
             ]
             x.extend((segment.start_et, segment.end_et, None))
             y.extend((error_band_price, error_band_price, None))
@@ -915,17 +1078,28 @@ def build_observation_overlay_figure(
                     "width": REQUEST_ERROR_LINE_WIDTH,
                 },
                 customdata=customdata,
-                hovertemplate=(
-                    "%{customdata[0]} request errors<br>"
-                    "%{customdata[1]}–%{customdata[2]} ET<br>"
-                    "%{customdata[3]} outcomes<br>"
-                    "%{customdata[4]}<extra></extra>"
-                ),
             ),
             row=1,
             col=1,
         )
         figure.data[-1].xaxis = "x3"
+        _hover_variants(
+            figure.data[-1],
+            category="feature",
+            standard=(
+                "<b>%{customdata[0]} request errors</b><br>"
+                "%{customdata[1]}–%{customdata[2]} ET<br>"
+                "%{customdata[3]} outcomes<extra></extra>"
+            ),
+            detailed=(
+                "<b>%{customdata[0]} request errors</b><br>"
+                "%{customdata[1]}–%{customdata[2]} ET<br>"
+                "%{customdata[3]} outcomes<br>"
+                "%{customdata[4]}<extra></extra>"
+            ),
+            detailed_hover=detailed_hover,
+            shift_hover=shift_hover,
+        )
 
         connector_x: list[Any] = []
         connector_y: list[float | None] = []
@@ -1001,7 +1175,7 @@ def build_observation_overlay_figure(
         "plot_bgcolor": "rgba(0,0,0,0)",
         "margin": {"l": 54, "r": 22, "t": 16, "b": 34},
         "autosize": True,
-        "hovermode": "x unified",
+        "hovermode": "closest",
         "hoverlabel": hoverlabel,
         "legend": {"orientation": "h", "y": 1.02, "x": 0},
         "uirevision": f"{overlay.session_date.isoformat()}:{overlay.symbol}",
@@ -1027,26 +1201,29 @@ def build_observation_overlay_figure(
         rangeslider_visible=True,
         rangeslider_thickness=0.14,
         rangeslider_range=_overlay_session_range(overlay.session_date),
+        rangeslider_yaxis_rangemode="auto",
         title_text="Eastern Time",
         hoverformat="%H:%M:%S ET",
         row=3,
         col=1,
     )
     figure.update_yaxes(title_text="Price", row=1, col=1)
-    figure.update_yaxes(title_text="Volume", row=2, col=1)
+    figure.update_yaxes(title_text="Volume", rangemode="tozero", row=2, col=1)
     figure.update_yaxes(visible=False, fixedrange=True, row=3, col=1)
     session_range = _overlay_session_range(overlay.session_date)
     time_range: list[Any] = session_range
     if isinstance(viewport, Mapping):
         selected = _horizontal_relayout_range({"xaxis3.range": viewport.get("range")})
         if selected is not None:
-            time_range = selected
+            time_range = _clamp_session_range(selected, session_range)
     figure.layout.xaxis3.range = list(time_range)
     apply_observation_overlay_view_state(figure, relayout_data)
     if isinstance(relayout_data, Mapping):
         selected = _horizontal_relayout_range(relayout_data)
         if selected is not None:
-            time_range = list(figure.layout.xaxis3.range)
+            time_range = _clamp_session_range(
+                list(figure.layout.xaxis3.range), session_range
+            )
         # A browser double-click restores the session window.  It must not
         # autorange from whichever replay evidence happens to be visible.
         if any(
@@ -1063,12 +1240,16 @@ def build_observation_overlay_figure(
         axis.type = "date"
         axis.autorange = False
         axis.range = list(time_range)
+        axis.minallowed = session_range[0]
+        axis.maxallowed = session_range[1]
+    figure.layout.xaxis2.showgrid = True
+    figure.layout.xaxis2.gridcolor = "rgba(127,150,170,0.18)"
     figure.layout.xaxis3.rangeslider.range = session_range
     configure_overlay_axis(
         figure,
         overlay,
         units=units,
-        reference=resolve_reference(overlay, selected_reference),
+        reference=reference,
         off_hours=off_hours,
     )
     return figure
