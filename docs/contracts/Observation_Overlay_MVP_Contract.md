@@ -116,8 +116,10 @@ can toggle the band and its connectors together.
 The display uses regular hours, 09:30–16:00 ET. Price and volume begin with
 that full time range; all horizontal zooms and pans remain inside it. The
 navigator retains the full session and shows replay-visible evidence outside
-the selected viewport, with its own vertical scale. Volume stays anchored at
-zero. A zoom whose right edge is still ahead of plotted data follows replay;
+the selected viewport. Its vertical scale uses all replay-visible price
+evidence, independent of main-plot zoom, and translucent masks dim data
+outside the selection handles. Volume stays anchored at zero. A zoom whose
+right edge is still ahead of plotted data follows replay;
 a zoom within existing data remains in inspection mode.
 
 The Detailed hover control and Shift key select four hover presentations:

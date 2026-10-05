@@ -487,7 +487,9 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b".rangeslider-bg", stylesheet.data)
         self.assertIn(b".rangeslider-mask-min", stylesheet.data)
         self.assertIn(b".rangeslider-mask-max", stylesheet.data)
-        self.assertIn(b"fill-opacity: 1 !important", stylesheet.data)
+        self.assertIn(b"fill-opacity: 0.55 !important", stylesheet.data)
+        self.assertIn(b".hoverlayer .hovertext rect", stylesheet.data)
+        self.assertIn(b"fill-opacity: 0.5 !important", stylesheet.data)
         self.assertIn(b".overlay-display-controls", stylesheet.data)
         normalized_stylesheet = stylesheet.data.replace(b"\r\n", b"\n")
         self.assertIn(

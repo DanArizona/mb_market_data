@@ -478,9 +478,40 @@ class TestObservationOverlayView(unittest.TestCase):
             ),
             ("09:30", "16:00"),
         )
-        self.assertEqual(figure.layout.xaxis3.rangeslider.yaxis.rangemode, "auto")
+        self.assertEqual(figure.layout.xaxis3.rangeslider.yaxis.rangemode, "fixed")
         self.assertEqual(figure.layout.yaxis2.rangemode, "tozero")
         self.assertTrue(figure.layout.xaxis2.showgrid)
+
+    def test_navigator_preserves_full_price_scale_when_main_plot_is_zoomed(self) -> None:
+        evidence = overlay()
+        full = build_observation_overlay_figure(evidence, off_hours=False)
+        zoomed = build_observation_overlay_figure(
+            evidence,
+            off_hours=False,
+            relayout_data={
+                "xaxis3.range": ["2026-09-24 09:30:00", "2026-09-24 09:32:00"],
+                "yaxis.range": [10.5, 10.6],
+            },
+        )
+        full_range = tuple(full.layout.xaxis3.rangeslider.yaxis.range)
+        self.assertEqual(tuple(zoomed.layout.xaxis3.rangeslider.yaxis.range), full_range)
+        self.assertLess(full_range[0], 10.0)
+        self.assertGreater(full_range[1], 11.0)
+        self.assertEqual(tuple(zoomed.layout.yaxis.range), (10.5, 10.6))
+        self.assertEqual(
+            tuple(value.strftime("%H:%M") for value in zoomed.layout.xaxis3.rangeslider.range),
+            ("09:30", "16:00"),
+        )
+
+        later_point = replace(
+            evidence.quote_points[0],
+            available_at_utc=datetime(2026, 9, 24, 14, 0, tzinfo=UTC),
+            values=MappingProxyType({"quote_last_price": 15.0}),
+        )
+        later = build_observation_overlay_figure(
+            replace(evidence, quote_points=(later_point,)), off_hours=False
+        )
+        self.assertGreater(later.layout.xaxis3.rangeslider.yaxis.range[1], 15.0)
 
     def test_pan_and_zoom_cannot_leave_session_and_volume_stays_on_zero(self) -> None:
         evidence = overlay()

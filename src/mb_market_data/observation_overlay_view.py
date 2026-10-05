@@ -716,6 +716,31 @@ def _clamp_session_range(
     return [bounded_start, bounded_start + width]
 
 
+def _navigator_price_range(figure: Any) -> list[float]:
+    """Scale the full-session navigator from replay-visible price traces only."""
+
+    prices: list[float] = []
+    for trace in figure.data:
+        if trace.yaxis != "y":
+            continue
+        for field in ("low", "high", "y"):
+            values = getattr(trace, field, None)
+            if values is None:
+                continue
+            prices.extend(
+                float(value)
+                for value in values
+                if isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+            )
+    if not prices:
+        return [0.0, 1.0]
+    low, high = min(prices), max(prices)
+    margin = max((high - low) * 0.05, abs(high) * 0.001, 1e-6)
+    return [low - margin, high + margin]
+
+
 def _latest_plotted_time(
     overlay: ObservationOverlayData, *, off_hours: bool
 ) -> datetime:
@@ -1201,7 +1226,7 @@ def build_observation_overlay_figure(
         rangeslider_visible=True,
         rangeslider_thickness=0.14,
         rangeslider_range=_overlay_session_range(overlay.session_date),
-        rangeslider_yaxis_rangemode="auto",
+        rangeslider_yaxis_rangemode="fixed",
         title_text="Eastern Time",
         hoverformat="%H:%M:%S ET",
         row=3,
@@ -1245,6 +1270,7 @@ def build_observation_overlay_figure(
     figure.layout.xaxis2.showgrid = True
     figure.layout.xaxis2.gridcolor = "rgba(127,150,170,0.18)"
     figure.layout.xaxis3.rangeslider.range = session_range
+    figure.layout.xaxis3.rangeslider.yaxis.range = _navigator_price_range(figure)
     configure_overlay_axis(
         figure,
         overlay,

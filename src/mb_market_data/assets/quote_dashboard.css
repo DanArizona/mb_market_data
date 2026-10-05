@@ -637,7 +637,12 @@ h1 {
 .overlay-chart .rangeslider-mask-min,
 .overlay-chart .rangeslider-mask-max {
   fill: var(--overlay-navigator-unselected) !important;
-  fill-opacity: 1 !important;
+  fill-opacity: 0.55 !important;
+}
+
+.overlay-chart .hoverlayer .hovertext path,
+.overlay-chart .hoverlayer .hovertext rect {
+  fill-opacity: 0.5 !important;
 }
 
 .table-panel {
