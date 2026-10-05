@@ -15,6 +15,7 @@ from mb_market_data.observation_overlay_view import (
     OverlayPointStyle,
     build_observation_overlay_figure,
     build_observation_overlay_view,
+    resolve_overlay_time_viewport,
     resolve_reference,
     selected_reference_from_click,
 )
@@ -196,14 +197,15 @@ def _observation_overlay_panel(
                         [
                             html.Fieldset(
                                 [
-                                    html.Legend("Session"),
+                                    html.Legend("Hover"),
                                     dcc.Checklist(
-                                        id="observation-overlay-off-hours",
+                                        id="observation-overlay-detailed-hover",
                                         options=[
-                                            {"label": "Off-hours", "value": "show"}
+                                            {"label": "Detailed hover", "value": "show"}
                                         ],
-                                        value=["show"],
+                                        value=[],
                                     ),
+                                    html.Small("Hold Shift for bars and features."),
                                 ],
                                 className="overlay-session-control",
                             ),
@@ -277,7 +279,9 @@ def _observation_overlay_panel(
                     ),
                     dcc.Graph(
                         id="observation-overlay-chart",
-                        figure=build_observation_overlay_figure(overlay),
+                        figure=build_observation_overlay_figure(
+                            overlay, off_hours=False
+                        ),
                         config={
                             "displaylogo": False,
                             "responsive": True,
@@ -529,6 +533,8 @@ def create_quote_dashboard(
             ),
             dcc.Store(id="observation-overlay-reference"),
             dcc.Store(id="observation-overlay-reference-mode", data=False),
+            dcc.Store(id="observation-overlay-viewport"),
+            dcc.Store(id="observation-overlay-shift-hover", data=False),
             html.Header(
                 [
                     html.Div(
@@ -938,6 +944,7 @@ def create_quote_dashboard(
             Output("observation-overlay-chart", "figure"),
             Output("observation-overlay-chart", "className"),
             Output("observation-overlay-reference-label", "children"),
+            Output("observation-overlay-viewport", "data"),
             Input("replay-clock", "children"),
             Input("theme-preference", "modified_timestamp"),
             Input("observation-overlay-uni-size", "value"),
@@ -946,11 +953,13 @@ def create_quote_dashboard(
             Input("observation-overlay-focus-opacity", "value"),
             Input("observation-overlay-hot-size", "value"),
             Input("observation-overlay-hot-opacity", "value"),
-            Input("observation-overlay-off-hours", "value"),
+            Input("observation-overlay-detailed-hover", "value"),
+            Input("observation-overlay-shift-hover", "data"),
             Input("observation-overlay-units", "value"),
             Input("observation-overlay-reference", "data"),
+            Input("observation-overlay-chart", "relayoutData"),
             State("theme-preference", "data"),
-            State("observation-overlay-chart", "relayoutData"),
+            State("observation-overlay-viewport", "data"),
         )
         def update_observation_overlay(
             _replay_clock: str,
@@ -961,26 +970,28 @@ def create_quote_dashboard(
             focus_opacity: float | None,
             hot_size: str | None,
             hot_opacity: float | None,
-            off_hours_value: list[str] | None,
+            detailed_hover_value: list[str] | None,
+            shift_hover: bool | None,
             units: str | None,
             selected_reference: Mapping[str, Any] | None,
-            stored_theme: str | None,
             relayout_data: Mapping[str, Any] | None,
+            stored_theme: str | None,
+            stored_viewport: Mapping[str, Any] | None,
         ) -> tuple[Any, ...]:
             overlay = controller.snapshot().observation_overlay
             if overlay is None:
-                return (no_update,) * 7
+                return (no_update,) * 8
             overlay_view = build_observation_overlay_view(overlay)
             theme = "light" if stored_theme == "light" else "dark"
-            off_hours = isinstance(off_hours_value, list) and "show" in off_hours_value
-            if ctx.triggered_id == "observation-overlay-off-hours" and isinstance(
-                relayout_data, Mapping
-            ):
-                relayout_data = {
-                    key: value
-                    for key, value in relayout_data.items()
-                    if not key.startswith("xaxis")
-                }
+            triggered = ctx.triggered_prop_ids
+            viewport = resolve_overlay_time_viewport(
+                overlay,
+                stored_viewport,
+                relayout_data
+                if "observation-overlay-chart.relayoutData" in triggered
+                else None,
+                off_hours=False,
+            )
             figure = build_observation_overlay_figure(
                 overlay,
                 theme=theme,
@@ -989,10 +1000,20 @@ def create_quote_dashboard(
                     "focus": _overlay_point_style(focus_size, focus_opacity),
                     "hot": _overlay_point_style(hot_size, hot_opacity),
                 },
-                off_hours=off_hours,
+                off_hours=False,
                 units=units if units in {"price", "percent"} else "price",
                 selected_reference=selected_reference,
-                relayout_data=relayout_data,
+                detailed_hover=(
+                    isinstance(detailed_hover_value, list)
+                    and "show" in detailed_hover_value
+                ),
+                shift_hover=shift_hover is True,
+                relayout_data={
+                    key: value
+                    for key, value in (relayout_data or {}).items()
+                    if key.startswith("yaxis")
+                },
+                viewport=viewport,
             )
             reference = resolve_reference(overlay, selected_reference)
             reference_label = (
@@ -1011,6 +1032,7 @@ def create_quote_dashboard(
                 figure,
                 "overlay-chart",
                 reference_label,
+                viewport,
             )
 
     if request_server_stop is not None:

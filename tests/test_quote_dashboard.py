@@ -309,7 +309,14 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertNotIn(b"observation-overlay-height", layout.data)
         self.assertIn(b'"label":"Standard","value":"standard"', layout.data)
         self.assertNotIn(b'"label":"Small","value":"small"', layout.data)
-        self.assertIn(b"observation-overlay-off-hours", layout.data)
+        self.assertNotIn(b"observation-overlay-off-hours", layout.data)
+        self.assertIn(b"observation-overlay-detailed-hover", layout.data)
+        self.assertIn(b"observation-overlay-shift-hover", layout.data)
+        asset = client.get("/assets/observation_overlay_hover.js")
+        self.addCleanup(asset.close)
+        self.assertEqual(asset.status_code, 200)
+        self.assertIn(b"observation-overlay-shift-hover", asset.data)
+        self.assertIn(b"observation-overlay-viewport", layout.data)
         self.assertIn(b"observation-overlay-units", layout.data)
         self.assertIn(b"observation-overlay-set-reference", layout.data)
         self.assertNotIn(b"observation-overlay-uni-visible", layout.data)
@@ -332,7 +339,7 @@ class TestQuoteDashboard(unittest.TestCase):
             json={
                 "output": callback_key,
                 "outputs": outputs,
-                "changedPropIds": ["replay-clock.children"],
+                "changedPropIds": ["observation-overlay-chart.relayoutData"],
                 "inputs": [
                     {
                         "id": item["id"],
@@ -352,9 +359,16 @@ class TestQuoteDashboard(unittest.TestCase):
                             ): 55,
                             ("observation-overlay-hot-size", "value"): "big",
                             ("observation-overlay-hot-opacity", "value"): 100,
-                            ("observation-overlay-off-hours", "value"): ["show"],
+                            ("observation-overlay-detailed-hover", "value"): ["show"],
+                            ("observation-overlay-shift-hover", "data"): True,
                             ("observation-overlay-units", "value"): "percent",
                             ("observation-overlay-reference", "data"): None,
+                            ("observation-overlay-chart", "relayoutData"): {
+                                "xaxis3.range": [
+                                    "2026-09-11 09:25:00",
+                                    "2026-09-11 09:35:00",
+                                ]
+                            },
                         }[(item["id"], item["property"])],
                     }
                     for item in callback["inputs"]
@@ -366,14 +380,9 @@ class TestQuoteDashboard(unittest.TestCase):
                         "value": "dark",
                     },
                     {
-                        "id": "observation-overlay-chart",
-                        "property": "relayoutData",
-                        "value": {
-                            "xaxis3.range": [
-                                "2026-09-11 09:25:00",
-                                "2026-09-11 09:35:00",
-                            ]
-                        },
+                        "id": "observation-overlay-viewport",
+                        "property": "data",
+                        "value": None,
                     },
                 ],
             },
@@ -388,7 +397,7 @@ class TestQuoteDashboard(unittest.TestCase):
         traces = body["observation-overlay-chart"]["figure"]["data"]
         self.assertEqual(
             tuple(trace["name"] for trace in traces),
-            ("5-minute OHLC", "Volume", "Navigator host"),
+            ("Navigator host",),
         )
         self.assertEqual(traces[-1]["xaxis"], "x3")
         self.assertEqual(traces[-1]["yaxis"], "y3")
@@ -396,10 +405,17 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(traces[-1]["hoverinfo"], "skip")
         layout = body["observation-overlay-chart"]["figure"]["layout"]
         self.assertEqual(
-            layout["xaxis3"]["range"],
-            ["2026-09-11 09:25:00", "2026-09-11 09:35:00"],
+            tuple(
+                datetime.fromisoformat(value).strftime("%H:%M")
+                for value in layout["xaxis3"]["range"]
+            ),
+            ("09:30", "09:40"),
+        )
+        self.assertEqual(
+            body["observation-overlay-viewport"]["data"]["mode"], "follow"
         )
         self.assertEqual(layout["height"], 800)
+        self.assertEqual(layout["hovermode"], "closest")
         self.assertEqual(layout["yaxis"]["title"]["text"], "Price")
         self.assertIn(
             "waits for", body["observation-overlay-reference-label"]["children"]
@@ -471,7 +487,11 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b".rangeslider-bg", stylesheet.data)
         self.assertIn(b".rangeslider-mask-min", stylesheet.data)
         self.assertIn(b".rangeslider-mask-max", stylesheet.data)
-        self.assertIn(b"fill-opacity: 1 !important", stylesheet.data)
+        self.assertIn(b"fill-opacity: 0.55 !important", stylesheet.data)
+        self.assertIn(b".hoverlayer .hovertext rect", stylesheet.data)
+        self.assertIn(b"--overlay-hover-bg: rgba(20, 30, 40, 0.38)", stylesheet.data)
+        self.assertIn(b"fill: var(--overlay-hover-bg) !important", stylesheet.data)
+        self.assertIn(b"stroke-width: 1px !important", stylesheet.data)
         self.assertIn(b".overlay-display-controls", stylesheet.data)
         normalized_stylesheet = stylesheet.data.replace(b"\r\n", b"\n")
         self.assertIn(
