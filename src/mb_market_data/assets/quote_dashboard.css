@@ -15,6 +15,8 @@
   --blue: #6fc8ff;
   --overlay-navigator-selected: #131f2e;
   --overlay-navigator-unselected: #0b131c;
+  --overlay-hover-bg: rgba(20, 30, 40, 0.38);
+  --overlay-hover-border: #8797a6;
   --Dash-Fill-Inverse-Strong: #102136;
   --Dash-Fill-Interactive-Strong: #34d6ad;
   --Dash-Fill-Disabled: #20364b;
@@ -84,6 +86,8 @@ body:has(.theme-light) {
   --blue: #176f9f;
   --overlay-navigator-selected: #f0f4f7;
   --overlay-navigator-unselected: #d8e0e7;
+  --overlay-hover-bg: rgba(246, 248, 250, 0.50);
+  --overlay-hover-border: #708091;
 }
 
 .topbar {
@@ -642,7 +646,10 @@ h1 {
 
 .overlay-chart .hoverlayer .hovertext path,
 .overlay-chart .hoverlayer .hovertext rect {
-  fill-opacity: 0.5 !important;
+  fill: var(--overlay-hover-bg) !important;
+  fill-opacity: 1 !important;
+  stroke: var(--overlay-hover-border) !important;
+  stroke-width: 1px !important;
 }
 
 .table-panel {

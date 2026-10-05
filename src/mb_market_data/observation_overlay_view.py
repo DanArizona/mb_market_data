@@ -1181,15 +1181,15 @@ def build_observation_overlay_figure(
 
     hoverlabel = (
         {
-            "bgcolor": "rgba(255,255,255,0.50)",
+            "bgcolor": "rgba(246,248,250,0.50)",
             "bordercolor": "#708091",
             "font": {"color": "#172431", "size": 13},
             "align": "left",
         }
         if theme == "light"
         else {
-            "bgcolor": "rgba(11,24,40,0.50)",
-            "bordercolor": "#6f8598",
+            "bgcolor": "rgba(20,30,40,0.38)",
+            "bordercolor": "#8797a6",
             "font": {"color": "#eef7ff", "size": 13},
             "align": "left",
         }

@@ -248,12 +248,13 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(dark.layout.hovermode, "closest")
         self.assertEqual(
             dark.layout.hoverlabel.bgcolor,
-            "rgba(11,24,40,0.50)",
+            "rgba(20,30,40,0.38)",
         )
+        self.assertEqual(dark.layout.hoverlabel.bordercolor, "#8797a6")
         self.assertEqual(dark.layout.hoverlabel.font.color, "#eef7ff")
         self.assertEqual(
             light.layout.hoverlabel.bgcolor,
-            "rgba(255,255,255,0.50)",
+            "rgba(246,248,250,0.50)",
         )
         focus = next(trace for trace in dark.data if trace.name == "Focus quote")
         self.assertNotIn("%{x}", focus.hovertemplate)
