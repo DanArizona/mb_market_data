@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import unittest
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -135,11 +135,11 @@ class TestLiveReader(LiveFixture):
         self.acquire()
         reader = QuoteJournalLiveReader(self.path)
         cursor = reader.read_page(LiveJournalCursor()).cursor
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("DELETE FROM quote_acquisition")
         with self.assertRaisesRegex(ReplayIntegrityError, "anchor"):
             reader.read_page(cursor)
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("UPDATE store_identity SET created_at_utc = 'changed'")
         with self.assertRaisesRegex(ReplayIntegrityError, "identity changed"):
             reader.read_page(LiveJournalCursor())
@@ -148,7 +148,7 @@ class TestLiveReader(LiveFixture):
         self.acquire()
         reader = QuoteJournalLiveReader(self.path)
         page = reader.read_page(LiveJournalCursor())
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("DELETE FROM quote_observation WHERE symbol = 'TEST'")
         with self.assertRaisesRegex(ReplayIntegrityError, "contains 1"):
             reader.load_events(page.headers)
@@ -246,7 +246,7 @@ class TestLiveController(LiveFixture):
         before = self.drain(controller)
         self.acquire()
         self.clock = BOUNDARY + timedelta(seconds=10)
-        with sqlite3.connect(self.path) as connection:
+        with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("DELETE FROM quote_observation WHERE symbol = 'TEST'")
         failed = controller.tick()
         self.assertEqual(failed.state, before.state)
