@@ -17,6 +17,7 @@ import json
 import math
 import re
 from collections.abc import Iterable, Mapping, Sequence
+from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
@@ -281,7 +282,7 @@ class ObservationOverlayData:
     session_date: date
     symbol: str
     replay_time_utc: datetime
-    cache: ObservationOverlayOHLCVCache
+    cache: ObservationOverlayOHLCVCache | None
     candles: tuple[OverlayCandle, ...]
     membership_transitions: tuple[OverlayMembershipTransition, ...]
     quote_points: tuple[OverlayQuotePoint, ...]
@@ -314,15 +315,15 @@ class ObservationOverlayProjector:
     def __init__(
         self,
         *,
-        cache: ObservationOverlayOHLCVCache,
+        cache: ObservationOverlayOHLCVCache | None = None,
         symbol: str,
         session_date: date,
         halt_intervals: tuple[OverlayHaltInterval, ...] = (),
     ) -> None:
         normalized_symbol = _symbol(symbol)
-        if cache.symbol != normalized_symbol:
+        if cache is not None and cache.symbol != normalized_symbol:
             raise ValueError("OHLCV cache symbol differs from overlay symbol")
-        if cache.session_date != session_date:
+        if cache is not None and cache.session_date != session_date:
             raise ValueError("OHLCV cache session differs from overlay session")
         self.cache = cache
         self.symbol = normalized_symbol
@@ -342,6 +343,14 @@ class ObservationOverlayProjector:
         self._current_band = MembershipBand.OUTSIDE_UNI
         self._last_available: datetime | None = None
         self._last_revision = -1
+
+    def fork(self) -> ObservationOverlayProjector:
+        """Copy mutable evidence lists for an atomic display batch."""
+
+        staged = copy(self)
+        staged._transitions = self._transitions.copy()
+        staged._quote_points = self._quote_points.copy()
+        return staged
 
     def apply(self, event: ReplayEvent) -> None:
         """Validate and incorporate one causally ordered journal event."""
@@ -420,7 +429,7 @@ class ObservationOverlayProjector:
             symbol=self.symbol,
             replay_time_utc=cutoff,
             cache=self.cache,
-            candles=self.cache.visible_candles(cutoff),
+            candles=self.cache.visible_candles(cutoff) if self.cache else (),
             membership_transitions=tuple(
                 item
                 for item in self._transitions

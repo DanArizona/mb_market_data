@@ -24,6 +24,7 @@ from mb_market_data.quote_dashboard_replay import (
     DashboardReplayStatus,
     QuoteDashboardReplayController,
 )
+from mb_market_data.quote_dashboard_live import QuoteDashboardLiveController
 from mb_market_data.quote_dashboard_view import (
     QuoteDashboardView,
     build_quote_dashboard_view,
@@ -161,8 +162,12 @@ def _observation_overlay_panel(
                         [
                             html.H2(f"Observation Overlay · {view.symbol}"),
                             html.P(
-                                "Completed five-minute OHLCV with "
-                                "replay-causal quote and membership evidence."
+                                (
+                                    "Completed five-minute OHLCV with "
+                                    "replay-causal quote and membership evidence."
+                                    if overlay.cache is not None else
+                                    "Quotes and membership only. Candle acquisition is pending."
+                                )
                             ),
                         ]
                     ),
@@ -416,6 +421,23 @@ def _control_values(
     replay: DashboardReplaySnapshot,
 ) -> tuple[str, bool, bool, bool, str, str, str, str, dict[str, str]]:
     status = replay.status
+    if replay.live_source:
+        following = status is DashboardReplayStatus.LIVE
+        label = "Live" if following else "Paused inspection"
+        if replay.catching_up:
+            label = "Catching up · showing last projected position"
+        if replay.source_error:
+            label = "Source unavailable · " + replay.source_error
+        percent = replay.progress_fraction * 100.0
+        return (
+            "Pause" if following else "Return to Live",
+            False, following or replay.catching_up, False,
+            label,
+            "replay-status status-error" if replay.source_error else "replay-status status-playing",
+            f"{_time_text(replay.replay_time_utc)} · {replay.applied_event_count:,} events",
+            f"{replay.applied_event_count:,} / {replay.total_event_count:,} discovered events",
+            {"width": f"{percent:.3f}%"},
+        )
     status_label = (
         "Playing"
         if status is DashboardReplayStatus.PLAYING
@@ -468,11 +490,12 @@ def _parse_seek_time_utc(
 
 
 def create_quote_dashboard(
-    controller: QuoteDashboardReplayController,
+    controller: QuoteDashboardReplayController | QuoteDashboardLiveController,
     *,
     request_server_stop: Callable[[], None] | None = None,
+    source_label: str | None = None,
 ) -> Any:
-    """Create a local interactive dashboard for one replay controller."""
+    """Create a local interactive dashboard for replay or experimental live viewing."""
 
     try:
         import dash_ag_grid as dag
@@ -519,7 +542,7 @@ def create_quote_dashboard(
         [
             dcc.Interval(
                 id="replay-tick",
-                interval=250,
+                interval=1000 if replay.live_source else 250,
                 disabled=controls[3],
             ),
             dcc.Store(
@@ -544,7 +567,10 @@ def create_quote_dashboard(
                                 [
                                     html.H1("Market State"),
                                     html.Div(
-                                        "Interactive exact-day replay",
+                                        (
+                                            source_label or "Experimental live quotes and membership"
+                                            if replay.live_source else "Interactive exact-day replay"
+                                        ),
                                         className="mode-label",
                                     ),
                                 ]
@@ -629,7 +655,7 @@ def create_quote_dashboard(
                                 className="control-button",
                             ),
                             html.Button(
-                                "Restart",
+                                "Beginning" if replay.live_source else "Restart",
                                 id="replay-restart",
                                 className="control-button",
                             ),
@@ -685,6 +711,7 @@ def create_quote_dashboard(
                             ),
                         ],
                         className="speed-control",
+                        style={"display": "none"} if replay.live_source else {},
                     ),
                     html.Div(
                         [

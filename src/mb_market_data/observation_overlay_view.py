@@ -600,7 +600,11 @@ def _panel_membership_shape(
 
 
 def _membership_shapes(overlay: ObservationOverlayData) -> list[dict[str, Any]]:
-    start = overlay.cache.request_start_et
+    start = (
+        overlay.cache.request_start_et
+        if overlay.cache is not None
+        else datetime.combine(overlay.session_date, time.min, tzinfo=ET)
+    )
     end = overlay.replay_time_utc.astimezone(ET)
     if end <= start:
         return []

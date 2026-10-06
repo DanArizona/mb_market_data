@@ -29,6 +29,7 @@ class DashboardReplayStatus(StrEnum):
     PAUSED = "paused"
     PLAYING = "playing"
     COMPLETE = "complete"
+    LIVE = "live"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +44,9 @@ class DashboardReplaySnapshot:
     last_event_time_utc: datetime | None
     total_event_count: int
     observation_overlay: ObservationOverlayData | None = None
+    live_source: bool = False
+    catching_up: bool = False
+    source_error: str | None = None
 
     @property
     def applied_event_count(self) -> int:
