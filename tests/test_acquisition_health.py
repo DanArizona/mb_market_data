@@ -414,6 +414,52 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(snapshot["channels"]["focus"]["missing_slot_count"], 1)
         self.assertIn("focus:coverage", health.alert_conditions(snapshot))
 
+    def test_explicit_monitor_stop_writes_receipt_without_opening_journal(self):
+        cli = self.cli()
+        stop = self.root / "SYNTHETIC.stop"
+        stop.touch()
+        with patch.object(health, "inspect_health") as inspect, redirect_stdout(io.StringIO()):
+            self.assertEqual(cli["monitor"](self.config, popups=False, stop_file=stop), 0)
+        inspect.assert_not_called()
+        receipt = json.loads((self.root / "output/polling_health" / str(self.session) / "last_stop.json").read_text())
+        self.assertEqual(receipt["stopped_by"], "stop request")
+        with health.operation_lock("monitor:" + str(self.config.journal).casefold()):
+            pass
+
+    def test_keyboard_interrupt_closes_monitor_and_restores_signal_handler(self):
+        import signal
+        original = signal.getsignal(signal.SIGINT)
+        cli = self.cli()
+        with patch.object(health, "inspect_health", side_effect=KeyboardInterrupt), redirect_stdout(io.StringIO()):
+            self.assertEqual(cli["monitor"](self.config, popups=False), 130)
+        self.assertEqual(signal.getsignal(signal.SIGINT), original)
+        receipt = json.loads((self.root / "output/polling_health" / str(self.session) / "last_stop.json").read_text())
+        self.assertEqual(receipt["stopped_by"], "keyboard interrupt")
+        with health.operation_lock("monitor:" + str(self.config.journal).casefold()):
+            pass
+
+    def test_monitor_wait_observes_stop_request_promptly(self):
+        cli = self.cli()
+        stop = self.root / "SYNTHETIC.stop"
+        timer = threading.Timer(.1, stop.touch)
+        timer.start()
+        began = time.monotonic()
+        try:
+            self.assertEqual(cli["wait_for_stop"](5, stop), "stop request")
+        finally:
+            timer.join()
+        self.assertLess(time.monotonic() - began, 1)
+
+    def test_extended_console_key_is_not_mistaken_for_q_shutdown(self):
+        from collections import deque
+        from types import SimpleNamespace
+        keys = deque(["\xe0", "Q", "q"])  # PgDn, then the actual Q stop key
+        keyboard = SimpleNamespace(kbhit=lambda: bool(keys), getwch=keys.popleft)
+        cli = self.cli()
+        with patch("os.name", "nt"), patch.dict(sys.modules, {"msvcrt": keyboard}):
+            self.assertEqual(cli["wait_for_stop"](1), "Q key")
+        self.assertFalse(keys)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

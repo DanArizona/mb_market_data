@@ -149,9 +149,37 @@ approximately 14 ms locally; this is not a Windows latency guarantee.
 The general full test-suite attempt in the default local Python environment
 was blocked by missing pre-existing frontend and mb_tools dependencies (Dash,
 Plotly, Werkzeug, mb_tools). The relevant dependency-free contract suite passed.
-These tools add no dependencies to sea-green. Native Windows process/alert and
-real viewer/poller acceptance remain pending on MasterBot. An actual API
+These tools add no dependencies to sea-green. MasterBot passed all 28 packet
+checks and native process/mutex inspection on October 7. The completed real
+October 7 journal was correctly classified with Uni 780 and Focus 1,560
+acquisitions, no missing slots, and both final slots committed; its full audit
+and replay also passed. Ctrl+C did not stop the original monitor on that
+attempt; the operator closed its window. Native alert and interactive restart
+acceptance remain pending. An actual API
 restart has not been performed by this packet during local validation.
+
+### Isolated real-process test
+
+`polling_health_live_test_v1` is a separate packet. Its synthetic session
+script uses reviewed journal code, generated fake quote outcomes, an exclusive
+case directory, and a generated synthetic probe. No production database is
+opened and the production API probe is never executed. Its 32 focused checks
+plus 66 store/membership/polling-journal checks passed locally.
+
+The packet opens `test-poll-uni`, `test-poll-focus`, and `test-health`. The
+operator triggers a Focus failure, confirms continued Uni commits and a
+missing Focus slot, and requests a guided restart using the same mutex,
+duplicate inspection, write-availability probe, and receipt code. Recovery
+requires a newly committed acquisition in the same synthetic journal. The
+intentional failure request targets the original run exclusively; it cannot
+stop the replacement. No real SQLite lock is injected.
+
+The test monitor supports Ctrl+C, Q, and a separate stop request, and records
+its shutdown reason outside the journal. Explicit signal handlers are restored
+on exit. Special console keys are discarded before checking Q. These controls
+have not yet been applied to the previously accepted production packet. The
+isolated real-process test must establish Windows keyboard, beep, popup, and
+restart behavior; local process checks alone do not establish those outcomes.
 
 The original lock's owner/cause remains unresolved. This increment preserves
 diagnostic timing, SQLite error text, process candidates, and slot loss without
