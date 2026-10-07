@@ -254,7 +254,9 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
         committed = [row for row in data["acquisitions"] if row["channel"] == channel]
         skips = [row for row in data["skips"] if row["channel"] == channel]
         fulfilled = {timestamp(row["scheduled_at_utc"]) for row in committed + skips}
-        due = [slot for slot in configured_slots(config, channel) if slot + timedelta(seconds=config.grace_seconds) <= now]
+        scheduled = list(configured_slots(config, channel))
+        final_slot = scheduled[-1] if scheduled else None
+        due = [slot for slot in scheduled if slot + timedelta(seconds=config.grace_seconds) <= now]
         missing = [slot.isoformat() for slot in due if slot not in fulfilled]
         latest = committed[-1] if committed else None
         latest_skip = skips[-1] if skips else None
@@ -268,8 +270,13 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
             state, reason = "EVIDENCE_UNAVAILABLE", evidence["read_error"]
         elif manifest.get("journal_errors", 0) or "JournalWriteError" in evidence["error_tail"] or "MembershipUnavailableError" in evidence["error_tail"]:
             state, reason = "FAILED", evidence["error_tail"] or "Polling manifest reports a journal failure"
-        elif manifest.get("completed_at_et") and timestamp(manifest["completed_at_et"]) < timestamp(config.stop_at):
-            state, reason = "STOPPED_EARLY", "Poller finished before its configured end"
+        elif manifest.get("completed_at_et") and final_slot is not None and timestamp(manifest["completed_at_et"]) < final_slot:
+            state, reason = "STOPPED_EARLY", "Poller finished before its final scheduled slot"
+        elif manifest.get("completed_at_et") and final_slot is not None and final_slot not in fulfilled:
+            state, reason = "INCOMPLETE_FINISH", "Poller finished without committing its final scheduled slot"
+        elif manifest.get("completed_at_et"):
+            state = "WINDOW_ENDED" if now >= timestamp(config.stop_at) else "SCHEDULE_COMPLETE"
+            reason = "Poller finished after committing its final scheduled slot; inspect full-session coverage"
         elif now < timestamp(config.start_at):
             state, reason = "WAITING", "Waiting for the configured opening slot"
         elif active and inventory["known"] and not pids:
@@ -288,6 +295,7 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
         result["channels"][channel] = {
             "state": state, "reason": reason, "latest_run_id": run["run_id"] if run else None,
             "candidate_pids": pids, "committed_acquisitions": len(committed), "committed_skips": len(skips),
+            "latest_run_committed_slots": sum(row["run_id"] == run["run_id"] for row in committed + skips) if run else 0,
             "last_committed_slot_utc": activity.isoformat() if activity else None,
             "last_acquisition_slot_utc": latest["scheduled_at_utc"] if latest else None,
             "last_acquisition_completed_at_utc": latest["completed_at_utc"] if latest else None,
@@ -409,7 +417,7 @@ def alert_conditions(health: dict[str, Any]) -> dict[str, str]:
     if not health["process_inspection"]["known"]:
         alerts["process:unknown"] = health["process_inspection"]["error"]
     for channel, info in health["channels"].items():
-        if info["state"] not in {"RUNNING", "WAITING", "AWAITING_COMMIT", "WINDOW_ENDED", "PROCESS_UNKNOWN"}:
+        if info["state"] not in {"RUNNING", "WAITING", "AWAITING_COMMIT", "SCHEDULE_COMPLETE", "WINDOW_ENDED", "PROCESS_UNKNOWN"}:
             alerts[f"{channel}:{info['state']}:{info['latest_run_id']}"] = info["reason"]
         if info["missing_slot_count"]:
             alerts[f"{channel}:coverage"] = f"{info['missing_slot_count']} scheduled slots remain missing after grace"
@@ -441,7 +449,8 @@ def persist_health(directory: Path, health: dict[str, Any]) -> list[dict[str, An
             if key not in active:
                 channel = key.split(":", 1)[0]
                 info = health["channels"].get(channel)
-                if info is None or info["state"] in {"RUNNING", "WINDOW_ENDED"}:
+                if info is None or (info["state"] in {"RUNNING", "SCHEDULE_COMPLETE", "WINDOW_ENDED"}
+                                    and info["latest_run_committed_slots"] > 0):
                     item["resolved_at_utc"] = health["observed_at_utc"]
     atomic_json(path, history)
     atomic_json(directory / "latest.json", health)

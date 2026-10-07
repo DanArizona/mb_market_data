@@ -390,5 +390,30 @@ class HealthTests(unittest.TestCase):
         self.assertIsNotNone(receipt["child_finished_at_utc"])
 
 
+    def test_normal_finish_after_final_slot_before_window_end_is_healthy(self):
+        self.seed_recent()
+        self.commit("focus", 110)
+        for channel, second in (("uni", 90), ("focus", 110)):
+            run_id, directory = self.runs[channel]
+            health.atomic_json(directory / "manifest.json", {"journal_run_id": run_id, "journal_schema_version": 2,
+                              "completed_at_et": (self.start + timedelta(seconds=second + .4)).isoformat(), "journal_errors": 0})
+        before = self.snapshot(119, ())
+        self.assertEqual({info["state"] for info in before["channels"].values()}, {"SCHEDULE_COMPLETE"})
+        self.assertFalse(health.alert_conditions(before))
+        after = self.snapshot(211, ())
+        self.assertEqual({info["state"] for info in after["channels"].values()}, {"WINDOW_ENDED"})
+        self.assertFalse(health.alert_conditions(after))
+
+    def test_finish_without_final_commit_is_not_declared_schedule_complete(self):
+        self.seed_recent()  # final Focus slot at :50 of the second minute is missing
+        run_id, directory = self.runs["focus"]
+        health.atomic_json(directory / "manifest.json", {"journal_run_id": run_id, "journal_schema_version": 2,
+                          "completed_at_et": (self.start + timedelta(seconds=110.4)).isoformat(), "journal_errors": 0})
+        snapshot = self.snapshot(211, ())
+        self.assertEqual(snapshot["channels"]["focus"]["state"], "INCOMPLETE_FINISH")
+        self.assertEqual(snapshot["channels"]["focus"]["missing_slot_count"], 1)
+        self.assertIn("focus:coverage", health.alert_conditions(snapshot))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

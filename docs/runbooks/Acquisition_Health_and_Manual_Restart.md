@@ -57,7 +57,9 @@ Each channel shows state, candidate PID(s), latest committed slot, counts of
 acquisitions and empty-membership skips, current membership, saved errors, and
 missing scheduled slots. A committed acquisition containing request-error
 outcomes raises a separate data alert. Historical coverage gaps remain visible
-even after acquisition resumes.
+even after acquisition resumes. A normal finish after the final configured slot
+(Uni 15:59:30, Focus 15:59:50) is SCHEDULE_COMPLETE before 16:00 and WINDOW_ENDED
+afterwards. Missing final commits and genuine early exits still raise alerts.
 
 Operational records are written outside the journal:
 
@@ -138,7 +140,7 @@ a verified salvage does not establish complete full-day coverage.
 
 ## Validation and limits
 
-The initial local check passed 26 focused failure/recovery tests and 110
+The initial local check passed 28 focused failure/recovery tests and 112
 combined polling, membership, and journal contract tests. A full-size synthetic
 October 6 journal was correctly classified as Uni 780/780 with no gaps and
 Focus 1,506/1,560 with 54 gaps, retaining the recorded lock error. Its read took
