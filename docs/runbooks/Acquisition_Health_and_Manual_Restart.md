@@ -83,14 +83,41 @@ output\polling_health\SESSION_DATE\
     events.jsonl     first detections
 ```
 
-New alerts generate a Windows message box and sound independently of the
-Overlay. The message box uses a separate thread, so leaving it open does not
-block inspection. Active conditions produce an audible reminder every minute.
-`--no-popup` suppresses these desktop alerts when explicitly requested.
-The console and incident files remain available after a poller exits. The
-monitor itself must remain running; service-level supervision is future work.
-Popups show the detection time. Use STATUS.txt to check the current condition;
-an earlier message can remain visible after its condition clears.
+Unresolved failures show a large red window that stays on top of other windows.
+Three tones repeat every ten seconds. The window shows the latest condition
+and check time rather than queuing old popup messages. Its title flashes, and
+an unsilenced alarm brings a minimized window back when the sound repeats.
+Sound and window workers operate independently of journal/CIM inspection.
+
+**Silence for 5 minutes** pauses the sound while monitoring continues. A new
+failure immediately cancels that pause. Closing a red alarm window also
+silences it for five minutes and keeps it visible; an unresolved failure cannot
+be dismissed. Sound stops only after the current urgent condition clears,
+including a new committed slot when confirming restart. A quiet notice stays
+visible until you dismiss it, so an unattended failure remains visible after
+recovery. Historical coverage gaps do not produce a repeating urgent sound;
+they remain in the window, STATUS.txt, and incident history.
+
+Click the prod-health CMD window before pressing Q to stop the monitor, or use
+the separate 05 stop launcher. Silencing the alarm does not stop monitoring.
+The monitor must remain running; service-level supervision is future work.
+`--no-popup` suppresses the desktop window and sound when explicitly requested.
+
+The window uses Python's supplied Tk desktop runtime; the offline verifier
+checks it silently on Windows. No extra pip package is required. To verify the
+intrusive window and sound without a production journal, API call or password,
+run this in prod-main:
+
+```cmd
+call "C:\Users\danla\Documents\github\mb_market_data\output\polling_health_recovery_v1\06_prod_main_alarm_demo.cmd"
+```
+
+This first runs 47 offline checks and the native process/mutex/Tk checks. It
+then shows an explicitly synthetic failure for 40 seconds. Listen for repeated
+three-tone alerts or try the five-minute silence button. Simulated recovery
+stops the sound and leaves a quiet notice; dismiss it to finish. Q in that CMD
+window also stops the demonstration. It stops automatically after five minutes.
+The demonstration writes only its own reports under output/polling_alarm_demo.
 
 A blank Windows process command line is rechecked within the inspection's
 shared eight-second deadline. A PID is excluded only if the second query
@@ -163,8 +190,8 @@ a verified salvage does not establish complete full-day coverage.
 
 ## Validation and limits
 
-The current local check passed 39 focused failure/recovery tests and 66 store,
-membership, and polling-journal checks (105 total). A full-size synthetic
+The current local check passed 47 focused failure/recovery/alarm tests and 66
+store, membership, and polling-journal checks (113 total). A full-size synthetic
 October 6 journal was correctly classified as Uni 780/780 with no gaps and
 Focus 1,506/1,560 with 54 gaps, retaining the recorded lock error. Its read took
 approximately 14 ms locally; this is not a Windows latency guarantee.
@@ -179,16 +206,19 @@ acquisitions, no missing slots, and both final slots committed; its full audit
 and replay also passed. Ctrl+C did not stop the original monitor on that
 attempt; the operator closed its window. Q and the explicit stop-request
 launcher are now included in the production ZIP. Updated native process
-inspection needs a new Windows verification. An actual API restart has not
-been performed by these tools.
+inspection passed a 39-check Windows verification on October 7. The updated
+production monitor then correctly read the complete journal and stopped with
+Q. The intrusive desktop alarm is a later increment and still needs its
+47-check verification and on-machine window/sound demonstration. An actual
+API restart has not been performed by these tools.
 
 ### Isolated real-process test
 
 `polling_health_live_test_v1` is a separate extracted ZIP folder. Its synthetic session
 script uses reviewed journal code, generated fake quote outcomes, an exclusive
 case directory, and a generated synthetic probe. No production database is
-opened and the production API probe is never executed. It uses the same 39
-focused checks and current health/restart code as the production ZIP.
+opened and the production API probe is never executed. It uses the same 47
+focused checks and current health/restart/alarm code as the production ZIP.
 
 The packet opens `test-poll-uni`, `test-poll-focus`, and `test-health`. The
 operator triggers a Focus failure, confirms continued Uni commits and a
@@ -208,9 +238,10 @@ the beep was confirmed. All synthetic processes were then stopped. The
 intended failure popup and Ctrl+C were not confirmed; other alert popups
 appeared. The incident log recorded two temporarily unreadable process entries
 and a false OVERDUE state while the new Focus run awaited its first slot.
-The current correction rechecks blank process entries and waits for that new
-run's own first due slot. These changes passed local automated and process
-checks; corrected native behavior still needs Windows acceptance.
+The correction rechecks blank process entries and waits for that new run's own
+first due slot. It passed local automated and process checks, followed by
+MasterBot's 39-check verification and production monitor/Q check. The new
+persistent alarm window and repeated tones still require desktop acceptance.
 
 The original lock's owner/cause remains unresolved. This increment preserves
 diagnostic timing, SQLite error text, process candidates, and slot loss without

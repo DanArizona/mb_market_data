@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import queue
 import signal
 import subprocess
 import sys
@@ -23,6 +22,11 @@ try:
 except ModuleNotFoundError:
     from mb_market_data import acquisition_health as health
 
+try:
+    import polling_alarm as alarm
+except ModuleNotFoundError:
+    from mb_market_data import polling_alarm as alarm
+
 
 def config_for(root: Path, session: date, journal: Path | None = None, *, grace: float = 90) -> health.HealthConfig:
     root = root.resolve()
@@ -30,20 +34,6 @@ def config_for(root: Path, session: date, journal: Path | None = None, *, grace:
     return health.HealthConfig(root, journal.resolve(), session,
                               datetime.combine(session, clock_time(9, 30), tzinfo=health.ET),
                               datetime.combine(session, clock_time(16), tzinfo=health.ET), grace)
-
-
-def popup_worker(messages: queue.Queue) -> None:
-    while True:
-        message = messages.get()
-        try:
-            import ctypes
-            import winsound
-            winsound.MessageBeep(winsound.MB_ICONHAND)
-            ctypes.windll.user32.MessageBoxW(None, message, "Polling health alert", 0x10 | 0x10000)
-        except Exception:
-            print("AUDIBLE/POPUP ALERT UNAVAILABLE", flush=True)
-        finally:
-            messages.task_done()
 
 
 def wait_for_stop(interval: float, stop_file: Path | None = None) -> str | None:
@@ -75,15 +65,15 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
     directory = config.market_data_root / "output/polling_health" / str(config.session_date)
     clear_old_stop = stop_file is None
     stop_file = stop_file or directory / "stop.request"
-    messages: queue.Queue = queue.Queue(maxsize=1)
-    if os.name == "nt" and popups:
-        threading.Thread(target=popup_worker, args=(messages,), daemon=True).start()
+    desktop = None
     previous = None
-    reminder_at = 0.0
     print("Independent read-only polling monitor. No password or API requests.")
     print(f"Status and persistent alerts: {directory}", flush=True)
     print("Journal read failures are reported and retried. This monitor never restarts a poller automatically.", flush=True)
     print("Stop this monitor with Ctrl+C or Q. Clear any CMD text selection with Esc first.", flush=True)
+    if os.name == "nt" and popups:
+        print("Unresolved failures: persistent topmost window and three tones every 10 seconds.", flush=True)
+        print("Silence for 5 minutes keeps monitoring active. New failures sound immediately.", flush=True)
     handlers = {}
     if threading.current_thread() is threading.main_thread():
         for name in ("SIGINT", "SIGBREAK"):
@@ -94,6 +84,9 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
     stopped_by = "error"
     try:
         with health.operation_lock("monitor:" + str(config.journal).casefold()):
+            if os.name == "nt" and popups:
+                desktop = alarm.DesktopAlarm()
+                desktop.start()
             if clear_old_stop:
                 stop_file.unlink(missing_ok=True)
             while True:
@@ -104,6 +97,12 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
                     return 0
                 snapshot = health.inspect_health(config)
                 new = health.persist_health(directory, snapshot)
+                if desktop:
+                    incidents = json.loads((directory / "incidents.json").read_text(encoding="utf-8"))
+                    desktop.publish(alarm.alarm_payload(
+                        snapshot, health.alert_conditions(snapshot), incidents,
+                        window_active=health.timestamp(config.start_at) <= health.timestamp(snapshot["observed_at_utc"]) < health.timestamp(config.stop_at),
+                        status_path=directory / "STATUS.txt", poller_windows=poller_windows))
                 signature = json.dumps({"read": snapshot["journal_read"], "error": snapshot["journal_error"],
                                         "channels": snapshot["channels"], "process": snapshot["process_inspection"]}, sort_keys=True)
                 if signature != previous:
@@ -115,15 +114,6 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
                     message += "\n".join(f"{item['key']}: {item['detail']}" for item in new)
                     message += f"\n\nCheck {poller_windows}. Keep healthy pollers running.\nDetails: {directory / 'STATUS.txt'}"
                     print("PERSISTENT ALERT:\n" + message, flush=True)
-                    if os.name == "nt" and popups and messages.empty():
-                        messages.put_nowait(message[-6000:])
-                if health.alert_conditions(snapshot) and time.monotonic() >= reminder_at:
-                    if os.name == "nt" and popups:
-                        import winsound
-                        winsound.MessageBeep(winsound.MB_ICONHAND)
-                    else:
-                        print("\a", end="", flush=True)
-                    reminder_at = time.monotonic() + 60
                 if once:
                     stopped_by = "one inspection"
                     return 0 if not health.alert_conditions(snapshot) else 1
@@ -137,11 +127,58 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
         print("\nMonitor stopped by keyboard interrupt. Pollers and journal unchanged.", flush=True)
         return 130
     finally:
+        if desktop:
+            desktop.close()
         for event, handler in handlers.items():
             signal.signal(event, handler)
         health.atomic_json(directory / "last_stop.json", {
             "monitor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
             "stopped_by": stopped_by, "journal": str(config.journal)})
+
+
+def alarm_demo(root: Path) -> int:
+    """Exercise only the desktop alarm, with a fabricated failure and recovery."""
+    if os.name != "nt":
+        raise ValueError("The desktop alarm demonstration must run on Windows")
+    directory = root.resolve() / "output/polling_alarm_demo" / (datetime.now(health.UTC).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid4().hex[:8])
+    directory.mkdir(parents=True)
+    print("SYNTHETIC ALARM ONLY. No production journal, poller, API, or password.", flush=True)
+    print("A red topmost window and three tones should repeat every 10 seconds.", flush=True)
+    print("After 40 seconds, simulated recovery stops the sound and leaves a quiet notice.", flush=True)
+    print("Try Silence for 5 minutes, or wait to hear repeated tones. Dismiss the recovered notice to finish.", flush=True)
+    print("Q in this CMD window also stops this demonstration.", flush=True)
+    desktop = alarm.DesktopAlarm()
+    began, recovered, stopped_by = time.monotonic(), False, "error"
+    payload = {"urgent": {"demo:failed": "SYNTHETIC Focus failure"}, "notices": {},
+               "text": "SYNTHETIC ALARM TEST\n\nFocus is deliberately shown as failed. Uni is shown as healthy.\n\nThis is a desktop alarm demonstration only.\n\nAfter 40 seconds the simulated failure recovers. The sound stops, while a quiet notice remains until you dismiss it.",
+               "observed_at_utc": datetime.now(health.UTC).isoformat(), "status_path": str(directory / "STATUS.txt")}
+    try:
+        desktop.start()
+        while time.monotonic() - began < 300:
+            if not recovered and time.monotonic() - began >= 40:
+                payload.update(urgent={}, notices={"demo:coverage": "One simulated missed slot remains"},
+                               text="SYNTHETIC RECOVERY\n\nFocus is shown as running again. Uni is still healthy.\n\nThe repeating sound has stopped. One simulated missed slot remains for later review.\n\nDismiss this notice to finish the demonstration.")
+                recovered = True
+                print("SYNTHETIC recovery: urgent sound stopped; notice remains for acknowledgement.", flush=True)
+            payload["observed_at_utc"] = datetime.now(health.UTC).isoformat()
+            (directory / "STATUS.txt").write_text(payload["text"], encoding="utf-8")
+            desktop.publish(dict(payload))
+            if recovered and not desktop.view()["visible"]:
+                stopped_by = "recovered notice dismissed"
+                break
+            if wait_for_stop(0.2):
+                stopped_by = "Q key"
+                break
+        else:
+            stopped_by = "five-minute demonstration limit"
+    except KeyboardInterrupt:
+        stopped_by = "keyboard interrupt"
+    finally:
+        desktop.close()
+        health.atomic_json(directory / "demo.json", {"synthetic": True, "stopped_by": stopped_by,
+                          "simulated_recovery_shown": recovered, "sound_sequences_requested": desktop.view()["sound_count"]})
+    print(f"Alarm demonstration finished: {stopped_by}. Report whether you saw the window and heard repeated tones.", flush=True)
+    return 0
 
 
 def restart(config: health.HealthConfig, channel: str, *, plan_only: bool = False,
@@ -185,7 +222,7 @@ def restart(config: health.HealthConfig, channel: str, *, plan_only: bool = Fals
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("monitor", "restart", "windows-check", "stop-monitor"))
+    parser.add_argument("operation", choices=("monitor", "restart", "windows-check", "stop-monitor", "alarm-demo"))
     parser.add_argument("--market-data-root", type=Path, required=True)
     parser.add_argument("--session-date", type=date.fromisoformat)
     parser.add_argument("--journal", type=Path)
@@ -198,6 +235,8 @@ def main() -> int:
     parser.add_argument("--plan-only", action="store_true")
     args = parser.parse_args()
     try:
+        if args.operation == "alarm-demo":
+            return alarm_demo(args.market_data_root)
         if args.operation == "windows-check":
             inventory = health.windows_process_inventory()
             if not inventory["known"]:

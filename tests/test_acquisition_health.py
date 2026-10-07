@@ -20,6 +20,11 @@ try:
 except ModuleNotFoundError:
     from mb_market_data import acquisition_health as health
 
+try:
+    import polling_alarm as alarm
+except ModuleNotFoundError:
+    from mb_market_data import polling_alarm as alarm
+
 from mb_market_data.quote_observation_store import PollRunProvenance, QuoteObservationStore
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
 from mb_market_data.schwab_quotes import QuoteBatchResult, QuoteResult, QuoteStatus
@@ -535,6 +540,126 @@ class HealthTests(unittest.TestCase):
         with patch.object(health, "inspect_health", side_effect=inspect) as inspection, redirect_stdout(io.StringIO()):
             self.assertEqual(cli["monitor"](self.config, interval=5, popups=False), 0)
         self.assertEqual(inspection.call_count, 1)
+
+    def alarm_payload(self, snapshot, directory=None):
+        incidents = []
+        if directory is not None:
+            incidents = json.loads((directory / "incidents.json").read_text())
+        return alarm.alarm_payload(snapshot, health.alert_conditions(snapshot), incidents,
+                                   window_active=next(iter(snapshot["channels"].values()), {}).get("polling_window_active", True),
+                                   status_path=self.root / "STATUS.txt", poller_windows="SYNTHETIC windows")
+
+    def test_alarm_repeats_until_recovery_and_latches_a_quiet_notice(self):
+        self.fail_focus()
+        policy = alarm.AlarmPolicy()
+        policy.update(self.alarm_payload(self.snapshot(21, ("uni",))), 0)
+        self.assertTrue(policy.sound_due(0))
+        self.assertFalse(policy.sound_due(9))
+        self.assertTrue(policy.sound_due(10))
+        self.register("focus", 1, self.start + timedelta(seconds=22))
+        self.commit("focus", 35)
+        policy.update(self.alarm_payload(self.snapshot(36)), 11)
+        self.assertFalse(policy.sound_due(20))
+        self.assertTrue(policy.visible)
+        self.assertIn("database is locked", policy.view(20)["text"])
+        self.assertTrue(policy.dismiss())
+        self.assertFalse(policy.visible)
+        self.assertNotIn("database is locked", policy.view(21)["text"])
+
+    def test_alarm_silence_expires_and_a_new_failure_breaks_silence(self):
+        policy = alarm.AlarmPolicy()
+        payload = {"urgent": {"focus:FAILED:old": "failure"}, "notices": {}, "text": "", "observed_at_utc": "", "status_path": ""}
+        policy.update(payload, 0)
+        policy.silence(1)
+        policy.update(dict(payload), 50)
+        self.assertFalse(policy.sound_due(300))
+        self.assertTrue(policy.sound_due(301))
+        policy.silence(302)
+        payload = dict(payload, urgent={**payload["urgent"], "uni:FAILED:new": "new failure"})
+        policy.update(payload, 303)
+        self.assertTrue(policy.sound_due(303))
+
+    def test_alarm_cannot_dismiss_an_unresolved_failure(self):
+        self.fail_focus()
+        policy = alarm.AlarmPolicy()
+        policy.update(self.alarm_payload(self.snapshot(21, ("uni",))), 0)
+        self.assertFalse(policy.dismiss())
+        self.assertTrue(policy.visible)
+        self.assertTrue(policy.sound_due(10))
+
+    def test_alarm_historical_gaps_are_quiet_and_dismissal_survives_refresh(self):
+        self.seed_recent()
+        snapshot = self.snapshot(119)
+        snapshot["channels"]["focus"].update(missing_slot_count=17, missing_slots=[self.start.isoformat()])
+        policy = alarm.AlarmPolicy()
+        payload = self.alarm_payload(snapshot)
+        self.assertFalse(payload["urgent"])
+        policy.update(payload, 0)
+        self.assertTrue(policy.visible)
+        self.assertFalse(policy.sound_due(0))
+        self.assertTrue(policy.dismiss())
+        policy.update(self.alarm_payload(snapshot), 50)
+        self.assertFalse(policy.visible)
+
+    def test_alarm_keeps_failed_run_urgent_while_replacement_awaits_commit(self):
+        from dataclasses import replace
+        self.config = replace(self.config, grace_seconds=5)
+        self.fail_focus()
+        directory = self.root / "health"
+        health.persist_health(directory, self.snapshot(21, ("uni",)))
+        self.register("focus", 1, self.start + timedelta(seconds=22))
+        waiting = self.snapshot(26)
+        health.persist_health(directory, waiting)
+        payload = self.alarm_payload(waiting, directory)
+        self.assertTrue(any(":FAILED:" in key for key in payload["urgent"]))
+        self.commit("focus", 35)
+        resumed = self.snapshot(36)
+        health.persist_health(directory, resumed)
+        payload = self.alarm_payload(resumed, directory)
+        self.assertFalse(any(key.startswith("focus:") for key in payload["urgent"]))
+        self.assertIn("focus:coverage", payload["notices"])
+
+    def test_alarm_sound_worker_repeats_without_more_journal_inspections(self):
+        service = alarm.DesktopAlarm(sound=lambda: heard.set())
+        service.policy.repeat_seconds = 0.15
+        heard = threading.Event()
+        service.publish({"urgent": {"focus:FAILED:test": "failure"}, "notices": {}, "text": "", "observed_at_utc": "", "status_path": ""})
+        worker = threading.Thread(target=service._sound)
+        service.threads = [worker]
+        worker.start()
+        try:
+            self.assertTrue(heard.wait(1))
+            heard.clear()
+            self.assertTrue(heard.wait(1))
+        finally:
+            service.close()
+        self.assertFalse(worker.is_alive())
+
+    def test_alarm_journal_read_failure_is_urgent_and_does_not_clear_channel_failure(self):
+        self.fail_focus()
+        directory = self.root / "health"
+        health.persist_health(directory, self.snapshot(21, ("uni",)))
+        self.journal.unlink()
+        unreadable = self.snapshot(26)
+        health.persist_health(directory, unreadable)
+        payload = self.alarm_payload(unreadable, directory)
+        self.assertIn("journal:unavailable", payload["urgent"])
+        incidents = json.loads((directory / "incidents.json").read_text())
+        self.assertIsNone(next(item for item in incidents if ":FAILED:" in item["key"])["resolved_at_utc"])
+
+    def test_monitor_publishes_persistent_alarm_and_closes_it_on_exit(self):
+        import os
+        from types import SimpleNamespace
+        cli = self.cli()
+        globals_ = cli["monitor"].__globals__
+        snapshot = self.snapshot(21)
+        with patch.dict(globals_, {"os": SimpleNamespace(name="nt", getpid=os.getpid), "wait_for_stop": lambda *args: None}), \
+             patch.object(alarm, "DesktopAlarm") as desktop, \
+             patch.object(health, "inspect_health", return_value=snapshot), redirect_stdout(io.StringIO()):
+            self.assertEqual(cli["monitor"](self.config, once=True), 0)
+        desktop.return_value.start.assert_called_once()
+        desktop.return_value.publish.assert_called_once()
+        desktop.return_value.close.assert_called_once()
 
 
 if __name__ == "__main__":

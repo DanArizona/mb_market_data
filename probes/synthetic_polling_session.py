@@ -298,7 +298,7 @@ def fail_focus(case):
     after = wait_until(failed, 55, "Focus alert, visible gap, and uninterrupted Uni")
     health.atomic_json(case / "failed_phase.json", after)
     print(health.format_health(after), flush=True)
-    print("FAILURE CHECK: PASS. The monitor should have shown a popup and sounded a beep.")
+    print("FAILURE CHECK: PASS. The monitor should show a red alarm window and repeat three tones every 10 seconds.")
     print("Next: call 03_test_main_restart_focus.cmd. It restarts only this synthetic Focus poller.")
 
 
@@ -414,8 +414,8 @@ def finish(case, *, observations=None):
     if not resolved or not unresolved_gaps or len(records) != 1 or records[0].get("exit_code") != 0:
         raise ValueError("Incident history or guided restart receipt differs from expectations; retain the case")
     if observations is None:
-        observations = {"popup_seen": input("Did the intentional-failure popup appear? (y/n): ").strip().lower() == "y",
-                        "beep_heard": input("Did you hear the alert beep? (y/n): ").strip().lower() == "y"}
+        observations = {"popup_seen": input("Did the red intentional-failure alarm window appear? (y/n): ").strip().lower() == "y",
+                        "beep_heard": input("Did you hear the repeating three-tone alarm? (y/n): ").strip().lower() == "y"}
     report = {"synthetic": True, "native_windows": data["native_windows"], "case": str(case),
         "journal": str(config.journal), "completed_at_utc": now().isoformat(),
         "failure_restart_checks": "PASS", "monitor_stop": stopped["stopped_by"],
