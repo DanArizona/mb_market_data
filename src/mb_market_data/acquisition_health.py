@@ -176,21 +176,49 @@ def matching_processes(config: HealthConfig, channel: str, processes: list[dict[
     return sorted(matches)
 
 
+def windows_process_rows() -> list[dict[str, Any]]:
+    """Recheck blank command lines within one shared eight-second deadline.
+
+    A process is excluded only when the second CIM query confirms its PID is
+    absent. A still-present, unreadable process continues to block restart.
+    """
+    deadline = time.monotonic() + 8
+
+    def query(where: str) -> list[dict[str, Any]]:
+        script = ("$ErrorActionPreference='Stop'; @((Get-CimInstance Win32_Process " + where +
+                  " | Select-Object ProcessId,CommandLine)) | ConvertTo-Json -Compress")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError("Windows process inspection deadline expired")
+        result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                                capture_output=True, text=True, timeout=remaining, check=True)
+        raw = json.loads(result.stdout.strip() or "[]")
+        raw = [] if raw is None else [raw] if isinstance(raw, dict) else raw
+        if not isinstance(raw, list) or any(not isinstance(x, dict) or int(x["ProcessId"]) <= 0 for x in raw):
+            raise ValueError("Malformed Windows process inspection response")
+        return raw
+
+    raw = query("| Where-Object { $_.Name -match '^(python|pythonw|python3.*)\\.exe$' }")
+    unreadable = [int(item["ProcessId"]) for item in raw if not str(item.get("CommandLine") or "").strip()]
+    if unreadable:
+        # Query these exact PIDs without filtering on name. PID reuse or a
+        # still-present protected process cannot masquerade as absence.
+        again = query('-Filter "' + " OR ".join(f"ProcessId={pid}" for pid in unreadable) + '"')
+        raw = [item for item in raw if int(item["ProcessId"]) not in unreadable] + again
+        for item in again:
+            if int(item["ProcessId"]) not in unreadable:
+                raise ValueError("Unexpected PID returned during process recheck")
+            if not str(item.get("CommandLine") or "").strip():
+                raise ValueError(f"Python process {item['ProcessId']} has an unreadable command line after recheck")
+    return raw
+
+
 def windows_process_inventory() -> dict[str, Any]:
     """Fail closed when process absence cannot be established."""
     if os.name != "nt":
         return {"known": False, "processes": [], "error": "Windows CIM process inspection is required"}
     try:
-        script = ("$ErrorActionPreference='Stop'; @((Get-CimInstance Win32_Process | "
-                  "Where-Object { $_.Name -match '^(python|pythonw|python3.*)\\.exe$' } | "
-                  "Select-Object ProcessId,CommandLine)) | ConvertTo-Json -Compress")
-        result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-                                capture_output=True, text=True, timeout=8, check=True)
-        raw = json.loads(result.stdout.strip() or "[]")
-        if raw is None:
-            raw = []
-        if isinstance(raw, dict):
-            raw = [raw]
+        raw = windows_process_rows()
         import ctypes
         from ctypes import wintypes
         parse = ctypes.windll.shell32.CommandLineToArgvW
@@ -213,14 +241,14 @@ def windows_process_inventory() -> dict[str, Any]:
                 free(pointer)
             processes.append({"pid": int(item["ProcessId"]), "argv": argv})
         return {"known": True, "processes": processes, "error": None}
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         return {"known": False, "processes": [], "error": f"{type(error).__name__}: {error}"}
 
 
 def inspect_health(config: HealthConfig, *, now: datetime | None = None,
                    inventory: dict[str, Any] | None = None) -> dict[str, Any]:
-    now = timestamp(now or datetime.now(UTC))
     inventory = inventory if inventory is not None else windows_process_inventory()
+    now = timestamp(now or datetime.now(UTC))
     result = {"version": 1, "observed_at_utc": now.isoformat(), "session_date": str(config.session_date),
               "journal": str(Path(config.journal).resolve()), "grace_seconds": config.grace_seconds,
               "process_inspection": {"known": inventory["known"], "error": inventory.get("error")},
@@ -261,6 +289,8 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
         latest = committed[-1] if committed else None
         latest_skip = skips[-1] if skips else None
         activity = max(fulfilled, default=None)
+        current_commits = [row for row in committed + skips if run and row["run_id"] == run["run_id"]]
+        current_due = [slot for slot in due if run and slot >= timestamp(run["started_at_utc"])]
         pids = matching_processes(config, channel, inventory["processes"]) if inventory["known"] else []
         active = timestamp(config.start_at) <= now < timestamp(config.stop_at)
         state, reason = "RUNNING", "Recent scheduled outcomes are committed"
@@ -283,10 +313,13 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
             state, reason = "PROCESS_MISSING", "No matching Python poller process was found"
         elif len(pids) > 1:
             state, reason = "DUPLICATE_PROCESSES", "More than one candidate poller matches this channel and journal"
-        elif active and due and (activity is None or activity < due[-1]):
+        elif active and not current_commits:
+            if current_due:
+                state, reason = "OVERDUE", "The current run's first due slot has no committed acquisition or empty-membership skip"
+            else:
+                state, reason = "AWAITING_COMMIT", "Current run is waiting for its first scheduled commit; recovery is not confirmed"
+        elif active and current_due and (activity is None or activity < current_due[-1]):
             state, reason = "OVERDUE", "The latest due slot has no committed acquisition or empty-membership skip"
-        elif active and run and not any(row["run_id"] == run["run_id"] for row in committed + skips):
-            state, reason = "AWAITING_COMMIT", "Current run has not yet committed a slot; recovery is not confirmed"
         elif now >= timestamp(config.stop_at):
             state, reason = "WINDOW_ENDED", "Configured polling window has ended; inspect final coverage"
         elif not inventory["known"]:
@@ -295,7 +328,7 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
         result["channels"][channel] = {
             "state": state, "reason": reason, "latest_run_id": run["run_id"] if run else None,
             "candidate_pids": pids, "committed_acquisitions": len(committed), "committed_skips": len(skips),
-            "latest_run_committed_slots": sum(row["run_id"] == run["run_id"] for row in committed + skips) if run else 0,
+            "latest_run_committed_slots": len(current_commits),
             "last_committed_slot_utc": activity.isoformat() if activity else None,
             "last_acquisition_slot_utc": latest["scheduled_at_utc"] if latest else None,
             "last_acquisition_completed_at_utc": latest["completed_at_utc"] if latest else None,

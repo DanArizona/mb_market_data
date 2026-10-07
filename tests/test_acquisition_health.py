@@ -460,6 +460,82 @@ class HealthTests(unittest.TestCase):
             self.assertEqual(cli["wait_for_stop"](1), "Q key")
         self.assertFalse(keys)
 
+    def test_restarted_run_with_old_gaps_waits_for_its_own_first_slot(self):
+        from dataclasses import replace
+        self.config = replace(self.config, grace_seconds=5)
+        self.fail_focus()
+        directory = self.root / "health"
+        health.persist_health(directory, self.snapshot(21, ("uni",)))
+        self.register("focus", 1, self.start + timedelta(seconds=22))
+        waiting = self.snapshot(26)
+        self.assertEqual(waiting["channels"]["focus"]["state"], "AWAITING_COMMIT")
+        self.assertEqual(waiting["channels"]["focus"]["missing_slot_count"], 1)
+        health.persist_health(directory, waiting)
+        history = json.loads((directory / "incidents.json").read_text())
+        self.assertIsNone(next(x for x in history if ":FAILED:" in x["key"])["resolved_at_utc"])
+        overdue = self.snapshot(41)
+        self.assertEqual(overdue["channels"]["focus"]["state"], "OVERDUE")
+        self.commit("focus", 35)
+        resumed = self.snapshot(42)
+        self.assertEqual(resumed["channels"]["focus"]["state"], "RUNNING")
+        self.assertEqual(resumed["channels"]["focus"]["missing_slot_count"], 1)
+
+    def test_unreadable_process_is_excluded_only_after_cim_confirms_absence(self):
+        from types import SimpleNamespace
+        rows = [{"ProcessId": 100, "CommandLine": "python healthy.py"},
+                {"ProcessId": 200, "CommandLine": None}]
+        replies = [SimpleNamespace(stdout=json.dumps(rows)), SimpleNamespace(stdout="[]")]
+        with patch.object(health.subprocess, "run", side_effect=replies) as run:
+            self.assertEqual(health.windows_process_rows(), rows[:1])
+        self.assertIn('ProcessId=200', run.call_args_list[1].args[0][-1])
+        self.assertEqual(run.call_count, 2)
+
+    def test_unreadable_process_that_becomes_readable_is_kept(self):
+        from types import SimpleNamespace
+        readable = {"ProcessId": 200, "CommandLine": "python replacement.py"}
+        replies = [SimpleNamespace(stdout='[{"ProcessId":200,"CommandLine":null}]'),
+                   SimpleNamespace(stdout=json.dumps(readable))]
+        with patch.object(health.subprocess, "run", side_effect=replies):
+            self.assertEqual(health.windows_process_rows(), [readable])
+
+    def test_still_present_unreadable_process_is_not_ignored(self):
+        from types import SimpleNamespace
+        reply = SimpleNamespace(stdout='[{"ProcessId":200,"CommandLine":null}]')
+        with patch.object(health.subprocess, "run", return_value=reply):
+            with self.assertRaisesRegex(ValueError, "unreadable command line after recheck"):
+                health.windows_process_rows()
+
+    def test_cim_recheck_failure_does_not_prove_process_absence(self):
+        from types import SimpleNamespace
+        replies = [SimpleNamespace(stdout='[{"ProcessId":200,"CommandLine":null}]'),
+                   subprocess.TimeoutExpired("SYNTHETIC CIM", 1)]
+        with patch.object(health.subprocess, "run", side_effect=replies):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                health.windows_process_rows()
+
+    def test_cim_recheck_shares_original_deadline(self):
+        from types import SimpleNamespace
+        replies = [SimpleNamespace(stdout='[{"ProcessId":200,"CommandLine":null}]'),
+                   SimpleNamespace(stdout="[]")]
+        with patch.object(health.subprocess, "run", side_effect=replies) as run, \
+             patch.object(health.time, "monotonic", side_effect=[100, 101, 107]):
+            self.assertEqual(health.windows_process_rows(), [])
+        self.assertEqual([x.kwargs["timeout"] for x in run.call_args_list], [7, 1])
+
+    def test_default_monitor_stop_request_can_stop_a_running_monitor(self):
+        cli = self.cli()
+        stop = self.root / "output/polling_health" / str(self.session) / "stop.request"
+        stop.parent.mkdir(parents=True)
+        stop.touch()  # a request left over from a previous monitor is cleared
+        snapshot = self.snapshot(21)
+        def inspect(config):
+            self.assertFalse(stop.exists())
+            stop.touch()  # a new request is honored before the next inspection
+            return snapshot
+        with patch.object(health, "inspect_health", side_effect=inspect) as inspection, redirect_stdout(io.StringIO()):
+            self.assertEqual(cli["monitor"](self.config, interval=5, popups=False), 0)
+        self.assertEqual(inspection.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

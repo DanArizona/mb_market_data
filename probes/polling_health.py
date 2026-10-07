@@ -73,6 +73,8 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
             popups: bool = True, stop_file: Path | None = None,
             poller_windows: str = "prod-poll-uni / prod-poll-focus") -> int:
     directory = config.market_data_root / "output/polling_health" / str(config.session_date)
+    clear_old_stop = stop_file is None
+    stop_file = stop_file or directory / "stop.request"
     messages: queue.Queue = queue.Queue(maxsize=1)
     if os.name == "nt" and popups:
         threading.Thread(target=popup_worker, args=(messages,), daemon=True).start()
@@ -92,6 +94,8 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
     stopped_by = "error"
     try:
         with health.operation_lock("monitor:" + str(config.journal).casefold()):
+            if clear_old_stop:
+                stop_file.unlink(missing_ok=True)
             while True:
                 reason = wait_for_stop(0, stop_file)
                 if reason:
@@ -106,7 +110,9 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
                     print(health.format_health(snapshot), flush=True)
                     previous = signature
                 if new:
-                    message = "\n".join(f"{item['key']}: {item['detail']}" for item in new)
+                    detected = health.timestamp(snapshot["observed_at_utc"]).astimezone(health.ET).strftime("%H:%M:%S ET")
+                    message = f"Detected at {detected}. Check STATUS.txt for current status.\n\n"
+                    message += "\n".join(f"{item['key']}: {item['detail']}" for item in new)
                     message += f"\n\nCheck {poller_windows}. Keep healthy pollers running.\nDetails: {directory / 'STATUS.txt'}"
                     print("PERSISTENT ALERT:\n" + message, flush=True)
                     if os.name == "nt" and popups and messages.empty():
@@ -179,7 +185,7 @@ def restart(config: health.HealthConfig, channel: str, *, plan_only: bool = Fals
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("monitor", "restart", "windows-check"))
+    parser.add_argument("operation", choices=("monitor", "restart", "windows-check", "stop-monitor"))
     parser.add_argument("--market-data-root", type=Path, required=True)
     parser.add_argument("--session-date", type=date.fromisoformat)
     parser.add_argument("--journal", type=Path)
@@ -207,6 +213,11 @@ def main() -> int:
             value = input(f"Session date (YYYY-MM-DD) [{default}]: ").strip()
             session = date.fromisoformat(value) if value else default
         config = config_for(args.market_data_root, session, args.journal, grace=args.grace_seconds)
+        if args.operation == "stop-monitor":
+            stop_file = args.stop_file or config.market_data_root / "output/polling_health" / str(session) / "stop.request"
+            health.atomic_json(stop_file, {"requested_at_utc": datetime.now(health.UTC).isoformat()})
+            print(f"Monitor stop requested for {session}. Pollers and journal unchanged.", flush=True)
+            return 0
         if args.interval < 1:
             raise ValueError("Monitor interval must be at least one second")
         if args.operation == "restart":

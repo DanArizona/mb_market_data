@@ -329,8 +329,8 @@ def restart_case(case):
     health.atomic_json(case / "recovered_phase.json", after)
     print(health.format_health(after), flush=True)
     print("RESTART CHECK: PASS. New run committed to the SAME synthetic journal; earlier gaps remain.")
-    print("Next: press Esc, then Ctrl+C in test-health. Leave the synthetic pollers running.")
-    print("Then call 04_test_main_finish.cmd in prod-main. If Ctrl+C fails, try Q in test-health.")
+    print("Next: press Q in test-health. Clear any CMD text selection with Esc first.")
+    print("Leave the synthetic pollers running, then call 04_test_main_finish.cmd in prod-main.")
 
 
 def restart_worker(case):
@@ -394,7 +394,7 @@ def request_stop(case):
 def finish(case, *, observations=None):
     data, config = load_case(case)
     if process_alive(data.get("monitor_pid")):
-        raise ValueError("test-health is still running. Try Esc then Ctrl+C, or Q. Use 05 to stop all test processes")
+        raise ValueError("test-health is still running. Try Q after clearing CMD text selection with Esc. Use 05 to stop all test processes")
     stopped_path = case / "output/polling_health" / str(config.session_date) / "last_stop.json"
     stopped = json.loads(stopped_path.read_text()) if stopped_path.exists() else {}
     if stopped.get("monitor_pid") != data["monitor_pid"] or stopped.get("stopped_by") not in {"keyboard interrupt", "Q key", "stop request"}:

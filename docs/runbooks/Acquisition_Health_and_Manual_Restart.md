@@ -7,7 +7,7 @@ automatic restart. Hot polling is outside the current scheduler contract.
 
 ## First acceptance on MasterBot
 
-Extract the packet's contents directly into:
+Extract the ZIP's contents directly into:
 
 ```text
 C:\Users\danla\Documents\github\mb_market_data\output\polling_health_recovery_v1
@@ -40,6 +40,18 @@ the default is the current Eastern date. For October 7, enter `2026-10-07`.
 Leave the window open. No password is required. Keep **prod-poll-uni** and
 **prod-poll-focus** running normally. Stopping this monitor does not stop those
 independent pollers.
+
+Stop the monitor by pressing **Q** in prod-health. Clear any CMD text selection
+with Esc first. Ctrl+C is also supported, but its physical Windows keyboard
+behavior remains unconfirmed on MasterBot. If the console does not respond,
+request a monitor stop from prod-main:
+
+```cmd
+call "C:\Users\danla\Documents\github\mb_market_data\output\polling_health_recovery_v1\05_prod_main_stop_monitor.cmd"
+```
+
+Enter the matching session date. This writes only a monitor stop request;
+independent pollers continue. The monitor records its shutdown in last_stop.json.
 
 The monitor checks every five seconds, plus the time needed for inspection.
 An explicit journal error or missing process does not wait for slot grace.
@@ -77,6 +89,14 @@ block inspection. Active conditions produce an audible reminder every minute.
 `--no-popup` suppresses these desktop alerts when explicitly requested.
 The console and incident files remain available after a poller exits. The
 monitor itself must remain running; service-level supervision is future work.
+Popups show the detection time. Use STATUS.txt to check the current condition;
+an earlier message can remain visible after its condition clears.
+
+A blank Windows process command line is rechecked within the inspection's
+shared eight-second deadline. A PID is excluded only if the second query
+confirms it is absent. A still-present unreadable process, or a failed recheck,
+continues to block restart. This avoids assuming that every blank entry is an
+exiting process.
 
 ## During a polling failure
 
@@ -112,6 +132,9 @@ call "C:\Users\danla\Documents\github\mb_market_data\output\polling_health_recov
 7. Confirm new samples and successful commits. The monitor records recovery
    only when the replacement run commits a scheduled acquisition or legitimate
    empty-membership skip; a new PID alone is insufficient.
+   Before the replacement's first scheduled slot is due, its state is
+   AWAITING_COMMIT. Earlier gaps remain a separate coverage alert. If the new
+   run misses its own due slot after grace, it becomes OVERDUE.
 
 A restart request receipt is saved under
 `output\polling_restart_requests\SESSION_DATE\...\request.json`. It records the
@@ -140,8 +163,8 @@ a verified salvage does not establish complete full-day coverage.
 
 ## Validation and limits
 
-The initial local check passed 28 focused failure/recovery tests and 112
-combined polling, membership, and journal contract tests. A full-size synthetic
+The current local check passed 39 focused failure/recovery tests and 66 store,
+membership, and polling-journal checks (105 total). A full-size synthetic
 October 6 journal was correctly classified as Uni 780/780 with no gaps and
 Focus 1,506/1,560 with 54 gaps, retaining the recorded lock error. Its read took
 approximately 14 ms locally; this is not a Windows latency guarantee.
@@ -154,17 +177,18 @@ checks and native process/mutex inspection on October 7. The completed real
 October 7 journal was correctly classified with Uni 780 and Focus 1,560
 acquisitions, no missing slots, and both final slots committed; its full audit
 and replay also passed. Ctrl+C did not stop the original monitor on that
-attempt; the operator closed its window. Native alert and interactive restart
-acceptance remain pending. An actual API
-restart has not been performed by this packet during local validation.
+attempt; the operator closed its window. Q and the explicit stop-request
+launcher are now included in the production ZIP. Updated native process
+inspection needs a new Windows verification. An actual API restart has not
+been performed by these tools.
 
 ### Isolated real-process test
 
-`polling_health_live_test_v1` is a separate packet. Its synthetic session
+`polling_health_live_test_v1` is a separate extracted ZIP folder. Its synthetic session
 script uses reviewed journal code, generated fake quote outcomes, an exclusive
 case directory, and a generated synthetic probe. No production database is
-opened and the production API probe is never executed. Its 32 focused checks
-plus 66 store/membership/polling-journal checks passed locally.
+opened and the production API probe is never executed. It uses the same 39
+focused checks and current health/restart code as the production ZIP.
 
 The packet opens `test-poll-uni`, `test-poll-focus`, and `test-health`. The
 operator triggers a Focus failure, confirms continued Uni commits and a
@@ -177,9 +201,16 @@ stop the replacement. No real SQLite lock is injected.
 The test monitor supports Ctrl+C, Q, and a separate stop request, and records
 its shutdown reason outside the journal. Explicit signal handlers are restored
 on exit. Special console keys are discarded before checking Q. These controls
-have not yet been applied to the previously accepted production packet. The
-isolated real-process test must establish Windows keyboard, beep, popup, and
-restart behavior; local process checks alone do not establish those outcomes.
+are included in both ZIPs. MasterBot's October 7 synthetic process test passed:
+Focus failed, Uni continued, a new Focus run committed into the same journal,
+17 earlier missing Focus slots remained visible, Q stopped the monitor, and
+the beep was confirmed. All synthetic processes were then stopped. The
+intended failure popup and Ctrl+C were not confirmed; other alert popups
+appeared. The incident log recorded two temporarily unreadable process entries
+and a false OVERDUE state while the new Focus run awaited its first slot.
+The current correction rechecks blank process entries and waits for that new
+run's own first due slot. These changes passed local automated and process
+checks; corrected native behavior still needs Windows acceptance.
 
 The original lock's owner/cause remains unresolved. This increment preserves
 diagnostic timing, SQLite error text, process candidates, and slot loss without
