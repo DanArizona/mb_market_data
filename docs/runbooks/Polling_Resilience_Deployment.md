@@ -36,7 +36,7 @@ an unexpected Git commit, a dirty working tree, or missing Windows verification.
 The installer fast-forwards only the reviewed baseline commit using the bundled
 Git objects, preserves the previous standalone tool folders, and updates their
 reviewed-source fingerprints. It does not migrate or open daily journals. The
-saved rollback bundle and backup folders are recorded in its receipt. If a
+saved installation bundle and backup folders are recorded in its receipt. If a
 later deployment step fails, retain the receipt; do not launch production until
 the source/tool consistency checks pass.
 

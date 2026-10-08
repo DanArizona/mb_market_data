@@ -40,7 +40,7 @@ def verify(root, manifest):
     report = root / "output/polling_resilience_verification" / datetime.now(timezone.utc).strftime("synthetic_%Y%m%dT%H%M%S%fZ")
     report.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(candidate / "src")
+    env["PYTHONPATH"] = str(candidate / "src") + os.pathsep + env.get("PYTHONPATH", "")
     print("SYNTHETIC ONLY. No API, password, production journal, or production process changes.", flush=True)
     run([sys.executable, str(PACKAGE / "run_contract_tests.py")], env=env)
     run([sys.executable, str(candidate / "probes/verify_polling_write_recovery.py"),
