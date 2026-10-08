@@ -243,6 +243,11 @@ first due slot. It passed local automated and process checks, followed by
 MasterBot's 39-check verification and production monitor/Q check. The new
 persistent alarm window and repeated tones still require desktop acceptance.
 
+For the next source increment, see [Polling resilience deployment](Polling_Resilience_Deployment.md).
+It adds bounded writes, exact alarm commands, an inspector watchdog and the
+Overlay health panel. Those changes require candidate verification and a
+separate after-close installation; extracting a ZIP does not update pollers.
+
 The original lock's owner/cause remains unresolved. This increment preserves
 diagnostic timing, SQLite error text, process candidates, and slot loss without
 claiming a root-cause fix. Bounded write retries, automatic recovery, Overlay

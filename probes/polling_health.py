@@ -17,6 +17,10 @@ from datetime import date, datetime, time as clock_time
 from pathlib import Path
 from uuid import uuid4
 
+SOURCE_ROOT = Path(__file__).resolve().parents[1] / "src"
+if SOURCE_ROOT.is_dir() and str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
+
 try:
     import acquisition_health as health
 except ModuleNotFoundError:
@@ -36,13 +40,13 @@ def config_for(root: Path, session: date, journal: Path | None = None, *, grace:
                               datetime.combine(session, clock_time(16), tzinfo=health.ET), grace)
 
 
-def wait_for_stop(interval: float, stop_file: Path | None = None) -> str | None:
+def wait_for_stop(interval: float, stop_file: Path | None = None, *, keyboard: bool = True) -> str | None:
     """Keep the Windows keyboard and explicit stop request responsive."""
     deadline = time.monotonic() + interval
     while True:
         if stop_file is not None and stop_file.exists():
             return "stop request"
-        if os.name == "nt":
+        if os.name == "nt" and keyboard:
             import msvcrt
             while msvcrt.kbhit():
                 key = msvcrt.getwch()
@@ -61,7 +65,8 @@ def wait_for_stop(interval: float, stop_file: Path | None = None) -> str | None:
 
 def monitor(config: health.HealthConfig, *, once: bool = False, interval: float = 5,
             popups: bool = True, stop_file: Path | None = None,
-            poller_windows: str = "prod-poll-uni / prod-poll-focus") -> int:
+            poller_windows: str = "prod-poll-uni / prod-poll-focus",
+            keyboard: bool = True, monitor_token: str | None = None) -> int:
     directory = config.market_data_root / "output/polling_health" / str(config.session_date)
     clear_old_stop = stop_file is None
     stop_file = stop_file or directory / "stop.request"
@@ -90,12 +95,13 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
             if clear_old_stop:
                 stop_file.unlink(missing_ok=True)
             while True:
-                reason = wait_for_stop(0, stop_file)
+                reason = wait_for_stop(0, stop_file, keyboard=keyboard)
                 if reason:
                     stopped_by = reason
                     print(f"Monitor stopped by {reason}. Pollers and journal unchanged.", flush=True)
                     return 0
                 snapshot = health.inspect_health(config)
+                snapshot.update(monitor_pid=os.getpid(), monitor_token=monitor_token)
                 new = health.persist_health(directory, snapshot)
                 if desktop:
                     incidents = json.loads((directory / "incidents.json").read_text(encoding="utf-8"))
@@ -117,7 +123,7 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
                 if once:
                     stopped_by = "one inspection"
                     return 0 if not health.alert_conditions(snapshot) else 1
-                reason = wait_for_stop(interval, stop_file)
+                reason = wait_for_stop(interval, stop_file, keyboard=keyboard)
                 if reason:
                     stopped_by = reason
                     print(f"Monitor stopped by {reason}. Pollers and journal unchanged.", flush=True)
@@ -134,6 +140,88 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
         health.atomic_json(directory / "last_stop.json", {
             "monitor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
             "stopped_by": stopped_by, "journal": str(config.journal)})
+
+
+def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popups: bool = True) -> int:
+    """Keep the alarm responsive if the separate read-only inspector fails."""
+    try:
+        from polling_monitor_supervisor import MonitorWatchdog, stop_monitor_child
+    except ModuleNotFoundError:
+        from mb_market_data.polling_monitor_supervisor import MonitorWatchdog, stop_monitor_child
+    directory = config.market_data_root / "output/polling_health" / str(config.session_date)
+    stop_file = directory / "stop.request"
+    child_stop = directory / "inspector.stop.request"
+    token = uuid4().hex
+    child = desktop = None
+    stopped_by = "error"
+    print("Independent monitor watchdog. No API, password, or poller restart.", flush=True)
+    print("Q stops the monitor and watchdog; production pollers continue.", flush=True)
+    try:
+        with health.operation_lock("monitor-supervisor:" + str(config.journal).casefold()):
+            directory.mkdir(parents=True, exist_ok=True)
+            stop_file.unlink(missing_ok=True)
+            child_stop.unlink(missing_ok=True)
+            command = [sys.executable, str(Path(__file__).resolve()), "monitor", "--market-data-root", str(config.market_data_root),
+                       "--session-date", str(config.session_date), "--journal", str(config.journal),
+                       "--grace-seconds", str(config.grace_seconds), "--interval", str(interval),
+                       "--stop-file", str(child_stop), "--monitor-token", token, "--no-popup"]
+            child = subprocess.Popen(command, stdin=subprocess.DEVNULL)
+            watchdog = MonitorWatchdog(child_pid=child.pid, token=token, journal=config.journal,
+                                       started_monotonic=time.monotonic())
+            if os.name == "nt" and popups:
+                desktop = alarm.DesktopAlarm()
+                desktop.start()
+            previous = None
+            while True:
+                reason = wait_for_stop(0, stop_file)
+                if reason:
+                    stopped_by = reason
+                    return 0
+                try:
+                    snapshot = json.loads((directory / "latest.json").read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    snapshot = None
+                state = watchdog.inspect(snapshot, child_exit=child.poll(), now_monotonic=time.monotonic())
+                now = datetime.now(health.UTC)
+                state.update(observed_at_utc=now.isoformat(), supervisor_pid=os.getpid(),
+                             monitor_token=token, journal=str(config.journal), session_date=str(config.session_date))
+                health.atomic_json(directory / "supervisor.json", state)
+                if previous != state["state"]:
+                    print(f"MONITOR WATCHDOG: {state['state']} | {state['detail']}", flush=True)
+                    previous = state["state"]
+                current = watchdog.last_snapshot
+                if desktop:
+                    current = current or {"channels": {}, "observed_at_utc": now.isoformat()}
+                    conditions = health.alert_conditions(current) if watchdog.last_snapshot else {}
+                    try:
+                        incidents = json.loads((directory / "incidents.json").read_text(encoding="utf-8"))
+                    except (OSError, ValueError):
+                        incidents = []
+                    payload = alarm.alarm_payload(current, conditions, incidents,
+                        window_active=config.start_at <= now < config.stop_at,
+                        status_path=directory / "STATUS.txt", poller_windows="prod-poll-uni / prod-poll-focus")
+                    if state["state"] in {"STOPPED", "OVERDUE"}:
+                        payload["urgent"]["monitor:" + state["state"]] = state["detail"]
+                        payload["text"] = (state["detail"] + "\n\nLeave both pollers running. "
+                            "Press Q in prod-health, then run 02_prod_health_monitor.cmd again.\n\n" + payload["text"])
+                        payload["observed_at_utc"] = now.isoformat()
+                    desktop.publish(payload)
+                reason = wait_for_stop(1, stop_file)
+                if reason:
+                    stopped_by = reason
+                    return 0
+    except KeyboardInterrupt:
+        stopped_by = "keyboard interrupt"
+        return 130
+    finally:
+        if child is not None:
+            stop_monitor_child(child, child_stop)
+        if desktop:
+            desktop.close()
+        health.atomic_json(directory / "supervisor_stop.json", {
+            "supervisor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
+            "stopped_by": stopped_by, "journal": str(config.journal)})
+        print(f"Monitor watchdog stopped by {stopped_by}. Pollers and journal unchanged.", flush=True)
 
 
 def alarm_demo(root: Path) -> int:
@@ -225,6 +313,8 @@ def main() -> int:
     parser.add_argument("operation", choices=("monitor", "restart", "windows-check", "stop-monitor", "alarm-demo"))
     parser.add_argument("--market-data-root", type=Path, required=True)
     parser.add_argument("--session-date", type=date.fromisoformat)
+    parser.add_argument("--supervise", action="store_true", help="Run the health inspector under an independent watchdog")
+    parser.add_argument("--monitor-token", help=argparse.SUPPRESS)
     parser.add_argument("--journal", type=Path)
     parser.add_argument("--channel", choices=tuple(health.CADENCES))
     parser.add_argument("--grace-seconds", type=float, default=90)
@@ -263,8 +353,10 @@ def main() -> int:
             if args.channel is None:
                 raise ValueError("Manual restart requires --channel")
             return restart(config, args.channel, plan_only=args.plan_only)
+        if args.supervise:
+            return supervise_monitor(config, interval=args.interval, popups=not args.no_popup)
         return monitor(config, once=args.once, interval=args.interval, popups=not args.no_popup,
-                       stop_file=args.stop_file)
+                       stop_file=args.stop_file, keyboard=args.monitor_token is None, monitor_token=args.monitor_token)
     except KeyboardInterrupt:
         print("\nStopped by operator. Check the affected poller window if a restart was in progress.")
         return 130

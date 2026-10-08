@@ -29,6 +29,11 @@ def alarm_payload(snapshot: dict, conditions: dict, incidents: list, *, window_a
         lines.append(f"{key.split(':', 1)[0].upper()}: {detail}")
     for channel, info in snapshot["channels"].items():
         lines.append(f"{channel.upper()}: {info['state']} — {info['missing_slot_count']} missing slots")
+        if (info["state"] in {"FAILED", "STOPPED_EARLY", "PROCESS_MISSING", "OVERDUE", "NOT_STARTED"}
+                and any(key.startswith(channel + ":") for key in urgent)):
+            launcher = snapshot.get("restart_launchers", {}).get(channel)
+            if launcher:
+                lines.append(f'After the poller exits, run in prod-poll-{channel}:\ncall "{launcher}"')
     if notices:
         lines.append("\nCoverage and other notices:")
         lines.extend(f"{key.split(':', 1)[0].upper()}: {detail}" for key, detail in notices.items())

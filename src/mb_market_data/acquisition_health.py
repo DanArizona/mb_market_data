@@ -253,6 +253,10 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
               "journal": str(Path(config.journal).resolve()), "grace_seconds": config.grace_seconds,
               "process_inspection": {"known": inventory["known"], "error": inventory.get("error")},
               "journal_read": "OK", "journal_error": None, "channels": {}}
+    result["restart_launchers"] = {
+        channel: str(config.market_data_root / "output/polling_health_recovery_v1" / name)
+        for channel, name in (("uni", "03_prod_poll_uni_restart.cmd"), ("focus", "04_prod_poll_focus_restart.cmd"))
+    }
     began = time.monotonic()
     try:
         data = read_journal(config)
@@ -523,7 +527,12 @@ def format_health(health: dict[str, Any]) -> str:
             lines.append("Gap range: " + et(info["missing_slots"][0]) + " through " + et(info["missing_slots"][-1]))
         if info["error_tail"]:
             lines.append("Saved error: " + info["error_tail"])
+        if info["state"] in {"FAILED", "STOPPED_EARLY", "PROCESS_MISSING", "OVERDUE", "NOT_STARTED"}:
+            launcher = health.get("restart_launchers", {}).get(channel)
+            if launcher:
+                lines.extend([f"After this poller exits, run in prod-poll-{channel}:", f'call "{launcher}"'])
     lines.extend(["", "If a channel stops: leave healthy channels running. Check its CMD error first.",
-                  "Use the matching guided restart launcher in that channel's CMD window.",
+                  "Restart UNI: 03_prod_poll_uni_restart.cmd in prod-poll-uni.",
+                  "Restart FOCUS: 04_prod_poll_focus_restart.cmd in prod-poll-focus.",
                   "Restart restores future slots. Salvage saved acquisitions after the window closes.", ""])
     return "\n".join(lines)

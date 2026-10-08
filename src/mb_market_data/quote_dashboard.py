@@ -467,10 +467,39 @@ def _parse_seek_time_utc(
     return target_et.astimezone(timezone.utc)
 
 
+def _acquisition_health_panel(html: Any, status: dict[str, Any]) -> list[Any]:
+    """Operational wall-clock state stays separate from replay projections."""
+    current = status["state"] == "CURRENT"
+    observed = status.get("observed_at_utc")
+    rows = []
+    for channel, info in status.get("channels", {}).items():
+        committed = info.get("last_committed_slot_utc")
+        rows.append(html.Tr([
+            html.Td(channel.upper()), html.Td(info["state"] if current else "Last reported: " + info["state"]),
+            html.Td(_time_text(datetime.fromisoformat(committed)) if committed else "None"),
+            html.Td(str(info.get("missing_slot_count", 0))),
+            html.Td(info.get("reason", "") + f" · Request errors: {info.get('latest_outcomes', {}).get('request_error', 0)}"),
+        ]))
+    detail = status["reason"]
+    if status.get("journal_error"):
+        detail += " Journal read failed: " + status["journal_error"]
+    if status.get("process_inspection", {}).get("error"):
+        detail += " Process inspection: " + status["process_inspection"]["error"]
+    return [
+        html.H3("Acquisition health · " + status["state"]),
+        html.P("Current monitor information uses wall-clock time and is separate from replay time."),
+        html.P(detail),
+        html.P("Last completed health check: " + (_time_text(datetime.fromisoformat(observed)) if observed else "unavailable")),
+        html.Table([html.Thead(html.Tr([html.Th(x) for x in ("Channel", "State", "Last committed slot", "Missing slots", "Details")])),
+                    html.Tbody(rows)]),
+    ]
+
+
 def create_quote_dashboard(
     controller: QuoteDashboardReplayController,
     *,
     request_server_stop: Callable[[], None] | None = None,
+    acquisition_health_reader: Callable[[], dict[str, Any]] | None = None,
 ) -> Any:
     """Create a local interactive dashboard for one replay controller."""
 
@@ -522,6 +551,7 @@ def create_quote_dashboard(
                 interval=250,
                 disabled=controls[3],
             ),
+            *([dcc.Interval(id="acquisition-health-tick", interval=5_000)] if acquisition_health_reader else []),
             dcc.Store(
                 id="rendered-event-count",
                 data=replay.applied_event_count,
@@ -724,6 +754,9 @@ def create_quote_dashboard(
                 className="replay-controls",
                 **{"aria-label": "Replay controls"},
             ),
+            *([html.Section(_acquisition_health_panel(html, acquisition_health_reader()),
+                            id="acquisition-health-panel", className="acquisition-health-panel",
+                            **{"aria-label": "Acquisition health"})] if acquisition_health_reader else []),
             dcc.Tabs(
                 id="dashboard-tabs",
                 value="monitor",
@@ -870,6 +903,12 @@ def create_quote_dashboard(
         id="dashboard-page",
         className="dashboard-shell theme-dark",
     )
+
+    if acquisition_health_reader:
+        @app.callback(Output("acquisition-health-panel", "children"),
+                      Input("acquisition-health-tick", "n_intervals"))
+        def update_acquisition_health(_ticks: int) -> list[Any]:
+            return _acquisition_health_panel(html, acquisition_health_reader())
 
     @app.callback(
         Output("theme-preference", "data"),

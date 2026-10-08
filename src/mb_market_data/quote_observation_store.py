@@ -21,7 +21,9 @@ from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Callable, Iterator, Mapping
+
+from mb_market_data.sqlite_write_recovery import WriteRetryPolicy, write_with_recovery
 
 from mb_market_data.sampling_membership import (
     SAMPLING_HIERARCHY_CONTRACT,
@@ -335,6 +337,8 @@ class QuoteObservationStore:
         session_date: date,
         schema_version: int = SCHEMA_VERSION,
         busy_timeout_ms: int = 5_000,
+        write_retry_policy: WriteRetryPolicy | None = None,
+        write_event_handler: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         if isinstance(schema_version, bool) or not isinstance(
             schema_version, int
@@ -356,29 +360,53 @@ class QuoteObservationStore:
         self.session_date = session_date
         self.schema_version = schema_version
         self.busy_timeout_ms = busy_timeout_ms
+        self.write_retry_policy = write_retry_policy or WriteRetryPolicy(
+            total_seconds=busy_timeout_ms / 1_000
+        )
+        self.write_event_handler = write_event_handler
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(
-            self.database_path,
-            timeout=self.busy_timeout_ms / 1_000,
+    def _connect(self, timeout_seconds: float | None = None) -> sqlite3.Connection:
+        timeout = (
+            self.busy_timeout_ms / 1_000
+            if timeout_seconds is None else timeout_seconds
         )
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute(
-            f"PRAGMA busy_timeout = {self.busy_timeout_ms}"
-        )
+        connection = sqlite3.connect(self.database_path, timeout=timeout)
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(f"PRAGMA busy_timeout = {int(timeout * 1_000)}")
+        except BaseException:
+            connection.close()
+            raise
         return connection
 
     @contextmanager
-    def _connection(self) -> Iterator[sqlite3.Connection]:
+    def _connection(self, timeout_seconds: float | None = None) -> Iterator[sqlite3.Connection]:
         """Commit or roll back, then always release the database handle."""
 
-        connection = self._connect()
+        connection = self._connect(timeout_seconds)
         try:
             with connection:
                 yield connection
         finally:
             connection.close()
+
+    def _write(self, operation: str, identity: dict[str, Any],
+               body: Callable[[sqlite3.Connection], RecordResult]) -> RecordResult:
+        def attempt(timeout: float) -> RecordResult:
+            identity["phase"] = "CONNECT"
+            with self._connection(timeout) as connection:
+                identity["phase"] = "BEGIN"
+                connection.execute("BEGIN IMMEDIATE")
+                identity["phase"] = "WRITE"
+                result = body(connection)
+                identity["phase"] = "COMMIT"
+            return result  # report success only after commit and connection close
+
+        return write_with_recovery(
+            attempt, policy=self.write_retry_policy, database=self.database_path,
+            operation=operation, identity=identity, notify=self.write_event_handler,
+        )
 
     def _enable_wal(self, connection: sqlite3.Connection) -> None:
         """Enable WAL, retrying SQLite's transient initialization lock.
@@ -502,8 +530,7 @@ class QuoteObservationStore:
         )
         fingerprint = _fingerprint(values)
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+        def write(connection: sqlite3.Connection) -> RecordResult:
             duplicate = self._duplicate_result(
                 connection,
                 table="poll_run",
@@ -527,7 +554,9 @@ class QuoteObservationStore:
                 """,
                 (*values, fingerprint),
             )
-        return RecordResult.INSERTED
+            return RecordResult.INSERTED
+
+        return self._write("record_run", {"run_id": run.run_id}, write)
 
     def record_channel_revision(
         self,
@@ -552,8 +581,7 @@ class QuoteObservationStore:
             {"header": header, "symbols": revision.symbols}
         )
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+        def write(connection: sqlite3.Connection) -> RecordResult:
             existing = connection.execute(
                 """
                 SELECT content_sha256
@@ -611,7 +639,12 @@ class QuoteObservationStore:
                     for ordinal, symbol in enumerate(revision.symbols)
                 ),
             )
-        return RecordResult.INSERTED
+            return RecordResult.INSERTED
+
+        return self._write(
+            "record_channel_revision",
+            {"channel": revision.channel, "revision": revision.revision}, write,
+        )
 
     def record_membership_revision(
         self,
@@ -630,8 +663,7 @@ class QuoteObservationStore:
                 "published_at is assigned by the store and must be None"
             )
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+        def write(connection: sqlite3.Connection) -> RecordResult:
             existing_row = connection.execute(
                 """
                 SELECT *
@@ -761,7 +793,9 @@ class QuoteObservationStore:
                     ),
                 )
 
-        return RecordResult.INSERTED
+            return RecordResult.INSERTED
+
+        return self._write("record_membership_revision", {"revision": revision.revision}, write)
 
     def record_skipped_slot(
         self,
@@ -796,8 +830,7 @@ class QuoteObservationStore:
         )
         fingerprint = _fingerprint(header)
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+        def write(connection: sqlite3.Connection) -> RecordResult:
             if connection.execute(
                 "SELECT 1 FROM poll_run WHERE run_id = ?",
                 (run_id,),
@@ -884,7 +917,12 @@ class QuoteObservationStore:
                 """,
                 (*header, fingerprint),
             )
-        return RecordResult.INSERTED
+            return RecordResult.INSERTED
+
+        return self._write(
+            "record_skipped_slot",
+            {"run_id": run_id, "channel": channel, "slot_id": skipped.slot_id}, write,
+        )
 
     def record_acquisition(
         self,
@@ -930,8 +968,7 @@ class QuoteObservationStore:
         )
         fingerprint = _fingerprint({"header": header, "rows": rows})
 
-        with self._connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+        def write(connection: sqlite3.Connection) -> RecordResult:
             if connection.execute(
                 "SELECT 1 FROM poll_run WHERE run_id = ?",
                 (run_id,),
@@ -1087,7 +1124,13 @@ class QuoteObservationStore:
                 """,
                 rows,
             )
-        return RecordResult.INSERTED
+            return RecordResult.INSERTED
+
+        return self._write(
+            "record_acquisition",
+            {"run_id": run_id, "channel": channel, "slot_id": request.slot_id,
+             "acquisition_id": request.batch_id}, write,
+        )
 
     def get_acquisition(
         self,

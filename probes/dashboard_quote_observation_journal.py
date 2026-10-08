@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from mb_market_data.local_dashboard_server import LocalDashboardServer
+from mb_market_data.polling_health_status import read_health_status
 from mb_market_data.overlay_halts import load_overlay_halt_intervals
 from mb_market_data.observation_overlay import (
     ObservationOverlayProjector,
@@ -35,6 +36,8 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument("database", type=Path, help="Daily .sqlite3 file")
+    parser.add_argument("--polling-health-directory", type=Path,
+                        help="Read-only monitor status folder; defaults to output/polling_health/SESSION_DATE")
     parser.add_argument(
         "--host",
         default="127.0.0.1",
@@ -125,6 +128,9 @@ def main() -> int:
         app = create_quote_dashboard(
             controller,
             request_server_stop=stop_event.set,
+            acquisition_health_reader=partial(read_health_status,
+                args.polling_health_directory or PROJECT_ROOT / "output/polling_health" / str(reader.session_date),
+                journal=args.database, session_date=reader.session_date),
         )
         server = LocalDashboardServer(
             app.server,

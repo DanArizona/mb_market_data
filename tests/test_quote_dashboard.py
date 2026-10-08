@@ -213,6 +213,27 @@ def replay_callback_payload(
 
 
 class TestQuoteDashboard(unittest.TestCase):
+    def test_operational_health_refreshes_while_replay_is_paused_without_advancing_it(self):
+        controller = two_event_controller()
+        status = {"state": "CURRENT", "reason": "Recent monitor check", "observed_at_utc": "2026-10-08T17:30:00+00:00",
+                  "channels": {"focus": {"state": "RUNNING", "reason": "committed", "missing_slot_count": 17}}}
+        app = create_quote_dashboard(controller, acquisition_health_reader=lambda: status)
+        before = controller.snapshot().applied_event_count
+        status["state"] = "STALE"
+        client = app.server.test_client()
+        response = client.post("/_dash-update-component", json={
+            "output": "acquisition-health-panel.children",
+            "outputs": {"id": "acquisition-health-panel", "property": "children"},
+            "changedPropIds": ["acquisition-health-tick.n_intervals"],
+            "inputs": [{"id": "acquisition-health-tick", "property": "n_intervals", "value": 1}], "state": [],
+        })
+        self.assertEqual(response.status_code, 200)
+        text = response.get_data(as_text=True)
+        self.assertIn("STALE", text)
+        self.assertIn("Last reported: RUNNING", text)
+        self.assertIn("17", text)
+        self.assertEqual(controller.snapshot().applied_event_count, before)
+
     def test_clicked_candle_field_sets_visible_reference(self) -> None:
         controller = overlay_controller()
         controller.finish()

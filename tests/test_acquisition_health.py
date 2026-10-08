@@ -541,6 +541,12 @@ class HealthTests(unittest.TestCase):
             self.assertEqual(cli["monitor"](self.config, interval=5, popups=False), 0)
         self.assertEqual(inspection.call_count, 1)
 
+    def test_failed_channel_displays_its_exact_restart_command(self):
+        self.fail_focus()
+        snapshot = self.snapshot(21, ("uni",))
+        self.assertIn('call "' + snapshot["restart_launchers"]["focus"] + '"', health.format_health(snapshot))
+        self.assertIn("04_prod_poll_focus_restart.cmd", self.alarm_payload(snapshot)["text"])
+
     def alarm_payload(self, snapshot, directory=None):
         incidents = []
         if directory is not None:
@@ -653,7 +659,7 @@ class HealthTests(unittest.TestCase):
         cli = self.cli()
         globals_ = cli["monitor"].__globals__
         snapshot = self.snapshot(21)
-        with patch.dict(globals_, {"os": SimpleNamespace(name="nt", getpid=os.getpid), "wait_for_stop": lambda *args: None}), \
+        with patch.dict(globals_, {"os": SimpleNamespace(name="nt", getpid=os.getpid), "wait_for_stop": lambda *args, **kwargs: None}), \
              patch.object(alarm, "DesktopAlarm") as desktop, \
              patch.object(health, "inspect_health", return_value=snapshot), redirect_stdout(io.StringIO()):
             self.assertEqual(cli["monitor"](self.config, once=True), 0)
