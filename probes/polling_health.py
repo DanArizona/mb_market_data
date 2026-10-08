@@ -238,6 +238,7 @@ def alarm_demo(root: Path) -> int:
     desktop = alarm.DesktopAlarm()
     began, recovered, stopped_by = time.monotonic(), False, "error"
     payload = {"urgent": {"demo:failed": "SYNTHETIC Focus failure"}, "notices": {},
+               "channel_states": {"focus": "FAILED", "uni": "RUNNING"},
                "text": "SYNTHETIC ALARM TEST\n\nFocus is deliberately shown as failed. Uni is shown as healthy.\n\nThis is a desktop alarm demonstration only.\n\nAfter 40 seconds the simulated failure recovers. The sound stops, while a quiet notice remains until you dismiss it.",
                "observed_at_utc": datetime.now(health.UTC).isoformat(), "status_path": str(directory / "STATUS.txt")}
     try:
@@ -245,6 +246,7 @@ def alarm_demo(root: Path) -> int:
         while time.monotonic() - began < 300:
             if not recovered and time.monotonic() - began >= 40:
                 payload.update(urgent={}, notices={"demo:coverage": "One simulated missed slot remains"},
+                               channel_states={"focus": "RUNNING", "uni": "RUNNING"},
                                text="SYNTHETIC RECOVERY\n\nFocus is shown as running again. Uni is still healthy.\n\nThe repeating sound has stopped. One simulated missed slot remains for later review.\n\nDismiss this notice to finish the demonstration.")
                 recovered = True
                 print("SYNTHETIC recovery: urgent sound stopped; notice remains for acknowledgement.", flush=True)

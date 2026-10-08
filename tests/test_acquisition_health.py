@@ -572,6 +572,49 @@ class HealthTests(unittest.TestCase):
         self.assertFalse(policy.visible)
         self.assertNotIn("database is locked", policy.view(21)["text"])
 
+    def test_alarm_channel_colors_identify_failed_focus_and_healthy_uni(self):
+        self.fail_focus()
+        self.commit("uni", 0)
+        styles = alarm.channel_appearance(self.alarm_payload(self.snapshot(21, ("uni",))))
+        self.assertEqual(styles["focus"]["tone"], "failed")
+        self.assertEqual(styles["uni"]["tone"], "healthy")
+
+    def test_alarm_recovery_colors_both_channels_healthy_despite_old_gaps(self):
+        from dataclasses import replace
+        self.config = replace(self.config, grace_seconds=5)
+        self.fail_focus()
+        self.commit("uni", 0)
+        policy = alarm.AlarmPolicy()
+        policy.update(self.alarm_payload(self.snapshot(21, ("uni",))), 0)
+        self.register("focus", 1, self.start + timedelta(seconds=22))
+        self.commit("focus", 35)
+        self.commit("uni", 30)
+        policy.update(self.alarm_payload(self.snapshot(36)), 1)
+        view = policy.view(1)
+        styles = alarm.channel_appearance(view)
+        self.assertIn("database is locked", view["text"])
+        self.assertTrue(view["notices"])
+        self.assertEqual({style["tone"] for style in styles.values()}, {"healthy"})
+
+    def test_alarm_unconfirmed_restart_keeps_failed_channel_red(self):
+        payload = {"urgent": {"focus:FAILED:old": "Awaiting first commit"},
+                   "channel_states": {"focus": "AWAITING_COMMIT", "uni": "RUNNING"}}
+        styles = alarm.channel_appearance(payload)
+        self.assertEqual(styles["focus"]["tone"], "failed")
+        self.assertEqual(styles["uni"]["tone"], "healthy")
+
+    def test_alarm_monitor_failure_does_not_color_old_running_states_green(self):
+        payload = {"urgent": {"monitor:STOPPED": "Inspector exited"},
+                   "channel_states": {"focus": "RUNNING", "uni": "RUNNING"}}
+        styles = alarm.channel_appearance(payload)
+        self.assertEqual({style["tone"] for style in styles.values()}, {"unconfirmed"})
+        self.assertIn("last seen RUNNING", styles["focus"]["text"])
+
+    def test_alarm_journal_failure_does_not_color_old_running_states_green(self):
+        payload = {"urgent": {"journal:unavailable": "Read failed"},
+                   "channel_states": {"focus": "RUNNING", "uni": "RUNNING"}}
+        self.assertEqual({style["tone"] for style in alarm.channel_appearance(payload).values()}, {"unconfirmed"})
+
     def test_alarm_silence_expires_and_a_new_failure_breaks_silence(self):
         policy = alarm.AlarmPolicy()
         payload = {"urgent": {"focus:FAILED:old": "failure"}, "notices": {}, "text": "", "observed_at_utc": "", "status_path": ""}

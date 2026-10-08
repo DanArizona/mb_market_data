@@ -9,6 +9,34 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
+CHANNEL_COLORS = {"failed": "#b91c1c", "healthy": "#14532d", "unconfirmed": "#6b7280"}
+
+
+def channel_appearance(payload: dict) -> dict:
+    """Style current channel health, keeping coverage history out of severity."""
+    urgent = payload.get("urgent", {})
+    current = not any(key.startswith(("journal:", "monitor:", "process:")) for key in urgent)
+    result = {}
+    for channel, state in payload.get("channel_states", {}).items():
+        if channel not in {"focus", "uni", "hot"}:
+            continue
+        alarmed = any(key.startswith(channel + ":") for key in urgent)
+        if alarmed:
+            tone = "failed"
+        elif not current:
+            tone = "unconfirmed"
+        elif state in {"FAILED", "STOPPED_EARLY", "PROCESS_MISSING", "OVERDUE", "NOT_STARTED"}:
+            tone = "failed"
+        elif state in {"RUNNING", "WINDOW_ENDED"}:
+            tone = "healthy"
+        else:
+            tone = "unconfirmed"
+        prefix = "last seen " if not current else ""
+        result[channel] = {"text": f"{channel.capitalize()}: {prefix}{state}",
+                           "tone": tone, "color": CHANNEL_COLORS[tone]}
+    return result
+
+
 def alarm_payload(snapshot: dict, conditions: dict, incidents: list, *, window_active: bool,
                   status_path: Path, poller_windows: str) -> dict:
     urgent, notices = {}, {}
@@ -39,6 +67,7 @@ def alarm_payload(snapshot: dict, conditions: dict, incidents: list, *, window_a
         lines.extend(f"{key.split(':', 1)[0].upper()}: {detail}" for key, detail in notices.items())
     lines.append(f"\nCheck {poller_windows}. Leave healthy channels running.")
     return {"urgent": urgent, "notices": notices, "text": "\n\n".join(lines),
+            "channel_states": {channel: info["state"] for channel, info in snapshot["channels"].items()},
             "observed_at_utc": snapshot["observed_at_utc"], "status_path": str(status_path)}
 
 
@@ -188,26 +217,34 @@ class DesktopAlarm:
             root.geometry("860x650")
             root.minsize(620, 480)
             root.columnconfigure(0, weight=1)
-            root.rowconfigure(3, weight=1)
+            root.rowconfigure(4, weight=1)
             root.attributes("-topmost", True)
             root.protocol("WM_DELETE_WINDOW", self.dismiss)
             heading = tk.Label(root, font=("Segoe UI", 22, "bold"), fg="white", pady=16)
             heading.grid(row=0, column=0, sticky="ew")
             stamp = tk.Label(root, font=("Segoe UI", 11), pady=8)
             stamp.grid(row=1, column=0, sticky="ew")
+            channels = tk.Frame(root)
+            channels.grid(row=2, column=0, sticky="ew", padx=16)
+            labels = {}
+            for column, channel in enumerate(("focus", "uni", "hot")):
+                channels.columnconfigure(column, weight=1)
+                labels[channel] = tk.Label(channels, font=("Segoe UI", 14, "bold"), pady=6)
             area = tk.Frame(root)
             # Only the scrollable text receives spare height. Keep controls
             # visible above it even with larger Windows fonts or long alerts.
-            area.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 12))
+            area.grid(row=4, column=0, sticky="nsew", padx=16, pady=(0, 12))
             scrollbar = tk.Scrollbar(area)
             scrollbar.pack(side="right", fill="y")
             body = tk.Text(area, font=("Segoe UI", 12), wrap="word", bg="#fff8ef",
                            relief="flat", padx=12, pady=12, height=1, width=1,
                            yscrollcommand=scrollbar.set)
             body.pack(fill="both", expand=True)
+            for channel in labels:
+                body.tag_configure(channel, font=("Segoe UI", 12, "bold"))
             scrollbar.config(command=body.yview)
             controls = tk.Frame(root, pady=8)
-            controls.grid(row=2, column=0, sticky="ew")
+            controls.grid(row=3, column=0, sticky="ew")
             controls.columnconfigure(0, weight=1)
             mute = tk.Button(controls, text="Silence for 5 minutes", command=self.silence,
                              font=("Segoe UI", 11), padx=12, pady=8)
@@ -251,12 +288,31 @@ class DesktopAlarm:
                 stamp.config(text=f"Latest check: {when or 'waiting'}  |  {sound}")
                 mute.config(state="normal" if urgent else "disabled")
                 dismiss.config(state="disabled" if urgent else "normal")
-                if view["text"] != signature:
+                styles = channel_appearance(view)
+                for column, (channel, label) in enumerate(labels.items()):
+                    if channel in styles:
+                        label.config(text=styles[channel]["text"], fg=styles[channel]["color"])
+                        label.grid(row=0, column=column, sticky="ew")
+                    else:
+                        label.grid_remove()
+                new_signature = (view["text"], tuple((name, style["color"]) for name, style in styles.items()))
+                if new_signature != signature:
                     body.config(state="normal")
                     body.delete("1.0", "end")
                     body.insert("1.0", view["text"])
+                    for channel, style in styles.items():
+                        body.tag_configure(channel, foreground=style["color"])
+                        position = "1.0"
+                        while True:
+                            position = body.search(r"\m" + channel + r"\M", position,
+                                                   stopindex="end", regexp=True, nocase=True)
+                            if not position:
+                                break
+                            end = body.index(f"{position}+{len(channel)}c")
+                            body.tag_add(channel, position, end)
+                            position = end
                     body.config(state="disabled")
-                    signature = view["text"]
+                    signature = new_signature
                 if view["sound_count"] != last_sound:
                     root.deiconify()
                     root.lift()
