@@ -185,36 +185,43 @@ class DesktopAlarm:
             root = tk.Tk()
             root.withdraw()
             root.title("Polling health alarm")
-            root.geometry("860x560")
-            root.minsize(620, 420)
+            root.geometry("860x650")
+            root.minsize(620, 480)
+            root.columnconfigure(0, weight=1)
+            root.rowconfigure(3, weight=1)
             root.attributes("-topmost", True)
             root.protocol("WM_DELETE_WINDOW", self.dismiss)
             heading = tk.Label(root, font=("Segoe UI", 22, "bold"), fg="white", pady=16)
-            heading.pack(fill="x")
+            heading.grid(row=0, column=0, sticky="ew")
             stamp = tk.Label(root, font=("Segoe UI", 11), pady=8)
-            stamp.pack(fill="x")
+            stamp.grid(row=1, column=0, sticky="ew")
             area = tk.Frame(root)
-            area.pack(fill="both", expand=True, padx=16)
+            # Only the scrollable text receives spare height. Keep controls
+            # visible above it even with larger Windows fonts or long alerts.
+            area.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 12))
             scrollbar = tk.Scrollbar(area)
             scrollbar.pack(side="right", fill="y")
             body = tk.Text(area, font=("Segoe UI", 12), wrap="word", bg="#fff8ef",
-                           relief="flat", padx=12, pady=12, yscrollcommand=scrollbar.set)
+                           relief="flat", padx=12, pady=12, height=1, width=1,
+                           yscrollcommand=scrollbar.set)
             body.pack(fill="both", expand=True)
             scrollbar.config(command=body.yview)
-            controls = tk.Frame(root, pady=12)
-            controls.pack(fill="x")
+            controls = tk.Frame(root, pady=8)
+            controls.grid(row=2, column=0, sticky="ew")
+            controls.columnconfigure(0, weight=1)
             mute = tk.Button(controls, text="Silence for 5 minutes", command=self.silence,
                              font=("Segoe UI", 11), padx=12, pady=8)
-            mute.pack(side="left", padx=16)
+            mute.grid(row=0, column=0, sticky="ew", padx=16, pady=3)
             dismiss = tk.Button(controls, text="Dismiss notice", command=self.dismiss,
                                 font=("Segoe UI", 11), padx=12, pady=8)
-            dismiss.pack(side="left")
+            dismiss.grid(row=1, column=0, sticky="ew", padx=16, pady=3)
             def open_status():
                 path = self.view()["status_path"]
                 if path and Path(path).exists():
                     os.startfile(path)
             tk.Button(controls, text="Open current status", command=open_status,
-                      font=("Segoe UI", 11), padx=12, pady=8).pack(side="right", padx=16)
+                      font=("Segoe UI", 11), padx=12, pady=8).grid(
+                          row=2, column=0, sticky="ew", padx=16, pady=3)
             shown, signature, last_sound = False, None, 0
             def refresh():
                 nonlocal shown, signature, last_sound
