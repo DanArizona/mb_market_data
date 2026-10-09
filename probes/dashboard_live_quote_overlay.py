@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import sys
 import tempfile
 import time
@@ -18,6 +20,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from mb_market_data.local_dashboard_server import LocalDashboardServer
 from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.quote_dashboard_live import QuoteDashboardLiveController
+from mb_market_data.candle_receipts import CandleReceiptReader
 from mb_market_data.quote_journal_live import QuoteJournalLiveReader
 from mb_market_data.quote_observation_store import PollRunProvenance, QuoteObservationStore
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
@@ -31,18 +34,25 @@ UTC = timezone.utc
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("database", nargs="?", type=Path)
-    parser.add_argument("--symbol", default="MSFT")
+    parser.add_argument("--symbol")
     parser.add_argument("--demo", action="store_true", help="Create an isolated synthetic journal and use a simulated clock")
+    parser.add_argument("--capture-demo", type=Path, help="Replay saved candle receipts against an empty synthetic quote journal")
+    parser.add_argument("--candle-capture-dir", type=Path, help="Separate candle receipts for an experimental quote journal")
+    parser.add_argument("--demo-speed", type=float, default=10, help="Saved candle demo clock multiplier")
     parser.add_argument("--port", type=int, default=8051)
     parser.add_argument("--batch-limit", type=int, default=32)
     args = parser.parse_args()
-    if args.demo == (args.database is not None):
-        parser.error("Choose --demo or one experimental database, exclusively")
+    if sum((args.demo, args.database is not None, args.capture_demo is not None)) != 1:
+        parser.error("Choose --demo, --capture-demo, or one experimental database, exclusively")
+    if args.candle_capture_dir and args.database is None:
+        parser.error("--candle-capture-dir requires an experimental database")
+    if not 0 < args.demo_speed <= 60:
+        parser.error("--demo-speed must be between 0 and 60")
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
     if args.batch_limit <= 0:
         parser.error("--batch-limit must be positive")
-    if not args.symbol.strip():
+    if args.symbol is not None and not args.symbol.strip():
         parser.error("--symbol must be nonblank")
     if args.database and any(
         "quote_observation_journal_v2_api_opening" in part.lower()
@@ -74,6 +84,15 @@ class OfflineDemo:
         ))
         self.publish(0, -120, ())
         self.publish(1, -120, (self.reference_symbol,))
+        self.candle_dir = root / "candle_receipts"
+        self.candle_dir.mkdir()
+        (self.candle_dir / "request_plan.json").write_text(json.dumps({
+            "symbol": self.symbol, "session_date": str(session), "frequency_minutes": 5,
+            "extended_hours": False, "simulation": True,
+            "request_start_et": self.boundary.astimezone(ET).replace(hour=9, minute=30).isoformat(),
+            "request_end_et": self.boundary.astimezone(ET).replace(hour=16, minute=0).isoformat(),
+        }), encoding="utf-8")
+        self.candle_receipt(1, -10, partial=True)
         self.thread = Thread(target=self.run, name="synthetic-overlay-writer", daemon=True)
         self.error: str | None = None
 
@@ -108,14 +127,35 @@ class OfflineDemo:
         )
         self.store.record_acquisition("synthetic-live-overlay-demo", request, result, completed_at=end)
 
+    def candle_receipt(self, number, seconds, *, partial=False, correction=False):
+        received = self.boundary + timedelta(seconds=seconds)
+        candles = [{"datetime": int((self.boundary-timedelta(minutes=10)).timestamp()*1000),
+                    "open":100,"high":102,"low":99,"close":101,"volume":800},
+                   {"datetime": int((self.boundary-timedelta(minutes=5)).timestamp()*1000),
+                    "open":101,"high":103,"low":100,"close":101.5 if partial else 101.8 if correction else 102,
+                    "volume":1000 if partial else 1320 if correction else 1300}]
+        body = json.dumps({"symbol":self.symbol,"simulation":True,"candles":candles}).encode()
+        raw_name = f"sample_{number:04d}.response.txt"
+        with (self.candle_dir / raw_name).open("xb") as out:
+            out.write(body)
+        receipt = {"sample_number":number,"dispatched_at_utc":(received-timedelta(seconds=.2)).isoformat(),
+                   "received_at_utc":received.isoformat(),"http_status":200,"outcome":"OK",
+                   "raw_response_file":raw_name,"raw_sha256":hashlib.sha256(body).hexdigest()}
+        temporary = self.candle_dir / f"sample_{number:04d}.receipt.tmp"
+        temporary.write_text(json.dumps(receipt), encoding="utf-8")
+        temporary.rename(self.candle_dir / f"sample_{number:04d}.receipt.json")
+
     def run(self):
         actions = (
             (0.1, lambda: self.publish(2, 1, tuple(sorted({self.symbol, self.reference_symbol})))),
+            (3, lambda: self.candle_receipt(2, 3)),
             (6, lambda: self.acquire(WatchlistKind.FOCUS, 5, 5.3, 2)),
             (8, lambda: self.acquire(WatchlistKind.UNI, 0, 2.47, 1)),
             (21, lambda: self.acquire(WatchlistKind.FOCUS, 20, 20.3, 2)),
+            (25, lambda: self.candle_receipt(3, 25)),
             (31, lambda: self.acquire(WatchlistKind.UNI, 30, 30.4, 2)),
             (36, lambda: self.acquire(WatchlistKind.FOCUS, 35, 35.3, 2)),
+            (50, lambda: self.candle_receipt(4, 50, correction=True)),
         )
         try:
             for seconds, action in actions:
@@ -139,28 +179,56 @@ def main():
     stop = Event()
     demo = None
     try:
-        if args.demo:
+        candle_reader = None
+        if args.demo or args.capture_demo:
             output = PROJECT_ROOT / "output" / "live_overlay_offline_demo"
             output.mkdir(parents=True, exist_ok=True)
             root = Path(tempfile.mkdtemp(prefix="demo_", dir=output))
-            demo = OfflineDemo(root, args.symbol, stop)
-            database, now = demo.path, demo.now
+            if args.demo:
+                args.symbol = args.symbol or "MSFT"
+                demo = OfflineDemo(root, args.symbol, stop)
+                database, now = demo.path, demo.now
+                candle_reader = CandleReceiptReader(demo.candle_dir)
+                source_label = "Synthetic candles, quotes and membership · simulated clock"
+            else:
+                candle_reader = CandleReceiptReader(args.capture_demo)
+                if args.symbol and args.symbol.strip().upper() != candle_reader.symbol:
+                    raise ValueError("Selected symbol differs from the candle capture")
+                args.symbol = candle_reader.symbol
+                while not candle_reader.caught_up:
+                    candle_reader.refresh(limit=args.batch_limit)
+                times = candle_reader.availability_times
+                if not times:
+                    raise ValueError("Saved candle demonstration needs captured receipts")
+                database = root / f"{candle_reader.session_date}.sqlite3"
+                QuoteObservationStore(database, session_date=candle_reader.session_date, schema_version=2).initialize()
+                started = time.monotonic()
+                first, last = times[0]-timedelta(seconds=2), times[-1]
+                now = lambda: min(first+timedelta(seconds=(time.monotonic()-started)*args.demo_speed), last)
+                source_label = f"Captured {args.symbol} candle receipts · simulated clock {args.demo_speed:g}x · quote/membership evidence not supplied"
         else:
             database, now = args.database, lambda: datetime.now(UTC)
+            candle_reader = CandleReceiptReader(args.candle_capture_dir) if args.candle_capture_dir else None
+            args.symbol = args.symbol or (candle_reader.symbol if candle_reader else "MSFT")
+            source_label = None
         reader = QuoteJournalLiveReader(database)
         controller = QuoteDashboardLiveController(
-            reader=reader, symbol=args.symbol, now=now, batch_limit=args.batch_limit,
+            reader=reader, symbol=args.symbol, now=now, batch_limit=args.batch_limit, candle_reader=candle_reader,
         )
         app = create_quote_dashboard(
             controller, request_server_stop=stop.set,
-            source_label="Synthetic data · simulated clock" if demo else None,
+            source_label=source_label,
         )
         server = LocalDashboardServer(app.server, host="127.0.0.1", port=args.port, stop_event=stop)
-        print("Experimental live quotes and membership Overlay", flush=True)
+        print("Experimental candle receipts, quotes and membership Overlay", flush=True)
         print(f"Journal: {database}", flush=True)
         if demo:
             print("SYNTHETIC DATA · SIMULATED CLOCK · no Schwab credentials or requests", flush=True)
             demo.thread.start()
+        elif args.capture_demo:
+            print(source_label, flush=True)
+            print("No API or password. Quote/membership journal is an empty synthetic fixture.", flush=True)
+            print(f"Saved receipt period: {times[0].astimezone(ET).isoformat()} through {times[-1].astimezone(ET).isoformat()}", flush=True)
         print(f"Open http://127.0.0.1:{args.port} and select the Chart tab.", flush=True)
         print("Pause freezes the inspection time; Return to Live catches up.", flush=True)
         print("Stop server or Ctrl+C closes this viewer.", flush=True)

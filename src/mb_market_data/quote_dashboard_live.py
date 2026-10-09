@@ -23,6 +23,7 @@ from mb_market_data.quote_journal_live import (
     header_event_id, header_sort_key,
 )
 from mb_market_data.quote_journal_replay import ReplayIntegrityError
+from mb_market_data.candle_receipts import CandleReceiptReader
 
 ET = ZoneInfo("America/New_York")
 UTC = timezone.utc
@@ -50,6 +51,7 @@ class QuoteDashboardLiveController:
         self, *, reader: QuoteJournalLiveReader, symbol: str,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
         batch_limit: int = 32,
+        candle_reader: CandleReceiptReader | None = None,
     ) -> None:
         if isinstance(batch_limit, bool) or not isinstance(batch_limit, int) or batch_limit <= 0:
             raise ValueError("batch_limit must be a positive integer")
@@ -57,6 +59,10 @@ class QuoteDashboardLiveController:
         self.symbol = symbol.strip().upper()
         if not self.symbol:
             raise ValueError("symbol must not be blank")
+        if candle_reader and (candle_reader.symbol != self.symbol or candle_reader.session_date != reader.session_date):
+            raise ValueError("Candle capture symbol/session differs from the quote journal view")
+        self.candle_reader = candle_reader
+        self._candle_source_error: str | None = None
         self._now = now
         self._batch_limit = batch_limit
         self._lock = threading.RLock()
@@ -160,6 +166,10 @@ class QuoteDashboardLiveController:
             pending_visible = self._applied_index < len(self._headers) and (
                 header_sort_key(self._headers[self._applied_index])[0] <= self._target
             )
+            overlay = self._overlay.snapshot(self._position)
+            if self.candle_reader is not None:
+                overlay = self.candle_reader.project(self._position).attach(overlay)
+            errors = [e for e in (self._source_error, self._candle_source_error) if e]
             return DashboardReplaySnapshot(
                 state=self._state.snapshot(),
                 status=DashboardReplayStatus.LIVE if self._following else DashboardReplayStatus.PAUSED,
@@ -168,11 +178,12 @@ class QuoteDashboardLiveController:
                 first_event_time_utc=(header_sort_key(self._headers[0])[0] if self._headers else None),
                 last_event_time_utc=(header_sort_key(self._headers[-1])[0] if self._headers else None),
                 total_event_count=len(self._headers),
-                observation_overlay=self._overlay.snapshot(self._position),
+                observation_overlay=overlay,
                 live_source=True,
                 catching_up=(not self._discovery_complete or self._needs_rebuild
-                             or self._rebuild is not None or pending_visible),
-                source_error=self._source_error,
+                             or self._rebuild is not None or pending_visible
+                             or (self.candle_reader is not None and not self.candle_reader.caught_up)),
+                source_error="; ".join(errors) if errors else None,
             )
 
     def tick(self) -> DashboardReplaySnapshot:
@@ -189,6 +200,13 @@ class QuoteDashboardLiveController:
                 self._rebuild = None
             else:
                 self._source_error = None
+            if self.candle_reader is not None:
+                try:
+                    self.candle_reader.refresh(limit=self._batch_limit)
+                except (OSError, ValueError, TypeError, ObservationOverlayError) as exc:
+                    self._candle_source_error = f"Candle source: {type(exc).__name__}: {exc}"
+                else:
+                    self._candle_source_error = None
             return self.snapshot()
 
     def pause(self) -> DashboardReplaySnapshot:
@@ -235,6 +253,9 @@ class QuoteDashboardLiveController:
             self.pause()
             targets = [header_sort_key(h)[0] for h in self._headers
                        if self._position < header_sort_key(h)[0] <= self._clock()]
+            if self.candle_reader:
+                targets.extend(t for t in self.candle_reader.availability_times
+                               if self._position < t <= self._clock())
             return self.seek(min(targets)) if targets else self.snapshot()
 
     def set_speed(self, speed: float) -> DashboardReplaySnapshot:

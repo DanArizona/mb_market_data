@@ -163,6 +163,9 @@ def _observation_overlay_panel(
                             html.H2(f"Observation Overlay · {view.symbol}"),
                             html.P(
                                 (
+                                    "Captured five-minute candles appear after a closing receipt; "
+                                    "unfinished candles are held back. Interval ended does not mean final."
+                                    if overlay.candle_capture else
                                     "Completed five-minute OHLCV with "
                                     "replay-causal quote and membership evidence."
                                     if overlay.cache is not None else

@@ -1,0 +1,89 @@
+# Live candle receipt increment — October 9, 2026
+
+This experimental branch adds one-symbol five-minute candle receipts to the
+isolated live Overlay prototype. It does not install into production, acquire
+quotes, change membership, or attach to the running production journal.
+
+## Evidence and visibility
+
+The separate `live_candle_capture_v1` producer preserves each response body and
+its SHA-256 digest, request dispatch time, response receipt time, and outcome.
+Its `request_plan.json` identifies the symbol, session and requested interval.
+The reader consumes complete `sample_NNNN.receipt.json` files. An orphan raw
+response without a receipt is not a committed input.
+
+Every response remains immutable. Equal successive values keep the same observed
+value-version number but still retain their individual receipts. Different OHLCV
+values create another observed version. Version numbers are local to one capture,
+not provider sequence numbers. Source ordering uses receipt time and sample number;
+regressing receipt times within a capture are refused.
+
+At an inclusive inspection cutoff, the latest known observation for each candle
+is selected from receipts at or before that cutoff. A candlestick is displayed
+only if that selected observation was received at or after the interval ended.
+An observation received while the interval was open is held separately; passing
+the end time cannot convert its values into a completed observation. Pending
+counts include intervals awaiting a closing receipt, even after their end time.
+
+Subsequent closed-interval corrections appear at their own receipt times. Seek
+backward restores earlier known values. Return to Live reconstructs the same view
+as a fresh process at the same cutoff after discovery catches up. Step includes
+candle receipt times in addition to quote and membership availability times.
+Selected percentage references carry the clicked candle observation's receipt
+time, preventing a reference from leaking backward before it was known.
+
+The first SPY capture ran 14:18:49–14:30:49 ET on October 9. All 49 responses and
+their hashes were verified. An unfinished candle was returned in every response.
+The 14:15, 14:20 and 14:25 intervals first appeared closed in observations received
+at 14:20:04.166912, 14:25:04.170852 and 14:30:04.189309 ET. Their values remained
+unchanged in subsequent observed closed-interval responses. This bounds our
+observations at a 15-second cadence; it does not establish exact publication
+latency, provider finality, a correction horizon, or behavior for other symbols.
+
+## Separation from historical caches
+
+The existing completed-session cache remains a retrospective diagnostic input
+whose historical visibility is simulated at interval end. It is not proof those
+values were available live at that time. A captured-receipt view cannot mix that
+cache with the captured versions. The chart heading, counts and hovers identify
+captured receipts; closed intervals are never labelled final.
+
+## Source failures and bounded discovery
+
+The reader loads at most a configured number of new receipt files per refresh
+(32 by default), and stages an entire page before making it visible. Invalid
+JSON, missing bodies, incorrect hashes, malformed candles, conflicting sample
+numbers, changed plans and changed discovered evidence fail visibly. Previously
+validated versions are retained. Quote discovery continues independently of a
+candle-source error; neither pathway writes to the other source.
+
+Existing receipt and raw-file stat changes trigger content revalidation, and
+missing discovered files are refused. This assumes an append-only producer and
+is not a general tamper-proof archive: a malicious writer restoring all file
+metadata can defeat stat-based change detection. Fresh reconstruction validates
+every raw body against its receipt. Replacing the capture directory while
+following it is unsupported. A normal producer restart creates a new capture;
+merging several capture directories into one ongoing source is future work.
+
+The reader reports only receipts visible at the inspection cutoff, including
+error receipts. A failed response does not erase the latest known good candle.
+Missing candles remain missing; sampled quotes do not substitute for OHLCV.
+
+## Review and acceptance
+
+The synthetic demo demonstrates an unfinished candle, a closing receipt and an
+intentional later correction alongside synthetic quotes and membership. The
+saved-SPY demo reads the actual separate capture, uses a simulated clock and an
+empty synthetic quote journal. It contains no real quote/membership evidence.
+Neither demo requires an open market, a password or API access.
+
+Local tests cover inclusive visibility, backward seek, pause with continuing
+discovery, Step, fresh-process equality, malformed/conflicting evidence, guarded
+paths, changed input, partial batch refusal, independent source failures, percent
+reference timing and real Dash callbacks. Native Windows checks and browser
+review are still required. A controlled live quote-journal attachment remains a
+separate acceptance task; production opening paths are excluded by this launcher.
+
+This increment does not implement live halt capture, manual membership requests,
+coordinator integration, Hot policy, automatic recovery or continuous candle
+producer supervision. The existing bounded capture probe supplies the evidence.

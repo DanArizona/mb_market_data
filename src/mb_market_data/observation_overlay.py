@@ -23,7 +23,7 @@ from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from mb_market_data.quote_journal_replay import (
@@ -34,6 +34,9 @@ from mb_market_data.quote_journal_replay import (
 )
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
 from mb_market_data.overlay_halts import OverlayHaltInterval
+
+if TYPE_CHECKING:
+    from mb_market_data.candle_receipts import CapturedCandleVersion
 
 
 ET = ZoneInfo("America/New_York")
@@ -287,6 +290,12 @@ class ObservationOverlayData:
     membership_transitions: tuple[OverlayMembershipTransition, ...]
     quote_points: tuple[OverlayQuotePoint, ...]
     halt_intervals: tuple[OverlayHaltInterval, ...] = ()
+    captured_candle_versions: tuple[CapturedCandleVersion, ...] = ()
+    pending_candle_versions: tuple[CapturedCandleVersion, ...] = ()
+    candle_capture: bool = False
+    candle_receipt_count: int = 0
+    candle_error_count: int = 0
+    candle_last_received_at_utc: datetime | None = None
 
     @property
     def current_band(self) -> MembershipBand:
