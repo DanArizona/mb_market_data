@@ -207,8 +207,13 @@ h1 {
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
 }
 
+.replay-controls-live {
+  grid-template-columns: minmax(0, max-content) minmax(320px, 1fr);
+}
+
 .button-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -293,18 +298,32 @@ h1 {
 
 .replay-readout {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
 
 .replay-readout strong {
-  overflow: hidden;
+  display: block;
   font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.replay-clock-readout {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.replay-clock-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
 }
 
 .replay-status {
@@ -489,6 +508,14 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.overlay-view-cutoff {
+  flex-shrink: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 750;
+  overflow-wrap: anywhere;
 }
 
 .overlay-heading {

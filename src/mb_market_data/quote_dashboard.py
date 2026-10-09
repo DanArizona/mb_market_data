@@ -189,8 +189,9 @@ def _observation_overlay_panel(
             html.Div(
                 [
                     html.Span(
-                        view.replay_time_et_text,
+                        f"Viewing time: {view.replay_time_et_text}",
                         id="observation-overlay-as-of",
+                        className="overlay-view-cutoff",
                     ),
                     html.Span(
                         view.evidence_text,
@@ -437,7 +438,7 @@ def _control_values(
             False, following or replay.catching_up, False,
             label,
             "replay-status status-error" if replay.source_error else "replay-status status-playing",
-            f"{_time_text(replay.replay_time_utc)} · {replay.applied_event_count:,} events",
+            _time_text(replay.replay_time_utc),
             f"{replay.applied_event_count:,} / {replay.total_event_count:,} discovered events",
             {"width": f"{percent:.3f}%"},
         )
@@ -628,7 +629,7 @@ def create_quote_dashboard(
                                         className="session-date",
                                     ),
                                     html.Div(
-                                        f"State as of {view.as_of_et_text}",
+                                        f"Viewing time: {_time_text(replay.replay_time_utc)}",
                                         id="state-as-of",
                                         className="as-of",
                                     ),
@@ -656,6 +657,11 @@ def create_quote_dashboard(
                                 id="replay-step",
                                 disabled=controls[2],
                                 className="control-button",
+                                title=(
+                                    "Advance to the next available quote, membership change, "
+                                    "or candle receipt."
+                                    if replay.live_source else "Advance to the next recorded event."
+                                ),
                             ),
                             html.Button(
                                 "Beginning" if replay.live_source else "Restart",
@@ -676,7 +682,8 @@ def create_quote_dashboard(
                                 ],
                                 className="seek-control",
                                 title=(
-                                    "Seek within this journal day using " "Eastern Time"
+                                    "Inspect through the end of the entered second in Eastern Time. "
+                                    "Step then advances to the next available event."
                                 ),
                             ),
                             html.Button(
@@ -725,9 +732,15 @@ def create_quote_dashboard(
                                         id="replay-status",
                                         className=controls[5],
                                     ),
-                                    html.Strong(
-                                        controls[6],
-                                        id="replay-clock",
+                                    html.Div(
+                                        [
+                                            html.Span("Viewing time", className="replay-clock-label"),
+                                            html.Strong(
+                                                controls[6],
+                                                id="replay-clock",
+                                            ),
+                                        ],
+                                        className="replay-clock-readout",
                                     ),
                                 ],
                                 className="replay-readout",
@@ -751,7 +764,7 @@ def create_quote_dashboard(
                         className="replay-position",
                     ),
                 ],
-                className="replay-controls",
+                className=("replay-controls replay-controls-live" if replay.live_source else "replay-controls"),
                 **{"aria-label": "Replay controls"},
             ),
             dcc.Tabs(
@@ -1057,7 +1070,7 @@ def create_quote_dashboard(
                     "borderColor": overlay_view.current_band_color,
                     "color": overlay_view.current_band_color,
                 },
-                overlay_view.replay_time_et_text,
+                f"Viewing time: {overlay_view.replay_time_et_text}",
                 overlay_view.evidence_text,
                 figure,
                 "overlay-chart",
@@ -1167,7 +1180,6 @@ def create_quote_dashboard(
         if state_changed:
             updated_view = build_quote_dashboard_view(updated.state)
             state_values: tuple[Any, ...] = (
-                f"State as of {updated_view.as_of_et_text}",
                 f"{updated_view.unique_member_count:,}",
                 f"{updated_view.multi_channel_count:,}",
                 f"{updated_view.event_count:,}",
@@ -1178,8 +1190,11 @@ def create_quote_dashboard(
                 updated.applied_event_count,
             )
         else:
-            state_values = (no_update,) * 9
+            state_values = (no_update,) * 8
 
-        return (*control_values, *state_values)
+        # Candle receipts and seek cutoffs can advance without a new journal
+        # event. Always publish the displayed cutoff, even when grid data stays
+        # unchanged; the projector's last event time is a different timestamp.
+        return (*control_values, f"Viewing time: {_time_text(updated.replay_time_utc)}", *state_values)
 
     return app

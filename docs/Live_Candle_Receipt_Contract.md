@@ -32,6 +32,13 @@ candle receipt times in addition to quote and membership availability times.
 Selected percentage references carry the clicked candle observation's receipt
 time, preventing a reference from leaking backward before it was known.
 
+The dashboard labels its inspection cutoff **Viewing time** in the playback
+controls, header and chart. It updates even when no new quote or membership event
+is projected. This differs from the latest journal event time, which may stay
+unchanged while candle receipts arrive. The full ET timestamp wraps instead of
+being truncated. Seek includes the entered second; Step advances to the next
+available quote, membership change or candle receipt.
+
 The first SPY capture ran 14:18:49–14:30:49 ET on October 9. All 49 responses and
 their hashes were verified. An unfinished candle was returned in every response.
 The 14:15, 14:20 and 14:25 intervals first appeared closed in observations received

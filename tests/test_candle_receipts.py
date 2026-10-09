@@ -14,6 +14,7 @@ from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.quote_dashboard_live import QuoteDashboardLiveController
 from mb_market_data.quote_journal_live import QuoteJournalLiveReader
 from test_quote_journal_live import LiveFixture, BOUNDARY, SESSION, UTC
+from mb_market_data.watchlist_polling import WatchlistKind
 from test_live_overlay_dashboard import request_callback
 
 
@@ -228,3 +229,60 @@ class CandleTests(LiveFixture):
         result = response.get_json()["response"]
         self.assertIn("captured responses", result["observation-overlay-evidence"]["children"])
         self.assertEqual(result["observation-overlay-chart"]["figure"]["data"][0]["name"], "5-minute OHLC")
+
+    def test_display_cutoff_updates_when_step_and_seek_add_no_quote_events(self):
+        self.publish(2, 1, ("OTHER", "TEST"))
+        self.acquire(completed=2.47)
+        self.acquire(WatchlistKind.FOCUS, scheduled=5, completed=5.3, revision=2)
+        write_receipt(self.capture, 1, BOUNDARY-timedelta(seconds=10), close=101.5, volume=1000)
+        write_receipt(self.capture, 2, BOUNDARY+timedelta(seconds=3), close=102, volume=1300)
+        write_receipt(self.capture, 3, BOUNDARY+timedelta(seconds=50), close=101.8, volume=1320)
+        self.clock = BOUNDARY+timedelta(seconds=60)
+        controller = self.with_candles()
+        before = controller.seek(BOUNDARY+timedelta(seconds=2, microseconds=999999))
+        self.assertEqual(before.observation_overlay.candles, ())
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        values = {("replay-speed", "value"): 1,
+                  ("rendered-event-count", "data"): before.applied_event_count}
+
+        # The next event is a candle receipt, not another journal event.
+        stepped = request_callback(client, app, "replay-toggle", "replay-step.n_clicks", values)
+        self.assertEqual(stepped.status_code, 200)
+        result = stepped.get_json()["response"]
+        self.assertEqual(result["replay-clock"]["children"], "2026-10-06 13:30:03.000 ET")
+        self.assertEqual(result["state-as-of"]["children"], "Viewing time: 2026-10-06 13:30:03.000 ET")
+        self.assertNotIn("market-state-grid", result)
+        self.assertEqual(controller.snapshot().applied_event_count, before.applied_event_count)
+        self.assertEqual(controller.snapshot().observation_overlay.candles[0].close, 102)
+
+        # Seeking between receipts updates the time even with unchanged data.
+        values[("replay-seek-time", "value")] = "13:30:04"
+        sought = request_callback(client, app, "replay-toggle", "replay-seek.n_clicks", values)
+        self.assertEqual(sought.status_code, 200)
+        result = sought.get_json()["response"]
+        self.assertEqual(result["state-as-of"]["children"], "Viewing time: 2026-10-06 13:30:04.999 ET")
+        self.assertEqual(controller.snapshot().observation_overlay.candles[0].close, 102)
+
+        # A further Step reaches the Focus response at 13:30:05.300.
+        focused = request_callback(client, app, "replay-toggle", "replay-step.n_clicks", values)
+        self.assertEqual(focused.status_code, 200)
+        self.assertEqual(focused.get_json()["response"]["replay-clock"]["children"],
+                         "2026-10-06 13:30:05.300 ET")
+
+        # The correction is visible only at its own receipt cutoff.
+        for seek_time, expected_close in (("13:30:49", 102), ("13:30:51", 101.8)):
+            values[("replay-seek-time", "value")] = seek_time
+            response = request_callback(client, app, "replay-toggle", "replay-seek.n_clicks", values)
+            self.assertEqual(response.status_code, 200)
+            overlay = controller.snapshot().observation_overlay
+            self.assertEqual(overlay.candles[0].close, expected_close)
+            chart_response = request_callback(client, app, "observation-overlay-units", "replay-clock.children", {
+                ("replay-clock", "children"): response.get_json()["response"]["replay-clock"]["children"],
+                ("theme-preference", "data"): "dark", ("observation-overlay-units", "value"): "price",
+            })
+            self.assertEqual(chart_response.status_code, 200)
+            chart = chart_response.get_json()["response"]
+            self.assertEqual(chart["observation-overlay-as-of"]["children"],
+                             response.get_json()["response"]["state-as-of"]["children"])
+            self.assertEqual(chart["observation-overlay-chart"]["figure"]["data"][0]["close"], [expected_close])
