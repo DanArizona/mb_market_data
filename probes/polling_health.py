@@ -102,15 +102,30 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
                     return 0
                 snapshot = health.inspect_health(config)
                 snapshot.update(monitor_pid=os.getpid(), monitor_token=monitor_token)
-                new = health.persist_health(directory, snapshot)
+                try:
+                    new = health.persist_health(directory, snapshot)
+                except OSError as error:
+                    # Inspection still completed. Publish its failure explicitly
+                    # if latest.json is writable; otherwise the parent sees an
+                    # overdue heartbeat and keeps its own alarm alive.
+                    snapshot["status_output_error"] = f"{type(error).__name__}: {error}"
+                    new = []
+                    try:
+                        health.atomic_json(directory / "latest.json", snapshot)
+                    except OSError:
+                        pass
                 if desktop:
-                    incidents = json.loads((directory / "incidents.json").read_text(encoding="utf-8"))
+                    try:
+                        incidents = json.loads((directory / "incidents.json").read_text(encoding="utf-8"))
+                    except (OSError, ValueError):
+                        incidents = []
                     desktop.publish(alarm.alarm_payload(
                         snapshot, health.alert_conditions(snapshot), incidents,
                         window_active=health.timestamp(config.start_at) <= health.timestamp(snapshot["observed_at_utc"]) < health.timestamp(config.stop_at),
                         status_path=directory / "STATUS.txt", poller_windows=poller_windows))
                 signature = json.dumps({"read": snapshot["journal_read"], "error": snapshot["journal_error"],
-                                        "channels": snapshot["channels"], "process": snapshot["process_inspection"]}, sort_keys=True)
+                                        "channels": snapshot["channels"], "process": snapshot["process_inspection"],
+                                        "status_output_error": snapshot.get("status_output_error")}, sort_keys=True)
                 if signature != previous:
                     print(health.format_health(snapshot), flush=True)
                     previous = signature
@@ -137,23 +152,27 @@ def monitor(config: health.HealthConfig, *, once: bool = False, interval: float 
             desktop.close()
         for event, handler in handlers.items():
             signal.signal(event, handler)
-        health.atomic_json(directory / "last_stop.json", {
-            "monitor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
-            "stopped_by": stopped_by, "journal": str(config.journal)})
+        try:
+            health.atomic_json(directory / "last_stop.json", {
+                "monitor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
+                "stopped_by": stopped_by, "journal": str(config.journal)})
+        except OSError as error:
+            print(f"Monitor stopped; its stop receipt could not be saved: {error}", flush=True)
 
 
 def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popups: bool = True) -> int:
     """Keep the alarm responsive if the separate read-only inspector fails."""
     try:
-        from polling_monitor_supervisor import MonitorWatchdog, stop_monitor_child
+        from polling_monitor_supervisor import MonitorWatchdog, MonitorIncidentHistory, stop_monitor_child
     except ModuleNotFoundError:
-        from mb_market_data.polling_monitor_supervisor import MonitorWatchdog, stop_monitor_child
+        from mb_market_data.polling_monitor_supervisor import MonitorWatchdog, MonitorIncidentHistory, stop_monitor_child
     directory = config.market_data_root / "output/polling_health" / str(config.session_date)
     stop_file = directory / "stop.request"
     child_stop = directory / "inspector.stop.request"
     token = uuid4().hex
     child = desktop = None
     stopped_by = "error"
+    acknowledged = threading.Event()
     print("Independent monitor watchdog. No API, password, or poller restart.", flush=True)
     print("Q stops the monitor and watchdog; production pollers continue.", flush=True)
     try:
@@ -161,6 +180,7 @@ def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popup
             directory.mkdir(parents=True, exist_ok=True)
             stop_file.unlink(missing_ok=True)
             child_stop.unlink(missing_ok=True)
+            history = MonitorIncidentHistory(directory / "monitor_incidents.jsonl")
             command = [sys.executable, str(Path(__file__).resolve()), "monitor", "--market-data-root", str(config.market_data_root),
                        "--session-date", str(config.session_date), "--journal", str(config.journal),
                        "--grace-seconds", str(config.grace_seconds), "--interval", str(interval),
@@ -169,9 +189,10 @@ def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popup
             watchdog = MonitorWatchdog(child_pid=child.pid, token=token, journal=config.journal,
                                        started_monotonic=time.monotonic())
             if os.name == "nt" and popups:
-                desktop = alarm.DesktopAlarm()
+                desktop = alarm.DesktopAlarm(acknowledge=acknowledged.set)
                 desktop.start()
             previous = None
+            previous_alerts = None
             while True:
                 reason = wait_for_stop(0, stop_file)
                 if reason:
@@ -185,11 +206,37 @@ def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popup
                 now = datetime.now(health.UTC)
                 state.update(observed_at_utc=now.isoformat(), supervisor_pid=os.getpid(),
                              monitor_token=token, journal=str(config.journal), session_date=str(config.session_date))
-                health.atomic_json(directory / "supervisor.json", state)
+                monitor_alerts = {}
+                try:
+                    health.atomic_json(directory / "supervisor.json", state)
+                except OSError as error:
+                    monitor_alerts["monitor:status_write"] = (
+                        f"Cannot update supervisor.json: {type(error).__name__}: {error}. "
+                        "Monitoring continues; the saved supervisor status may be stale. "
+                        "Check file access. Leave both pollers running.")
                 if previous != state["state"]:
                     print(f"MONITOR WATCHDOG: {state['state']} | {state['detail']}", flush=True)
                     previous = state["state"]
                 current = watchdog.last_snapshot
+                if current and current.get("status_output_error"):
+                    monitor_alerts["monitor:status_output"] = current["status_output_error"]
+                if state["state"] in {"STOPPED", "OVERDUE"}:
+                    monitor_alerts["monitor:" + state["state"]] = state["detail"]
+                if history.read_error:
+                    monitor_alerts["monitor:history_read"] = history.read_error
+                history.update(monitor_alerts, now.isoformat(), can_resolve=state["state"] == "RUNNING")
+                if acknowledged.is_set():
+                    history.acknowledge(now.isoformat())
+                    acknowledged.clear()
+                history_error = history.flush()
+                persistent_alerts = history.urgent()
+                if history_error:
+                    persistent_alerts["monitor:history_write"] = history_error
+                signature = json.dumps(persistent_alerts, sort_keys=True)
+                if signature != previous_alerts:
+                    if persistent_alerts:
+                        print("MONITOR ALERT: " + "\n".join(persistent_alerts.values()), flush=True)
+                    previous_alerts = signature
                 if desktop:
                     current = current or {"channels": {}, "observed_at_utc": now.isoformat()}
                     conditions = health.alert_conditions(current) if watchdog.last_snapshot else {}
@@ -200,11 +247,15 @@ def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popup
                     payload = alarm.alarm_payload(current, conditions, incidents,
                         window_active=config.start_at <= now < config.stop_at,
                         status_path=directory / "STATUS.txt", poller_windows="prod-poll-uni / prod-poll-focus")
+                    payload["urgent"].update(persistent_alerts)
+                    payload["notices"].update(history.notices())
+                    lines = list(persistent_alerts.values()) + list(history.notices().values())
                     if state["state"] in {"STOPPED", "OVERDUE"}:
-                        payload["urgent"]["monitor:" + state["state"]] = state["detail"]
-                        payload["text"] = (state["detail"] + "\n\nLeave both pollers running. "
-                            "Press Q in prod-health, then run 02_prod_health_monitor.cmd again.\n\n" + payload["text"])
-                        payload["observed_at_utc"] = now.isoformat()
+                        lines.append("Leave both pollers running. Press Q in prod-health, then run "
+                                     "02_prod_health_monitor.cmd again.")
+                    if lines:
+                        payload["text"] = "\n\n".join(lines) + "\n\n" + payload["text"]
+                    payload["observed_at_utc"] = now.isoformat()
                     desktop.publish(payload)
                 reason = wait_for_stop(1, stop_file)
                 if reason:
@@ -218,9 +269,12 @@ def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popup
             stop_monitor_child(child, child_stop)
         if desktop:
             desktop.close()
-        health.atomic_json(directory / "supervisor_stop.json", {
-            "supervisor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
-            "stopped_by": stopped_by, "journal": str(config.journal)})
+        try:
+            health.atomic_json(directory / "supervisor_stop.json", {
+                "supervisor_pid": os.getpid(), "stopped_at_utc": datetime.now(health.UTC).isoformat(),
+                "stopped_by": stopped_by, "journal": str(config.journal)})
+        except OSError as error:
+            print(f"Watchdog stopped; its stop receipt could not be saved: {error}", flush=True)
         print(f"Monitor watchdog stopped by {stopped_by}. Pollers and journal unchanged.", flush=True)
 
 

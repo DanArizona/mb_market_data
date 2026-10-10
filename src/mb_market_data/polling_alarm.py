@@ -41,7 +41,7 @@ def alarm_payload(snapshot: dict, conditions: dict, incidents: list, *, window_a
                   status_path: Path, poller_windows: str) -> dict:
     urgent, notices = {}, {}
     for key, detail in conditions.items():
-        historical = key.endswith(":coverage") or (not window_active and key != "journal:unavailable")
+        historical = key.endswith(":coverage") or (not window_active and key != "journal:unavailable" and not key.startswith("monitor:"))
         (notices if historical else urgent)[key] = detail
     # A replacement PID is not recovery. Keep its old failure sounding until
     # a new committed slot resolves that incident, or the polling window ends.
@@ -153,13 +153,14 @@ def sound_alarm() -> None:
 
 
 class DesktopAlarm:
-    def __init__(self, *, sound=sound_alarm):
+    def __init__(self, *, sound=sound_alarm, acknowledge=None):
         self.policy = AlarmPolicy()
         self.lock = threading.Lock()
         self.stopping = threading.Event()
         self.ready = threading.Event()
         self.gui_error = None
         self.sound = sound
+        self.acknowledge = acknowledge
         self.threads = []
 
     def publish(self, payload: dict) -> None:
@@ -176,8 +177,11 @@ class DesktopAlarm:
 
     def dismiss(self) -> None:
         with self.lock:
-            if not self.policy.dismiss():
+            dismissed = self.policy.dismiss()
+            if not dismissed:
                 self.policy.silence(time.monotonic())
+        if dismissed and self.acknowledge:
+            self.acknowledge()
 
     def start(self) -> None:
         self.threads = [threading.Thread(target=self._desktop, daemon=True),

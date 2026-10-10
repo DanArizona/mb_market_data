@@ -252,3 +252,29 @@ The original lock's owner/cause remains unresolved. This increment preserves
 diagnostic timing, SQLite error text, process candidates, and slot loss without
 claiming a root-cause fix. Bounded write retries, automatic recovery, Overlay
 health display, and an always-on supervisor remain later increments.
+
+## Monitor status-file publication and watchdog incident history
+
+Windows may briefly deny replacement of a status file while another process has
+it open. Status publications retry Windows errors 5, 32 and 33 for at most 0.5
+seconds and eight attempts. The old complete status file remains in place until
+replacement succeeds. Other I/O failures are reported without retry.
+
+If publication still fails, the inspector/watchdog continues operating. A red
+monitor alarm reports that saved status may be stale; this does not call for a
+poller restart. The next successful status publication resolves that condition.
+If no completed inspector snapshot is visible, the watchdog's normal overdue
+check remains active. A stop-receipt write error is printed without preventing
+Q or Ctrl+C shutdown.
+
+Watchdog STOPPED/OVERDUE and status-output incidents are retained separately in
+`output/polling_health/<session>/monitor_incidents.jsonl`. This append-only history
+includes detection, confirmed resolution and acknowledgement. Restarting a
+watchdog cannot establish recovery until its replacement inspector publishes a
+completed check. Resolved, unacknowledged monitor incidents reappear as quiet
+notices across restarts. Dismiss acknowledges them; unresolved alarms cannot be
+dismissed. History-read/write failures are explicit monitor alarms.
+
+This addresses the October 9 Access-denied failure replacing `supervisor.json`;
+the process that prevented replacement has not been identified. It does not
+change polling cadence, journal contents, SQLite retry budgets or membership.

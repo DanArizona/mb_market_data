@@ -436,19 +436,38 @@ def operation_lock(key: str) -> Iterator[None]:
                 fcntl.flock(stream, fcntl.LOCK_UN)
 
 
-def atomic_json(path: Path, value: Any) -> None:
+def atomic_text(path: Path, value: str) -> None:
+    """Publish a complete status file, tolerating brief Windows reader locks."""
     from uuid import uuid4
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
     try:
-        temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        os.replace(temporary, path)
+        temporary.write_text(value, encoding="utf-8")
+        deadline = time.monotonic() + 0.5
+        for attempt in range(8):
+            try:
+                os.replace(temporary, path)
+                break
+            except OSError as error:
+                remaining = deadline - time.monotonic()
+                if getattr(error, "winerror", None) not in {5, 32, 33} or attempt == 7 or remaining <= 0:
+                    raise
+                time.sleep(min(0.05 * (attempt + 1), remaining))
     finally:
-        temporary.unlink(missing_ok=True)
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass  # a cleanup lock must not hide the original publication error
+
+
+def atomic_json(path: Path, value: Any) -> None:
+    atomic_text(path, json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
 def alert_conditions(health: dict[str, Any]) -> dict[str, str]:
     alerts = {}
+    if health.get("status_output_error"):
+        alerts["monitor:status_output"] = health["status_output_error"]
     if health["journal_read"] != "OK":
         alerts["journal:unavailable"] = health["journal_error"]
     if not health["process_inspection"]["known"]:
@@ -492,13 +511,7 @@ def persist_health(directory: Path, health: dict[str, Any]) -> list[dict[str, An
     atomic_json(path, history)
     atomic_json(directory / "latest.json", health)
     summary = format_health(health)
-    from uuid import uuid4
-    temporary = directory / ("STATUS." + uuid4().hex + ".tmp")
-    try:
-        temporary.write_text(summary, encoding="utf-8")
-        os.replace(temporary, directory / "STATUS.txt")
-    finally:
-        temporary.unlink(missing_ok=True)
+    atomic_text(directory / "STATUS.txt", summary)
     if new:
         with (directory / "events.jsonl").open("a", encoding="utf-8") as stream:
             for event in new:
@@ -516,6 +529,8 @@ def format_health(health: dict[str, Any]) -> str:
              f"Slot grace: {health['grace_seconds']:g}s; trade/quote age is not a poller heartbeat."]
     if health["journal_error"]:
         lines.append("ALERT: " + health["journal_error"])
+    if health.get("status_output_error"):
+        lines.append("MONITOR STATUS OUTPUT FAILED: " + health["status_output_error"])
     if not health["process_inspection"]["known"]:
         lines.append("PROCESS INSPECTION UNAVAILABLE: " + str(health["process_inspection"]["error"]))
     for channel, info in health["channels"].items():
