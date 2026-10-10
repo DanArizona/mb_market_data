@@ -56,6 +56,35 @@ class CandleTests(LiveFixture):
         return QuoteDashboardLiveController(reader=QuoteJournalLiveReader(self.path), symbol="TEST",
             now=lambda: self.clock, batch_limit=limit, candle_reader=reader or self.candle_reader())
 
+    def test_single_candle_has_interval_spacing_and_explicit_volume_width(self):
+        write_receipt(self.capture, 1, BOUNDARY+timedelta(seconds=3), close=101)
+        self.clock = BOUNDARY+timedelta(seconds=20)
+        controller = self.with_candles()
+        overlay = controller.snapshot().observation_overlay
+        figure = build_observation_overlay_figure(overlay)
+        candle, volume = figure.data[:2]
+        self.assertEqual(len(overlay.candles), 1)
+        self.assertEqual(candle.x[0] - candle.x[1], timedelta(minutes=5))
+        self.assertEqual(tuple(candle.close), (101, None))
+        self.assertIsNone(candle.customdata[1])
+        self.assertEqual(tuple(volume.y), (50,))
+        self.assertEqual(volume.width, 240000)
+        self.assertIsNone(selected_reference_from_click(overlay, {"points": [{"curveNumber": 0, "pointNumber": 1}]}, figure.to_plotly_json(), "close"))
+
+    def test_candle_only_step_updates_response_counter_and_progress(self):
+        from mb_market_data.quote_dashboard import _control_values
+        write_receipt(self.capture, 1, BOUNDARY+timedelta(seconds=3), close=101)
+        write_receipt(self.capture, 2, BOUNDARY+timedelta(seconds=25), close=102)
+        self.clock = BOUNDARY+timedelta(seconds=30)
+        controller = self.with_candles()
+        before = controller.seek(BOUNDARY)
+        after = controller.step()
+        self.assertEqual(after.applied_event_count, before.applied_event_count)
+        self.assertEqual(after.total_candle_receipt_count, 2)
+        self.assertGreater(after.progress_fraction, before.progress_fraction)
+        self.assertIn("journal events (membership/quotes)", _control_values(after)[7])
+        self.assertIn("1 / 2 candle responses", _control_values(after)[7])
+
     def test_partial_does_not_become_closed_by_clock_alone(self):
         write_receipt(self.capture, 1, BOUNDARY-timedelta(seconds=10))
         reader = self.candle_reader()
@@ -285,4 +314,4 @@ class CandleTests(LiveFixture):
             chart = chart_response.get_json()["response"]
             self.assertEqual(chart["observation-overlay-as-of"]["children"],
                              response.get_json()["response"]["state-as-of"]["children"])
-            self.assertEqual(chart["observation-overlay-chart"]["figure"]["data"][0]["close"], [expected_close])
+            self.assertEqual(chart["observation-overlay-chart"]["figure"]["data"][0]["close"], [expected_close, None])

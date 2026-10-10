@@ -178,6 +178,7 @@ class QuoteDashboardLiveController:
                 first_event_time_utc=(header_sort_key(self._headers[0])[0] if self._headers else None),
                 last_event_time_utc=(header_sort_key(self._headers[-1])[0] if self._headers else None),
                 total_event_count=len(self._headers),
+                total_candle_receipt_count=self.candle_reader.receipt_count if self.candle_reader else 0,
                 observation_overlay=overlay,
                 live_source=True,
                 catching_up=(not self._discovery_complete or self._needs_rebuild

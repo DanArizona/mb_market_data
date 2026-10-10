@@ -224,6 +224,10 @@ class CandleReceiptReader:
     def availability_times(self):
         return tuple(sorted({r.received_at_utc for r in self._receipts.values()}))
 
+    @property
+    def receipt_count(self):
+        return len(self._receipts)
+
     def project(self, cutoff: datetime):
         if cutoff.tzinfo is None or cutoff.utcoffset() is None:
             raise ValueError("cutoff must be timezone-aware")

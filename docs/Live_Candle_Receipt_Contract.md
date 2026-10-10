@@ -94,3 +94,17 @@ separate acceptance task; production opening paths are excluded by this launcher
 This increment does not implement live halt capture, manual membership requests,
 coordinator integration, Hot policy, automatic recovery or continuous candle
 producer supervision. The existing bounded capture probe supplies the evidence.
+
+## Single-candle rendering and playback counts
+
+Candle body widths use five-minute spacing even when just one candle is visible
+or visible candles have intervening gaps. For Plotly's candlestick renderer, an
+empty spacing point one interval before the first candle has null OHLC and no
+custom data. It is a layout aid only: it creates no candle, receipt, price, hover
+selection or evidence count. Volume bars have an explicit interval-based width.
+
+The playback counter labels journal events (membership/quotes) separately from
+candle responses. The progress bar includes both discovered event populations.
+A candle-only Step therefore advances the response count and progress even if
+the journal-event count is unchanged. One response can contain multiple candles;
+Step advances to an availability time, not to an individual candle interval.

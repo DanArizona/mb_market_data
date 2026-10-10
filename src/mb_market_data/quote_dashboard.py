@@ -433,13 +433,17 @@ def _control_values(
         if replay.source_error:
             label = "Source unavailable · " + replay.source_error
         percent = replay.progress_fraction * 100.0
+        counts = f"{replay.applied_event_count:,} / {replay.total_event_count:,} journal events (membership/quotes)"
+        if replay.observation_overlay and replay.observation_overlay.candle_capture:
+            counts += (f" · {replay.observation_overlay.candle_receipt_count:,} / "
+                       f"{replay.total_candle_receipt_count:,} candle responses")
         return (
             "Pause" if following else "Return to Live",
             False, following or replay.catching_up, False,
             label,
             "replay-status status-error" if replay.source_error else "replay-status status-playing",
             _time_text(replay.replay_time_utc),
-            f"{replay.applied_event_count:,} / {replay.total_event_count:,} discovered events",
+            counts,
             {"width": f"{percent:.3f}%"},
         )
     status_label = (

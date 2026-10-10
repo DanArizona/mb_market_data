@@ -921,14 +921,23 @@ def build_observation_overlay_figure(
             ]
             for item in candles
         ]
+        # Candlestick has no explicit width property. Its renderer infers body
+        # width from x spacing, falling back to one millisecond for a singleton.
+        # An empty point one interval earlier supplies spacing only: all OHLC
+        # values and customdata are absent, so it creates no candle or evidence.
+        spacing_anchor = len(candles) == 1 or min(
+            right - left for left, right in zip(candle_times, candle_times[1:])
+        ) > OHLCV_INTERVAL
+        plotted_times = candle_times + ([candle_times[0] - OHLCV_INTERVAL] if spacing_anchor else [])
+        empty = [None] if spacing_anchor else []
         figure.add_trace(
             go.Candlestick(
-                x=candle_times,
-                open=[item.open for item in candles],
-                high=[item.high for item in candles],
-                low=[item.low for item in candles],
-                close=[item.close for item in candles],
-                customdata=candle_customdata,
+                x=plotted_times,
+                open=[item.open for item in candles] + empty,
+                high=[item.high for item in candles] + empty,
+                low=[item.low for item in candles] + empty,
+                close=[item.close for item in candles] + empty,
+                customdata=candle_customdata + empty,
                 name="5-minute OHLC",
                 increasing_line_color="#1A6B57",
                 decreasing_line_color="#803D43",
@@ -960,6 +969,7 @@ def build_observation_overlay_figure(
             go.Bar(
                 x=candle_times,
                 y=[item.volume for item in candles],
+                width=OHLCV_INTERVAL.total_seconds() * 1000 * 0.8,
                 name="Volume",
                 marker_color="#6fc8ff",
                 opacity=0.55,
