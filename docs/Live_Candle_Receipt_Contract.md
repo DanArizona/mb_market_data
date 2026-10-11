@@ -108,3 +108,26 @@ candle responses. The progress bar includes both discovered event populations.
 A candle-only Step therefore advances the response count and progress even if
 the journal-event count is unchanged. One response can contain multiple candles;
 Step advances to an availability time, not to an individual candle interval.
+
+## Console shutdown acceptance
+
+October 9 Windows review confirmed the browser's Stop server control but found
+that Ctrl+C did not stop the isolated candle viewer. Candle visibility and
+playback acceptance remain valid; console shutdown is a separate requirement.
+
+The viewer now temporarily installs explicit SIGINT/SIGBREAK handlers on its
+main thread and restores the previous handlers after cleanup. Handlers only
+record a stop reason; they do not acquire locks. A short main-thread polling
+loop also accepts Q or a raw Ctrl+C key from an interactive Windows console.
+Extended console-key scan codes do not count as Q. Worker-thread/embedded
+servers do not alter process handlers or consume console input.
+
+The browser stop, console signal and Q key close the same HTTP listener. Demo
+viewers record their stop reason in a separate viewer_stop.json under their
+new demo output folder. The original candle capture and production journals
+are not modified. Clear any CMD text selection with Esc before keyboard tests.
+
+A Windows-only test creates its own synthetic server and console, delivers a
+real control event to that console alone and checks process exit and listener
+closure. Manual Ctrl+C and Q acceptance in overlay-candles are still required.
+The original October 9 console failure's precise cause is not established.

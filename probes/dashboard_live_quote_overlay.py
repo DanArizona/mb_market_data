@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from threading import Event, Thread
+from threading import Event, Thread, Timer
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -41,11 +42,15 @@ def parse_args():
     parser.add_argument("--demo-speed", type=float, default=10, help="Saved candle demo clock multiplier")
     parser.add_argument("--port", type=int, default=8051)
     parser.add_argument("--batch-limit", type=int, default=32)
+    parser.add_argument("--shutdown-check", choices=("ctrl-c", "q"),
+                        help="Check one console stop method against synthetic data; 90-second fallback")
     args = parser.parse_args()
     if sum((args.demo, args.database is not None, args.capture_demo is not None)) != 1:
         parser.error("Choose --demo, --capture-demo, or one experimental database, exclusively")
     if args.candle_capture_dir and args.database is None:
         parser.error("--candle-capture-dir requires an experimental database")
+    if args.shutdown_check and not args.demo:
+        parser.error("--shutdown-check requires --demo; no saved capture or external journal is opened")
     if not 0 < args.demo_speed <= 60:
         parser.error("--demo-speed must be between 0 and 60")
     if not 1 <= args.port <= 65535:
@@ -178,6 +183,9 @@ def main():
     args = parse_args()
     stop = Event()
     demo = None
+    limit = None
+    expired = Event()
+    shutdown_passed = True
     try:
         candle_reader = None
         if args.demo or args.capture_demo:
@@ -231,16 +239,43 @@ def main():
             print(f"Saved receipt period: {times[0].astimezone(ET).isoformat()} through {times[-1].astimezone(ET).isoformat()}", flush=True)
         print(f"Open http://127.0.0.1:{args.port} and select the Chart tab.", flush=True)
         print("Pause freezes the inspection time; Return to Live catches up.", flush=True)
-        print("Stop server or Ctrl+C closes this viewer.", flush=True)
-        server.serve_until_stopped()
+        print("Stop server, Ctrl+C or Q in this CMD closes this viewer. Clear CMD text selection with Esc first.", flush=True)
+        if args.shutdown_check:
+            expected = {"ctrl-c": "Ctrl+C", "q": "Q key"}[args.shutdown_check]
+            print(f"CONSOLE CHECK: press {expected} now. You do not need to open the browser.", flush=True)
+            print("Automatic stop after 90 seconds. A timeout does not count as a passed keyboard check.", flush=True)
+            def expire():
+                expired.set()
+                stop.set()
+            limit = Timer(90, expire)
+            limit.daemon = True
+            limit.start()
+        stopped_by = server.serve_until_stopped()
+        if expired.is_set() and stopped_by == "stop request":
+            stopped_by = "test time limit"
+        if args.shutdown_check:
+            shutdown_passed = stopped_by == expected and not (demo and demo.error)
+            print(f"CONSOLE CHECK: {'PASS' if shutdown_passed else 'NOT CONFIRMED'}; requested {expected}, stopped by {stopped_by}.", flush=True)
+        print(f"Viewer stopped by {stopped_by}; listener closed.", flush=True)
+        if args.demo or args.capture_demo:
+            receipt = root / "viewer_stop.json"
+            receipt.write_text(json.dumps({"pid": os.getpid(), "port": server.bound_port,
+                "stopped_by": stopped_by, "completed_at_utc": datetime.now(UTC).isoformat(),
+                "requested_console_check": args.shutdown_check,
+                "console_check_passed": shutdown_passed if args.shutdown_check else None,
+                "listener_closed": True, "production_journal_access": "NONE"}, indent=2) + "\n", encoding="utf-8")
+            print(f"Viewer stop receipt: {receipt}", flush=True)
     except Exception as exc:
         print(f"Live Overlay ERROR: {type(exc).__name__}: {exc}", flush=True)
         return 2
     finally:
+        if limit is not None:
+            limit.cancel()
+            limit.join(timeout=1)
         stop.set()
         if demo and demo.thread.is_alive():
             demo.thread.join(timeout=2)
-    return 2 if demo and demo.error else 0
+    return 2 if (demo and demo.error) or not shutdown_passed else 0
 
 
 if __name__ == "__main__":
