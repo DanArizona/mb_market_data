@@ -502,6 +502,7 @@ def create_quote_dashboard(
     *,
     request_server_stop: Callable[[], None] | None = None,
     source_label: str | None = None,
+    candle_health_provider: Callable[[], dict] | None = None,
 ) -> Any:
     """Create a local interactive dashboard for replay or experimental live viewing."""
 
@@ -525,6 +526,10 @@ def create_quote_dashboard(
     replay = controller.snapshot()
     view = build_quote_dashboard_view(replay.state)
     controls = _control_values(replay)
+    from mb_market_data.candle_supervision import health_text
+    candle_health_label, candle_health_class = health_text(
+        candle_health_provider() if candle_health_provider else None
+    )
 
     app = Dash(
         __name__,
@@ -548,6 +553,7 @@ def create_quote_dashboard(
 
     app.layout = html.Main(
         [
+            dcc.Interval(id="candle-health-tick", interval=1000, disabled=candle_health_provider is None),
             dcc.Interval(
                 id="replay-tick",
                 interval=1000 if replay.live_source else 250,
@@ -771,6 +777,9 @@ def create_quote_dashboard(
                 className=("replay-controls replay-controls-live" if replay.live_source else "replay-controls"),
                 **{"aria-label": "Replay controls"},
             ),
+            html.Div(candle_health_label, id="candle-health-status", className=candle_health_class,
+                     style={} if candle_health_provider else {"display": "none"},
+                     **{"aria-live": "polite"}),
             dcc.Tabs(
                 id="dashboard-tabs",
                 value="monitor",
@@ -1200,5 +1209,12 @@ def create_quote_dashboard(
         # event. Always publish the displayed cutoff, even when grid data stays
         # unchanged; the projector's last event time is a different timestamp.
         return (*control_values, f"Viewing time: {_time_text(updated.replay_time_utc)}", *state_values)
+
+    if candle_health_provider is not None:
+        @app.callback(Output("candle-health-status", "children"),
+                      Output("candle-health-status", "className"),
+                      Input("candle-health-tick", "n_intervals"))
+        def update_candle_health(_ticks):
+            return health_text(candle_health_provider())
 
     return app

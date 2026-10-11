@@ -901,3 +901,20 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+.candle-health-panel {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #65748a;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.candle-health-warning {
+  border-color: #c49028;
+  background: rgba(196, 144, 40, 0.12);
+}
+.candle-health-notice {
+  border-color: #65748a;
+  background: rgba(101, 116, 138, 0.08);
+}

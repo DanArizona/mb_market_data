@@ -53,6 +53,7 @@ class CapturedCandleVersion:
     sample_number: int
     raw_sha256: str
     observed_version: int
+    capture_run_id: str | None = None
 
     @property
     def interval_closed_at_receipt(self):
@@ -88,6 +89,13 @@ class _Receipt:
     received_at_utc: datetime
     candles: tuple[OverlayCandle, ...]
     raw_sha256: str
+    outcome: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReceiptSummary:
+    sample_number: int
+    received_at_utc: datetime
     outcome: str
 
 
@@ -130,6 +138,17 @@ class CandleReceiptReader:
         if path.parent != self.directory:
             raise CandleReceiptError("Response path leaves the capture directory")
         return path
+
+    @property
+    def receipt_summaries(self):
+        """Progress from already validated committed evidence only."""
+        return tuple(ReceiptSummary(r.sample_number, r.received_at_utc, r.outcome)
+                     for r in sorted(self._receipts.values(), key=lambda r: r.sample_number))
+
+    @property
+    def validated_receipts(self):
+        """Immutable observations for a session that preserves several runs."""
+        return tuple(sorted(self._receipts.values(), key=lambda r: r.sample_number))
 
     def _read(self, path, number):
         receipt_body = path.read_bytes()
