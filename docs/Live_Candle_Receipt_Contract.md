@@ -117,7 +117,28 @@ an interrupt was sent. This was a test-harness omission, not a viewer Ctrl+C
 result. The corrected helper detaches itself first, attaches to the exact owned
 child PID, and verifies that only the child and helper occupy that console before
 sending the event. It refuses unknown console members or an unreadable process
-list. Application shutdown behavior is unchanged by this harness correction.
+list. Application shutdown behavior was unchanged by that harness correction.
+
+The next native verification successfully emitted the event but the owned viewer
+did not exit within eight seconds. This is a failed shutdown result, not native
+acceptance. The subsequent correction adds a scoped Win32 console-control handler
+as well as the Python handlers. It explicitly enables Ctrl+C in the viewer process
+and registers its callback after existing handlers. The callback consumes only
+Ctrl+C/Ctrl+Break and records a reason; the main loop closes the HTTP listener.
+Windows close, logoff and shutdown events retain their normal handler processing.
+
+The Win32 callback stays alive until successful unregistration. Failed removal
+retains it and reports the cleanup error. The previous Python handlers are restored
+exactly. A known previous Python ignore-Ctrl+C policy is restored as well; Windows
+does not expose a getter for an otherwise unknown inherited ignore attribute, so
+the viewer does not claim to reconstruct that unknown attribute. None of these
+changes detach the viewer or modify another process's console settings.
+
+The owned-console test now reports setup, event receipt in the main loop, handler
+restoration and listener closure. It checks ordinary Python ignore, explicit
+Windows ignore and an older consuming handler in separate owned child consoles.
+This distinguishes an unreceived event from cleanup that stalls after receipt.
+These native tests and the physical-key checks still require Windows acceptance.
 
 October 9 Windows review confirmed the browser's Stop server control but found
 that Ctrl+C did not stop the isolated candle viewer. Candle visibility and
