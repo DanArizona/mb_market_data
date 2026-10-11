@@ -111,6 +111,14 @@ Step advances to an availability time, not to an individual candle interval.
 
 ## Console shutdown acceptance
 
+The first native Windows verification on October 10 reached the synthetic HTTP
+server but failed in the event helper's AttachConsole call with WinError 5, before
+an interrupt was sent. This was a test-harness omission, not a viewer Ctrl+C
+result. The corrected helper detaches itself first, attaches to the exact owned
+child PID, and verifies that only the child and helper occupy that console before
+sending the event. It refuses unknown console members or an unreadable process
+list. Application shutdown behavior is unchanged by this harness correction.
+
 October 9 Windows review confirmed the browser's Stop server control but found
 that Ctrl+C did not stop the isolated candle viewer. Candle visibility and
 playback acceptance remain valid; console shutdown is a separate requirement.

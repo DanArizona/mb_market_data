@@ -11,6 +11,7 @@ import tempfile
 import time
 import unittest
 from urllib.request import urlopen
+from unittest.mock import Mock, patch
 
 
 CHILD = r'''
@@ -41,18 +42,36 @@ finally:
 '''
 
 EMITTER = r'''
-import ctypes, sys
+import ctypes, os, sys
 from ctypes import wintypes
 k = ctypes.WinDLL("kernel32", use_last_error=True)
 k.AttachConsole.argtypes = [wintypes.DWORD]
 k.AttachConsole.restype = wintypes.BOOL
+k.FreeConsole.argtypes = []
+k.FreeConsole.restype = wintypes.BOOL
+k.GetConsoleProcessList.argtypes = [ctypes.POINTER(wintypes.DWORD), wintypes.DWORD]
+k.GetConsoleProcessList.restype = wintypes.DWORD
 k.GenerateConsoleCtrlEvent.argtypes = [wintypes.DWORD, wintypes.DWORD]
 k.GenerateConsoleCtrlEvent.restype = wintypes.BOOL
 k.SetConsoleCtrlHandler.argtypes = [ctypes.c_void_p, wintypes.BOOL]
 k.SetConsoleCtrlHandler.restype = wintypes.BOOL
-if not k.AttachConsole(int(sys.argv[1])):
+target_pid = int(sys.argv[1])
+own_pid = os.getpid()
+if target_pid <= 0 or target_pid == own_pid:
+    raise ValueError("Expected the positive PID of the owned test child")
+# CREATE_NO_WINDOW can still leave this helper attached to a console. Detach
+# only this helper before attaching; never detach the test runner or pollers.
+if not k.FreeConsole():
+    raise ctypes.WinError(ctypes.get_last_error())
+if not k.AttachConsole(target_pid):
     raise ctypes.WinError(ctypes.get_last_error())
 try:
+    processes = (wintypes.DWORD * 16)()
+    count = k.GetConsoleProcessList(processes, len(processes))
+    if count == 0:
+        raise ctypes.WinError(ctypes.get_last_error())
+    if count > len(processes) or set(processes[:count]) != {target_pid, own_pid}:
+        raise RuntimeError("Refusing Ctrl+C: console is not exclusively the owned test child and helper")
     # Ignore the emitter's copy of the event. It is attached only to the new
     # child console; no event is broadcast in the user's production CMD.
     if not k.SetConsoleCtrlHandler(None, True):
@@ -63,6 +82,95 @@ try:
 finally:
     k.FreeConsole()
 '''
+
+
+class ConsoleEmitterHarnessTests(unittest.TestCase):
+    """Exercise the actual helper script's API order and refusal paths."""
+
+    def kernel(self, members=(101, 202)):
+        kernel = Mock()
+        for name in ("FreeConsole", "AttachConsole", "SetConsoleCtrlHandler", "GenerateConsoleCtrlEvent"):
+            getattr(kernel, name).return_value = 1
+        def processes(buffer, size):
+            for index, pid in enumerate(members[:size]):
+                buffer[index] = pid
+            return len(members)
+        kernel.GetConsoleProcessList.side_effect = processes
+        return kernel
+
+    def execute(self, kernel, target="101"):
+        with patch("ctypes.WinDLL", return_value=kernel, create=True), \
+             patch("ctypes.WinError", side_effect=lambda code: OSError(f"synthetic WinError {code}"), create=True), \
+             patch("ctypes.get_last_error", return_value=5, create=True), \
+             patch("os.getpid", return_value=202), \
+             patch("sys.argv", ["owned-console-emitter", target]), \
+             patch("time.sleep"):
+            exec(compile(EMITTER, "owned-console-emitter", "exec"), {})
+
+    def test_detaches_before_attachment_and_sends_only_after_membership_check(self):
+        kernel = self.kernel()
+        self.execute(kernel)
+        calls = [call[0] for call in kernel.mock_calls]
+        self.assertEqual(calls, ["FreeConsole", "AttachConsole", "GetConsoleProcessList",
+                                 "SetConsoleCtrlHandler", "GenerateConsoleCtrlEvent", "FreeConsole"])
+        kernel.AttachConsole.assert_called_once_with(101)
+        kernel.GenerateConsoleCtrlEvent.assert_called_once_with(0, 0)
+
+    def test_detach_failure_prevents_attachment_and_event(self):
+        kernel = self.kernel()
+        kernel.FreeConsole.return_value = 0
+        with self.assertRaisesRegex(OSError, "synthetic WinError"):
+            self.execute(kernel)
+        kernel.AttachConsole.assert_not_called()
+        kernel.GenerateConsoleCtrlEvent.assert_not_called()
+
+    def test_attachment_failure_prevents_event(self):
+        kernel = self.kernel()
+        kernel.AttachConsole.return_value = 0
+        with self.assertRaisesRegex(OSError, "synthetic WinError"):
+            self.execute(kernel)
+        kernel.GenerateConsoleCtrlEvent.assert_not_called()
+
+    def test_foreign_console_process_refuses_event_and_detaches_helper(self):
+        kernel = self.kernel((101, 202, 303))
+        with self.assertRaisesRegex(RuntimeError, "not exclusively"):
+            self.execute(kernel)
+        kernel.GenerateConsoleCtrlEvent.assert_not_called()
+        self.assertEqual(kernel.FreeConsole.call_count, 2)
+
+    def test_oversized_process_list_refuses_event(self):
+        kernel = self.kernel(tuple(range(32)))
+        with self.assertRaisesRegex(RuntimeError, "not exclusively"):
+            self.execute(kernel)
+        kernel.GenerateConsoleCtrlEvent.assert_not_called()
+        self.assertEqual(kernel.FreeConsole.call_count, 2)
+
+    def test_process_list_read_failure_refuses_event(self):
+        kernel = self.kernel()
+        kernel.GetConsoleProcessList.side_effect = None
+        kernel.GetConsoleProcessList.return_value = 0
+        with self.assertRaisesRegex(OSError, "synthetic WinError"):
+            self.execute(kernel)
+        kernel.GenerateConsoleCtrlEvent.assert_not_called()
+        self.assertEqual(kernel.FreeConsole.call_count, 2)
+
+    def test_ignore_handler_failure_refuses_event(self):
+        kernel = self.kernel()
+        kernel.SetConsoleCtrlHandler.return_value = 0
+        with self.assertRaisesRegex(OSError, "synthetic WinError"):
+            self.execute(kernel)
+        kernel.GenerateConsoleCtrlEvent.assert_not_called()
+        self.assertEqual(kernel.FreeConsole.call_count, 2)
+
+    def test_parent_console_alias_and_own_pid_are_refused_before_detach(self):
+        for target in ("-1", "0", "202"):
+            with self.subTest(target=target):
+                kernel = self.kernel()
+                with self.assertRaisesRegex(ValueError, "positive PID"):
+                    self.execute(kernel, target=target)
+                kernel.FreeConsole.assert_not_called()
+                kernel.AttachConsole.assert_not_called()
+                kernel.GenerateConsoleCtrlEvent.assert_not_called()
 
 
 @unittest.skipUnless(os.name == "nt", "requires a native Windows console")
