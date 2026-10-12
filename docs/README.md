@@ -24,6 +24,11 @@ implementation plans, and project roadmap for `mb_market_data`.
   - **Status:** Acquisition and visual integration implemented; real-day validation pending
   - Authoritative OO MVP causal-preparation and eligibility rules.
 
+- [Live Observation Overlay: Quotes and Membership](contracts/Live_Observation_Overlay_Quotes_and_Membership_Contract.md)
+  - **Status:** Experimental offline prototype
+  - Live discovery, causal visibility, pause/seek/recovery, acceptance gates,
+    and the coordinator publication interface proposed alongside viewer work.
+
 ## Operational documentation
 
 - [Operations Quick Reference](Operations_Quick_Reference.md)

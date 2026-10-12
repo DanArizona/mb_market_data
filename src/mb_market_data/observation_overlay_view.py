@@ -70,9 +70,16 @@ class ObservationOverlayView:
     candle_count: int
     quote_point_count: int
     quote_status_counts: Mapping[str, int]
+    candle_capture: bool = False
+    pending_candle_count: int = 0
+    candle_receipt_count: int = 0
+    candle_error_count: int = 0
+    membership_known: bool = True
 
     @property
     def current_band_label(self) -> str:
+        if not self.membership_known:
+            return "No membership evidence"
         return self.current_band.value.replace("_", " ").title()
 
     @property
@@ -81,6 +88,11 @@ class ObservationOverlayView:
             f"{name} {count:,}" for name, count in self.quote_status_counts.items()
         )
         quote_text = statuses or "no quote outcomes"
+        if self.candle_capture:
+            return (f"{self.candle_count:,} interval-closed candles · "
+                    f"{self.pending_candle_count:,} awaiting closing receipt · "
+                    f"{self.candle_receipt_count:,} captured responses ({self.candle_error_count:,} errors) · "
+                    f"{self.quote_point_count:,} quote outcomes ({quote_text})")
         return (
             f"{self.candle_count:,} completed candles · "
             f"{self.quote_point_count:,} quote outcomes ({quote_text})"
@@ -104,6 +116,11 @@ def build_observation_overlay_view(
         candle_count=len(overlay.candles),
         quote_point_count=len(overlay.quote_points),
         quote_status_counts=MappingProxyType(dict(sorted(statuses.items()))),
+        candle_capture=overlay.candle_capture,
+        pending_candle_count=len(overlay.pending_candle_versions),
+        candle_receipt_count=overlay.candle_receipt_count,
+        candle_error_count=overlay.candle_error_count,
+        membership_known=bool(overlay.membership_transitions),
     )
 
 
@@ -432,6 +449,10 @@ def selected_reference_from_click(
                 row[{"open": 1, "high": 2, "low": 3, "close": 4}[candle_field]]
             )
             available_at = start + OHLCV_INTERVAL
+            if overlay.candle_capture:
+                if len(row) < 11 or not row[10]:
+                    return None
+                available_at = datetime.fromisoformat(row[10])
             label = f"{start.astimezone(ET):%H:%M} ET candle {candle_field}"
         elif trace["name"].endswith(" quote"):
             available_value = trace["x"][index]
@@ -600,7 +621,11 @@ def _panel_membership_shape(
 
 
 def _membership_shapes(overlay: ObservationOverlayData) -> list[dict[str, Any]]:
-    start = overlay.cache.request_start_et
+    start = (
+        overlay.cache.request_start_et
+        if overlay.cache is not None
+        else datetime.combine(overlay.session_date, time.min, tzinfo=ET)
+    )
     end = overlay.replay_time_utc.astimezone(ET)
     if end <= start:
         return []
@@ -877,6 +902,7 @@ def build_observation_overlay_figure(
         item for item in overlay.candles if off_hours or _regular_hours(item.start_et)
     )
     if candles:
+        captured = {v.candle.start_et: v for v in overlay.captured_candle_versions}
         candle_times = [item.start_et + OHLCV_INTERVAL / 2 for item in candles]
         candle_customdata = [
             [
@@ -887,17 +913,31 @@ def build_observation_overlay_figure(
                 item.close,
                 f"{item.start_et:%H:%M}–{item.end_et:%H:%M}",
                 f"{item.volume:,}",
+                (captured[item.start_et].received_at_utc.astimezone(ET).strftime("%H:%M:%S.%f")[:-3]
+                 if item.start_et in captured else "retrospective cache"),
+                (captured[item.start_et].observed_version if item.start_et in captured else ""),
+                (captured[item.start_et].raw_sha256 if item.start_et in captured else ""),
+                (captured[item.start_et].received_at_utc.isoformat() if item.start_et in captured else ""),
             ]
             for item in candles
         ]
+        # Candlestick has no explicit width property. Its renderer infers body
+        # width from x spacing, falling back to one millisecond for a singleton.
+        # An empty point one interval earlier supplies spacing only: all OHLC
+        # values and customdata are absent, so it creates no candle or evidence.
+        spacing_anchor = len(candles) == 1 or min(
+            right - left for left, right in zip(candle_times, candle_times[1:])
+        ) > OHLCV_INTERVAL
+        plotted_times = candle_times + ([candle_times[0] - OHLCV_INTERVAL] if spacing_anchor else [])
+        empty = [None] if spacing_anchor else []
         figure.add_trace(
             go.Candlestick(
-                x=candle_times,
-                open=[item.open for item in candles],
-                high=[item.high for item in candles],
-                low=[item.low for item in candles],
-                close=[item.close for item in candles],
-                customdata=candle_customdata,
+                x=plotted_times,
+                open=[item.open for item in candles] + empty,
+                high=[item.high for item in candles] + empty,
+                low=[item.low for item in candles] + empty,
+                close=[item.close for item in candles] + empty,
+                customdata=candle_customdata + empty,
                 name="5-minute OHLC",
                 increasing_line_color="#1A6B57",
                 decreasing_line_color="#803D43",
@@ -911,13 +951,17 @@ def build_observation_overlay_figure(
             "Open %{open}<br>High %{high}<br>Low %{low}<br>Close %{close}"
             "<br>Volume %{customdata[6]}<extra></extra>"
         )
+        if overlay.candle_capture:
+            candle_standard = candle_standard.replace("<extra>",
+                "<br>Interval ended; received %{customdata[7]} ET · observed v%{customdata[8]}<extra>")
+        candle_detailed = candle_standard.replace("<extra>",
+            "<br>Captured Schwab 5-minute response SHA-256 %{customdata[9]}<extra>" if overlay.candle_capture else
+            "<br>Retrospective Schwab 5-minute cache; interval-end replay visibility<extra>")
         _hover_variants(
             figure.data[-1],
             category="feature",
             standard=candle_standard,
-            detailed=candle_standard.replace(
-                "<extra>", "<br>Schwab 5-minute price history; available at interval end<extra>"
-            ),
+            detailed=candle_detailed,
             detailed_hover=detailed_hover,
             shift_hover=shift_hover,
         )
@@ -925,6 +969,7 @@ def build_observation_overlay_figure(
             go.Bar(
                 x=candle_times,
                 y=[item.volume for item in candles],
+                width=OHLCV_INTERVAL.total_seconds() * 1000 * 0.8,
                 name="Volume",
                 marker_color="#6fc8ff",
                 opacity=0.55,
@@ -940,13 +985,10 @@ def build_observation_overlay_figure(
             .replace("%{high}", "%{customdata[2]}")
             .replace("%{low}", "%{customdata[3]}")
             .replace("%{close}", "%{customdata[4]}"),
-            detailed=candle_standard.replace("%{open}", "%{customdata[1]}")
+            detailed=candle_detailed.replace("%{open}", "%{customdata[1]}")
             .replace("%{high}", "%{customdata[2]}")
             .replace("%{low}", "%{customdata[3]}")
-            .replace("%{close}", "%{customdata[4]}")
-            .replace(
-                "<extra>", "<br>Schwab 5-minute price history; available at interval end<extra>"
-            ),
+            .replace("%{close}", "%{customdata[4]}"),
             detailed_hover=detailed_hover,
             shift_hover=shift_hover,
         )

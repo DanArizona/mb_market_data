@@ -29,6 +29,7 @@ class DashboardReplayStatus(StrEnum):
     PAUSED = "paused"
     PLAYING = "playing"
     COMPLETE = "complete"
+    LIVE = "live"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +44,10 @@ class DashboardReplaySnapshot:
     last_event_time_utc: datetime | None
     total_event_count: int
     observation_overlay: ObservationOverlayData | None = None
+    live_source: bool = False
+    catching_up: bool = False
+    source_error: str | None = None
+    total_candle_receipt_count: int = 0
 
     @property
     def applied_event_count(self) -> int:
@@ -50,9 +55,13 @@ class DashboardReplaySnapshot:
 
     @property
     def progress_fraction(self) -> float:
-        if self.total_event_count == 0:
+        total = self.total_event_count + self.total_candle_receipt_count
+        applied = self.applied_event_count
+        if self.live_source and self.observation_overlay is not None:
+            applied += self.observation_overlay.candle_receipt_count
+        if total == 0:
             return 1.0
-        return min(1.0, self.applied_event_count / self.total_event_count)
+        return min(1.0, applied / total)
 
 
 class QuoteDashboardReplayController:

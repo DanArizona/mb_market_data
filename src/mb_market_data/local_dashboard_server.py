@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from threading import Event, Thread
+import time
 from typing import Any
 
 from werkzeug.serving import BaseWSGIServer, make_server
+from .console_shutdown import ConsoleShutdown
 
 
 class LocalDashboardServer:
@@ -24,11 +26,14 @@ class LocalDashboardServer:
         port: int,
         stop_event: Event,
         poll_interval: float = 0.1,
+        keyboard: bool = True,
     ) -> None:
         if poll_interval <= 0:
             raise ValueError("poll_interval must be positive")
         self._stop_event = stop_event
         self._poll_interval = poll_interval
+        self._keyboard = keyboard
+        self.stopped_by: str | None = None
         self._server: BaseWSGIServer = make_server(
             host,
             port,
@@ -47,8 +52,8 @@ class LocalDashboardServer:
 
         self._stop_event.set()
 
-    def serve_until_stopped(self) -> None:
-        """Serve until the shared event is set or ``Ctrl+C`` is received."""
+    def serve_until_stopped(self) -> str:
+        """Stop by browser/shared event, explicit interrupt, or Windows Q key."""
 
         server_error: list[BaseException] = []
 
@@ -64,20 +69,34 @@ class LocalDashboardServer:
             name="masterbot-dashboard-server",
             daemon=True,
         )
-        thread.start()
         try:
-            while thread.is_alive() and not self._stop_event.wait(
-                self._poll_interval
-            ):
-                pass
-        except KeyboardInterrupt:
-            self._stop_event.set()
+            with ConsoleShutdown(keyboard=self._keyboard) as console:
+                thread.start()
+                try:
+                    while thread.is_alive() and not self._stop_event.is_set():
+                        reason = console.poll()
+                        if reason is not None:
+                            self.stopped_by = reason
+                            self._stop_event.set()
+                            break
+                        # A short sleep lets Windows dispatch console signals;
+                        # no indefinite lock/event wait runs in the main thread.
+                        time.sleep(min(self._poll_interval, 0.1))
+                except KeyboardInterrupt:
+                    self.stopped_by = "Ctrl+C"
+                    self._stop_event.set()
+                finally:
+                    self.stopped_by = self.stopped_by or console.reason or "stop request"
+                    # Keep handlers installed throughout cleanup so another
+                    # Ctrl+C cannot interrupt listener closure halfway through.
+                    self._server.shutdown()
+                    self._server.server_close()
+                    thread.join(timeout=5.0)
         finally:
-            self._server.shutdown()
             self._server.server_close()
-            thread.join(timeout=5.0)
 
         if thread.is_alive():  # pragma: no cover - severe platform failure
             raise RuntimeError("Dashboard server did not stop within 5 seconds")
         if server_error:
             raise RuntimeError("Dashboard server failed") from server_error[0]
+        return self.stopped_by or "stop request"

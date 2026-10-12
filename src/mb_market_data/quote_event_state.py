@@ -8,6 +8,7 @@ view of current channel membership plus the latest outcome observed for each
 
 from __future__ import annotations
 
+from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime
 from types import MappingProxyType
@@ -209,6 +210,16 @@ class QuoteEventStateProjector:
         self._revision_count = 0
         self._acquisition_count = 0
         self._observation_count = 0
+
+    def fork(self) -> QuoteEventStateProjector:
+        """Copy mutable indexes for staging a batch of immutable events."""
+
+        staged = copy(self)
+        staged._seen_event_headers = self._seen_event_headers.copy()
+        staged._revisions = self._revisions.copy()
+        staged._current_revisions = self._current_revisions.copy()
+        staged._latest = self._latest.copy()
+        return staged
 
     def apply(self, event: ReplayEvent) -> bool:
         """Apply one event; return false only for an identical redelivery."""

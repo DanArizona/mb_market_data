@@ -355,7 +355,7 @@ class TestObservationOverlayView(unittest.TestCase):
     def test_off_hours_filter_and_reference_causality(self) -> None:
         evidence = overlay()
         regular = build_observation_overlay_figure(evidence, off_hours=False)
-        self.assertEqual(len(regular.data[0].x), 1)
+        self.assertEqual(sum(value is not None for value in regular.data[0].close), 1)
         self.assertEqual(len(regular.data[1].x), 1)
         self.assertEqual(
             tuple(value.strftime("%H:%M") for value in regular.layout.xaxis3.range),

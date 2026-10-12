@@ -24,6 +24,7 @@ from mb_market_data.quote_dashboard_replay import (
     DashboardReplayStatus,
     QuoteDashboardReplayController,
 )
+from mb_market_data.quote_dashboard_live import QuoteDashboardLiveController
 from mb_market_data.quote_dashboard_view import (
     QuoteDashboardView,
     build_quote_dashboard_view,
@@ -161,8 +162,15 @@ def _observation_overlay_panel(
                         [
                             html.H2(f"Observation Overlay · {view.symbol}"),
                             html.P(
-                                "Completed five-minute OHLCV with "
-                                "replay-causal quote and membership evidence."
+                                (
+                                    "Captured five-minute candles appear after a closing receipt; "
+                                    "unfinished candles are held back. Interval ended does not mean final."
+                                    if overlay.candle_capture else
+                                    "Completed five-minute OHLCV with "
+                                    "replay-causal quote and membership evidence."
+                                    if overlay.cache is not None else
+                                    "Quotes and membership only. Candle acquisition is pending."
+                                )
                             ),
                         ]
                     ),
@@ -181,8 +189,9 @@ def _observation_overlay_panel(
             html.Div(
                 [
                     html.Span(
-                        view.replay_time_et_text,
+                        f"Viewing time: {view.replay_time_et_text}",
                         id="observation-overlay-as-of",
+                        className="overlay-view-cutoff",
                     ),
                     html.Span(
                         view.evidence_text,
@@ -416,6 +425,27 @@ def _control_values(
     replay: DashboardReplaySnapshot,
 ) -> tuple[str, bool, bool, bool, str, str, str, str, dict[str, str]]:
     status = replay.status
+    if replay.live_source:
+        following = status is DashboardReplayStatus.LIVE
+        label = "Live" if following else "Paused inspection"
+        if replay.catching_up:
+            label = "Catching up · showing last projected position"
+        if replay.source_error:
+            label = "Source unavailable · " + replay.source_error
+        percent = replay.progress_fraction * 100.0
+        counts = f"{replay.applied_event_count:,} / {replay.total_event_count:,} journal events (membership/quotes)"
+        if replay.observation_overlay and replay.observation_overlay.candle_capture:
+            counts += (f" · {replay.observation_overlay.candle_receipt_count:,} / "
+                       f"{replay.total_candle_receipt_count:,} candle responses")
+        return (
+            "Pause" if following else "Return to Live",
+            False, following or replay.catching_up, False,
+            label,
+            "replay-status status-error" if replay.source_error else "replay-status status-playing",
+            _time_text(replay.replay_time_utc),
+            counts,
+            {"width": f"{percent:.3f}%"},
+        )
     status_label = (
         "Playing"
         if status is DashboardReplayStatus.PLAYING
@@ -468,11 +498,13 @@ def _parse_seek_time_utc(
 
 
 def create_quote_dashboard(
-    controller: QuoteDashboardReplayController,
+    controller: QuoteDashboardReplayController | QuoteDashboardLiveController,
     *,
     request_server_stop: Callable[[], None] | None = None,
+    source_label: str | None = None,
+    candle_health_provider: Callable[[], dict] | None = None,
 ) -> Any:
-    """Create a local interactive dashboard for one replay controller."""
+    """Create a local interactive dashboard for replay or experimental live viewing."""
 
     try:
         import dash_ag_grid as dag
@@ -494,6 +526,10 @@ def create_quote_dashboard(
     replay = controller.snapshot()
     view = build_quote_dashboard_view(replay.state)
     controls = _control_values(replay)
+    from mb_market_data.candle_supervision import health_text
+    candle_health_label, candle_health_class = health_text(
+        candle_health_provider() if candle_health_provider else None
+    )
 
     app = Dash(
         __name__,
@@ -517,9 +553,10 @@ def create_quote_dashboard(
 
     app.layout = html.Main(
         [
+            dcc.Interval(id="candle-health-tick", interval=1000, disabled=candle_health_provider is None),
             dcc.Interval(
                 id="replay-tick",
-                interval=250,
+                interval=1000 if replay.live_source else 250,
                 disabled=controls[3],
             ),
             dcc.Store(
@@ -544,7 +581,10 @@ def create_quote_dashboard(
                                 [
                                     html.H1("Market State"),
                                     html.Div(
-                                        "Interactive exact-day replay",
+                                        (
+                                            source_label or "Experimental live quotes and membership"
+                                            if replay.live_source else "Interactive exact-day replay"
+                                        ),
                                         className="mode-label",
                                     ),
                                 ]
@@ -599,7 +639,7 @@ def create_quote_dashboard(
                                         className="session-date",
                                     ),
                                     html.Div(
-                                        f"State as of {view.as_of_et_text}",
+                                        f"Viewing time: {_time_text(replay.replay_time_utc)}",
                                         id="state-as-of",
                                         className="as-of",
                                     ),
@@ -627,9 +667,14 @@ def create_quote_dashboard(
                                 id="replay-step",
                                 disabled=controls[2],
                                 className="control-button",
+                                title=(
+                                    "Advance to the next available quote, membership change, "
+                                    "or candle receipt."
+                                    if replay.live_source else "Advance to the next recorded event."
+                                ),
                             ),
                             html.Button(
-                                "Restart",
+                                "Beginning" if replay.live_source else "Restart",
                                 id="replay-restart",
                                 className="control-button",
                             ),
@@ -647,7 +692,8 @@ def create_quote_dashboard(
                                 ],
                                 className="seek-control",
                                 title=(
-                                    "Seek within this journal day using " "Eastern Time"
+                                    "Inspect through the end of the entered second in Eastern Time. "
+                                    "Step then advances to the next available event."
                                 ),
                             ),
                             html.Button(
@@ -685,6 +731,7 @@ def create_quote_dashboard(
                             ),
                         ],
                         className="speed-control",
+                        style={"display": "none"} if replay.live_source else {},
                     ),
                     html.Div(
                         [
@@ -695,9 +742,15 @@ def create_quote_dashboard(
                                         id="replay-status",
                                         className=controls[5],
                                     ),
-                                    html.Strong(
-                                        controls[6],
-                                        id="replay-clock",
+                                    html.Div(
+                                        [
+                                            html.Span("Viewing time", className="replay-clock-label"),
+                                            html.Strong(
+                                                controls[6],
+                                                id="replay-clock",
+                                            ),
+                                        ],
+                                        className="replay-clock-readout",
                                     ),
                                 ],
                                 className="replay-readout",
@@ -721,9 +774,12 @@ def create_quote_dashboard(
                         className="replay-position",
                     ),
                 ],
-                className="replay-controls",
+                className=("replay-controls replay-controls-live" if replay.live_source else "replay-controls"),
                 **{"aria-label": "Replay controls"},
             ),
+            html.Div(candle_health_label, id="candle-health-status", className=candle_health_class,
+                     style={} if candle_health_provider else {"display": "none"},
+                     **{"aria-live": "polite"}),
             dcc.Tabs(
                 id="dashboard-tabs",
                 value="monitor",
@@ -1027,7 +1083,7 @@ def create_quote_dashboard(
                     "borderColor": overlay_view.current_band_color,
                     "color": overlay_view.current_band_color,
                 },
-                overlay_view.replay_time_et_text,
+                f"Viewing time: {overlay_view.replay_time_et_text}",
                 overlay_view.evidence_text,
                 figure,
                 "overlay-chart",
@@ -1137,7 +1193,6 @@ def create_quote_dashboard(
         if state_changed:
             updated_view = build_quote_dashboard_view(updated.state)
             state_values: tuple[Any, ...] = (
-                f"State as of {updated_view.as_of_et_text}",
                 f"{updated_view.unique_member_count:,}",
                 f"{updated_view.multi_channel_count:,}",
                 f"{updated_view.event_count:,}",
@@ -1148,8 +1203,18 @@ def create_quote_dashboard(
                 updated.applied_event_count,
             )
         else:
-            state_values = (no_update,) * 9
+            state_values = (no_update,) * 8
 
-        return (*control_values, *state_values)
+        # Candle receipts and seek cutoffs can advance without a new journal
+        # event. Always publish the displayed cutoff, even when grid data stays
+        # unchanged; the projector's last event time is a different timestamp.
+        return (*control_values, f"Viewing time: {_time_text(updated.replay_time_utc)}", *state_values)
+
+    if candle_health_provider is not None:
+        @app.callback(Output("candle-health-status", "children"),
+                      Output("candle-health-status", "className"),
+                      Input("candle-health-tick", "n_intervals"))
+        def update_candle_health(_ticks):
+            return health_text(candle_health_provider())
 
     return app
