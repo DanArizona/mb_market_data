@@ -874,3 +874,9 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+/* Operational health remains visible above both Monitor and Chart tabs. */
+.acquisition-health-panel { padding: 12px 16px; margin: 12px 0; border: 1px solid #b88423; border-radius: 8px; overflow-x: auto; }
+.acquisition-health-panel h3 { margin: 0 0 8px; }
+.acquisition-health-panel p { margin: 5px 0; }
+.acquisition-health-panel table { width: 100%; border-collapse: collapse; }
+.acquisition-health-panel th, .acquisition-health-panel td { text-align: left; padding: 7px 9px; vertical-align: top; border-bottom: 1px solid #80808055; }

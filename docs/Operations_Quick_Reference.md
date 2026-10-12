@@ -2,6 +2,7 @@
 
 **Purpose:** A concise operator manual for routine `mb_market_data` work.  
 **Last verified:** 2026-09-23.
+**Closeout checklist updated:** 2026-10-12.
 **Shell:** Windows Command Prompt (`cmd.exe`).  
 **Working directory:** `C:\Users\danla\Documents\github\mb_market_data`.
 
@@ -22,7 +23,9 @@ Schwab-auth commands.
    offset in scheduled timestamps: `-04:00` during EDT or `-05:00` during EST.
 3. Confirm `SESSION_DATE` and `TARGET_DATE` manually across weekends and market
    holidays. The workflow does not yet use an exchange calendar.
-4. Run the daily-universe workflow only after 16:00 ET on `SESSION_DATE`.
+4. Run the daily-universe workflow after 16:00 ET on `SESSION_DATE` and before
+   that ET calendar date ends. The following morning's `quote.totalVolume`
+   cannot reconstruct the missed completed-session snapshot.
 5. Never mix schema-v1 and schema-v2 pollers in the same journal root for the
    same session date.
 6. Do not run both the old static Uni poller and the schema-v2 Uni poller for
@@ -37,6 +40,10 @@ Schwab-auth commands.
     export a ToS CSV, read ToS membership back, or use ToS values in a market-
     data decision. Command acceptance proves only that the adapter accepted
     the request.
+11. End-of-day closeout must report two separate results: the completed
+    session's validation and the next session's opening preparation. Audit
+    and replay of today's journal do not establish next-session readiness.
+    Complete section 7.3 or explicitly report preparation as incomplete.
 
 ## 2. Start a command window
 
@@ -126,6 +133,11 @@ The handoff contract is the directory that directly contains the accepted Uni
 CSVs plus the exact paired opening proposal.
 
 ## 4. After the close: build the next session's Uni
+
+This is required end-of-day work. Complete it for the next intended trading
+session and include its evidence in the closeout handoff in section 7.3.
+Capture the same-day post-close inputs promptly; preserve the acquisition
+deadline even when replay, development, or other work continues into the night.
 
 ### 4.1 Preview the workflow
 
@@ -479,7 +491,11 @@ Use `Ctrl+C` only when an intentional early stop is required. At 16:00 ET the
 normal poller reports `Reached the end of the polling window` and a final
 summary.
 
-## 7. After the close: validate and replay
+## 7. After the close: validate, replay, and prepare the next session
+
+Closeout includes both the completed session and the next-session handoff
+in section 7.3. A successful audit/replay below proves only the completed
+session's recorded state. It does not run the next-session builder or publisher.
 
 ### 7.1 Schema-v2 journal
 
@@ -525,6 +541,72 @@ python probes\replay_quote_observation_journal.py ^
 
 Schema v1 should be labeled `legacy-independent-channels`. Do not copy or
 merge its tables into the schema-v2 daily database.
+
+### 7.3 Mandatory next-session handoff
+
+Before reporting end-of-day closeout complete:
+
+1. Reconcile the completed session's final poller summaries, audit, and replay;
+   preserve its journal and acquisition evidence.
+2. Confirm the next intended trading-session date explicitly, including across
+   weekends and holidays.
+3. Run the section 4 workflow on the completed session's ET date after 16:00
+   and before ET midnight. Verify the build result and roster before publication.
+4. Publish next-session `r0` to its own schema-v2 journal. Check the session,
+   09:30 ET effective time, Uni count, empty Focus/Hot, and matching content hash.
+5. Audit and replay that next-session journal. Expected state: one membership
+   event (`r0`), no poll runs/acquisitions/observations, and the accepted Uni count.
+6. Record the exact next-session proposal, workflow-manifest, and journal paths,
+   the `r0` content hash, and the audit/replay results in the handoff.
+
+Use separate variables so preparation cannot accidentally audit or publish
+against the completed day's journal. Example for October 12 to October 13;
+replace both dates for another handoff:
+
+```cmd
+set "CLOSED_SESSION_DATE=2026-10-12"
+set "NEXT_SESSION_DATE=2026-10-13"
+set "NEXT_JOURNAL_ROOT=output\quote_observation_journal_v2_api_opening_%NEXT_SESSION_DATE%"
+set "NEXT_OPENING_R0=output\daily_universe_production\%NEXT_SESSION_DATE%-from-%CLOSED_SESSION_DATE%\opening_hierarchy_r0.json"
+
+python probes\run_daily_universe_production.py ^
+  --session-date %CLOSED_SESSION_DATE% ^
+  --target-date %NEXT_SESSION_DATE%
+```
+
+After accepting the build result and roster, publish and verify:
+
+```cmd
+python probes\publish_sampling_hierarchy.py ^
+  "%NEXT_JOURNAL_ROOT%\%NEXT_SESSION_DATE%.sqlite3" "%NEXT_OPENING_R0%" && ^
+python probes\audit_quote_observation_journal.py ^
+  "%NEXT_JOURNAL_ROOT%\%NEXT_SESSION_DATE%.sqlite3" --show-missing 20 && ^
+python probes\replay_quote_observation_journal.py ^
+  "%NEXT_JOURNAL_ROOT%\%NEXT_SESSION_DATE%.sqlite3" --progress-every 0
+```
+
+The closeout report must state both outcomes, for example:
+
+```text
+Completed session 2026-10-12: audit/replay PASS; evidence preserved.
+Next session 2026-10-13: r0 published and audit/replay PASS.
+Uni=<accepted count>; Focus=0; Hot=0.
+Proposal=<exact path>; workflow manifest=<exact path>.
+Journal=<exact path>; r0 content SHA-256=<hash>.
+Morning pending: fresh API OV, Focus r1, r1 verification, poller/monitor starts.
+```
+
+If the snapshot, build, publication, or checks are missing or failed, report
+`Next-session preparation: INCOMPLETE`, with the reason and next action.
+Keep the completed session's success separate. Do not infer readiness from
+an older proposal or silently recreate Friday's snapshot on Monday morning.
+If the acquisition window was missed, use an explicitly recorded recovery
+decision: validate any saved completed-session evidence first; an intentional
+carry-forward must preserve the original roster, source date, and hashes and
+must still use fresh target-session OV for Focus.
+
+This is a required operator handoff. It does not install an automatic daily
+builder, scheduler, or deadline alarm.
 
 ## 8. Inspect a completed day in the dashboard
 

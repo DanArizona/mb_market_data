@@ -1275,6 +1275,21 @@ def main() -> int:
     skipped_slot_path = run_dir / "skipped_slots.jsonl"
     error_path = run_dir / "errors.log"
     manifest_path = run_dir / "manifest.json"
+    write_diagnostic_path = run_dir / "journal_write_diagnostics.jsonl"
+
+    def record_write_diagnostic(value: dict[str, Any]) -> None:
+        # The raw acquisition was flushed before its journal write. This log
+        # retains lock code, transaction phase, retry count and sample identity.
+        with write_diagnostic_path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(value, sort_keys=True) + "\n")
+            force_flush(stream)
+        print(
+            f"Journal {value['state']}: {value['operation']} "
+            f"attempts={value['attempts']} elapsed={value['elapsed_seconds']:.3f}s "
+            f"sqlite={value['sqlite_errorname']} phase={value['identity'].get('phase')} "
+            f"slot={value['identity'].get('slot_id', 'registration')}",
+            flush=True,
+        )
 
     source_text = (
         "schema-v2 journal hierarchy"
@@ -1320,6 +1335,8 @@ def main() -> int:
             "poll_window_start_et": poll_window.start_at.isoformat(),
             "poll_window_end_et": poll_window.end_at.isoformat(),
             "evidence_run_directory": str(run_dir.resolve()),
+            "journal_write_recovery": {"budget_seconds": 5, "attempt_seconds": 0.25, "max_attempts": 20,
+                                       "retry_error": "SQLITE_BUSY", "diagnostic_file": str(write_diagnostic_path.resolve())},
         }
         if hierarchy_polling:
             journal_session = (
@@ -1332,6 +1349,7 @@ def main() -> int:
                     configuration=journal_configuration,
                     host=socket.gethostname(),
                     command=tuple(sys.argv),
+                    write_event_handler=record_write_diagnostic,
                 )
             )
         else:
@@ -1348,9 +1366,12 @@ def main() -> int:
                 revision_metadata={"probe": "universe_quote_watch"},
                 host=socket.gethostname(),
                 command=tuple(sys.argv),
+                write_event_handler=record_write_diagnostic,
             )
 
     manifest: dict[str, Any] = {
+        "journal_write_recovery": {"budget_seconds": 5, "attempt_seconds": 0.25, "max_attempts": 20,
+                                   "retry_error": "SQLITE_BUSY", "diagnostic_file": str(write_diagnostic_path.resolve())},
         "probe": "universe_quote_watch",
         "started_at_et": started_at.isoformat(),
         "symbol_source": source_text,
@@ -1489,6 +1510,8 @@ def main() -> int:
     )
     if journal_path is not None:
         print(f"Journal schema   : {args.journal_schema_version}")
+        print("Write recovery   : SQLITE_BUSY only; 5s budget, up to 20 attempts")
+        print(f"Write diagnostics: {write_diagnostic_path}")
     print()
 
     sample_number = 0

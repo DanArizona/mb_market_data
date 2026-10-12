@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from mb_market_data.quote_observation_store import (
     HIERARCHY_SCHEMA_VERSION,
@@ -63,6 +63,7 @@ class PollingJournalSession:
         host: str | None = None,
         command: tuple[str, ...] = (),
         busy_timeout_ms: int = 5_000,
+        write_event_handler: Callable[[dict[str, Any]], None] | None = None,
     ) -> PollingJournalSession:
         """Open the daily store and register this run and its membership."""
 
@@ -70,6 +71,7 @@ class PollingJournalSession:
             database_path,
             session_date=snapshot.session_date,
             busy_timeout_ms=busy_timeout_ms,
+            write_event_handler=write_event_handler,
         )
         store.initialize()
         run_result = store.record_run(
@@ -118,6 +120,7 @@ class PollingJournalSession:
         host: str | None = None,
         command: tuple[str, ...] = (),
         busy_timeout_ms: int = 5_000,
+        write_event_handler: Callable[[dict[str, Any]], None] | None = None,
     ) -> PollingJournalSession:
         """Register a schema-v2 poller without publishing membership.
 
@@ -131,6 +134,7 @@ class PollingJournalSession:
             session_date=session_date,
             schema_version=HIERARCHY_SCHEMA_VERSION,
             busy_timeout_ms=busy_timeout_ms,
+            write_event_handler=write_event_handler,
         )
         store.initialize()
         run_result = store.record_run(
