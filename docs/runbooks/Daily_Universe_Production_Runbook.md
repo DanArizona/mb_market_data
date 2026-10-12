@@ -50,6 +50,35 @@ morning from that field. The operator supplies both dates explicitly:
 Version 1 intentionally does not guess the exchange calendar. Confirm the
 target date across weekends and market holidays before running.
 
+## Required end-of-day handoff
+
+Building the next session's Uni is required closeout work. A successful audit
+and replay of the completed session do not prove that this preparation ran.
+Before declaring end-of-day closeout complete, record both results separately:
+
+- Completed session: final poller summaries reconciled, journal audit/replay
+  passed, and journal/acquisition evidence preserved.
+- Next session: accepted daily-universe build, opening `r0` published to the
+  next session's own schema-v2 journal, and that journal audited/replayed.
+  Record the actual proposal, workflow-manifest, and journal paths, roster
+  count, and publication content hash. Focus and Hot remain empty at `r0`.
+
+Acquire the source snapshot on the completed session's ET date after 16:00
+and before ET midnight. Preserve this deadline even when other closeout or
+development work takes longer. If any preparation stage is absent or fails,
+report `Next-session preparation: INCOMPLETE` and give the reason and next
+action; do not treat the completed session's audit as next-session acceptance.
+
+Fresh target-session API OV, Focus `r1`, its audit/replay, and poller/monitor
+startup remain morning work. If the snapshot window was missed, validate saved
+evidence before choosing an explicit recovery; preserve source dates and
+hashes for any intentional carry-forward. Do not acquire a next-morning quote
+snapshot and label it as the previous session's post-close input.
+
+The dated command sequence and required handoff fields are maintained in
+[Operations Quick Reference, section 7.3](../Operations_Quick_Reference.md#73-mandatory-next-session-handoff).
+This checklist does not itself install a daily scheduler or deadline alarm.
+
 ## Preferred production command
 
 Run from the `mb_market_data` repository with the project environment active.
