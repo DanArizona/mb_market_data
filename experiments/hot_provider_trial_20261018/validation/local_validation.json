@@ -1,0 +1,21 @@
+{
+  "accepted_acquisition_sha256": "b2007cb3a3741afadc64e19b6c3885c55d3cbdd36c82704d2cc63771a9499611",
+  "authenticated_schwab_trial": "PENDING on MasterBot; no brokerage request from container",
+  "bundle_name": "hot_provider_trial_20261018_045158_d1f746",
+  "dependency_context": "475-test regression uses hash-verified upstream mb_tools secure-config/client/status/reauthorize source and upstream 0.6.0 distribution metadata in an isolated reference path; existing Dash dependencies in task environment. Provider SDK construction and requests are mocked in unit tests. None of these dependency files is shipped or installed into production.",
+  "extracted_archive_path_contains_spaces": true,
+  "market_data_baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+  "offline_review_tests": 54,
+  "phase_replay_sha256": [
+    "d33e2d21b19d12dbab0fb25f56fddd2b1c7a90302e2b0e5a586f8b5d1d818303",
+    "7ac5f9db6848ad23dc907bee16a8abcaa80d6e2a8bbab40a1fab89e1285ff26a"
+  ],
+  "regression_seconds": 7.256,
+  "regression_skip_reason": "native Windows sharing semantics; requires MasterBot",
+  "regression_skipped": 1,
+  "regression_tests": 475,
+  "scope": "native mb_market_data isolated Hot integration and bounded provider trial",
+  "synthetic_observations": 9,
+  "synthetic_quote_calls": 3,
+  "windows_acceptance": "PENDING"
+}

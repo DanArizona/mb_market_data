@@ -36,3 +36,6 @@ Thumbs.db
 .DS_Store
 *.egg-info/
 
+
+# Isolated Hot review runtime evidence
+/runs/

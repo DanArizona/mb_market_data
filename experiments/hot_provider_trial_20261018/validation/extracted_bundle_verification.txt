@@ -1,0 +1,102 @@
+Source verified: /workspace/scratch/183f6f8c943c/market-data-hot-20261018/archive path with spaces/hot_provider_trial_20261018_045158_d1f746/src/mb_market_data/sampling_acquisition.py
+Baseline: a082f544112643b4e5f459d15c67f60d0a1ef83d
+OFFLINE HOT INTEGRATION: tests, then short actual-clock synthetic phases; no API or password.
+test_captured_hot_membership_and_real_collector_path_are_journaled (test_sampling_acquisition.HotAcquisitionTests.test_captured_hot_membership_and_real_collector_path_are_journaled) ... ok
+test_changed_configuration_cannot_reopen_ledger (test_sampling_acquisition.HotAcquisitionTests.test_changed_configuration_cannot_reopen_ledger) ... ok
+test_changed_evidence_chain_is_refused_before_another_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_changed_evidence_chain_is_refused_before_another_quote_request) ... ok
+test_changed_normalized_quote_is_detected_against_durable_response (test_sampling_acquisition.HotAcquisitionTests.test_changed_normalized_quote_is_detected_against_durable_response) ... ok
+test_deleted_acquisition_is_detected_by_saved_acknowledgement (test_sampling_acquisition.HotAcquisitionTests.test_deleted_acquisition_is_detected_by_saved_acknowledgement) ... ok
+test_dispatch_budget_passing_after_spool_prevents_api (test_sampling_acquisition.HotAcquisitionTests.test_dispatch_budget_passing_after_spool_prevents_api) ... ok
+test_dispatch_uses_slot_time_membership_despite_later_revision (test_sampling_acquisition.HotAcquisitionTests.test_dispatch_uses_slot_time_membership_despite_later_revision) ... ok
+test_duplicate_slot_and_restart_after_ack_do_not_query_again (test_sampling_acquisition.HotAcquisitionTests.test_duplicate_slot_and_restart_after_ack_do_not_query_again) ... ok
+test_empty_hot_is_a_durable_skip_without_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_empty_hot_is_a_durable_skip_without_quote_request) ... ok
+test_empty_skip_restart_is_recoverable_without_quote_call (test_sampling_acquisition.HotAcquisitionTests.test_empty_skip_restart_is_recoverable_without_quote_call) ... ok
+test_failed_journal_write_preserves_received_result_for_retry (test_sampling_acquisition.HotAcquisitionTests.test_failed_journal_write_preserves_received_result_for_retry) ... ok
+test_full_batching_follows_captured_symbol_order (test_sampling_acquisition.HotAcquisitionTests.test_full_batching_follows_captured_symbol_order) ... ok
+test_future_slot_wrong_channel_or_wrong_grid_is_rejected (test_sampling_acquisition.HotAcquisitionTests.test_future_slot_wrong_channel_or_wrong_grid_is_rejected) ... ok
+test_hot_grid_is_explicit_and_existing_cadences_are_unchanged (test_sampling_acquisition.HotAcquisitionTests.test_hot_grid_is_explicit_and_existing_cadences_are_unchanged) ... ok
+test_hot_write_failure_leaves_uni_and_focus_able_to_commit (test_sampling_acquisition.HotAcquisitionTests.test_hot_write_failure_leaves_uni_and_focus_able_to_commit) ... ok
+test_invalid_missing_and_request_error_are_explicit_observations (test_sampling_acquisition.HotAcquisitionTests.test_invalid_missing_and_request_error_are_explicit_observations) ... ok
+test_invalid_settings_are_rejected (test_sampling_acquisition.HotAcquisitionTests.test_invalid_settings_are_rejected) ... ok
+test_late_gap_remains_visible_to_existing_auditor (test_sampling_acquisition.HotAcquisitionTests.test_late_gap_remains_visible_to_existing_auditor) ... ok
+test_late_slot_is_reported_without_catchup_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_late_slot_is_reported_without_catchup_quote_request) ... ok
+test_membership_changed_while_request_is_in_flight_does_not_rebind_result (test_sampling_acquisition.HotAcquisitionTests.test_membership_changed_while_request_is_in_flight_does_not_rebind_result) ... ok
+test_missing_hierarchy_fails_closed_without_faking_empty_hot (test_sampling_acquisition.HotAcquisitionTests.test_missing_hierarchy_fails_closed_without_faking_empty_hot) ... ok
+test_partial_observation_write_rolls_back_before_salvage (test_sampling_acquisition.HotAcquisitionTests.test_partial_observation_write_rolls_back_before_salvage) ... ok
+test_production_journal_and_missing_marker_are_refused (test_sampling_acquisition.HotAcquisitionTests.test_production_journal_and_missing_marker_are_refused) ... ok
+test_received_but_unsaved_response_remains_explicit_gap_without_repeat (test_sampling_acquisition.HotAcquisitionTests.test_received_but_unsaved_response_remains_explicit_gap_without_repeat) ... ok
+test_restart_after_assembly_salvages_without_second_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_restart_after_assembly_salvages_without_second_quote_request) ... ok
+test_restart_after_journal_commit_retains_original_receipt_without_api_repeat (test_sampling_acquisition.HotAcquisitionTests.test_restart_after_journal_commit_retains_original_receipt_without_api_repeat) ... ok
+test_stop_interrupts_wait_for_future_slot (test_sampling_acquisition.HotAcquisitionTests.test_stop_interrupts_wait_for_future_slot) ... ok
+test_two_instances_serialize_through_the_channel_sidecar (test_sampling_acquisition.HotAcquisitionTests.test_two_instances_serialize_through_the_channel_sidecar) ... ok
+test_unknown_dispatched_outcome_is_retained_as_gap_and_never_reissued (test_sampling_acquisition.HotAcquisitionTests.test_unknown_dispatched_outcome_is_retained_as_gap_and_never_reissued) ... ok
+test_window_end_is_excluded (test_sampling_acquisition.HotAcquisitionTests.test_window_end_is_excluded) ... ok
+test_authorization_request_closes_client_before_trial (test_hot_provider_trial.CredentialAndCliTests.test_authorization_request_closes_client_before_trial) ... ok
+test_cli_requires_explicit_source_before_password_prompt (test_hot_provider_trial.CredentialAndCliTests.test_cli_requires_explicit_source_before_password_prompt) ... usage: run_review.py [-h] (--synthetic | --schwab) --symbols SYMBOLS
+                     [SYMBOLS ...] --intervals INTERVALS [INTERVALS ...]
+                     --phase-seconds PHASE_SECONDS --quote-call-budget
+                     QUOTE_CALL_BUDGET --request-timeout-seconds
+                     REQUEST_TIMEOUT_SECONDS --output-root OUTPUT_ROOT
+                     [--ecfg ECFG]
+run_review.py: error: the following arguments are required: --symbols, --intervals, --phase-seconds, --quote-call-budget, --request-timeout-seconds, --output-root
+ok
+test_expired_refresh_never_constructs_client (test_hot_provider_trial.CredentialAndCliTests.test_expired_refresh_never_constructs_client) ... ok
+test_failed_preflight_does_not_create_output_or_echo_secret (test_hot_provider_trial.CredentialAndCliTests.test_failed_preflight_does_not_create_output_or_echo_secret) ... ok
+test_secure_client_uses_existing_interface_timeout_and_reject_callback (test_hot_provider_trial.CredentialAndCliTests.test_secure_client_uses_existing_interface_timeout_and_reject_callback) ... ok
+test_auth_callback_request_blocks_before_underlying_client (test_hot_provider_trial.TrialTests.test_auth_callback_request_blocks_before_underlying_client) ... ok
+test_budget_and_deadline_block_before_underlying_client (test_hot_provider_trial.TrialTests.test_budget_and_deadline_block_before_underlying_client) ... ok
+test_deadline_bounds_retry_waits (test_hot_provider_trial.TrialTests.test_deadline_bounds_retry_waits) ... ok
+test_decode_errors_do_not_preserve_exception_secrets (test_hot_provider_trial.TrialTests.test_decode_errors_do_not_preserve_exception_secrets) ... ok
+test_external_stop_is_immediate (test_hot_provider_trial.TrialTests.test_external_stop_is_immediate) ... ok
+test_http_auth_failure_is_recorded_and_stops_future_phases (test_hot_provider_trial.TrialTests.test_http_auth_failure_is_recorded_and_stops_future_phases) ... ok
+test_interrupt_retains_unknown_dispatch_without_another_call (test_hot_provider_trial.TrialTests.test_interrupt_retains_unknown_dispatch_without_another_call) ... ok
+test_invalid_settings_are_rejected (test_hot_provider_trial.TrialTests.test_invalid_settings_are_rejected) ... ok
+test_metrics_use_nearest_rank_and_do_not_sum_nested_costs (test_hot_provider_trial.TrialTests.test_metrics_use_nearest_rank_and_do_not_sum_nested_costs) ... ok
+test_midnight_guard_precedes_output_creation (test_hot_provider_trial.TrialTests.test_midnight_guard_precedes_output_creation) ... ok
+test_native_collector_journal_audit_and_replay_for_both_phases (test_hot_provider_trial.TrialTests.test_native_collector_journal_audit_and_replay_for_both_phases) ... ok
+test_persistent_sqlite_retry_ends_at_deadline (test_hot_provider_trial.TrialTests.test_persistent_sqlite_retry_ends_at_deadline) ... ok
+test_phase_start_is_future_and_on_exact_grid (test_hot_provider_trial.TrialTests.test_phase_start_is_future_and_on_exact_grid) ... ok
+test_production_paths_and_existing_output_are_preserved (test_hot_provider_trial.TrialTests.test_production_paths_and_existing_output_are_preserved) ... ok
+test_slow_response_leaves_gap_and_never_reissues_missed_slot (test_hot_provider_trial.TrialTests.test_slow_response_leaves_gap_and_never_reissues_missed_slot) ... ok
+test_transport_failure_is_explicit_and_sanitized (test_hot_provider_trial.TrialTests.test_transport_failure_is_explicit_and_sanitized) ... ok
+test_changed_file_is_refused_without_modification (test_hot_trial_bundle.BundleGuardTests.test_changed_file_is_refused_without_modification) ... ok
+test_manifest_path_escape_is_refused (test_hot_trial_bundle.BundleGuardTests.test_manifest_path_escape_is_refused) ... ok
+test_unchanged_payload_passes (test_hot_trial_bundle.BundleGuardTests.test_unchanged_payload_passes) ... ok
+
+----------------------------------------------------------------------
+Ran 54 tests in 1.024s
+
+OK
+Tests passed. Starting two bounded synthetic phases (about 10 seconds including alignment).
+Phase 1/2: 2s interval; 2 slots; starts 00:52:02 ET
+  hot:2026-10-18T00:52:02-04:00: acquired
+  hot:2026-10-18T00:52:04-04:00: acquired
+Phase 1 finished: 2/2 acquisitions; missing=0; statuses={'quote': 6}
+Phase 2/2: 4s interval; 1 slots; starts 00:52:08 ET
+  hot:2026-10-18T00:52:08-04:00: acquired
+Phase 2 finished: 1/1 acquisitions; missing=0; statuses={'quote': 3}
+ISOLATED HOT PROVIDER TIMING TRIAL
+Source: synthetic; symbols: AAPL MSFT SPY
+Quote-client calls: 3/3
+Full configured coverage: True; all requested rows are quotes: True
+Interrupted: False; error type: None; stop reason: None
+2s phase: 2/2 acquisitions
+  Request round trip: {'count': 2, 'mean_ms': 0.011, 'p95_ms': 0.011, 'max_ms': 0.011}
+  Active cycle: {'count': 2, 'mean_ms': 17.023, 'p95_ms': 19.691, 'max_ms': 19.691}
+  Collector: {'count': 2, 'mean_ms': 0.07, 'p95_ms': 0.077, 'max_ms': 0.077}
+  Journal: {'count': 2, 'mean_ms': 1.879, 'p95_ms': 1.909, 'max_ms': 1.909}
+  Dispatch lateness: {'count': 2, 'mean_ms': 4.483, 'p95_ms': 5.799, 'max_ms': 5.799}
+4s phase: 1/1 acquisitions
+  Request round trip: {'count': 1, 'mean_ms': 0.011, 'p95_ms': 0.011, 'max_ms': 0.011}
+  Active cycle: {'count': 1, 'mean_ms': 14.537, 'p95_ms': 14.537, 'max_ms': 14.537}
+  Collector: {'count': 1, 'mean_ms': 0.073, 'p95_ms': 0.073, 'max_ms': 0.073}
+  Journal: {'count': 1, 'mean_ms': 1.92, 'p95_ms': 1.92, 'max_ms': 1.92}
+  Dispatch lateness: {'count': 1, 'mean_ms': 3.368, 'p95_ms': 3.368, 'max_ms': 3.368}
+Hot-only small-roster trial; no combined channel capacity claim
+Request timeout is not a hard process-runtime limit
+Quote/trade timestamps may be stale outside trading hours
+Quote-client calls counted; SDK authentication HTTP calls are outside this trial counter and budget
+Reports: /workspace/scratch/183f6f8c943c/market-data-hot-20261018/archive path with spaces/hot_provider_trial_20261018_045158_d1f746/runs/20261018T045158Z-verify-b681d91d/synthetic_trial
+
+Offline Hot integration verification: PASS
+Finished. This command returns to its prompt.

@@ -1220,3 +1220,9 @@ It is not affiliated with, endorsed by, or supported by Charles Schwab, Nasdaq, 
 The software is intended for development and experimentation.
 
 It does not provide financial advice and does not place trades.
+
+## Isolated Hot acquisition review
+
+The opt-in [Hot provider trial](experiments/hot_provider_trial_20261018/README.md)
+integrates the accepted acquisition path and provides bounded synthetic and
+authenticated timing trials. It does not enable production Hot polling.

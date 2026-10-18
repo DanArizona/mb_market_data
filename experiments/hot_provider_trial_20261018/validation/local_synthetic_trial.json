@@ -1,0 +1,265 @@
+{
+  "clean_transport": true,
+  "client_preparation_seconds": null,
+  "clock_context_et": "2026-10-18T00:51:59.617401-04:00",
+  "complete_coverage": true,
+  "contract": "isolated-hot-provider-trial-v1",
+  "error_type": null,
+  "exchange_calendar_checked": false,
+  "finished_at_utc": "2026-10-18T04:52:08.027278+00:00",
+  "halt_reason": null,
+  "interrupted": false,
+  "limitations": [
+    "Hot-only small-roster trial; no combined channel capacity claim",
+    "Request timeout is not a hard process-runtime limit",
+    "Quote/trade timestamps may be stale outside trading hours",
+    "Quote-client calls counted; SDK authentication HTTP calls are outside this trial counter and budget"
+  ],
+  "market_data_baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+  "passed": true,
+  "phases": [
+    {
+      "audit_at_stop_passed": true,
+      "calls": [
+        {
+          "elapsed_seconds": 1.0695999890231178e-05,
+          "returned_at_utc": "2026-10-18T04:52:02.007215+00:00",
+          "started_at_utc": "2026-10-18T04:52:02.007202+00:00",
+          "status_code": 200,
+          "symbol_count": 3
+        },
+        {
+          "elapsed_seconds": 1.041500013343466e-05,
+          "returned_at_utc": "2026-10-18T04:52:04.011178+00:00",
+          "started_at_utc": "2026-10-18T04:52:04.011165+00:00",
+          "status_code": 200,
+          "symbol_count": 3
+        }
+      ],
+      "channel_audit": {
+        "acquisition_count": 2,
+        "channel": "hot",
+        "expected_slot_count": 2,
+        "member_rows": 3,
+        "missing_slot_ids": [],
+        "observation_count": 6,
+        "requested_symbol_count": 6,
+        "revision_count": 1,
+        "row_count_mismatch_ids": [],
+        "skipped_slot_count": 0,
+        "status_counts": {
+          "quote": 6
+        }
+      },
+      "cycles_over_interval": 0,
+      "end_at_utc": "2026-10-18T04:52:06+00:00",
+      "finished_at_utc": "2026-10-18T04:52:04.037436+00:00",
+      "full_window_audit_passed": true,
+      "full_window_findings": [],
+      "interval_seconds": 2,
+      "journal": "/workspace/scratch/183f6f8c943c/market-data-hot-20261018/archive path with spaces/hot_provider_trial_20261018_045158_d1f746/runs/20261018T045158Z-verify-b681d91d/synthetic_trial/phase_01_2s/quotes.sqlite3",
+      "loop_result": {
+        "status": "window_ended"
+      },
+      "outcomes": [
+        {
+          "collector_seconds": 7.667499994568061e-05,
+          "cycle_seconds": 0.014354145999959655,
+          "dispatch_lateness_seconds": 0.003167,
+          "journal_seconds": 0.0018492039998818655,
+          "recovered": false,
+          "revision": 0,
+          "slot_id": "hot:2026-10-18T00:52:02-04:00",
+          "status": "acquired",
+          "symbols": [
+            "AAPL",
+            "MSFT",
+            "SPY"
+          ]
+        },
+        {
+          "collector_seconds": 6.426699997064134e-05,
+          "cycle_seconds": 0.019691468000019086,
+          "dispatch_lateness_seconds": 0.005799,
+          "journal_seconds": 0.001908628000137469,
+          "recovered": false,
+          "revision": 0,
+          "slot_id": "hot:2026-10-18T00:52:04-04:00",
+          "status": "acquired",
+          "symbols": [
+            "AAPL",
+            "MSFT",
+            "SPY"
+          ]
+        }
+      ],
+      "pending_dispatch": false,
+      "planned_slots": 2,
+      "repeated_replay_identical": true,
+      "replay": {
+        "acquisitions": 2,
+        "events": 3,
+        "observations": 6,
+        "sequence_sha256": "d33e2d21b19d12dbab0fb25f56fddd2b1c7a90302e2b0e5a586f8b5d1d818303"
+      },
+      "request_latency": {
+        "count": 2,
+        "max_ms": 0.011,
+        "mean_ms": 0.011,
+        "p95_ms": 0.011
+      },
+      "sidecar_head_sha256": "6b880f5117763a9d8cfc5afa6f60d1d1ce9fdad29ea6c17a6d6b474f8c068320",
+      "start_at_utc": "2026-10-18T04:52:02+00:00",
+      "timings": {
+        "collector_seconds": {
+          "count": 2,
+          "max_ms": 0.077,
+          "mean_ms": 0.07,
+          "p95_ms": 0.077
+        },
+        "cycle_seconds": {
+          "count": 2,
+          "max_ms": 19.691,
+          "mean_ms": 17.023,
+          "p95_ms": 19.691
+        },
+        "dispatch_lateness_seconds": {
+          "count": 2,
+          "max_ms": 5.799,
+          "mean_ms": 4.483,
+          "p95_ms": 5.799
+        },
+        "journal_seconds": {
+          "count": 2,
+          "max_ms": 1.909,
+          "mean_ms": 1.879,
+          "p95_ms": 1.909
+        }
+      }
+    },
+    {
+      "audit_at_stop_passed": true,
+      "calls": [
+        {
+          "elapsed_seconds": 1.0525999869059888e-05,
+          "returned_at_utc": "2026-10-18T04:52:08.007416+00:00",
+          "started_at_utc": "2026-10-18T04:52:08.007404+00:00",
+          "status_code": 200,
+          "symbol_count": 3
+        }
+      ],
+      "channel_audit": {
+        "acquisition_count": 1,
+        "channel": "hot",
+        "expected_slot_count": 1,
+        "member_rows": 3,
+        "missing_slot_ids": [],
+        "observation_count": 3,
+        "requested_symbol_count": 3,
+        "revision_count": 1,
+        "row_count_mismatch_ids": [],
+        "skipped_slot_count": 0,
+        "status_counts": {
+          "quote": 3
+        }
+      },
+      "cycles_over_interval": 0,
+      "end_at_utc": "2026-10-18T04:52:12+00:00",
+      "finished_at_utc": "2026-10-18T04:52:08.026386+00:00",
+      "full_window_audit_passed": true,
+      "full_window_findings": [],
+      "interval_seconds": 4,
+      "journal": "/workspace/scratch/183f6f8c943c/market-data-hot-20261018/archive path with spaces/hot_provider_trial_20261018_045158_d1f746/runs/20261018T045158Z-verify-b681d91d/synthetic_trial/phase_02_4s/quotes.sqlite3",
+      "loop_result": {
+        "status": "window_ended"
+      },
+      "outcomes": [
+        {
+          "collector_seconds": 7.306999987122254e-05,
+          "cycle_seconds": 0.014537300000029063,
+          "dispatch_lateness_seconds": 0.003368,
+          "journal_seconds": 0.0019196890000330313,
+          "recovered": false,
+          "revision": 0,
+          "slot_id": "hot:2026-10-18T00:52:08-04:00",
+          "status": "acquired",
+          "symbols": [
+            "AAPL",
+            "MSFT",
+            "SPY"
+          ]
+        }
+      ],
+      "pending_dispatch": false,
+      "planned_slots": 1,
+      "repeated_replay_identical": true,
+      "replay": {
+        "acquisitions": 1,
+        "events": 2,
+        "observations": 3,
+        "sequence_sha256": "7ac5f9db6848ad23dc907bee16a8abcaa80d6e2a8bbab40a1fab89e1285ff26a"
+      },
+      "request_latency": {
+        "count": 1,
+        "max_ms": 0.011,
+        "mean_ms": 0.011,
+        "p95_ms": 0.011
+      },
+      "sidecar_head_sha256": "e42820b2f1368be4b2b770acda72bedd8982efa8fbbb594490f33b07a319ba7d",
+      "start_at_utc": "2026-10-18T04:52:08+00:00",
+      "timings": {
+        "collector_seconds": {
+          "count": 1,
+          "max_ms": 0.073,
+          "mean_ms": 0.073,
+          "p95_ms": 0.073
+        },
+        "cycle_seconds": {
+          "count": 1,
+          "max_ms": 14.537,
+          "mean_ms": 14.537,
+          "p95_ms": 14.537
+        },
+        "dispatch_lateness_seconds": {
+          "count": 1,
+          "max_ms": 3.368,
+          "mean_ms": 3.368,
+          "p95_ms": 3.368
+        },
+        "journal_seconds": {
+          "count": 1,
+          "max_ms": 1.92,
+          "mean_ms": 1.92,
+          "p95_ms": 1.92
+        }
+      }
+    }
+  ],
+  "quote_client_calls": 3,
+  "settings": {
+    "intervals": [
+      2,
+      4
+    ],
+    "phase_seconds": 4,
+    "quote_call_budget": 3,
+    "request_timeout_seconds": 3,
+    "source": "synthetic",
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "SPY"
+    ]
+  },
+  "software_versions": {
+    "mb-tools": "not installed",
+    "python": "3.12.14",
+    "schwabdev": "not installed"
+  },
+  "source_sha256": {
+    "hot_provider_trial.py": "bf52e2dd49a9a21915f7fcef2cb547c0acb3e89be6bc66d8b3da64380de727ac",
+    "sampling_acquisition.py": "b2007cb3a3741afadc64e19b6c3885c55d3cbdd36c82704d2cc63771a9499611"
+  },
+  "started_at_utc": "2026-10-18T04:51:59.617397+00:00",
+  "weekday_et": "Sunday"
+}
