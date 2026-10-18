@@ -1,0 +1,121 @@
+{
+  "accepted_bundle": "hot_provider_trial_20261018_045158_d1f746.zip",
+  "accepted_bundle_sha256": "d2dcbbec68403f45d4749e83f1e2f4b099a3a093dbff0276b310d1b6e1bda028",
+  "authenticated_trial": {
+    "all_rows_quote": true,
+    "channel": "hot",
+    "client_preparation_seconds": 1.099,
+    "configured_seconds_per_phase": 60,
+    "full_configured_coverage": true,
+    "host_report_directory": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\hot_provider_trial_20261018_045158_d1f746\\runs\\schwab_trials\\20261018T045708Z-2632f1d0",
+    "interrupted": false,
+    "missing_slots": 0,
+    "phases": [
+      {
+        "acquisitions": 30,
+        "active_cycle_ms": {
+          "max": 742.993,
+          "mean": 462.262,
+          "p95": 657.175
+        },
+        "collector_ms": {
+          "max": 345.338,
+          "mean": 227.518,
+          "p95": 280.966
+        },
+        "dispatch_lateness_ms": {
+          "max": 200.193,
+          "mean": 110.461,
+          "p95": 198.621
+        },
+        "interval_seconds": 2,
+        "journal_ms": {
+          "max": 6.99,
+          "mean": 5.692,
+          "p95": 6.751
+        },
+        "last_slot_at_et": "2026-10-18T00:58:18-04:00",
+        "observations": 90,
+        "planned_acquisitions": 30,
+        "request_round_trip_ms": {
+          "max": 344.989,
+          "mean": 227.289,
+          "p95": 280.775
+        },
+        "start_at_et": "2026-10-18T00:57:20-04:00"
+      },
+      {
+        "acquisitions": 15,
+        "active_cycle_ms": {
+          "max": 552.57,
+          "mean": 352.919,
+          "p95": 552.57
+        },
+        "collector_ms": {
+          "max": 378.216,
+          "mean": 221.881,
+          "p95": 378.216
+        },
+        "dispatch_lateness_ms": {
+          "max": 108.515,
+          "mean": 59.894,
+          "p95": 108.515
+        },
+        "interval_seconds": 4,
+        "journal_ms": {
+          "max": 6.332,
+          "mean": 5.707,
+          "p95": 6.332
+        },
+        "last_slot_at_et": "2026-10-18T00:59:20-04:00",
+        "observations": 45,
+        "planned_acquisitions": 15,
+        "request_round_trip_ms": {
+          "max": 378.017,
+          "mean": 221.63,
+          "p95": 378.017
+        },
+        "start_at_et": "2026-10-18T00:58:24-04:00"
+      }
+    ],
+    "provider": "Schwab",
+    "quote_client_calls": 45,
+    "quote_observations": 135,
+    "reported_errors": 0,
+    "request_timeout_seconds": 3,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "SPY"
+    ]
+  },
+  "evidence": {
+    "clean_final_cmd_prompt_observed": true,
+    "detailed_host_reports_retrieved": false,
+    "filename": "Pasted text(20261018-045951).txt",
+    "host_replay_hashes_in_transcript": false,
+    "kind": "user-supplied complete CMD console transcript",
+    "library_file_id": "libfile_afce4ca9ed2c819190410b57c0aee095",
+    "sha256": "fcb91ace2c330a76b978bc22fb47833384d6139e6f6847e16a1135ffe6c8eb3c"
+  },
+  "implementation_commit": "d40a884bea7a07af157b430183d393147b5db07c",
+  "interpretation": {
+    "accepted": "Native integration Windows verification and configured small-roster authenticated transport trial",
+    "capacity_claim": "No general 2-second production capacity or market-hours latency guarantee",
+    "market_context": "After hours; Sunday October 18 ET / late Saturday October 17 America/Chicago",
+    "next_measurement": "Representative Hot roster and longer-duration evidence, followed by combined Uni/Focus/Hot load and trading-hours validation",
+    "pending": "Production catalog/broker admission, external source transport/authentication, genuine new live-halt proof, production adoption",
+    "timing_relationship": "Collector and journal timing are nested within active cycle; means must not be added to that cycle total"
+  },
+  "market_data_production_baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+  "offline_verification": {
+    "all_rows_quote": true,
+    "full_configured_coverage": true,
+    "result": "PASS",
+    "seconds": 3.39,
+    "synthetic_acquisitions": 3,
+    "synthetic_observations": 9,
+    "tests": 54
+  },
+  "scope": "MasterBot Windows native Hot verification and bounded authenticated Schwab small-roster transport timing"
+}

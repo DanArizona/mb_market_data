@@ -82,3 +82,39 @@ remain pending.
 The source manifest detects accidental payload changes; it is not a signature.
 Run reports are fresh, machine-specific evidence and repeated replay of the
 same journal must agree; hashes of separate actual-clock runs will differ.
+
+
+## MasterBot acceptance — October 17 evening / October 18 ET
+
+The supplied complete CMD transcript records all **54 tests PASS in 3.390s**,
+followed by the actual-clock synthetic proof PASS (three acquisitions, nine
+quote rows). The authenticated Schwab pilot then completed **45/45 acquisitions,
+135/135 quote observations, zero missing slots, no reported errors or
+interruption**, and returned to its final CMD prompt. Client preparation took
+1.099s. The fixed source guard and production baseline were printed by both
+launchers. Accepted implementation: `d40a884`.
+
+| Phase | Acquisitions | Request mean / p95 / max | Active-cycle mean / p95 / max |
+| --- | --- | --- | --- |
+| 2 seconds | 30/30 | 227 / 281 / 345 ms | 462 / 657 / 743 ms |
+| 4 seconds | 15/15 | 222 / 378 / 378 ms | 353 / 553 / 553 ms |
+
+Journal mean was about 5.7ms in both phases. Maximum dispatch lateness was
+200ms / 109ms respectively. The worst observed complete 2s cycle used about
+37% of its interval. This supports expanding the measurement; it does not
+establish a production capacity bound. Request latency was similar across
+these two small samples. The complete-cycle overhead includes evidence
+persistence and consistency work as well as the request and journal commit;
+its individual costs have not yet been profiled. The shorter phase-size trial
+cannot establish long-session scaling.
+
+The result was after hours (00:57–00:59 ET on October 18). Detailed reports
+remain on MasterBot at the path recorded in
+`validation/masterbot_acceptance_20261018.json`. This acceptance is based on the
+supplied console evidence; those databases/reports were not independently
+retrieved, and host replay hashes were not printed in the transcript. The
+runner's full-coverage result incorporates its audit/repeated-replay checks.
+The accepted ZIP remains unchanged. This documentation-only acceptance update
+requires no rerun. Next measure a representative larger Hot roster and longer
+run, then combined channel load and trading-hours behavior before production
+activation.
