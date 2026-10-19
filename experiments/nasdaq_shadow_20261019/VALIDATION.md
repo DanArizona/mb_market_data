@@ -111,3 +111,19 @@ audit and matching replays. Replay SHA-256:
 `23fcb3979d18968a085b30307c511e9ced770762f52bc753318b8d7c63671053`.
 This remains local synthetic integration evidence, not native Windows or
 provider-capacity acceptance.
+
+## Corrected native Windows qualification accepted
+
+The operator supplied the complete console for the unchanged replacement
+package. All 36 focused checks passed, followed by SYNTHETIC_TRANSITION PASS:
+exactly three of three planned Hot acquisitions, two empty slots, no missing
+slots, four synthetic calls, successful audit and identical replays. Actual
+return to the CMD prompt is confirmed. Accept the corrected native offline
+qualification; no unchanged verification rerun, source change or new ZIP is
+needed. The original failed native review remains preserved separately.
+
+This acceptance uses the supplied console. Private host report/SQLite/status
+files were not retrieved, and the host transcript is not published here. It
+proves the bounded synthetic Windows path, not live feed discovery or Schwab
+capacity. The next step is a separately chosen bounded live shadow window,
+with current production health visible and production Hot still disabled.
