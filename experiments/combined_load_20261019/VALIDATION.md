@@ -1,6 +1,6 @@
 # Combined review local validation
 
-- Full native market-data regression: 529 tests in 12.078s, one Windows-only check skipped. The final focused subset includes 63 checks.
+- Full native market-data regression: 530 tests in 15.695s, one Windows-only check skipped. The final focused subset includes 64 checks.
 - Actual-clock short review: Uni 2/2, Focus 4/4, Hot 30/30; zero missing slots; audit and identical repeated replay passed.
 - Actual-clock five-minute review: Uni 10/10, Focus 20/20, Hot 150/150; zero missing slots. Final hierarchy 555/40/40.
 - A Coordinator revision was published during the controlled pending Hot response; the response kept its captured earlier revision. Admission, independent withdrawal, cap, expiry reentry, delayed demotion and session Uni retention passed.

@@ -4,11 +4,11 @@
     "count": 62,
     "seconds": 4.138,
     "result": "PASS",
-    "scope": "Initial 62-test short proof; final focused subset adds one read-only final-snapshot check"
+    "scope": "Initial 62-test actual-clock proof; final focused subset includes 64 checks, including read-only final snapshots and isolated builder CLI startup"
   },
   "full_regression": {
-    "count": 529,
-    "seconds": 12.078,
+    "count": 530,
+    "seconds": 15.695,
     "result": "PASS",
     "skipped": 1,
     "skip_reason": "native Windows console sharing check"

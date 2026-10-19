@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import socket
+import subprocess
 import sys
 import tempfile
 import sqlite3
@@ -20,6 +21,13 @@ import combined_load as review
 
 
 class PlanTests(unittest.TestCase):
+    def test_bundle_builder_cli_works_in_isolated_python_mode(self):
+        command = ROOT / 'experiments/combined_load_20261019/build_bundle.py'
+        result = subprocess.run([sys.executable, '-I', '-B', str(command), '--help'],
+                                capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('--destination', result.stdout)
+
     def test_real_cadences_representative_sizes_and_unchanged_deadline(self):
         config = review.plan(300)
         self.assertEqual(len(config['opening_uni']), 554)
