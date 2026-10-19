@@ -1,0 +1,3 @@
+09_verify_combined.cmd text eol=crlf
+10_run_combined.cmd text eol=crlf
+11_stop_combined.cmd text eol=crlf

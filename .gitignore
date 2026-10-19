@@ -45,3 +45,7 @@ Thumbs.db
 /experiments/hot_captured_replay_20261019/review_config.json
 /experiments/hot_captured_replay_20261019/source_manifest.json
 /experiments/hot_captured_replay_20261019/validation/
+
+# Pinned Coordinator dependency supplied only in the isolated review bundle
+/coordinator_src/
+/experiments/combined_load_20261019/source_manifest.json

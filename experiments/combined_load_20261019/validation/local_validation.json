@@ -1,0 +1,445 @@
+{
+  "source": "synthetic_only",
+  "focused_tests": {
+    "count": 62,
+    "seconds": 4.138,
+    "result": "PASS",
+    "scope": "Initial 62-test short proof; final focused subset adds one read-only final-snapshot check"
+  },
+  "full_regression": {
+    "count": 529,
+    "seconds": 12.078,
+    "result": "PASS",
+    "skipped": 1,
+    "skip_reason": "native Windows console sharing check"
+  },
+  "short": {
+    "duration": 60,
+    "channels": {
+      "focus": {
+        "committed": 4,
+        "expected": 4,
+        "missing": 0
+      },
+      "hot": {
+        "committed": 30,
+        "expected": 30,
+        "missing": 0
+      },
+      "uni": {
+        "committed": 2,
+        "expected": 2,
+        "missing": 0
+      }
+    },
+    "replay": {
+      "acquisitions": 36,
+      "events": 44,
+      "observations": 2488,
+      "sequence_sha256": "d66f5f346e18c9ceeb0e761240c340b5e14b517d7ba54b9a9ea51eea39d595e9"
+    }
+  },
+  "five_minute": {
+    "duration": 300,
+    "channels": {
+      "focus": {
+        "acquisitions": 20,
+        "committed_slots": 20,
+        "complete": true,
+        "empty_skips": 0,
+        "expected_slots": 20,
+        "growth": {
+          "first_third": {
+            "cycle_seconds": {
+              "count": 7,
+              "max_ms": 259.427,
+              "mean_ms": 252.26,
+              "p95_ms": 259.427
+            },
+            "journal_seconds": {
+              "count": 7,
+              "max_ms": 12.389,
+              "mean_ms": 10.741,
+              "p95_ms": 12.389
+            },
+            "verification_seconds": {
+              "count": 7,
+              "max_ms": 18.239,
+              "mean_ms": 14.634,
+              "p95_ms": 18.239
+            }
+          },
+          "last_third": {
+            "cycle_seconds": {
+              "count": 6,
+              "max_ms": 284.24,
+              "mean_ms": 256.332,
+              "p95_ms": 284.24
+            },
+            "journal_seconds": {
+              "count": 6,
+              "max_ms": 11.293,
+              "mean_ms": 10.403,
+              "p95_ms": 11.293
+            },
+            "verification_seconds": {
+              "count": 6,
+              "max_ms": 46.493,
+              "mean_ms": 19.313,
+              "p95_ms": 46.493
+            }
+          },
+          "middle_third": {
+            "cycle_seconds": {
+              "count": 7,
+              "max_ms": 269.648,
+              "mean_ms": 253.045,
+              "p95_ms": 269.648
+            },
+            "journal_seconds": {
+              "count": 7,
+              "max_ms": 19.308,
+              "mean_ms": 11.63,
+              "p95_ms": 19.308
+            },
+            "verification_seconds": {
+              "count": 7,
+              "max_ms": 22.249,
+              "mean_ms": 13.748,
+              "p95_ms": 22.249
+            }
+          }
+        },
+        "missed_gate_events": [],
+        "missing_slots": 0,
+        "no_full_scan_during_polling": true,
+        "retries": 0,
+        "synthetic_batch_calls": 20,
+        "timings": {
+          "before_api_gate_seconds": {
+            "count": 20,
+            "max_ms": 59.637,
+            "mean_ms": 23.083,
+            "p95_ms": 31.165
+          },
+          "before_dispatch_gate_seconds": {
+            "count": 20,
+            "max_ms": 34.426,
+            "mean_ms": 5.601,
+            "p95_ms": 10.514
+          },
+          "collector_seconds": {
+            "count": 20,
+            "max_ms": 203.489,
+            "mean_ms": 201.846,
+            "p95_ms": 202.879
+          },
+          "cycle_seconds": {
+            "count": 20,
+            "max_ms": 284.24,
+            "mean_ms": 253.756,
+            "p95_ms": 269.648
+          },
+          "journal_seconds": {
+            "count": 20,
+            "max_ms": 19.308,
+            "mean_ms": 10.951,
+            "p95_ms": 12.847
+          },
+          "recovery_before_slot_seconds": {
+            "count": 20,
+            "max_ms": 11.984,
+            "mean_ms": 2.601,
+            "p95_ms": 3.767
+          },
+          "verification_seconds": {
+            "count": 20,
+            "max_ms": 46.493,
+            "mean_ms": 15.728,
+            "p95_ms": 22.249
+          }
+        }
+      },
+      "hot": {
+        "acquisitions": 150,
+        "committed_slots": 150,
+        "complete": true,
+        "empty_skips": 0,
+        "expected_slots": 150,
+        "growth": {
+          "first_third": {
+            "cycle_seconds": {
+              "count": 50,
+              "max_ms": 1166.623,
+              "mean_ms": 325.835,
+              "p95_ms": 408.056
+            },
+            "journal_seconds": {
+              "count": 50,
+              "max_ms": 111.192,
+              "mean_ms": 13.164,
+              "p95_ms": 28.021
+            },
+            "verification_seconds": {
+              "count": 50,
+              "max_ms": 36.43,
+              "mean_ms": 15.27,
+              "p95_ms": 19.41
+            }
+          },
+          "last_third": {
+            "cycle_seconds": {
+              "count": 50,
+              "max_ms": 342.552,
+              "mean_ms": 302.546,
+              "p95_ms": 321.021
+            },
+            "journal_seconds": {
+              "count": 50,
+              "max_ms": 19.692,
+              "mean_ms": 10.924,
+              "p95_ms": 16.432
+            },
+            "verification_seconds": {
+              "count": 50,
+              "max_ms": 46.032,
+              "mean_ms": 14.826,
+              "p95_ms": 22.646
+            }
+          },
+          "middle_third": {
+            "cycle_seconds": {
+              "count": 50,
+              "max_ms": 361.402,
+              "mean_ms": 309.327,
+              "p95_ms": 342.299
+            },
+            "journal_seconds": {
+              "count": 50,
+              "max_ms": 41.48,
+              "mean_ms": 12.737,
+              "p95_ms": 20.114
+            },
+            "verification_seconds": {
+              "count": 50,
+              "max_ms": 26.508,
+              "mean_ms": 16.295,
+              "p95_ms": 24.446
+            }
+          }
+        },
+        "missed_gate_events": [],
+        "missing_slots": 0,
+        "no_full_scan_during_polling": true,
+        "retries": 0,
+        "synthetic_batch_calls": 150,
+        "timings": {
+          "before_api_gate_seconds": {
+            "count": 150,
+            "max_ms": 46.265,
+            "mean_ms": 22.678,
+            "p95_ms": 35.721
+          },
+          "before_dispatch_gate_seconds": {
+            "count": 150,
+            "max_ms": 10.02,
+            "mean_ms": 3.916,
+            "p95_ms": 6.855
+          },
+          "collector_seconds": {
+            "count": 150,
+            "max_ms": 1102.871,
+            "mean_ms": 257.513,
+            "p95_ms": 253.065
+          },
+          "cycle_seconds": {
+            "count": 150,
+            "max_ms": 1166.623,
+            "mean_ms": 312.569,
+            "p95_ms": 342.299
+          },
+          "journal_seconds": {
+            "count": 150,
+            "max_ms": 111.192,
+            "mean_ms": 12.275,
+            "p95_ms": 18.43
+          },
+          "recovery_before_slot_seconds": {
+            "count": 150,
+            "max_ms": 7.54,
+            "mean_ms": 2.535,
+            "p95_ms": 3.869
+          },
+          "verification_seconds": {
+            "count": 150,
+            "max_ms": 46.032,
+            "mean_ms": 15.464,
+            "p95_ms": 24.306
+          }
+        }
+      },
+      "uni": {
+        "acquisitions": 10,
+        "committed_slots": 10,
+        "complete": true,
+        "empty_skips": 0,
+        "expected_slots": 10,
+        "growth": {
+          "first_third": {
+            "cycle_seconds": {
+              "count": 4,
+              "max_ms": 613.163,
+              "mean_ms": 572.571,
+              "p95_ms": 613.163
+            },
+            "journal_seconds": {
+              "count": 4,
+              "max_ms": 61.973,
+              "mean_ms": 50.608,
+              "p95_ms": 61.973
+            },
+            "verification_seconds": {
+              "count": 4,
+              "max_ms": 52.569,
+              "mean_ms": 41.379,
+              "p95_ms": 52.569
+            }
+          },
+          "last_third": {
+            "cycle_seconds": {
+              "count": 2,
+              "max_ms": 551.563,
+              "mean_ms": 543.466,
+              "p95_ms": 551.563
+            },
+            "journal_seconds": {
+              "count": 2,
+              "max_ms": 46.931,
+              "mean_ms": 46.075,
+              "p95_ms": 46.931
+            },
+            "verification_seconds": {
+              "count": 2,
+              "max_ms": 38.49,
+              "mean_ms": 37.005,
+              "p95_ms": 38.49
+            }
+          },
+          "middle_third": {
+            "cycle_seconds": {
+              "count": 4,
+              "max_ms": 582.66,
+              "mean_ms": 554.483,
+              "p95_ms": 582.66
+            },
+            "journal_seconds": {
+              "count": 4,
+              "max_ms": 47.526,
+              "mean_ms": 43.402,
+              "p95_ms": 47.526
+            },
+            "verification_seconds": {
+              "count": 4,
+              "max_ms": 47.242,
+              "mean_ms": 42.343,
+              "p95_ms": 47.242
+            }
+          }
+        },
+        "missed_gate_events": [],
+        "missing_slots": 0,
+        "no_full_scan_during_polling": true,
+        "retries": 0,
+        "synthetic_batch_calls": 20,
+        "timings": {
+          "before_api_gate_seconds": {
+            "count": 10,
+            "max_ms": 38.935,
+            "mean_ms": 27.957,
+            "p95_ms": 38.935
+          },
+          "before_dispatch_gate_seconds": {
+            "count": 10,
+            "max_ms": 7.617,
+            "mean_ms": 4.345,
+            "p95_ms": 7.617
+          },
+          "collector_seconds": {
+            "count": 10,
+            "max_ms": 386.283,
+            "mean_ms": 378.574,
+            "p95_ms": 386.283
+          },
+          "cycle_seconds": {
+            "count": 10,
+            "max_ms": 613.163,
+            "mean_ms": 559.515,
+            "p95_ms": 613.163
+          },
+          "journal_seconds": {
+            "count": 10,
+            "max_ms": 61.973,
+            "mean_ms": 46.819,
+            "p95_ms": 61.973
+          },
+          "recovery_before_slot_seconds": {
+            "count": 10,
+            "max_ms": 15.88,
+            "mean_ms": 9.381,
+            "p95_ms": 15.88
+          },
+          "verification_seconds": {
+            "count": 10,
+            "max_ms": 52.569,
+            "mean_ms": 40.89,
+            "p95_ms": 52.569
+          }
+        }
+      }
+    },
+    "table_counts": {
+      "poll_run": 9,
+      "sampling_membership_revision": 8,
+      "sampling_channel_revision": 24,
+      "sampling_channel_member": 5047,
+      "poll_slot_skip": 0,
+      "quote_acquisition": 180,
+      "quote_observation": 12438
+    },
+    "replay": {
+      "acquisitions": 180,
+      "events": 188,
+      "observations": 12438,
+      "sequence_sha256": "221e49541dd1c774c54edd54e34a2cef511eec6736c596f582d8f21d1e7411d9"
+    },
+    "final_membership_counts": {
+      "focus": 40,
+      "hot": 40,
+      "uni": 555
+    },
+    "audit_passed": true,
+    "published_during_hot_request": [
+      3
+    ],
+    "report_reopen_is_read_only": true
+  },
+  "stop_drill": {
+    "result": "PASS",
+    "parent_return_code": 0,
+    "seconds": 0.233,
+    "child_final_states": {
+      "coordinator": "stopped",
+      "uni": "stopped",
+      "focus": "stopped",
+      "hot": "stopped"
+    }
+  },
+  "native_windows_combined_result": "PENDING",
+  "production_parallel_result": "PENDING",
+  "limitations": [
+    "Synthetic response timing and data, not Schwab or market capacity",
+    "All three channels use the native guarded incremental collector; production Uni/Focus use their existing launcher",
+    "Direct synthetic halt-source requests; no live Nasdaq transport or adapter latency claim",
+    "No full-session history prefill, production journal access or production setting adoption"
+  ]
+}

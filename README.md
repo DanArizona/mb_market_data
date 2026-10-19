@@ -1229,3 +1229,10 @@ authenticated timing trials. It does not enable production Hot polling.
 
 The [larger-roster follow-up](experiments/hot_scale_trial_20261018/README.md)
 adds growth diagnostics and a bounded 40-symbol, ten-minute review preset.
+
+### Combined synthetic polling review
+
+The isolated [combined-load review](experiments/combined_load_20261019/README.md)
+exercises the pinned Coordinator with native incremental Uni/Focus/Hot collectors
+using generated responses, actual elapsed schedules and fresh experimental journals.
+Its packaged verify/run/stop commands require no API or credentials.
