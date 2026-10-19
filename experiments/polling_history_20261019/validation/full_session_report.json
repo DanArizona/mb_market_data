@@ -1,0 +1,542 @@
+{
+  "assessment": {
+    "all_observations_are_quotes": true,
+    "availability": {
+      "invalid_observations": 0,
+      "missing_observations": 0,
+      "result": "PASS",
+      "unknown_statuses": {}
+    },
+    "collection_integrity": {
+      "findings": [],
+      "result": "PASS"
+    },
+    "result": "PASS",
+    "status_counts": {
+      "quote": 962618
+    },
+    "transport": {
+      "request_error_observations": 0,
+      "result": "PASS"
+    }
+  },
+  "audit_passed": true,
+  "audit_replay_seconds": 172.67604025299988,
+  "channels": {
+    "focus": {
+      "cold_start_seconds": 12.693862125999658,
+      "elapsed_tail_acquisitions": 4,
+      "elapsed_timings": {
+        "cycle_seconds": {
+          "count": 4,
+          "max_ms": 315.302,
+          "mean_ms": 257.545,
+          "p95_ms": 315.302
+        },
+        "dispatch_lateness_seconds": {
+          "count": 4,
+          "max_ms": 8.025,
+          "mean_ms": 4.165,
+          "p95_ms": 8.025
+        },
+        "journal_seconds": {
+          "count": 4,
+          "max_ms": 20.816,
+          "mean_ms": 10.428,
+          "p95_ms": 20.816
+        },
+        "verification_seconds": {
+          "count": 4,
+          "max_ms": 19.468,
+          "mean_ms": 12.939,
+          "p95_ms": 19.468
+        }
+      },
+      "expected": 1560,
+      "logical_prefill_growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 519,
+            "max_ms": 73.31,
+            "mean_ms": 28.338,
+            "p95_ms": 38.818
+          },
+          "journal_seconds": {
+            "count": 519,
+            "max_ms": 20.612,
+            "mean_ms": 7.413,
+            "p95_ms": 11.118
+          },
+          "verification_seconds": {
+            "count": 519,
+            "max_ms": 23.272,
+            "mean_ms": 7.282,
+            "p95_ms": 9.46
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 518,
+            "max_ms": 74.327,
+            "mean_ms": 30.258,
+            "p95_ms": 41.303
+          },
+          "journal_seconds": {
+            "count": 518,
+            "max_ms": 34.415,
+            "mean_ms": 7.776,
+            "p95_ms": 11.608
+          },
+          "verification_seconds": {
+            "count": 518,
+            "max_ms": 23.574,
+            "mean_ms": 7.693,
+            "p95_ms": 10.5
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 519,
+            "max_ms": 88.456,
+            "mean_ms": 30.78,
+            "p95_ms": 49.118
+          },
+          "journal_seconds": {
+            "count": 519,
+            "max_ms": 33.634,
+            "mean_ms": 8.169,
+            "p95_ms": 13.877
+          },
+          "verification_seconds": {
+            "count": 519,
+            "max_ms": 26.847,
+            "mean_ms": 7.921,
+            "p95_ms": 12.135
+          }
+        }
+      },
+      "missing": 0,
+      "no_full_scan_during_polling": true,
+      "session_acquisitions": 1560
+    },
+    "hot": {
+      "cold_start_seconds": 105.47533062199909,
+      "elapsed_tail_acquisitions": 30,
+      "elapsed_timings": {
+        "cycle_seconds": {
+          "count": 30,
+          "max_ms": 468.558,
+          "mean_ms": 302.835,
+          "p95_ms": 423.687
+        },
+        "dispatch_lateness_seconds": {
+          "count": 30,
+          "max_ms": 4.688,
+          "mean_ms": 3.017,
+          "p95_ms": 4.224
+        },
+        "journal_seconds": {
+          "count": 30,
+          "max_ms": 81.682,
+          "mean_ms": 12.85,
+          "p95_ms": 45.384
+        },
+        "verification_seconds": {
+          "count": 30,
+          "max_ms": 20.738,
+          "mean_ms": 11.386,
+          "p95_ms": 19.429
+        }
+      },
+      "expected": 11700,
+      "logical_prefill_growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 3890,
+            "max_ms": 3619.353,
+            "mean_ms": 32.13,
+            "p95_ms": 43.411
+          },
+          "journal_seconds": {
+            "count": 3890,
+            "max_ms": 188.077,
+            "mean_ms": 7.96,
+            "p95_ms": 12.017
+          },
+          "verification_seconds": {
+            "count": 3890,
+            "max_ms": 67.358,
+            "mean_ms": 7.925,
+            "p95_ms": 11.347
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 3890,
+            "max_ms": 135.347,
+            "mean_ms": 29.627,
+            "p95_ms": 39.582
+          },
+          "journal_seconds": {
+            "count": 3890,
+            "max_ms": 59.919,
+            "mean_ms": 7.486,
+            "p95_ms": 10.439
+          },
+          "verification_seconds": {
+            "count": 3890,
+            "max_ms": 55.787,
+            "mean_ms": 7.775,
+            "p95_ms": 10.299
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 3890,
+            "max_ms": 126.711,
+            "mean_ms": 28.65,
+            "p95_ms": 39.076
+          },
+          "journal_seconds": {
+            "count": 3890,
+            "max_ms": 95.188,
+            "mean_ms": 7.285,
+            "p95_ms": 10.328
+          },
+          "verification_seconds": {
+            "count": 3890,
+            "max_ms": 44.572,
+            "mean_ms": 7.5,
+            "p95_ms": 9.969
+          }
+        }
+      },
+      "missing": 0,
+      "no_full_scan_during_polling": true,
+      "session_acquisitions": 11700
+    },
+    "uni": {
+      "cold_start_seconds": 77.96823351700004,
+      "elapsed_tail_acquisitions": 2,
+      "elapsed_timings": {
+        "cycle_seconds": {
+          "count": 2,
+          "max_ms": 574.614,
+          "mean_ms": 567.504,
+          "p95_ms": 574.614
+        },
+        "dispatch_lateness_seconds": {
+          "count": 2,
+          "max_ms": 5.392,
+          "mean_ms": 4.037,
+          "p95_ms": 5.392
+        },
+        "journal_seconds": {
+          "count": 2,
+          "max_ms": 68.776,
+          "mean_ms": 66.152,
+          "p95_ms": 68.776
+        },
+        "verification_seconds": {
+          "count": 2,
+          "max_ms": 36.449,
+          "mean_ms": 36.412,
+          "p95_ms": 36.449
+        }
+      },
+      "expected": 780,
+      "logical_prefill_growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 260,
+            "max_ms": 300.112,
+            "mean_ms": 193.454,
+            "p95_ms": 240.447
+          },
+          "journal_seconds": {
+            "count": 260,
+            "max_ms": 100.068,
+            "mean_ms": 54.154,
+            "p95_ms": 68.884
+          },
+          "verification_seconds": {
+            "count": 260,
+            "max_ms": 94.125,
+            "mean_ms": 41.692,
+            "p95_ms": 54.115
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 258,
+            "max_ms": 322.445,
+            "mean_ms": 199.203,
+            "p95_ms": 245.269
+          },
+          "journal_seconds": {
+            "count": 258,
+            "max_ms": 106.279,
+            "mean_ms": 58.252,
+            "p95_ms": 72.219
+          },
+          "verification_seconds": {
+            "count": 258,
+            "max_ms": 101.483,
+            "mean_ms": 42.672,
+            "p95_ms": 54.695
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 260,
+            "max_ms": 315.688,
+            "mean_ms": 210.458,
+            "p95_ms": 259.813
+          },
+          "journal_seconds": {
+            "count": 260,
+            "max_ms": 121.238,
+            "mean_ms": 61.793,
+            "p95_ms": 78.593
+          },
+          "verification_seconds": {
+            "count": 260,
+            "max_ms": 69.5,
+            "mean_ms": 44.163,
+            "p95_ms": 58.267
+          }
+        }
+      },
+      "missing": 0,
+      "no_full_scan_during_polling": true,
+      "session_acquisitions": 780
+    }
+  },
+  "clock": "Logical native prefill; last minute scheduled at actual elapsed speed with future offset; drills use logical time",
+  "contract": "isolated-polling-history-v1",
+  "expected_injected_gaps": 2,
+  "failures": [],
+  "hierarchy_revisions": 5,
+  "journal_replay": {
+    "acquisitions": 14042,
+    "events": 14047,
+    "observations": 962618,
+    "sequence_sha256": "b88ab9a5212a80d8aa2e3f0afde37d0a73b0b520294b6f63c97470b49807424d"
+  },
+  "limitations": [
+    "Synthetic payloads and injected latency; no Schwab capacity or Nasdaq latency claim",
+    "Only the final minute uses actual elapsed scheduling; prefill and recovery clocks are logical",
+    "Fixed 554/40/40 membership during prefill; Coordinator lifecycle is exercised during the final minute",
+    "Two deliberate recovery gaps occur after the session; they are not ordinary-session missed slots",
+    "Review settings only; no source install, production journal access or production defaults"
+  ],
+  "minutes": 390,
+  "network_disabled": true,
+  "prefill": {
+    "focus": {
+      "acquisitions": 1556,
+      "elapsed_seconds": 47.02600951899967,
+      "no_full_scan": true
+    },
+    "hot": {
+      "acquisitions": 11670,
+      "elapsed_seconds": 357.0808060069994,
+      "no_full_scan": true
+    },
+    "uni": {
+      "acquisitions": 778,
+      "elapsed_seconds": 158.82228000099985,
+      "no_full_scan": true
+    }
+  },
+  "profile": "full",
+  "recovery_drills": {
+    "after_assembled": {
+      "cold_start_seconds": 95.96476942999834,
+      "quote_calls": 0,
+      "recovered": {
+        "collector_seconds": 0.0011896640007762471,
+        "journal_seconds": 0.007869798999308841,
+        "recovered": true,
+        "revision": 4,
+        "slot_id": "hot:2026-10-21T16:00:00-04:00",
+        "status": "acquired",
+        "symbols": [
+          "S0000",
+          "S0001",
+          "S0002",
+          "S0003",
+          "S0004",
+          "S0005",
+          "S0006",
+          "S0007",
+          "S0008",
+          "S0009",
+          "S0010",
+          "S0011",
+          "S0012",
+          "S0013",
+          "S0014",
+          "S0015",
+          "S0016",
+          "S0017",
+          "S0018",
+          "S0019",
+          "S0020",
+          "S0021",
+          "S0022",
+          "S0023",
+          "S0024",
+          "S0025",
+          "S0026",
+          "S0027",
+          "S0028",
+          "S0029",
+          "S0030",
+          "S0031",
+          "S0032",
+          "S0033",
+          "S0034",
+          "S0035",
+          "S0036",
+          "S0037",
+          "S0038",
+          "S0039"
+        ]
+      },
+      "repeated": {
+        "slot_id": "hot:2026-10-21T16:00:00-04:00",
+        "status": "already_finished"
+      }
+    },
+    "after_dispatch": {
+      "cold_start_seconds": 87.55480566999904,
+      "quote_calls": 0,
+      "recovered": {
+        "slot_id": "hot:2026-10-21T16:00:04-04:00",
+        "status": "unresolved_dispatch"
+      },
+      "repeated": {
+        "slot_id": "hot:2026-10-21T16:00:04-04:00",
+        "status": "already_finished"
+      }
+    },
+    "after_journal_commit": {
+      "cold_start_seconds": 91.58116555500055,
+      "quote_calls": 0,
+      "recovered": {
+        "collector_seconds": 0.0012385669997456716,
+        "journal_seconds": 0.002658027999132173,
+        "recovered": true,
+        "revision": 4,
+        "slot_id": "hot:2026-10-21T16:00:02-04:00",
+        "status": "acquired",
+        "symbols": [
+          "S0000",
+          "S0001",
+          "S0002",
+          "S0003",
+          "S0004",
+          "S0005",
+          "S0006",
+          "S0007",
+          "S0008",
+          "S0009",
+          "S0010",
+          "S0011",
+          "S0012",
+          "S0013",
+          "S0014",
+          "S0015",
+          "S0016",
+          "S0017",
+          "S0018",
+          "S0019",
+          "S0020",
+          "S0021",
+          "S0022",
+          "S0023",
+          "S0024",
+          "S0025",
+          "S0026",
+          "S0027",
+          "S0028",
+          "S0029",
+          "S0030",
+          "S0031",
+          "S0032",
+          "S0033",
+          "S0034",
+          "S0035",
+          "S0036",
+          "S0037",
+          "S0038",
+          "S0039"
+        ]
+      },
+      "repeated": {
+        "slot_id": "hot:2026-10-21T16:00:02-04:00",
+        "status": "already_finished"
+      }
+    },
+    "after_response": {
+      "cold_start_seconds": 90.51946850500099,
+      "quote_calls": 0,
+      "recovered": {
+        "slot_id": "hot:2026-10-21T16:00:06-04:00",
+        "status": "unresolved_dispatch"
+      },
+      "repeated": {
+        "slot_id": "hot:2026-10-21T16:00:06-04:00",
+        "status": "already_finished"
+      }
+    }
+  },
+  "replays_identical": true,
+  "result": "PASS",
+  "source": "synthetic_only",
+  "storage_bytes": {
+    "publication.sqlite3": 253952,
+    "quotes.focus.poller.sqlite3": 75350016,
+    "quotes.hot.poller.sqlite3": 565129216,
+    "quotes.sqlite3": 554729472,
+    "quotes.uni.poller.sqlite3": 503369728,
+    "requests.sqlite3": 24576
+  },
+  "table_counts": {
+    "poll_run": 17,
+    "poll_slot_skip": 0,
+    "quote_acquisition": 14042,
+    "quote_observation": 962618,
+    "sampling_channel_member": 3178,
+    "sampling_channel_revision": 15,
+    "sampling_membership_revision": 5
+  },
+  "target_membership_trace": [
+    [
+      false,
+      false,
+      false
+    ],
+    [
+      true,
+      true,
+      true
+    ],
+    [
+      true,
+      false,
+      false
+    ],
+    [
+      true,
+      true,
+      true
+    ],
+    [
+      true,
+      false,
+      false
+    ]
+  ]
+}

@@ -1,0 +1,16 @@
+OFFLINE POLLING HISTORY: PASS
+3 session minutes of native synthetic history; final minute uses actual elapsed scheduling.
+UNI: session 6/6; missing=0; elapsed tail=2
+  Cold start seconds: 0.317; tail cycle ms: {'count': 2, 'mean_ms': 537.1, 'p95_ms': 544.103, 'max_ms': 544.103}
+FOCUS: session 12/12; missing=0; elapsed tail=4
+  Cold start seconds: 0.069; tail cycle ms: {'count': 4, 'mean_ms': 234.961, 'p95_ms': 242.033, 'max_ms': 242.033}
+HOT: session 90/90; missing=0; elapsed tail=30
+  Cold start seconds: 0.377; tail cycle ms: {'count': 30, 'mean_ms': 287.964, 'p95_ms': 299.253, 'max_ms': 300.651}
+Recovery: saved response and committed response salvaged without requery; two unknown outcomes retained as explicit gaps.
+Audit: True; identical full replays: True
+Journal replay SHA-256: 81bbe39194d4809486a23ec5dda1b285ef0954aedfb7d60c67d4c04f2e1855d9
+Synthetic payloads and injected latency; no Schwab capacity or Nasdaq latency claim
+Only the final minute uses actual elapsed scheduling; prefill and recovery clocks are logical
+Fixed 554/40/40 membership during prefill; Coordinator lifecycle is exercised during the final minute
+Two deliberate recovery gaps occur after the session; they are not ordinary-session missed slots
+Review settings only; no source install, production journal access or production defaults
