@@ -310,6 +310,105 @@ class ShadowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             shadow.TailStop(self.folder, Event(), clock=self.clock).deadline()
 
+    def test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check(self):
+        self.arrivals()
+        self.gate_all()
+        self.service.cycle()
+        eligible = shadow.first_hot_slot(self.config, shadow.store_for(self.folder, self.config).membership_revisions_in_effective_order())
+        cutoff = eligible + timedelta(seconds=self.config['hot_tail_seconds'])
+        shadow.write_json(self.folder / 'hot_window.json', {'first_eligible_at_utc': shadow.text(eligible), 'end_at_utc': shadow.text(cutoff)})
+        poller = shadow.poller_for(self.folder, self.client, clock=self.clock)
+        poller.initialize()
+        self.now = cutoff - timedelta(microseconds=1)
+        self.assertFalse(shadow.TailStop(self.folder, Event(), clock=self.clock).is_set())
+        # The normal outer stop check has passed, then the wall clock crosses
+        # the boundary before sample() is called. This is independent of OS.
+        self.now = cutoff
+        prior = dict(shadow.budget_counts(self.folder))
+        test_clock = self.clock
+        class LogicalDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return test_clock().astimezone(tz or timezone.utc)
+        with patch('mb_market_data.schwab_quotes.datetime', LogicalDatetime):
+            outcome = poller.sample(ExplicitPollSlot(SamplingChannel.HOT, cutoff, shadow.GRID))
+        self.assertEqual(outcome['status'], 'shadow_window_ended')
+        self.assertEqual(shadow.budget_counts(self.folder), prior)
+        self.assertEqual(shadow.store_for(self.folder, self.config).acquisitions_in_replay_order(), ())
+        self.assertIsNone(poller.snapshot()['pending'])
+
+    def published_cutoff(self):
+        self.arrivals()
+        self.gate_all()
+        self.service.cycle()
+        eligible = shadow.first_hot_slot(self.config, shadow.store_for(self.folder, self.config).membership_revisions_in_effective_order())
+        return eligible, eligible + timedelta(seconds=self.config['hot_tail_seconds'])
+
+    def test_future_endpoint_slot_is_excluded_before_any_native_dispatch(self):
+        _, cutoff = self.published_cutoff()
+        poller = shadow.poller_for(self.folder, self.client, clock=self.clock)
+        poller.initialize()
+        self.now = cutoff - timedelta(microseconds=1)
+        before = len(self.transport.calls)
+        result = poller.sample(ExplicitPollSlot(SamplingChannel.HOT, cutoff, shadow.GRID))
+        self.assertEqual(result['status'], 'shadow_window_ended')
+        self.assertEqual(len(self.transport.calls), before)
+        self.assertEqual(shadow.budget_counts(self.folder), {'resolution': 1})
+        self.assertEqual(poller.snapshot()['finished'], {})
+
+    def test_quote_guard_rejects_endpoint_without_consuming_a_permit(self):
+        _, cutoff = self.published_cutoff()
+        self.now = cutoff
+        self.client.slot = ExplicitPollSlot(SamplingChannel.HOT, cutoff, shadow.GRID)
+        with self.assertRaises(ValueError):
+            self.client.quotes(['NEWX'], fields='all')
+        self.assertEqual(shadow.budget_counts(self.folder), {'resolution': 1})
+        self.assertEqual(self.transport.calls, [('NEWX',)])
+
+    def test_quote_guard_rechecks_tail_after_budget_reservation(self):
+        eligible, cutoff = self.published_cutoff()
+        self.now = eligible + timedelta(seconds=4)
+        self.client.slot = ExplicitPollSlot(SamplingChannel.HOT, self.now, shadow.GRID)
+        ticks = [0]
+        def clock():
+            ticks[0] += 1
+            return cutoff if ticks[0] >= 5 else self.now
+        self.client.clock = clock
+        with self.assertRaises(RuntimeError):
+            self.client.quotes(['NEWX'], fields='all')
+        self.assertEqual(self.transport.calls, [('NEWX',)])
+        self.assertEqual(shadow.budget_counts(self.folder), {'hot': 1, 'resolution': 1})
+        self.assertFalse(shadow.lines(self.folder / 'hot_calls.jsonl')[-1]['dispatched'])
+
+    def test_deadline_is_derived_without_parent_hint_file(self):
+        _, cutoff = self.published_cutoff()
+        self.assertFalse((self.folder / 'hot_window.json').exists())
+        stop = shadow.TailStop(self.folder, Event(), clock=self.clock)
+        self.assertEqual(stop.deadline(), cutoff)
+        self.now = cutoff
+        self.assertTrue(stop.is_set())
+
+    def test_absolute_slot_wait_handles_an_early_wall_clock_tick(self):
+        eligible, cutoff = self.published_cutoff()
+        self.now = eligible - timedelta(microseconds=1)
+        test = self
+        class EarlyWake:
+            waits = 0
+            def is_set(self):
+                return False
+            def wait(self, seconds):
+                self.waits += 1
+                test.now += timedelta(microseconds=1)
+                return False
+        external = EarlyWake()
+        stop = shadow.TailStop(self.folder, external, clock=self.clock)
+        self.assertFalse(stop.wait_until(eligible))
+        self.assertEqual(external.waits, 1)
+        self.assertGreaterEqual(self.clock(), eligible)
+        self.now = cutoff - timedelta(microseconds=1)
+        self.assertTrue(stop.wait_until(cutoff))
+        self.assertEqual(external.waits, 1)
+
     def test_live_window_requires_regular_weekday_before_cutoff(self):
         from zoneinfo import ZoneInfo
         et = ZoneInfo('America/New_York')

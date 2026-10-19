@@ -73,6 +73,11 @@ its CMD prompt. Save the console summary and exact output directory for review.
   from the first eligible slot, maximum 30 calls. Broker resolution + Hot has a
   durable shared hard cap of 33 calls. Empty Hot slots issue no provider request.
   Ordinary production Uni/Focus are not duplicated in this increment.
+* The Hot tail end is exclusive. Published membership defines that cutoff even
+  without the parent's optional `hot_window.json` note. A slot at/after it is
+  refused before native acquisition dispatch, independently of a wall-clock stop
+  check. The quote adapter checks again before reserving a call and before
+  provider dispatch. Absolute target-time rechecks handle early relative wakes.
 * Existing .75s dispatch gate, integrity checks, unknown-outcome gaps and
   no-catch-up behavior remain. Publication polling/lead is .25/.5s; policy
   grace/residence is 60/120s with the existing explicit cap selector. These are

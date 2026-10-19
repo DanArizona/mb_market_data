@@ -447,6 +447,13 @@ class QuoteClient:
         self.folder, self.config, self.transport = Path(folder), load_config(folder), transport
         clock = clock or config_clock(self.config)
         self.clock, self.rejection, self.slot = clock, rejection, None
+        self.hot_window = HotWindow(folder, self.config)
+
+    def check_hot_window(self):
+        cutoff = self.hot_window.deadline()
+        require(self.slot is not None and self.slot.scheduled_at < cutoff,
+                'Hot slot is outside the exclusive shadow cutoff')
+        require(self.clock() < cutoff, 'Shadow Hot deadline reached')
 
     def quotes(self, symbols, *, fields, purpose='hot', key=None):
         from mb_market_data.hot_provider_trial import SafeResponse
@@ -457,6 +464,7 @@ class QuoteClient:
         gate = ShadowGate(self.folder, self.config, self.clock)
         if purpose == 'hot':
             require(self.slot is not None and key is None and gate.selected_symbol() == symbols[0], 'Hot request lacks approved identity')
+            self.check_hot_window()
             key = self.slot.slot_id
         with closing(sqlite3.connect(self.folder / 'budget.sqlite3', timeout=3)) as connection, connection:
             connection.execute('BEGIN IMMEDIATE')
@@ -470,8 +478,10 @@ class QuoteClient:
         began = time.perf_counter()
         try:
             if purpose == 'hot':
+                self.check_hot_window()
                 require(0 <= (self.clock() - self.slot.scheduled_at).total_seconds() <= .75, 'Hot dispatch gate elapsed')
-            require(not (self.folder / 'STOP').exists() and self.clock() < datetime.fromisoformat(self.config['end']),
+            dispatch_until = self.hot_window.deadline() if purpose == 'hot' else datetime.fromisoformat(self.config['end'])
+            require(not (self.folder / 'STOP').exists() and self.clock() < dispatch_until,
                     'Shadow stopped before dispatch')
             metric['dispatched'] = True
             response = self.transport.quotes(symbols, fields=fields)
@@ -502,7 +512,25 @@ def poller_for(folder, client, *, clock=None):
         400, 'all', CONTRACT, .75, .05)
 
     class InstrumentedPoller(IncrementalSamplingPoller):
+        _shadow_stop = None
+
+        def shadow_ended(self, slot, cutoff):
+            if self._shadow_stop is not None:
+                self._shadow_stop.set()
+            return {'status': 'shadow_window_ended', 'slot_id': slot.slot_id,
+                    'exclusive_cutoff_at_utc': text(cutoff)}
+
         def sample(self, slot, *, fault_hook=None):
+            cutoff = self.shadow_window.deadline()
+            # This is a scheduled-slot boundary, independent of the outer
+            # wall-clock stop check. No dispatch/permit is recorded for it.
+            if slot.scheduled_at >= cutoff or clock() >= cutoff:
+                return self.shadow_ended(slot, cutoff)
+            if self._shadow_stop is not None:
+                # Relative monotonic waits may finish just before a coarse wall
+                # clock tick. Recheck the absolute target before native sample.
+                if self._shadow_stop.wait_until(slot.scheduled_at):
+                    return self.shadow_ended(slot, self.shadow_window.deadline())
             if client:
                 client.slot = slot
             def hook(stage):
@@ -513,11 +541,21 @@ def poller_for(folder, client, *, clock=None):
                     fault_hook(stage)
             return super().sample(slot, fault_hook=hook)
 
+        def run_loop(self, stop, *, on_status=None):
+            require(isinstance(stop, TailStop), 'Shadow loop requires the absolute slot/deadline stop adapter')
+            self._shadow_stop = stop
+            try:
+                return super().run_loop(stop, on_status=on_status)
+            finally:
+                self._shadow_stop = None
+
     class NoTransport:
         def quotes(self, *args, **kwargs):
             raise RuntimeError('No quote transport in initialization')
 
-    return InstrumentedPoller(store_for(folder, config), settings=settings, client=client or NoTransport(), clock=clock)
+    poller = InstrumentedPoller(store_for(folder, config), settings=settings, client=client or NoTransport(), clock=clock)
+    poller.shadow_window = HotWindow(folder, config)
+    return poller
 
 
 def record_capture(folder, producer, raw, *, requested_at, acquired_at, source):
@@ -564,27 +602,55 @@ def first_hot_slot(config, revisions):
     return slot.scheduled_at if slot else None
 
 
-class TailStop:
-    """Collector enforces its own published-tail deadline even if feed I/O blocks."""
-    def __init__(self, folder, external, *, clock=utc_now):
-        self.folder, self.external, self.clock = Path(folder), external, clock
-        self.config = load_config(folder)
+class HotWindow:
+    """Published membership defines the exclusive tail; parent notes are hints."""
+    def __init__(self, folder, config=None):
+        self.folder = Path(folder)
+        self.config = config or load_config(folder)
         self.cutoff = datetime.fromisoformat(self.config['end'])
         self.bound = False
+        self.note_checked = False
 
     def deadline(self):
-        if not self.bound and (self.folder / 'hot_window.json').exists():
-            value = read_json(self.folder / 'hot_window.json')
+        note_exists = (self.folder / 'hot_window.json').exists()
+        if not self.bound or (note_exists and not self.note_checked):
             eligible = first_hot_slot(self.config, store_for(self.folder, self.config).membership_revisions_in_effective_order())
-            require(eligible is not None and value == {'first_eligible_at_utc': text(eligible),
-                'end_at_utc': text(min(datetime.fromisoformat(self.config['end']),
-                    eligible + timedelta(seconds=self.config['hot_tail_seconds'])))}, 'Hot deadline differs from published membership')
-            self.cutoff = datetime.fromisoformat(value['end_at_utc'])
-            self.bound = True
+            if eligible is not None:
+                self.cutoff = min(datetime.fromisoformat(self.config['end']),
+                    eligible + timedelta(seconds=self.config['hot_tail_seconds']))
+                self.bound = True
+            if note_exists:
+                require(eligible is not None and read_json(self.folder / 'hot_window.json') == {
+                    'first_eligible_at_utc': text(eligible), 'end_at_utc': text(self.cutoff)},
+                    'Hot deadline differs from published membership')
+                self.note_checked = True
         return self.cutoff
+
+
+class TailStop:
+    """Responsive outer stop plus absolute wall-clock slot/deadline checks."""
+    def __init__(self, folder, external, *, clock=utc_now):
+        self.external, self.clock = external, clock
+        self.window = HotWindow(folder)
+
+    def deadline(self):
+        return self.window.deadline()
+
+    def set(self):
+        self.external.set()
 
     def is_set(self):
         return self.external.is_set() or self.clock() >= self.deadline()
+
+    def wait_until(self, target):
+        while True:
+            cutoff = self.deadline()
+            now = self.clock()
+            if self.external.is_set() or target >= cutoff or now >= cutoff:
+                return True
+            if now >= target:
+                return False
+            self.external.wait(min(.05, (target - now).total_seconds(), (cutoff - now).total_seconds()))
 
     def wait(self, seconds):
         until = time.monotonic() + max(0, seconds)
@@ -870,8 +936,14 @@ def analyse(folder, cutoff, attempts, failures, *, children=None, external_stop=
     if missing:
         failures.append('Missing scheduled shadow Hot outcomes: ' + str(len(missing)))
     committed_rows = [r for r in outcomes if r['status'] in ('acquired', 'empty_membership')]
-    if len(committed_rows) != len(observed_slots) or observed_slots - set(planned_slots):
+    counts_by_slot = Counter(datetime.fromisoformat(r['slot_id'].split(':', 1)[1]) for r in committed_rows)
+    duplicate_slots = [text(at) for at, count in counts_by_slot.items() if count > 1]
+    extra_slots = sorted(observed_slots - set(planned_slots))
+    if duplicate_slots or extra_slots:
         failures.append('Duplicate or out-of-window shadow outcomes')
+    expected_hot = sum(at >= eligible for at in planned_slots) if eligible is not None else 0
+    if len(hot) != expected_hot:
+        failures.append('Hot acquisition count differs from bounded plan')
     commits = {row['slot_id']: row['journal_commit_observed_at_utc'] for row in lines(folder / 'hot_commit.jsonl')}
     if any(a.slot_id not in commits for a in hot):
         failures.append('Hot journal commit observation receipt missing')
@@ -935,6 +1007,8 @@ def analyse(folder, cutoff, attempts, failures, *, children=None, external_stop=
         'gate_dispositions': dispositions, 'producer_pending_with_terminal_gate_disposition':
             {eid: dispositions[eid]['disposition'] for eid in producer_state['pending'] if eid in dispositions},
         'expected_slots': len(planned_slots), 'committed_slots': len(set(planned_slots) & observed_slots),
+        'expected_hot_acquisitions': expected_hot, 'duplicate_outcome_slot_ids': duplicate_slots,
+        'out_of_window_outcome_slot_ids': [text(at) for at in extra_slots],
         'missing_slots': [text(at) for at in missing], 'hot_acquisitions': len(hot),
         'empty_hot_skips': sum(r['status'] == 'empty_membership' for r in outcomes),
         'quote_call_permits': permits, 'quote_calls': len(calls), 'max_quote_calls': 33,
@@ -953,7 +1027,7 @@ def analyse(folder, cutoff, attempts, failures, *, children=None, external_stop=
     write_json(folder / 'report.json', report)
     summary = ['NASDAQ SHADOW: ' + result + ' (' + report['milestone'] + ')',
         'Source: ' + config['source'] + '; selected symbol: ' + str(selected),
-        'Hot acquisitions=' + str(len(hot)) + '; empty skips=' + str(report['empty_hot_skips'])
+        'Hot acquisitions=' + str(len(hot)) + '/' + str(expected_hot) + '; empty skips=' + str(report['empty_hot_skips'])
             + '; missing=' + str(len(missing)),
         'Quote calls/maximum: ' + str(len(calls)) + '/33; permits=' + str(permits),
         'Audit=' + str(audit.passed) + '; identical replays=' + str(first == second),
