@@ -1,0 +1,17 @@
+test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check (test_nasdaq_shadow.ShadowTests.test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check) ... FAIL
+
+======================================================================
+FAIL: test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check (test_nasdaq_shadow.ShadowTests.test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/scratch/78e6acba7246/mb_market_data_shadow/tests/test_nasdaq_shadow.py", line 335, in test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check
+    self.assertEqual(outcome['status'], 'shadow_window_ended')
+AssertionError: 'acquired' != 'shadow_window_ended'
+- acquired
++ shadow_window_ended
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.121s
+
+FAILED (failures=1)
