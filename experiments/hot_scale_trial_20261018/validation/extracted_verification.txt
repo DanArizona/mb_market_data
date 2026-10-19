@@ -1,0 +1,140 @@
+Verified source: /workspace/scratch/183f6f8c943c/hot-scale-20261019/extracted folder with spaces/hot_scale_20261019_002119_df5781/src/mb_market_data/sampling_acquisition.py
+Production baseline: a082f544112643b4e5f459d15c67f60d0a1ef83d
+Fixed test roster: 40 symbols from the validated October 16 Focus roster
+OFFLINE SCALE CHECK: 60 tests, short actual-clock synthetic run, then logical-time growth proof.
+No API/password. Growth proof measures local work; it does not wait ten minutes or simulate provider capacity.
+test_captured_hot_membership_and_real_collector_path_are_journaled (test_sampling_acquisition.HotAcquisitionTests.test_captured_hot_membership_and_real_collector_path_are_journaled) ... ok
+test_changed_configuration_cannot_reopen_ledger (test_sampling_acquisition.HotAcquisitionTests.test_changed_configuration_cannot_reopen_ledger) ... ok
+test_changed_evidence_chain_is_refused_before_another_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_changed_evidence_chain_is_refused_before_another_quote_request) ... ok
+test_changed_normalized_quote_is_detected_against_durable_response (test_sampling_acquisition.HotAcquisitionTests.test_changed_normalized_quote_is_detected_against_durable_response) ... ok
+test_deleted_acquisition_is_detected_by_saved_acknowledgement (test_sampling_acquisition.HotAcquisitionTests.test_deleted_acquisition_is_detected_by_saved_acknowledgement) ... ok
+test_dispatch_budget_passing_after_spool_prevents_api (test_sampling_acquisition.HotAcquisitionTests.test_dispatch_budget_passing_after_spool_prevents_api) ... ok
+test_dispatch_uses_slot_time_membership_despite_later_revision (test_sampling_acquisition.HotAcquisitionTests.test_dispatch_uses_slot_time_membership_despite_later_revision) ... ok
+test_duplicate_slot_and_restart_after_ack_do_not_query_again (test_sampling_acquisition.HotAcquisitionTests.test_duplicate_slot_and_restart_after_ack_do_not_query_again) ... ok
+test_empty_hot_is_a_durable_skip_without_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_empty_hot_is_a_durable_skip_without_quote_request) ... ok
+test_empty_skip_restart_is_recoverable_without_quote_call (test_sampling_acquisition.HotAcquisitionTests.test_empty_skip_restart_is_recoverable_without_quote_call) ... ok
+test_failed_journal_write_preserves_received_result_for_retry (test_sampling_acquisition.HotAcquisitionTests.test_failed_journal_write_preserves_received_result_for_retry) ... ok
+test_full_batching_follows_captured_symbol_order (test_sampling_acquisition.HotAcquisitionTests.test_full_batching_follows_captured_symbol_order) ... ok
+test_future_slot_wrong_channel_or_wrong_grid_is_rejected (test_sampling_acquisition.HotAcquisitionTests.test_future_slot_wrong_channel_or_wrong_grid_is_rejected) ... ok
+test_hot_grid_is_explicit_and_existing_cadences_are_unchanged (test_sampling_acquisition.HotAcquisitionTests.test_hot_grid_is_explicit_and_existing_cadences_are_unchanged) ... ok
+test_hot_write_failure_leaves_uni_and_focus_able_to_commit (test_sampling_acquisition.HotAcquisitionTests.test_hot_write_failure_leaves_uni_and_focus_able_to_commit) ... ok
+test_invalid_missing_and_request_error_are_explicit_observations (test_sampling_acquisition.HotAcquisitionTests.test_invalid_missing_and_request_error_are_explicit_observations) ... ok
+test_invalid_settings_are_rejected (test_sampling_acquisition.HotAcquisitionTests.test_invalid_settings_are_rejected) ... ok
+test_late_gap_remains_visible_to_existing_auditor (test_sampling_acquisition.HotAcquisitionTests.test_late_gap_remains_visible_to_existing_auditor) ... ok
+test_late_slot_is_reported_without_catchup_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_late_slot_is_reported_without_catchup_quote_request) ... ok
+test_membership_changed_while_request_is_in_flight_does_not_rebind_result (test_sampling_acquisition.HotAcquisitionTests.test_membership_changed_while_request_is_in_flight_does_not_rebind_result) ... ok
+test_missing_hierarchy_fails_closed_without_faking_empty_hot (test_sampling_acquisition.HotAcquisitionTests.test_missing_hierarchy_fails_closed_without_faking_empty_hot) ... ok
+test_partial_observation_write_rolls_back_before_salvage (test_sampling_acquisition.HotAcquisitionTests.test_partial_observation_write_rolls_back_before_salvage) ... ok
+test_production_journal_and_missing_marker_are_refused (test_sampling_acquisition.HotAcquisitionTests.test_production_journal_and_missing_marker_are_refused) ... ok
+test_received_but_unsaved_response_remains_explicit_gap_without_repeat (test_sampling_acquisition.HotAcquisitionTests.test_received_but_unsaved_response_remains_explicit_gap_without_repeat) ... ok
+test_restart_after_assembly_salvages_without_second_quote_request (test_sampling_acquisition.HotAcquisitionTests.test_restart_after_assembly_salvages_without_second_quote_request) ... ok
+test_restart_after_journal_commit_retains_original_receipt_without_api_repeat (test_sampling_acquisition.HotAcquisitionTests.test_restart_after_journal_commit_retains_original_receipt_without_api_repeat) ... ok
+test_stop_interrupts_wait_for_future_slot (test_sampling_acquisition.HotAcquisitionTests.test_stop_interrupts_wait_for_future_slot) ... ok
+test_two_instances_serialize_through_the_channel_sidecar (test_sampling_acquisition.HotAcquisitionTests.test_two_instances_serialize_through_the_channel_sidecar) ... ok
+test_unknown_dispatched_outcome_is_retained_as_gap_and_never_reissued (test_sampling_acquisition.HotAcquisitionTests.test_unknown_dispatched_outcome_is_retained_as_gap_and_never_reissued) ... ok
+test_window_end_is_excluded (test_sampling_acquisition.HotAcquisitionTests.test_window_end_is_excluded) ... ok
+test_authorization_request_closes_client_before_trial (test_hot_provider_trial.CredentialAndCliTests.test_authorization_request_closes_client_before_trial) ... ok
+test_cli_requires_explicit_source_before_password_prompt (test_hot_provider_trial.CredentialAndCliTests.test_cli_requires_explicit_source_before_password_prompt) ... usage: run_review.py [-h] (--synthetic | --schwab) --symbols SYMBOLS
+                     [SYMBOLS ...] --intervals INTERVALS [INTERVALS ...]
+                     --phase-seconds PHASE_SECONDS --quote-call-budget
+                     QUOTE_CALL_BUDGET --request-timeout-seconds
+                     REQUEST_TIMEOUT_SECONDS --output-root OUTPUT_ROOT
+                     [--ecfg ECFG]
+run_review.py: error: the following arguments are required: --symbols, --intervals, --phase-seconds, --quote-call-budget, --request-timeout-seconds, --output-root
+ok
+test_expired_refresh_never_constructs_client (test_hot_provider_trial.CredentialAndCliTests.test_expired_refresh_never_constructs_client) ... ok
+test_failed_preflight_does_not_create_output_or_echo_secret (test_hot_provider_trial.CredentialAndCliTests.test_failed_preflight_does_not_create_output_or_echo_secret) ... ok
+test_secure_client_uses_existing_interface_timeout_and_reject_callback (test_hot_provider_trial.CredentialAndCliTests.test_secure_client_uses_existing_interface_timeout_and_reject_callback) ... ok
+test_auth_callback_request_blocks_before_underlying_client (test_hot_provider_trial.TrialTests.test_auth_callback_request_blocks_before_underlying_client) ... ok
+test_budget_and_deadline_block_before_underlying_client (test_hot_provider_trial.TrialTests.test_budget_and_deadline_block_before_underlying_client) ... ok
+test_deadline_bounds_retry_waits (test_hot_provider_trial.TrialTests.test_deadline_bounds_retry_waits) ... ok
+test_decode_errors_do_not_preserve_exception_secrets (test_hot_provider_trial.TrialTests.test_decode_errors_do_not_preserve_exception_secrets) ... ok
+test_external_stop_is_immediate (test_hot_provider_trial.TrialTests.test_external_stop_is_immediate) ... ok
+test_http_auth_failure_is_recorded_and_stops_future_phases (test_hot_provider_trial.TrialTests.test_http_auth_failure_is_recorded_and_stops_future_phases) ... ok
+test_interrupt_retains_unknown_dispatch_without_another_call (test_hot_provider_trial.TrialTests.test_interrupt_retains_unknown_dispatch_without_another_call) ... ok
+test_invalid_settings_are_rejected (test_hot_provider_trial.TrialTests.test_invalid_settings_are_rejected) ... ok
+test_metrics_use_nearest_rank_and_do_not_sum_nested_costs (test_hot_provider_trial.TrialTests.test_metrics_use_nearest_rank_and_do_not_sum_nested_costs) ... ok
+test_midnight_guard_precedes_output_creation (test_hot_provider_trial.TrialTests.test_midnight_guard_precedes_output_creation) ... ok
+test_native_collector_journal_audit_and_replay_for_both_phases (test_hot_provider_trial.TrialTests.test_native_collector_journal_audit_and_replay_for_both_phases) ... ok
+test_persistent_sqlite_retry_ends_at_deadline (test_hot_provider_trial.TrialTests.test_persistent_sqlite_retry_ends_at_deadline) ... ok
+test_phase_start_is_future_and_on_exact_grid (test_hot_provider_trial.TrialTests.test_phase_start_is_future_and_on_exact_grid) ... ok
+test_production_paths_and_existing_output_are_preserved (test_hot_provider_trial.TrialTests.test_production_paths_and_existing_output_are_preserved) ... ok
+test_slow_response_leaves_gap_and_never_reissues_missed_slot (test_hot_provider_trial.TrialTests.test_slow_response_leaves_gap_and_never_reissues_missed_slot) ... ok
+test_transport_failure_is_explicit_and_sanitized (test_hot_provider_trial.TrialTests.test_transport_failure_is_explicit_and_sanitized) ... ok
+test_changed_file_is_refused_without_modification (test_hot_trial_bundle.BundleGuardTests.test_changed_file_is_refused_without_modification) ... ok
+test_manifest_path_escape_is_refused (test_hot_trial_bundle.BundleGuardTests.test_manifest_path_escape_is_refused) ... ok
+test_unchanged_payload_passes (test_hot_trial_bundle.BundleGuardTests.test_unchanged_payload_passes) ... ok
+test_historical_scan_reuses_journal_connection_without_skipping_rows (test_hot_scale.ScaleIntegrityTests.test_historical_scan_reuses_journal_connection_without_skipping_rows) ... ok
+test_larger_plan_has_explicit_bounds_and_growth_groups (test_hot_scale.ScaleIntegrityTests.test_larger_plan_has_explicit_bounds_and_growth_groups) ... ok
+test_recomputed_assembled_hash_does_not_reuse_old_normalization (test_hot_scale.ScaleIntegrityTests.test_recomputed_assembled_hash_does_not_reuse_old_normalization) ... ok
+test_restart_rebuilds_normalization_from_committed_evidence (test_hot_scale.ScaleIntegrityTests.test_restart_rebuilds_normalization_from_committed_evidence) ... ok
+test_warm_cache_reuses_only_derived_values_and_can_be_discarded (test_hot_scale.ScaleIntegrityTests.test_warm_cache_reuses_only_derived_values_and_can_be_discarded) ... ok
+test_warm_normalization_does_not_skip_live_observation_validation_before_api (test_hot_scale.ScaleIntegrityTests.test_warm_normalization_does_not_skip_live_observation_validation_before_api) ... ok
+
+----------------------------------------------------------------------
+Ran 60 tests in 1.472s
+
+OK
+Phase 1/2: 2s interval; 2 slots; starts 20:21:24 ET
+  hot:2026-10-18T20:21:24-04:00: acquired
+  hot:2026-10-18T20:21:26-04:00: acquired
+Phase 1 finished: 2/2 acquisitions; missing=0; statuses={'quote': 80}
+Phase 2/2: 4s interval; 1 slots; starts 20:21:32 ET
+  hot:2026-10-18T20:21:32-04:00: acquired
+Phase 2 finished: 1/1 acquisitions; missing=0; statuses={'quote': 40}
+Starting 40-symbol logical growth proof: 150 acquisitions, then 75; progress every 10.
+Phase 1/2: 2s interval; 150 slots; starts 10:00:02 ET
+Logical growth proof: 10/225 acquisitions completed
+Logical growth proof: 20/225 acquisitions completed
+Logical growth proof: 30/225 acquisitions completed
+Logical growth proof: 40/225 acquisitions completed
+Logical growth proof: 50/225 acquisitions completed
+Logical growth proof: 60/225 acquisitions completed
+Logical growth proof: 70/225 acquisitions completed
+Logical growth proof: 80/225 acquisitions completed
+Logical growth proof: 90/225 acquisitions completed
+Logical growth proof: 100/225 acquisitions completed
+Logical growth proof: 110/225 acquisitions completed
+Logical growth proof: 120/225 acquisitions completed
+Logical growth proof: 130/225 acquisitions completed
+Logical growth proof: 140/225 acquisitions completed
+Logical growth proof: 150/225 acquisitions completed
+Phase 1 finished: 150/150 acquisitions; missing=0; statuses={'quote': 6000}
+Phase 2/2: 4s interval; 75 slots; starts 10:05:04 ET
+Logical growth proof: 160/225 acquisitions completed
+Logical growth proof: 170/225 acquisitions completed
+Logical growth proof: 180/225 acquisitions completed
+Logical growth proof: 190/225 acquisitions completed
+Logical growth proof: 200/225 acquisitions completed
+Logical growth proof: 210/225 acquisitions completed
+Logical growth proof: 220/225 acquisitions completed
+Phase 2 finished: 75/75 acquisitions; missing=0; statuses={'quote': 3000}
+ISOLATED HOT PROVIDER TIMING TRIAL
+Source: synthetic; symbols: NCPL TCRT WFF SNTI GPUS ESLA TWG FNGR BAOS BURU HAIN SOAR EONR WSHP AMOD OMEX ATCH INV MRNO OLB ARAI DDC FFAI BEEM GNS TC JBDI FFR BGL NWGL VNTG BENF SURG MOBX BEAT AZIO XHLD QNME MTEK PMI
+Quote-client calls: 225/225
+Full configured coverage: True; all requested rows are quotes: True
+Interrupted: False; error type: None; stop reason: None
+2s phase: 150/150 acquisitions
+  Request round trip: {'count': 150, 'mean_ms': 0.023, 'p95_ms': 0.036, 'max_ms': 0.159}
+  Active cycle: {'count': 150, 'mean_ms': 295.171, 'p95_ms': 565.839, 'max_ms': 697.195}
+  Collector: {'count': 150, 'mean_ms': 0.366, 'p95_ms': 0.524, 'max_ms': 0.748}
+  Journal: {'count': 150, 'mean_ms': 5.62, 'p95_ms': 8.182, 'max_ms': 14.061}
+  Dispatch lateness: {'count': 150, 'mean_ms': 0.0, 'p95_ms': 0.0, 'max_ms': 0.0}
+  Verification within cycle: {'count': 150, 'mean_ms': 271.761, 'p95_ms': 535.743, 'max_ms': 654.677}
+  Cycle growth (first/middle/last thirds): {'first_third': {'count': 50, 'mean_ms': 107.378, 'p95_ms': 185.957, 'max_ms': 207.521}, 'middle_third': {'count': 50, 'mean_ms': 289.492, 'p95_ms': 378.188, 'max_ms': 381.81}, 'last_third': {'count': 50, 'mean_ms': 488.643, 'p95_ms': 646.323, 'max_ms': 697.195}}
+4s phase: 75/75 acquisitions
+  Request round trip: {'count': 75, 'mean_ms': 0.022, 'p95_ms': 0.025, 'max_ms': 0.195}
+  Active cycle: {'count': 75, 'mean_ms': 159.543, 'p95_ms': 301.669, 'max_ms': 305.021}
+  Collector: {'count': 75, 'mean_ms': 0.348, 'p95_ms': 0.479, 'max_ms': 0.521}
+  Journal: {'count': 75, 'mean_ms': 5.414, 'p95_ms': 7.617, 'max_ms': 10.367}
+  Dispatch lateness: {'count': 75, 'mean_ms': 0.0, 'p95_ms': 0.0, 'max_ms': 0.0}
+  Verification within cycle: {'count': 75, 'mean_ms': 140.791, 'p95_ms': 278.225, 'max_ms': 282.865}
+  Cycle growth (first/middle/last thirds): {'first_third': {'count': 25, 'mean_ms': 67.131, 'p95_ms': 106.543, 'max_ms': 118.862}, 'middle_third': {'count': 25, 'mean_ms': 155.611, 'p95_ms': 199.184, 'max_ms': 221.712}, 'last_third': {'count': 25, 'mean_ms': 255.886, 'p95_ms': 303.888, 'max_ms': 305.021}}
+Hot-only bounded-roster trial; no combined channel capacity claim
+Request timeout is not a hard process-runtime limit
+Quote/trade timestamps may be stale outside trading hours
+Quote-client calls counted; SDK authentication HTTP calls are outside this trial counter and budget
+Reports: /workspace/scratch/183f6f8c943c/hot-scale-20261019/extracted folder with spaces/hot_scale_20261019_002119_df5781/runs/20261019T002119Z-scale-verify-37bf8b/logical_growth
+
+Offline Hot scale verification: PASS
+Finished. This command returns to its prompt.

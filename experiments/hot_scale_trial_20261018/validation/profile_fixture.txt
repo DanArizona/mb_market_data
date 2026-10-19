@@ -1,0 +1,30 @@
+from pathlib import Path
+from datetime import datetime,timedelta,timezone
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+import cProfile,pstats,json,time,io
+from mb_market_data.hot_provider_trial import SyntheticClient
+from mb_market_data.sampling_acquisition import MARKER,AcquisitionSettings,ExplicitPollSlot,IsolatedSamplingPoller
+from mb_market_data.sampling_membership import SamplingChannel,SamplingHierarchyRevision
+from mb_market_data.quote_observation_store import QuoteObservationStore
+from mb_market_data.watchlist_polling import PollWindow
+base=(datetime.now(timezone.utc)+timedelta(days=1)).replace(hour=14,minute=0,second=0,microsecond=0)
+clock=[base]; symbols=tuple('S'+str(i).zfill(3) for i in range(40))
+class LogicalDatetime(datetime):
+ @classmethod
+ def now(cls,tz=None): return clock[0].astimezone(tz or timezone.utc)
+with TemporaryDirectory() as d,patch('mb_market_data.schwab_quotes.datetime',LogicalDatetime):
+ store=QuoteObservationStore(Path(d)/'quotes.sqlite3',session_date=base.date(),schema_version=2);store.initialize()
+ store.record_membership_revision(SamplingHierarchyRevision(session_date=base.date(),revision=0,effective_at=base,uni_symbols=symbols,focus_symbols=symbols,hot_symbols=symbols,source='offline_scaling_profile',metadata={MARKER:True}))
+ settings=AcquisitionSettings(SamplingChannel.HOT,tuple(range(0,60,2)),PollWindow(base,base+timedelta(seconds=600)),400,'all','synthetic_profile',.75,.05)
+ p=IsolatedSamplingPoller(store,settings=settings,client=SyntheticClient(),clock=lambda:clock[0]);p.initialize(); timings=[]
+ for n in range(31):
+  clock[0]=base+timedelta(seconds=2*n)
+  started=time.perf_counter()
+  if n==30:
+   profile=cProfile.Profile();profile.enable()
+  result=p.sample(ExplicitPollSlot(SamplingChannel.HOT,clock[0],settings.seconds))
+  if n==30:profile.disable()
+  timings.append(time.perf_counter()-started)
+ print(json.dumps({'roster':40,'acquisitions':31,'cycle_ms_first':timings[0]*1000,'cycle_ms_10':timings[9]*1000,'cycle_ms_20':timings[19]*1000,'cycle_ms_30':timings[29]*1000,'profiled_ms_31':timings[30]*1000},indent=2))
+ pstats.Stats(profile).strip_dirs().sort_stats('cumtime').print_stats(24)

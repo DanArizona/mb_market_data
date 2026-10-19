@@ -1,0 +1,245 @@
+{
+  "accepted_parent_commit": "28523939e5d05ba684bf899910ce9cb5dd7c3a43",
+  "actual_clock_short_check": "PASS: 3 acquisitions, 120 observations",
+  "authenticated_40_symbol_trial": "PENDING",
+  "bundle_name": "hot_scale_20261019_002119_df5781",
+  "clock_mode": "logical_offline",
+  "extracted_path_contains_spaces": true,
+  "focused_tests": 60,
+  "integrity": "Full evidence chain and current journal rows remain checked. Only derived normalization is cached (1024-acquisition cap); journal connections and validated revision lookups reused per read.",
+  "limits": "Full-history scan remains O(history) per read, with growing local cost. Logical-clock proof is not a real-time provider-capacity claim. Combined traffic and market-hours behavior remain pending.",
+  "logical_growth_check": {
+    "acquisitions": 225,
+    "audit_and_repeated_replay": "PASS",
+    "observations": 9000,
+    "phases": [
+      {
+        "acquisitions": 150,
+        "growth": {
+          "first_third": {
+            "cycle_seconds": {
+              "count": 50,
+              "max_ms": 207.521,
+              "mean_ms": 107.378,
+              "p95_ms": 185.957
+            },
+            "journal_seconds": {
+              "count": 50,
+              "max_ms": 12.546,
+              "mean_ms": 4.875,
+              "p95_ms": 6.367
+            },
+            "verification_seconds": {
+              "count": 50,
+              "max_ms": 188.643,
+              "mean_ms": 91.461,
+              "p95_ms": 167.617
+            }
+          },
+          "last_third": {
+            "cycle_seconds": {
+              "count": 50,
+              "max_ms": 697.195,
+              "mean_ms": 488.643,
+              "p95_ms": 646.323
+            },
+            "journal_seconds": {
+              "count": 50,
+              "max_ms": 14.061,
+              "mean_ms": 6.195,
+              "p95_ms": 8.684
+            },
+            "verification_seconds": {
+              "count": 50,
+              "max_ms": 654.677,
+              "mean_ms": 457.754,
+              "p95_ms": 607.692
+            }
+          },
+          "middle_third": {
+            "cycle_seconds": {
+              "count": 50,
+              "max_ms": 381.81,
+              "mean_ms": 289.492,
+              "p95_ms": 378.188
+            },
+            "journal_seconds": {
+              "count": 50,
+              "max_ms": 10.487,
+              "mean_ms": 5.79,
+              "p95_ms": 8.087
+            },
+            "verification_seconds": {
+              "count": 50,
+              "max_ms": 357.842,
+              "mean_ms": 266.068,
+              "p95_ms": 352.852
+            }
+          }
+        },
+        "interval_seconds": 2,
+        "observations": 6000,
+        "replay": {
+          "acquisitions": 150,
+          "events": 151,
+          "observations": 6000,
+          "sequence_sha256": "e9e8d85f79bf7f914128be45629f1de85a307bddac84ebbad3f08650231b0262"
+        },
+        "timings": {
+          "collector_seconds": {
+            "count": 150,
+            "max_ms": 0.748,
+            "mean_ms": 0.366,
+            "p95_ms": 0.524
+          },
+          "cycle_seconds": {
+            "count": 150,
+            "max_ms": 697.195,
+            "mean_ms": 295.171,
+            "p95_ms": 565.839
+          },
+          "dispatch_lateness_seconds": {
+            "count": 150,
+            "max_ms": 0.0,
+            "mean_ms": 0.0,
+            "p95_ms": 0.0
+          },
+          "journal_seconds": {
+            "count": 150,
+            "max_ms": 14.061,
+            "mean_ms": 5.62,
+            "p95_ms": 8.182
+          },
+          "verification_seconds": {
+            "count": 150,
+            "max_ms": 654.677,
+            "mean_ms": 271.761,
+            "p95_ms": 535.743
+          }
+        }
+      },
+      {
+        "acquisitions": 75,
+        "growth": {
+          "first_third": {
+            "cycle_seconds": {
+              "count": 25,
+              "max_ms": 118.862,
+              "mean_ms": 67.131,
+              "p95_ms": 106.543
+            },
+            "journal_seconds": {
+              "count": 25,
+              "max_ms": 10.367,
+              "mean_ms": 5.326,
+              "p95_ms": 10.356
+            },
+            "verification_seconds": {
+              "count": 25,
+              "max_ms": 101.389,
+              "mean_ms": 51.38,
+              "p95_ms": 84.298
+            }
+          },
+          "last_third": {
+            "cycle_seconds": {
+              "count": 25,
+              "max_ms": 305.021,
+              "mean_ms": 255.886,
+              "p95_ms": 303.888
+            },
+            "journal_seconds": {
+              "count": 25,
+              "max_ms": 7.914,
+              "mean_ms": 5.748,
+              "p95_ms": 7.617
+            },
+            "verification_seconds": {
+              "count": 25,
+              "max_ms": 282.865,
+              "mean_ms": 233.187,
+              "p95_ms": 280.403
+            }
+          },
+          "middle_third": {
+            "cycle_seconds": {
+              "count": 25,
+              "max_ms": 221.712,
+              "mean_ms": 155.611,
+              "p95_ms": 199.184
+            },
+            "journal_seconds": {
+              "count": 25,
+              "max_ms": 7.421,
+              "mean_ms": 5.169,
+              "p95_ms": 7.296
+            },
+            "verification_seconds": {
+              "count": 25,
+              "max_ms": 202.231,
+              "mean_ms": 137.807,
+              "p95_ms": 178.81
+            }
+          }
+        },
+        "interval_seconds": 4,
+        "observations": 3000,
+        "replay": {
+          "acquisitions": 75,
+          "events": 76,
+          "observations": 3000,
+          "sequence_sha256": "217c1d26ad2a69472959c936cd85991cdaef6af8551bf63a385d00f28239855a"
+        },
+        "timings": {
+          "collector_seconds": {
+            "count": 75,
+            "max_ms": 0.521,
+            "mean_ms": 0.348,
+            "p95_ms": 0.479
+          },
+          "cycle_seconds": {
+            "count": 75,
+            "max_ms": 305.021,
+            "mean_ms": 159.543,
+            "p95_ms": 301.669
+          },
+          "dispatch_lateness_seconds": {
+            "count": 75,
+            "max_ms": 0.0,
+            "mean_ms": 0.0,
+            "p95_ms": 0.0
+          },
+          "journal_seconds": {
+            "count": 75,
+            "max_ms": 10.367,
+            "mean_ms": 5.414,
+            "p95_ms": 7.617
+          },
+          "verification_seconds": {
+            "count": 75,
+            "max_ms": 282.865,
+            "mean_ms": 140.791,
+            "p95_ms": 278.225
+          }
+        }
+      }
+    ]
+  },
+  "masterbot_windows_scale_acceptance": "PENDING",
+  "new_schwab_requests_from_container": 0,
+  "regression_seconds": 7.747,
+  "regression_skipped": 1,
+  "regression_tests": 481,
+  "source": "synthetic",
+  "trial_plan": {
+    "intervals_seconds": [
+      2,
+      4
+    ],
+    "phase_seconds": 300,
+    "quote_call_budget": 225,
+    "request_timeout_seconds": 3,
+    "source_roster": "validated October 16 Focus set; fixed experimental input",
+    "symbols": 40
+  }
+}

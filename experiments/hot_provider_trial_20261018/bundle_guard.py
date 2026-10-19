@@ -5,9 +5,9 @@ import json
 from pathlib import Path, PurePosixPath
 
 
-def verify(root):
+def verify(root, manifest_relative="experiments/hot_provider_trial_20261018/source_manifest.json"):
     root = Path(root).resolve()
-    manifest = json.loads((root / "experiments/hot_provider_trial_20261018/source_manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((root / manifest_relative).read_text(encoding="utf-8"))
     for entry in manifest["files"]:
         name = entry["path"]
         relative = PurePosixPath(name)

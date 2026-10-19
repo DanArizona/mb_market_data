@@ -1226,3 +1226,6 @@ It does not provide financial advice and does not place trades.
 The opt-in [Hot provider trial](experiments/hot_provider_trial_20261018/README.md)
 integrates the accepted acquisition path and provides bounded synthetic and
 authenticated timing trials. It does not enable production Hot polling.
+
+The [larger-roster follow-up](experiments/hot_scale_trial_20261018/README.md)
+adds growth diagnostics and a bounded 40-symbol, ten-minute review preset.

@@ -47,13 +47,13 @@ class TrialTests(unittest.TestCase):
 
     def run_proof(self, client=None, **kwargs):
         return run_trial(self.folder / "trial", kwargs.pop("settings", settings()), client or SyntheticClient(),
-            clock=self.clock, wait=self.clock.wait, on_status=lambda _: None, **kwargs)
+            clock=self.clock, wait=self.clock.wait, clock_mode="logical_offline", on_status=lambda _: None, **kwargs)
 
     def test_invalid_settings_are_rejected(self):
         for kwargs in ({"symbols": ()}, {"symbols": ("aapl",)}, {"symbols": ("AAPL", "AAPL")},
                        {"symbols": ["AAPL"]}, {"intervals": (1,)}, {"intervals": (2,2)},
-                       {"intervals": (True,)}, {"phase_seconds": 5}, {"phase_seconds": 124},
-                       {"phase_seconds": True}, {"quote_call_budget": 2}, {"quote_call_budget": 181},
+                       {"intervals": (True,)}, {"phase_seconds": 5}, {"phase_seconds": 604},
+                       {"phase_seconds": True}, {"quote_call_budget": 2}, {"quote_call_budget": 601},
                        {"request_timeout_seconds": 0}, {"request_timeout_seconds": True}, {"source": "auto"}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError): settings(**kwargs)
 

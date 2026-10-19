@@ -73,16 +73,16 @@ class TrialSettings:
     source: str
 
     def __post_init__(self):
-        if not isinstance(self.symbols, tuple) or not 1 <= len(self.symbols) <= 20 or len(set(self.symbols)) != len(self.symbols):
-            raise ValueError("Provide 1..20 distinct symbols")
+        if not isinstance(self.symbols, tuple) or not 1 <= len(self.symbols) <= 80 or len(set(self.symbols)) != len(self.symbols):
+            raise ValueError("Provide 1..80 distinct symbols")
         if any(not isinstance(s, str) or re.fullmatch(r"[A-Z][A-Z0-9./-]{0,14}", s) is None for s in self.symbols):
             raise ValueError("Symbols must be explicit uppercase quote symbols")
         if not isinstance(self.intervals, tuple) or not self.intervals or len(self.intervals) > 3 or len(set(self.intervals)) != len(self.intervals) or any(type(i) is not int or i not in (2, 3, 4) for i in self.intervals):
             raise ValueError("Use distinct explicit intervals from 2, 3, 4 seconds")
-        if type(self.phase_seconds) is not int or not 4 <= self.phase_seconds <= 120 or any(self.phase_seconds % i for i in self.intervals):
-            raise ValueError("Phase duration must be 4..120 seconds and divisible by every interval")
-        if type(self.quote_call_budget) is not int or not self.planned_calls <= self.quote_call_budget <= 180:
-            raise ValueError("Quote-call budget must cover the plan and be at most 180")
+        if type(self.phase_seconds) is not int or not 4 <= self.phase_seconds <= 600 or any(self.phase_seconds % i for i in self.intervals):
+            raise ValueError("Phase duration must be 4..600 seconds and divisible by every interval")
+        if type(self.quote_call_budget) is not int or not self.planned_calls <= self.quote_call_budget <= 600:
+            raise ValueError("Quote-call budget must cover the plan and be at most 600")
         if type(self.request_timeout_seconds) is not int or not 1 <= self.request_timeout_seconds <= 10:
             raise ValueError("Request timeout must be an integer in 1..10 seconds")
         if self.source not in ("synthetic", "schwab"):
@@ -211,6 +211,18 @@ def timing(values):
             "p95_ms": round(1000 * values[math.ceil(.95 * len(values)) - 1], 3), "max_ms": round(1000 * values[-1], 3)}
 
 
+def growth_timings(outcomes):
+    acquired = [o for o in outcomes if "cycle_seconds" in o]
+    if not acquired:
+        return {}
+    size = math.ceil(len(acquired) / 3)
+    return {label: {key: timing([o[key] for o in group if key in o]) for key in
+                   ("cycle_seconds", "verification_seconds", "journal_seconds")}
+            for label, group in (("first_third", acquired[:size]),
+                                 ("middle_third", acquired[size:2*size]),
+                                 ("last_third", acquired[2*size:]))}
+
+
 def replay_digest(path):
     digest = hashlib.sha256()
     projector = QuoteEventStateProjector()
@@ -240,14 +252,16 @@ def phase_start(now, interval):
     return value
 
 
-def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wait=None, stop=None, on_status=print, client_preparation_seconds=None):
+def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wait=None, stop=None, on_status=print, client_preparation_seconds=None, clock_mode="actual_wall_clock"):
     """One fresh journal per phase. Client ownership/close belongs to the caller."""
+    if clock_mode not in ("actual_wall_clock", "logical_offline"):
+        raise ValueError("Explicit supported clock mode required")
     settings.check_session(clock())
     path = validate_output_path(path)
     path.mkdir(parents=True, exist_ok=False)
     stop = stop or Event()
     measured = MeasuredClient(client, budget=settings.quote_call_budget, clock=clock, auth_rejection=auth_rejection)
-    report = {"contract": CONTRACT, "settings": json_value(settings), "started_at_utc": clock().isoformat(),
+    report = {"contract": CONTRACT, "clock_mode": clock_mode, "settings": json_value(settings), "started_at_utc": clock().isoformat(),
               "clock_context_et": clock().astimezone(ET).isoformat(),
               "weekday_et": clock().astimezone(ET).strftime("%A"), "exchange_calendar_checked": False,
               "phases": [], "interrupted": False, "error_type": None,
@@ -255,7 +269,7 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
               "market_data_baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
               "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
                   (Path(__file__), Path(__file__).with_name("sampling_acquisition.py"))},
-              "limitations": ["Hot-only small-roster trial; no combined channel capacity claim",
+              "limitations": ["Hot-only bounded-roster trial; no combined channel capacity claim",
                               "Request timeout is not a hard process-runtime limit",
                               "Quote/trade timestamps may be stale outside trading hours",
                               "Quote-client calls counted; SDK authentication HTTP calls are outside this trial counter and budget"]}
@@ -277,7 +291,7 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
                 session_date=window.session_date, revision=0, effective_at=start,
                 uni_symbols=settings.symbols, focus_symbols=settings.symbols, hot_symbols=settings.symbols,
                 source=CONTRACT, metadata={MARKER: True, "trial_contract": CONTRACT,
-                    "source": settings.source, "experimental": True, "fixed_roster_transport_trial": True}))
+                    "source": settings.source, "clock_mode": clock_mode, "experimental": True, "fixed_roster_transport_trial": True}))
             acquisition_settings = AcquisitionSettings(SamplingChannel.HOT, tuple(range(0, 60, interval)), window,
                 400, "all", CONTRACT + ":" + settings.source, .75, .05)
             poller = IsolatedSamplingPoller(journal, settings=acquisition_settings, client=measured, clock=clock)
@@ -316,7 +330,14 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
                 phase.update({"finished_at_utc": clock().isoformat(), "calls": calls,
                     "request_latency": timing([c["elapsed_seconds"] for c in calls]),
                     "timings": {key: timing([o[key] for o in outcomes if key in o]) for key in
-                        ("collector_seconds", "journal_seconds", "cycle_seconds", "dispatch_lateness_seconds")},
+                        ("collector_seconds", "journal_seconds", "cycle_seconds", "verification_seconds", "dispatch_lateness_seconds")},
+                    "growth_by_completed_acquisitions": growth_timings(outcomes),
+                    "verification_diagnostics": {"reads": poller.verification_reads,
+                        "total_seconds_including_recovery_and_final_snapshot": poller.verification_seconds,
+                        "normalization_seconds": poller.normalization_seconds,
+                        "normalization_cache_hits": poller.normalization_cache_hits,
+                        "normalization_cache_misses": poller.normalization_cache_misses,
+                        "cache_acquisitions": len(poller._normalization_cache), "cache_limit": 1024},
                     "cycles_over_interval": sum(o.get("cycle_seconds", 0) > interval for o in outcomes),
                     "audit_at_stop_passed": current_audit.passed, "full_window_audit_passed": full_audit.passed,
                     "full_window_findings": json_value(full_audit.findings), "channel_audit": json_value(hot),
@@ -350,7 +371,9 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
                       "  Request round trip: " + str(p.get("request_latency")), "  Active cycle: " + str(p.get("timings", {}).get("cycle_seconds")),
                       "  Collector: " + str(p.get("timings", {}).get("collector_seconds")),
                       "  Journal: " + str(p.get("timings", {}).get("journal_seconds")),
-                      "  Dispatch lateness: " + str(p.get("timings", {}).get("dispatch_lateness_seconds"))]
+                      "  Dispatch lateness: " + str(p.get("timings", {}).get("dispatch_lateness_seconds")),
+                      "  Verification within cycle: " + str(p.get("timings", {}).get("verification_seconds")),
+                      "  Cycle growth (first/middle/last thirds): " + str({k: v["cycle_seconds"] for k, v in p.get("growth_by_completed_acquisitions", {}).items()})]
         lines += report["limitations"] + ["Reports: " + str(path)]
         (path / "summary.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return report

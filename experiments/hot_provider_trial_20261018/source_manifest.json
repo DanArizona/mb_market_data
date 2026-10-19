@@ -11,11 +11,11 @@
     },
     {
       "path": "experiments/hot_provider_trial_20261018/README.md",
-      "sha256": "8ca59f41f403d7012896db80760f11ca61fdbd9157c387375c58b9b365d94407"
+      "sha256": "40a6d3a8869c4bfdae06cbfceeb38a73a761393ccec0e00fb5b3aba55e0caa68"
     },
     {
       "path": "experiments/hot_provider_trial_20261018/bundle_guard.py",
-      "sha256": "67d149fc5101e419f80457c71f9e6b0105e445a7a69a524926c4d344efbdfc44"
+      "sha256": "ad811df0053030fbf4912025a7e9e1997984da64b203b1c5922a38c175b360be"
     },
     {
       "path": "experiments/hot_provider_trial_20261018/run_review.py",
@@ -27,15 +27,15 @@
     },
     {
       "path": "src/mb_market_data/hot_provider_trial.py",
-      "sha256": "bf52e2dd49a9a21915f7fcef2cb547c0acb3e89be6bc66d8b3da64380de727ac"
+      "sha256": "630078120f204b08678dfcf866b44872989804e48e5e77328f19fcccaf8e67f1"
     },
     {
       "path": "src/mb_market_data/sampling_acquisition.py",
-      "sha256": "b2007cb3a3741afadc64e19b6c3885c55d3cbdd36c82704d2cc63771a9499611"
+      "sha256": "cad6ba34c1d415c125094817edeb4ca12d463a140fbd2b39aefde01b8d6b75f7"
     },
     {
       "path": "tests/test_hot_provider_trial.py",
-      "sha256": "847ee1c84b137f9835d4e76aeccedd6be18de8163015c91e4959679e38724b4e"
+      "sha256": "b78c8304650b26945386a9271c4b3c4059c5ddd58f2301da55d747d1a7038611"
     },
     {
       "path": "tests/test_hot_trial_bundle.py",
@@ -51,7 +51,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "78213ce6c0386db9e34ed3ec32bb3d0186cd841640ffa4b53d6bce56ea2de8cf"
+      "sha256": "901116e22b6e19a2de85e2d18501a8993725fa83718d34330c4dad56baa38b63"
     },
     {
       "path": "docs/Canonical_mb_package_Project_Roadmap.md",

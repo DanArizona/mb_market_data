@@ -1,0 +1,39 @@
+{
+  "roster": 40,
+  "acquisitions": 31,
+  "cycle_ms_first": 18.154635000001917,
+  "cycle_ms_10": 46.849675000004254,
+  "cycle_ms_20": 91.15376600001923,
+  "cycle_ms_30": 120.65443899999195,
+  "profiled_ms_31": 269.3973519999986
+}
+         653467 function calls (561536 primitive calls) in 0.267 seconds
+
+   Ordered by: cumulative time
+   List reduced from 200 to 24 due to restriction <24>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.003    0.003    0.268    0.268 sampling_acquisition.py:413(sample)
+        4    0.000    0.000    0.235    0.059 sampling_acquisition.py:270(_read)
+        4    0.006    0.002    0.234    0.058 sampling_acquisition.py:274(_read_checked)
+      370    0.000    0.000    0.107    0.000 sampling_acquisition.py:46(digest)
+      377    0.001    0.000    0.105    0.000 sampling_acquisition.py:42(canonical)
+79507/417    0.041    0.000    0.088    0.000 sampling_acquisition.py:34(plain)
+  124/123    0.035    0.000    0.083    0.001 sampling_acquisition.py:230(_receipt)
+191423/178593    0.028    0.000    0.057    0.000 {built-in method builtins.isinstance}
+      243    0.002    0.000    0.051    0.000 sampling_acquisition.py:170(decode_result)
+     9963    0.013    0.000    0.049    0.000 sampling_acquisition.py:171(<genexpr>)
+    21027    0.008    0.000    0.024    0.000 sampling_acquisition.py:60(stamp)
+        1    0.000    0.000    0.023    0.023 sampling_acquisition.py:373(_commit)
+    79549    0.012    0.000    0.022    0.000 <frozen abc>:117(__instancecheck__)
+      404    0.001    0.000    0.017    0.000 __init__.py:183(dumps)
+      404    0.001    0.000    0.015    0.000 encoder.py:183(encode)
+      404    0.014    0.000    0.014    0.000 encoder.py:205(iterencode)
+    21367    0.007    0.000    0.013    0.000 sampling_acquisition.py:50(aware)
+       80    0.000    0.000    0.013    0.000 quote_observation_store.py:1485(_observation_values)
+       80    0.001    0.000    0.012    0.000 quote_observation_store.py:277(_normalized_quote_values)
+     3200    0.001    0.000    0.011    0.000 quote_observation_store.py:260(_nested)
+      494    0.001    0.000    0.011    0.000 __init__.py:299(loads)
+    79549    0.011    0.000    0.011    0.000 {built-in method _abc._abc_instancecheck}
+        1    0.000    0.000    0.010    0.010 quote_observation_store.py:927(record_acquisition)
+      494    0.001    0.000    0.010    0.000 decoder.py:333(decode)

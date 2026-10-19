@@ -1,0 +1,218 @@
+{
+  "clock_mode": "logical_offline",
+  "passed": true,
+  "phases": [
+    {
+      "acquisitions": 150,
+      "growth_by_completed_acquisitions": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 50,
+            "max_ms": 197.393,
+            "mean_ms": 106.642,
+            "p95_ms": 179.773
+          },
+          "journal_seconds": {
+            "count": 50,
+            "max_ms": 8.882,
+            "mean_ms": 4.786,
+            "p95_ms": 6.893
+          },
+          "verification_seconds": {
+            "count": 50,
+            "max_ms": 180.842,
+            "mean_ms": 90.287,
+            "p95_ms": 162.97
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 50,
+            "max_ms": 572.019,
+            "mean_ms": 467.216,
+            "p95_ms": 553.39
+          },
+          "journal_seconds": {
+            "count": 50,
+            "max_ms": 12.61,
+            "mean_ms": 5.72,
+            "p95_ms": 8.531
+          },
+          "verification_seconds": {
+            "count": 50,
+            "max_ms": 539.463,
+            "mean_ms": 439.352,
+            "p95_ms": 522.72
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 50,
+            "max_ms": 400.615,
+            "mean_ms": 296.186,
+            "p95_ms": 382.052
+          },
+          "journal_seconds": {
+            "count": 50,
+            "max_ms": 12.615,
+            "mean_ms": 5.708,
+            "p95_ms": 8.631
+          },
+          "verification_seconds": {
+            "count": 50,
+            "max_ms": 364.218,
+            "mean_ms": 272.365,
+            "p95_ms": 355.371
+          }
+        }
+      },
+      "interval_seconds": 2,
+      "observations": 6000,
+      "replay": {
+        "acquisitions": 150,
+        "events": 151,
+        "observations": 6000,
+        "sequence_sha256": "fd09df713e6633d4810b0acfbebad1d3535271a37c751e2219b88723a09284e5"
+      },
+      "timings": {
+        "collector_seconds": {
+          "count": 150,
+          "max_ms": 0.726,
+          "mean_ms": 0.35,
+          "p95_ms": 0.456
+        },
+        "cycle_seconds": {
+          "count": 150,
+          "max_ms": 572.019,
+          "mean_ms": 290.015,
+          "p95_ms": 532.322
+        },
+        "dispatch_lateness_seconds": {
+          "count": 150,
+          "max_ms": 0.0,
+          "mean_ms": 0.0,
+          "p95_ms": 0.0
+        },
+        "journal_seconds": {
+          "count": 150,
+          "max_ms": 12.615,
+          "mean_ms": 5.404,
+          "p95_ms": 8.531
+        },
+        "verification_seconds": {
+          "count": 150,
+          "max_ms": 539.463,
+          "mean_ms": 267.334,
+          "p95_ms": 502.254
+        }
+      }
+    },
+    {
+      "acquisitions": 75,
+      "growth_by_completed_acquisitions": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 25,
+            "max_ms": 129.597,
+            "mean_ms": 65.045,
+            "p95_ms": 124.07
+          },
+          "journal_seconds": {
+            "count": 25,
+            "max_ms": 9.737,
+            "mean_ms": 4.676,
+            "p95_ms": 9.387
+          },
+          "verification_seconds": {
+            "count": 25,
+            "max_ms": 108.779,
+            "mean_ms": 51.07,
+            "p95_ms": 107.913
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 25,
+            "max_ms": 431.185,
+            "mean_ms": 265.025,
+            "p95_ms": 332.777
+          },
+          "journal_seconds": {
+            "count": 25,
+            "max_ms": 17.427,
+            "mean_ms": 6.406,
+            "p95_ms": 12.324
+          },
+          "verification_seconds": {
+            "count": 25,
+            "max_ms": 379.276,
+            "mean_ms": 241.663,
+            "p95_ms": 300.999
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 25,
+            "max_ms": 207.243,
+            "mean_ms": 153.048,
+            "p95_ms": 199.893
+          },
+          "journal_seconds": {
+            "count": 25,
+            "max_ms": 7.799,
+            "mean_ms": 5.099,
+            "p95_ms": 7.394
+          },
+          "verification_seconds": {
+            "count": 25,
+            "max_ms": 189.846,
+            "mean_ms": 135.619,
+            "p95_ms": 178.08
+          }
+        }
+      },
+      "interval_seconds": 4,
+      "observations": 3000,
+      "replay": {
+        "acquisitions": 75,
+        "events": 76,
+        "observations": 3000,
+        "sequence_sha256": "e20e005a7a0e0c8de13f641ae56c37e0f5dcb1c59e0b80c0b5ceeb7e564218a5"
+      },
+      "timings": {
+        "collector_seconds": {
+          "count": 75,
+          "max_ms": 0.761,
+          "mean_ms": 0.349,
+          "p95_ms": 0.507
+        },
+        "cycle_seconds": {
+          "count": 75,
+          "max_ms": 431.185,
+          "mean_ms": 161.039,
+          "p95_ms": 312.584
+        },
+        "dispatch_lateness_seconds": {
+          "count": 75,
+          "max_ms": 0.0,
+          "mean_ms": 0.0,
+          "p95_ms": 0.0
+        },
+        "journal_seconds": {
+          "count": 75,
+          "max_ms": 17.427,
+          "mean_ms": 5.394,
+          "p95_ms": 9.387
+        },
+        "verification_seconds": {
+          "count": 75,
+          "max_ms": 379.276,
+          "mean_ms": 142.784,
+          "p95_ms": 288.84
+        }
+      }
+    }
+  ],
+  "quote_client_calls": 225,
+  "source": "synthetic"
+}

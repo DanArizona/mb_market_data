@@ -1,7 +1,7 @@
 # Isolated native market-data integration and provider timing trial
 
 This review moves the Windows-accepted `sampling_acquisition.py` into its native
-`mb_market_data` package. The module is unchanged from the accepted Coordinator
+`mb_market_data` package. At the initial integration commit d40a884, the module was unchanged from the accepted Coordinator
 proof: SHA-256 `b2007cb3a3741afadc64e19b6c3885c55d3cbdd36c82704d2cc63771a9499611`.
 It has no Coordinator import. The exact production baseline is
 `a082f544112643b4e5f459d15c67f60d0a1ef83d`. Existing Uni/Focus cadence and launchers
@@ -118,3 +118,6 @@ The accepted ZIP remains unchanged. This documentation-only acceptance update
 requires no rerun. Next measure a representative larger Hot roster and longer
 run, then combined channel load and trading-hours behavior before production
 activation.
+
+
+The current review branch includes the subsequent [larger-roster trial](../hot_scale_trial_20261018/README.md), with derived normalization reuse and shared historical-read connections. The initial accepted ZIP and recorded hashes remain historical evidence; use the new scale bundle for this follow-up.

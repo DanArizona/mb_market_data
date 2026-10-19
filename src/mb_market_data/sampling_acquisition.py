@@ -14,6 +14,8 @@ import os
 import sqlite3
 import time
 import uuid
+from bisect import bisect_right
+from collections import OrderedDict
 from collections.abc import Mapping
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
@@ -183,6 +185,12 @@ class IsolatedSamplingPoller:
         if not revisions or revisions[0].metadata.get(MARKER) is not True:
             raise ValueError("Journal requires the explicit isolated Hot acquisition marker")
         self.journal, self.settings, self.client = journal, settings, client
+        # Derived values only: live evidence hashes and journal rows are still checked.
+        # A bounded per-instance cache is discarded on restart and is never persisted.
+        self._normalization_cache = OrderedDict()
+        self.normalization_cache_hits = self.normalization_cache_misses = 0
+        self.verification_seconds = self.normalization_seconds = 0.0
+        self.verification_reads = 0
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         canonical_journal = journal.database_path.resolve()
         self.path = canonical_journal.with_name(canonical_journal.stem + "." + settings.channel.value + ".poller.sqlite3")
@@ -221,10 +229,14 @@ class IsolatedSamplingPoller:
         slot = ExplicitPollSlot(self.settings.channel, stamp(p["scheduled_at_utc"]), self.settings.seconds)
         return SkippedPollSlot(slot, p["revision"], stamp(p["membership_effective_at_utc"]), stamp(p["dispatched_at_utc"]))
 
-    def _receipt(self, pending):
+    def _receipt(self, pending, *, connection=None):
+        if connection is None:
+            with self.journal._connection() as connection:
+                return self._receipt(pending, connection=connection)
         p = pending["dispatch"]
         if p["symbols"]:
-            a = self.journal.get_acquisition(self._request(p).batch_id)
+            row = connection.execute("SELECT * FROM quote_acquisition WHERE acquisition_id=?", (self._request(p).batch_id,)).fetchone()
+            a = self.journal._stored_acquisition(row) if row is not None else None
             if a is None:
                 return None
             assembled = pending["assembled"]
@@ -238,22 +250,43 @@ class IsolatedSamplingPoller:
                 raise ValueError("Journal acquisition header differs from assembled response")
             columns = ("acquisition_id", "symbol", "ordinal", "status", "detail", "schwab_batch_number",
                        "request_started_at_utc", "response_received_at_utc", "normalized_schema_version", *OBSERVATION_COLUMNS)
-            with closing(sqlite3.connect(self.journal.database_path.resolve().as_uri() + "?mode=ro", uri=True)) as c:
-                rows = list(c.execute("SELECT " + ",".join(columns) + " FROM quote_observation WHERE acquisition_id=? ORDER BY ordinal", (a.acquisition_id,)))
-            expected = [self.journal._observation_values(a.acquisition_id, n, r) for n, r in enumerate(result.results)]
-            if rows != expected:
+            rows = [tuple(row) for row in connection.execute("SELECT " + ",".join(columns) + " FROM quote_observation WHERE acquisition_id=? ORDER BY ordinal", (a.acquisition_id,))]
+            key = (a.acquisition_id, pending.get("assembled_event_sha256"))
+            expected = self._normalization_cache.get(key) if key[1] is not None else None
+            if expected is None:
+                normalization_started = time.perf_counter()
+                expected = tuple(self.journal._observation_values(a.acquisition_id, n, r) for n, r in enumerate(result.results))
+                self.normalization_seconds += time.perf_counter() - normalization_started
+                self.normalization_cache_misses += 1
+                if key[1] is not None:
+                    self._normalization_cache[key] = expected
+                    if len(self._normalization_cache) > 1024:
+                        self._normalization_cache.popitem(last=False)
+            else:
+                self.normalization_cache_hits += 1
+                self._normalization_cache.move_to_end(key)
+            if tuple(rows) != expected:
                 raise ValueError("Journal observations differ from assembled response")
             return {"kind": "acquisition", "id": a.acquisition_id, "content_sha256": a.content_sha256}
-        with closing(sqlite3.connect(self.journal.database_path.resolve().as_uri() + "?mode=ro", uri=True)) as c:
-            row = c.execute("SELECT content_sha256 FROM poll_slot_skip WHERE slot_id=?", (p["slot_id"],)).fetchone()
+        row = connection.execute("SELECT content_sha256 FROM poll_slot_skip WHERE slot_id=?", (p["slot_id"],)).fetchone()
         return {"kind": "empty_membership", "id": p["slot_id"], "content_sha256": row[0]} if row else None
 
     def _read(self):
+        started = time.perf_counter()
+        try:
+            with self.journal._connection() as connection:
+                return self._read_checked(connection)
+        finally:
+            self.verification_seconds += time.perf_counter() - started
+            self.verification_reads += 1
+
+    def _read_checked(self, connection):
         if self.settings.payload() != self.identity["settings"] or str(self.journal.database_path.resolve()) != self.identity["journal"]:
             raise ValueError("Acquisition configuration changed")
         revisions = self.journal.membership_revisions_in_effective_order()
         if not revisions or revisions[0].content_sha256 != self.identity["baseline_sha256"]:
             raise ValueError("Acquisition journal baseline changed")
+        effective_times = tuple(r.effective_at for r in revisions)
         with closing(sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True)) as c:
             row = c.execute("SELECT payload FROM acquisition_identity WHERE id=1").fetchone()
             if row is None or row[0] != canonical(self.identity):
@@ -272,7 +305,8 @@ class IsolatedSamplingPoller:
             if kind == "dispatch":
                 if pending or e["slot_id"] in finished:
                     raise ValueError("Duplicate or overlapping acquisition dispatch")
-                revision = self.journal.latest_membership_revision_effective_at(stamp(e["scheduled_at_utc"]))
+                index = bisect_right(effective_times, stamp(e["scheduled_at_utc"])) - 1
+                revision = revisions[index] if index >= 0 else None
                 if revision is None or revision.revision != e["revision"] or revision.content_sha256 != e["hierarchy_sha256"] or list(revision.symbols_for(self.settings.channel)) != e["symbols"]:
                     raise ValueError("Acquisition dispatch membership differs")
                 slot = ExplicitPollSlot(self.settings.channel, stamp(e["scheduled_at_utc"]), self.settings.seconds)
@@ -293,10 +327,11 @@ class IsolatedSamplingPoller:
                         if not dispatched <= r.request_started_at_utc <= completed or (r.response_received_at_utc is not None and not r.request_started_at_utc <= r.response_received_at_utc <= completed):
                             raise ValueError("Assembled acquisition timing differs")
                     pending["assembled"] = e
+                    pending["assembled_event_sha256"] = sha
                 elif kind == "acknowledged":
                     if pending["dispatch"]["symbols"] and not pending["assembled"]:
                         raise ValueError("Acknowledged acquisition has no durable result")
-                    if self._receipt(pending) != e["journal_receipt"]:
+                    if self._receipt(pending, connection=connection) != e["journal_receipt"]:
                         raise ValueError("Acquisition journal acknowledgement differs")
                     finished[e["slot_id"]] = e; pending = None
                 elif kind == "abandoned":
@@ -316,7 +351,7 @@ class IsolatedSamplingPoller:
                 receipt = e["journal_receipt"]
                 (known_acquisitions if receipt["kind"] == "acquisition" else known_skips).add(receipt["id"])
         if pending:
-            receipt = self._receipt(pending)
+            receipt = self._receipt(pending, connection=connection)
             if receipt:
                 (known_acquisitions if receipt["kind"] == "acquisition" else known_skips).add(receipt["id"])
         with closing(sqlite3.connect(self.journal.database_path.resolve().as_uri() + "?mode=ro", uri=True)) as c:
@@ -386,6 +421,7 @@ class IsolatedSamplingPoller:
 
     def sample(self, slot, *, fault_hook=None):
         cycle_started = time.perf_counter()
+        verification_before = self.verification_seconds
         with owner_lock(self.lock_path):
             s = self._read()
             self._recover(s); s = self._read()
@@ -429,6 +465,7 @@ class IsolatedSamplingPoller:
                 s = self._read()
             outcome = self._commit(s, fault_hook=fault_hook)
             outcome["cycle_seconds"] = time.perf_counter() - cycle_started
+            outcome["verification_seconds"] = self.verification_seconds - verification_before
             outcome["dispatch_lateness_seconds"] = (stamp(p["dispatched_at_utc"]) - slot.scheduled_at).total_seconds()
             return outcome
 

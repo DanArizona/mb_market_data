@@ -1,0 +1,39 @@
+{
+  "roster": 40,
+  "acquisitions": 31,
+  "cycle_ms_first": 18.809633999993025,
+  "cycle_ms_10": 124.22333199999969,
+  "cycle_ms_20": 300.7019590000084,
+  "cycle_ms_30": 440.2280510000196,
+  "profiled_ms_31": 1289.9227970000027
+}
+         4444367 function calls (3583461 primitive calls) in 1.286 seconds
+
+   Ordered by: cumulative time
+   List reduced from 196 to 24 due to restriction <24>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.004    0.004    1.289    1.289 sampling_acquisition.py:387(sample)
+        4    0.008    0.002    1.258    0.314 sampling_acquisition.py:251(_read)
+      123    0.034    0.000    0.981    0.008 sampling_acquisition.py:224(_receipt)
+     4880    0.010    0.000    0.818    0.000 quote_observation_store.py:1485(_observation_values)
+     4880    0.042    0.000    0.761    0.000 quote_observation_store.py:277(_normalized_quote_values)
+   195200    0.098    0.000    0.714    0.000 quote_observation_store.py:260(_nested)
+1369190/587628    0.183    0.000    0.635    0.000 {built-in method builtins.isinstance}
+   390781    0.103    0.000    0.493    0.000 typing.py:1221(__instancecheck__)
+   390781    0.134    0.000    0.391    0.000 typing.py:1492(__subclasscheck__)
+   390781    0.084    0.000    0.192    0.000 {built-in method builtins.issubclass}
+      123    0.001    0.000    0.118    0.001 quote_observation_store.py:1225(latest_membership_revision_effective_at)
+   390781    0.063    0.000    0.108    0.000 <frozen abc>:121(__subclasscheck__)
+      370    0.001    0.000    0.107    0.000 sampling_acquisition.py:44(digest)
+      377    0.001    0.000    0.106    0.000 sampling_acquisition.py:40(canonical)
+     1415    0.094    0.000    0.094    0.000 {method 'execute' of 'sqlite3.Connection' objects}
+79507/417    0.040    0.000    0.087    0.000 sampling_acquisition.py:32(plain)
+      127    0.006    0.000    0.070    0.001 quote_observation_store.py:1256(_membership_revision_from_row)
+      243    0.002    0.000    0.053    0.000 sampling_acquisition.py:168(decode_result)
+     9963    0.013    0.000    0.051    0.000 sampling_acquisition.py:169(<genexpr>)
+      123    0.001    0.000    0.048    0.000 quote_observation_store.py:1135(get_acquisition)
+     9887    0.008    0.000    0.046    0.000 quote_observation_store.py:224(_utc_text)
+   390781    0.045    0.000    0.045    0.000 {built-in method _abc._abc_subclasscheck}
+      127    0.002    0.000    0.035    0.000 sampling_membership.py:152(__post_init__)
+      504    0.000    0.000    0.035    0.000 {built-in method builtins.next}
