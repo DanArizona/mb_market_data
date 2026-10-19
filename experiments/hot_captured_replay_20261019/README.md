@@ -1,0 +1,11 @@
+# Offline decoded-payload replay and bounded Hot trial
+
+This experiment validates a guarded incremental acquisition path using decoded quote samples supplied separately in a private review bundle. The public repository contains generic replay code and generated synthetic unit fixtures. Captured quote values, private source provenance, host evidence, the pinned release inventory and the private review configuration are excluded from public source control.
+
+The private bundle supplies fixtures/quote_payload_samples.json, review_config.json and source_manifest.json. The configuration pins the input and original archive hashes and provides the local encrypted configuration path. No secret values are stored by this code. The source inventory is checked before importing the experiment.
+
+07_verify_captured_hot.cmd runs focused tests, then preloads 300 acquisitions at a logical clock. It cycles through the original decoded payloads without altering embedded provider fields or timestamps. Thirty subsequent slots use actual elapsed scheduling at two seconds, with an injected 250ms transport delay and the unchanged 750ms dispatch deadline. It checks exact stored payload equality, complete audit and two independent replays. This is an offline simulation with new simulation receipt times, not original network timing or live capacity.
+
+A passing verification writes a gate bound to the input, source inventory and report hashes. A new verification clears the prior gate. 08_run_schwab_incremental_hot.cmd additionally requires native Windows evidence from the same bundle before requesting a password. It runs a separately invoked, fixed-roster successor: five minutes at two seconds, then five at four seconds, capped at 225 quote-client calls with a 3s request timeout. Existing credential preflight, strict storage checks, both 750ms dispatch gates and no-catch-up behavior remain. Authentication traffic is outside the quote-client call counter.
+
+The trial creates fresh experimental journals. It does not install production membership or cadence. Native/offline acceptance, bounded authenticated results, combined channel load, trading-hours measurements and full-session scaling are separate validation stages.

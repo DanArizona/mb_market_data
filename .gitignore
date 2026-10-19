@@ -39,3 +39,9 @@ Thumbs.db
 
 # Isolated Hot review runtime evidence
 /runs/
+
+# Private user-supplied quote evidence stays outside public source control
+/experiments/hot_captured_replay_20261019/fixtures/
+/experiments/hot_captured_replay_20261019/review_config.json
+/experiments/hot_captured_replay_20261019/source_manifest.json
+/experiments/hot_captured_replay_20261019/validation/
