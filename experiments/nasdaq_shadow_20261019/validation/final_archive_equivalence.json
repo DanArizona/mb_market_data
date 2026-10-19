@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "runtime_and_tests_identical": true,
+  "unchanged_files": 80,
+  "changed_files": [
+    "DELIVERY.json",
+    "experiments/nasdaq_shadow_20261019/source_manifest.json"
+  ],
+  "reason": "Only canonical remote implementation commit in DELIVERY metadata changed; runtime/tests/commands are byte-identical to extracted qualified bundle",
+  "final_zip": "nasdaq_shadow_20261019_173301_329063.zip",
+  "final_zip_sha256": "f4889eb61c76f0c1d879710238c6950ba3d918e2bb70e1ec5dacf9110564c445",
+  "implementation_commit": "ffe9d2b1932eaa60fe5c340bd0e78a66dc7398db"
+}

@@ -1,0 +1,64 @@
+{
+  "assessment": {
+    "availability": {
+      "result": "NOT_OBSERVED"
+    },
+    "collection_integrity": {
+      "findings": [],
+      "result": "PASS"
+    },
+    "result": "PASS",
+    "status_counts": {},
+    "transport": {
+      "result": "PASS"
+    }
+  },
+  "audit_passed": true,
+  "committed_slots": 8,
+  "contract": "nasdaq-shadow-v1",
+  "coordinator_commit": "0417b345e2725f4e1e184d3b3202bedb846dbfca",
+  "cutoff_utc": "2026-10-21T14:00:16+00:00",
+  "empty_hot_skips": 8,
+  "expected_slots": 8,
+  "failures": [],
+  "feed_attempts": 7,
+  "final_hierarchy": {
+    "focus": 1,
+    "hot": 0,
+    "uni": 1
+  },
+  "gate_dispositions": {},
+  "hot_acquisitions": 0,
+  "journal_replay": {
+    "acquisitions": 0,
+    "events": 1,
+    "observations": 0,
+    "sequence_sha256": "bce8567de20ffc8739cd0681db666007435f027d70e27bd4823dffa9d41fa47f"
+  },
+  "limitations": [
+    "Review settings only; production Hot disabled and production journals/processes untouched",
+    "Only shadow Hot acquires quotes; this increment is not another combined-load capacity trial",
+    "Broker quote identity confirmation is not tradability or an explanation of invalid responses",
+    "No new qualifying event means readiness only, never a live-transition claim",
+    "Commit timestamps are observer receipts immediately after successful journal writes",
+    "No automatic live restart, missed-slot catch-up or full-day provider-capacity claim"
+  ],
+  "max_quote_calls": 33,
+  "milestone": "READINESS_ONLY",
+  "missing_slots": [],
+  "pids": {},
+  "producer_pending_with_terminal_gate_disposition": {},
+  "producer_pid": 5,
+  "producer_replay_identical": true,
+  "publication_replay_identical": true,
+  "quote_call_permits": {},
+  "quote_calls": 0,
+  "replays_identical": true,
+  "request_replay_identical": true,
+  "result": "READINESS_ONLY",
+  "selected_symbol": null,
+  "source": "synthetic",
+  "successful_captures": 7,
+  "timeline": null,
+  "timing_clock": "labeled future UTC offset at actual elapsed speed; journal publication retains actual UTC"
+}

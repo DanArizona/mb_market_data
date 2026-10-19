@@ -1,0 +1,13 @@
+NASDAQ SHADOW: PASS (SYNTHETIC_TRANSITION)
+Source: synthetic; selected symbol: NEWX
+Hot acquisitions=3; empty skips=2; missing=0
+Quote calls/maximum: 4/33; permits={'hot': 3, 'resolution': 1}
+Audit=True; identical replays=True
+Replay SHA-256: 3ab2e8a1c41183e636950ad370ea4e8118a8aa587bec02279df874f3dcd36cb8
+Timeline: {"broker_resolution_returned_at_utc": "2026-10-21T14:00:02.177776+00:00", "broker_resolution_started_at_utc": "2026-10-21T14:00:02.177708+00:00", "feed_acquired_at_utc": "2026-10-21T14:00:02.083183+00:00", "first_discovered_at_utc": "2026-10-21T14:00:02.111441+00:00", "first_eligible_hot_slot_utc": "2026-10-21T14:00:04+00:00", "first_observed_hot_slot_utc": "2026-10-21T14:00:04+00:00", "first_seen_to_commit_seconds": 1.950373, "halt_at_utc": "2026-10-21T14:00:02+00:00", "journal_commit_observed_at_utc": "2026-10-21T14:00:04.061814+00:00", "membership_effective_at_utc": "2026-10-21T14:00:02.925153+00:00", "provider_response_assembled_at_utc": "2026-10-21T14:00:04.052959+00:00", "provider_response_returned_at_utc": "2026-10-21T14:00:04.052156+00:00", "publication_at_event_clock_utc": "2026-10-21T14:00:02.542262+00:00", "published_at_utc": "2026-10-19T17:34:41.585188+00:00", "request_received_at_utc": "2026-10-21T14:00:02.216265+00:00"}
+Review settings only; production Hot disabled and production journals/processes untouched
+Only shadow Hot acquires quotes; this increment is not another combined-load capacity trial
+Broker quote identity confirmation is not tradability or an explanation of invalid responses
+No new qualifying event means readiness only, never a live-transition claim
+Commit timestamps are observer receipts immediately after successful journal writes
+No automatic live restart, missed-slot catch-up or full-day provider-capacity claim
