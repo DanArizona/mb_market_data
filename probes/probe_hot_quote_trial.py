@@ -25,6 +25,7 @@ def main(argv=None):
     parser.add_argument("--request-timeout-seconds", type=int, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--ecfg", type=Path)
+    parser.add_argument("--verification-mode", choices=("full_history", "guarded_incremental"), default="full_history")
     args = parser.parse_args(argv)
     client = None
     rejection = None
@@ -51,7 +52,7 @@ def main(argv=None):
             print(f"Credential/client preparation completed in {preparation_seconds:.3f}s", flush=True)
         else:
             client = SyntheticClient()
-        report = run_trial(path, settings, client, auth_rejection=rejection, client_preparation_seconds=preparation_seconds, on_status=lambda s: print(s, flush=True))
+        report = run_trial(path, settings, client, verification_mode=args.verification_mode, auth_rejection=rejection, client_preparation_seconds=preparation_seconds, on_status=lambda s: print(s, flush=True))
         print((path / "summary.txt").read_text(encoding="utf-8"), flush=True)
         print("Trial finished; command returns to its prompt.", flush=True)
         return 130 if report["interrupted"] else (0 if report["passed"] else 1)

@@ -1,0 +1,75 @@
+{
+  "audit_passed": true,
+  "dispatch_deadline_seconds": 0.75,
+  "elapsed_acquired": 30,
+  "elapsed_planned_slots": 30,
+  "elapsed_seconds": 60.08166736600015,
+  "full_reconstructions_after_audit": 3,
+  "full_reconstructions_before": 2,
+  "injected_request_latency_seconds": 0.25,
+  "limitations": [
+    "Rich synthetic decoded payloads; captured Schwab payload replay pending",
+    "Local scheduling evidence; no brokerage or market capacity claim"
+  ],
+  "loop_result": {
+    "status": "window_ended"
+  },
+  "no_full_reconstruction_during_polling": true,
+  "passed": true,
+  "prefill_acquisitions": 300,
+  "prefill_clock": "logical",
+  "prefill_observations": 12000,
+  "replay": {
+    "acquisitions": 330,
+    "events": 331,
+    "observations": 13200,
+    "sequence_sha256": "cfc8601f15ccae0fb328fd55a533c0b7542556d481dfda727b05054cb43a6e69"
+  },
+  "replays_identical": true,
+  "synthetic": true,
+  "timing_clock": "actual elapsed with future offset; not market timestamps",
+  "timings": {
+    "before_api_gate_seconds": {
+      "count": 30,
+      "max_ms": 8.707,
+      "mean_ms": 7.169,
+      "p95_ms": 8.277
+    },
+    "before_dispatch_gate_seconds": {
+      "count": 30,
+      "max_ms": 2.885,
+      "mean_ms": 2.467,
+      "p95_ms": 2.873
+    },
+    "cycle_seconds": {
+      "count": 30,
+      "max_ms": 285.461,
+      "mean_ms": 278.28,
+      "p95_ms": 283.247
+    },
+    "recovery_before_slot_seconds": {
+      "count": 30,
+      "max_ms": 3.781,
+      "mean_ms": 1.628,
+      "p95_ms": 3.026
+    },
+    "spool_and_check_seconds": {
+      "count": 30,
+      "max_ms": 5.612,
+      "mean_ms": 3.763,
+      "p95_ms": 5.361
+    },
+    "state_prepare_seconds": {
+      "count": 30,
+      "max_ms": 2.74,
+      "mean_ms": 2.292,
+      "p95_ms": 2.701
+    },
+    "verification_seconds": {
+      "count": 30,
+      "max_ms": 8.185,
+      "mean_ms": 6.863,
+      "p95_ms": 7.788
+    }
+  }
+}

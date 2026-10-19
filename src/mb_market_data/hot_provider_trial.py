@@ -252,23 +252,27 @@ def phase_start(now, interval):
     return value
 
 
-def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wait=None, stop=None, on_status=print, client_preparation_seconds=None, clock_mode="actual_wall_clock"):
+def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wait=None, stop=None, on_status=print, client_preparation_seconds=None, clock_mode="actual_wall_clock", verification_mode="full_history"):
     """One fresh journal per phase. Client ownership/close belongs to the caller."""
     if clock_mode not in ("actual_wall_clock", "logical_offline"):
         raise ValueError("Explicit supported clock mode required")
+    if verification_mode not in ("full_history", "guarded_incremental"):
+        raise ValueError("Supported verification mode required")
+    from mb_market_data.sampling_incremental import INCREMENTAL_MARKER, IncrementalSamplingPoller
     settings.check_session(clock())
     path = validate_output_path(path)
     path.mkdir(parents=True, exist_ok=False)
     stop = stop or Event()
     measured = MeasuredClient(client, budget=settings.quote_call_budget, clock=clock, auth_rejection=auth_rejection)
-    report = {"contract": CONTRACT, "clock_mode": clock_mode, "settings": json_value(settings), "started_at_utc": clock().isoformat(),
+    report = {"contract": CONTRACT, "clock_mode": clock_mode, "verification_mode": verification_mode, "settings": json_value(settings), "started_at_utc": clock().isoformat(),
               "clock_context_et": clock().astimezone(ET).isoformat(),
               "weekday_et": clock().astimezone(ET).strftime("%A"), "exchange_calendar_checked": False,
               "phases": [], "interrupted": False, "error_type": None,
               "software_versions": software_versions(), "client_preparation_seconds": client_preparation_seconds,
               "market_data_baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
               "source_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in
-                  (Path(__file__), Path(__file__).with_name("sampling_acquisition.py"))},
+                  (Path(__file__), Path(__file__).with_name("sampling_acquisition.py"),
+                   *((Path(__file__).with_name("sampling_incremental.py"),) if verification_mode == "guarded_incremental" else ()))},
               "limitations": ["Hot-only bounded-roster trial; no combined channel capacity claim",
                               "Request timeout is not a hard process-runtime limit",
                               "Quote/trade timestamps may be stale outside trading hours",
@@ -291,10 +295,11 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
                 session_date=window.session_date, revision=0, effective_at=start,
                 uni_symbols=settings.symbols, focus_symbols=settings.symbols, hot_symbols=settings.symbols,
                 source=CONTRACT, metadata={MARKER: True, "trial_contract": CONTRACT,
-                    "source": settings.source, "clock_mode": clock_mode, "experimental": True, "fixed_roster_transport_trial": True}))
+                    "source": settings.source, "clock_mode": clock_mode, INCREMENTAL_MARKER: verification_mode == "guarded_incremental", "experimental": True, "fixed_roster_transport_trial": True}))
             acquisition_settings = AcquisitionSettings(SamplingChannel.HOT, tuple(range(0, 60, interval)), window,
                 400, "all", CONTRACT + ":" + settings.source, .75, .05)
-            poller = IsolatedSamplingPoller(journal, settings=acquisition_settings, client=measured, clock=clock)
+            poller_type = IncrementalSamplingPoller if verification_mode == "guarded_incremental" else IsolatedSamplingPoller
+            poller = poller_type(journal, settings=acquisition_settings, client=measured, clock=clock)
             poller.initialize()
             outcomes = []
             call_offset = len(measured.calls)
@@ -330,9 +335,14 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
                 phase.update({"finished_at_utc": clock().isoformat(), "calls": calls,
                     "request_latency": timing([c["elapsed_seconds"] for c in calls]),
                     "timings": {key: timing([o[key] for o in outcomes if key in o]) for key in
-                        ("collector_seconds", "journal_seconds", "cycle_seconds", "verification_seconds", "dispatch_lateness_seconds")},
+                        ("collector_seconds", "journal_seconds", "cycle_seconds", "verification_seconds", "dispatch_lateness_seconds",
+                         "state_prepare_seconds", "spool_and_check_seconds", "before_dispatch_gate_seconds", "before_api_gate_seconds", "recovery_before_slot_seconds")},
+                    "missed_gate_outcomes": [o for o in outcomes if o.get("status") == "missed"],
                     "growth_by_completed_acquisitions": growth_timings(outcomes),
                     "verification_diagnostics": {"reads": poller.verification_reads,
+                        "full_reconstructions": getattr(poller, 'full_reconstructions', None),
+                        "incremental_events": getattr(poller, 'incremental_events', None),
+                        "recovery_seconds_total": getattr(poller, 'recovery_seconds_total', None),
                         "total_seconds_including_recovery_and_final_snapshot": poller.verification_seconds,
                         "normalization_seconds": poller.normalization_seconds,
                         "normalization_cache_hits": poller.normalization_cache_hits,
@@ -357,14 +367,16 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
         report["finished_at_utc"] = clock().isoformat()
         report["complete_coverage"] = (len(report["phases"]) == len(settings.intervals) and all(
             p.get("full_window_audit_passed") and p.get("repeated_replay_identical") and not p.get("pending_dispatch") for p in report["phases"]))
-        report["clean_transport"] = all(
-            p.get("channel_audit", {}).get("status_counts", {}).get("quote", 0) == p.get("planned_slots", 0) * len(settings.symbols)
-            for p in report["phases"]) and report["complete_coverage"]
+        received = sum(p.get("channel_audit", {}).get("observation_count", 0) for p in report['phases'])
+        quotes = sum(p.get("channel_audit", {}).get("status_counts", {}).get("quote", 0) for p in report['phases'])
+        report["received_observations"] = received
+        report["received_quote_observations"] = quotes
+        report["clean_transport"] = received > 0 and received == quotes
         report["passed"] = report["complete_coverage"] and report["clean_transport"] and not report["interrupted"] and not report["error_type"] and not report["halt_reason"]
         write_json(path / "manifest.json", report)
         lines = ["ISOLATED HOT PROVIDER TIMING TRIAL", f"Source: {settings.source}; symbols: {' '.join(settings.symbols)}",
                  f"Quote-client calls: {len(measured.calls)}/{settings.quote_call_budget}",
-                 f"Full configured coverage: {report['complete_coverage']}; all requested rows are quotes: {report['clean_transport']}",
+                 f"Full configured coverage: {report['complete_coverage']}; all received rows are quotes: {report['clean_transport']}",
                  f"Interrupted: {report['interrupted']}; error type: {report['error_type']}; stop reason: {report['halt_reason']}"]
         for p in report["phases"]:
             lines += [f"{p['interval_seconds']}s phase: {p.get('channel_audit', {}).get('acquisition_count', 0)}/{p['planned_slots']} acquisitions",
@@ -373,6 +385,10 @@ def run_trial(path, settings, client, *, auth_rejection=None, clock=utc_now, wai
                       "  Journal: " + str(p.get("timings", {}).get("journal_seconds")),
                       "  Dispatch lateness: " + str(p.get("timings", {}).get("dispatch_lateness_seconds")),
                       "  Verification within cycle: " + str(p.get("timings", {}).get("verification_seconds")),
+                      "  Before-dispatch lateness: " + str(p.get("timings", {}).get("before_dispatch_gate_seconds")),
+                      "  Before-API lateness: " + str(p.get("timings", {}).get("before_api_gate_seconds")),
+                      "  Pre-slot recovery: " + str(p.get("timings", {}).get("recovery_before_slot_seconds")),
+                      "  Missed gate counts: " + str({gate: sum(o.get('gate') == gate for o in p.get('missed_gate_outcomes', [])) for gate in ('before_dispatch_deadline','before_api_deadline','window_ended')}),
                       "  Cycle growth (first/middle/last thirds): " + str({k: v["cycle_seconds"] for k, v in p.get("growth_by_completed_acquisitions", {}).items()})]
         lines += report["limitations"] + ["Reports: " + str(path)]
         (path / "summary.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -1,0 +1,177 @@
+{
+  "acceptance": {
+    "authenticated_successor_trial": "pending",
+    "captured_schwab_payloads": "pending host export",
+    "native_windows": "pending",
+    "production_adoption": "pending"
+  },
+  "actual_remote_parent": "8f46d28e282589c2bc2132807eef21293758d33a",
+  "baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+  "elapsed_scheduling": {
+    "audit_passed": true,
+    "dispatch_deadline_seconds": 0.75,
+    "elapsed_acquired": 8,
+    "elapsed_planned_slots": 8,
+    "elapsed_seconds": 16.08617209199997,
+    "full_reconstructions_after_audit": 3,
+    "full_reconstructions_before": 2,
+    "injected_request_latency_seconds": 0.25,
+    "limitations": [
+      "Rich synthetic decoded payloads; captured Schwab payload replay pending",
+      "Local scheduling evidence; no brokerage or market capacity claim"
+    ],
+    "loop_result": {
+      "status": "window_ended"
+    },
+    "no_full_reconstruction_during_polling": true,
+    "passed": true,
+    "prefill_acquisitions": 300,
+    "prefill_clock": "logical",
+    "prefill_observations": 12000,
+    "replay": {
+      "acquisitions": 308,
+      "events": 309,
+      "observations": 12320,
+      "sequence_sha256": "5a0be78ce47510aca53e7d0c769790087d6857992729a4cf70279fd89866ac25"
+    },
+    "replays_identical": true,
+    "synthetic": true,
+    "timing_clock": "actual elapsed with future offset; not market timestamps",
+    "timings": {
+      "before_api_gate_seconds": {
+        "count": 8,
+        "max_ms": 9.012,
+        "mean_ms": 7.357,
+        "p95_ms": 9.012
+      },
+      "before_dispatch_gate_seconds": {
+        "count": 8,
+        "max_ms": 2.931,
+        "mean_ms": 2.418,
+        "p95_ms": 2.931
+      },
+      "cycle_seconds": {
+        "count": 8,
+        "max_ms": 283.898,
+        "mean_ms": 279.506,
+        "p95_ms": 283.898
+      },
+      "recovery_before_slot_seconds": {
+        "count": 8,
+        "max_ms": 1.675,
+        "mean_ms": 1.471,
+        "p95_ms": 1.675
+      },
+      "spool_and_check_seconds": {
+        "count": 8,
+        "max_ms": 5.117,
+        "mean_ms": 3.997,
+        "p95_ms": 5.117
+      },
+      "state_prepare_seconds": {
+        "count": 8,
+        "max_ms": 2.701,
+        "mean_ms": 2.252,
+        "p95_ms": 2.701
+      },
+      "verification_seconds": {
+        "count": 8,
+        "max_ms": 8.017,
+        "mean_ms": 6.701,
+        "p95_ms": 8.017
+      }
+    }
+  },
+  "extraction_guard_anomaly": {
+    "additional_checks": "Synchronous /tmp and workspace proofs each passed 300-prefill + 8 elapsed slots. Instrumented asynchronous reproduction passed; append trace contained no inode/head divergence. These passes do not explain the two prior stops.",
+    "cause": "not reproduced; original generic message did not distinguish guard components",
+    "confirmed_detail": "Latest extracted failure: both database OS file identities changed; schema versions (47,12) and guard identity matched. Cause of file replacement/inode change remains unconfirmed. Strict stop retained; no API run authorized by these local results.",
+    "first_extracted_run": "83 tests passed; prefill 300/300; storage/schema guard stopped after first elapsed response; no historical evidence modified",
+    "repeat": "same 83 tests and 300 prefill + eight actual elapsed slots passed; audit and repeat replay passed; additional 300-prefill/30-slot actual elapsed proof passed with no guard stop",
+    "response": "Retain both failures and passing repetitions; strict guards/head checks retained; record richer guard/head diagnostics and elapsed failure.json; native Windows offline review and captured-payload export are next. No authenticated successor acceptance.",
+    "second_failure": "A later asynchronous extracted run stopped at Acquisition head changed. Retained journal had 240 acquisitions, sidecar 715 events through dispatch of acquisition 239. No concurrent application producer was configured; cause unconfirmed."
+  },
+  "full_regression": {
+    "result": "OK",
+    "seconds": 8.718,
+    "skip_reason": "native Windows sharing test",
+    "skipped": 1,
+    "tests": 505
+  },
+  "local_dependencies": "isolated hash-verified upstream mb-tools 0.6.0 interface fixtures plus local mocked SDK; no credentials/network",
+  "long_elapsed_scheduling": {
+    "audit_passed": true,
+    "dispatch_deadline_seconds": 0.75,
+    "elapsed_acquired": 30,
+    "elapsed_planned_slots": 30,
+    "elapsed_seconds": 60.08166736600015,
+    "full_reconstructions_after_audit": 3,
+    "full_reconstructions_before": 2,
+    "injected_request_latency_seconds": 0.25,
+    "limitations": [
+      "Rich synthetic decoded payloads; captured Schwab payload replay pending",
+      "Local scheduling evidence; no brokerage or market capacity claim"
+    ],
+    "loop_result": {
+      "status": "window_ended"
+    },
+    "no_full_reconstruction_during_polling": true,
+    "passed": true,
+    "prefill_acquisitions": 300,
+    "prefill_clock": "logical",
+    "prefill_observations": 12000,
+    "replay": {
+      "acquisitions": 330,
+      "events": 331,
+      "observations": 13200,
+      "sequence_sha256": "cfc8601f15ccae0fb328fd55a533c0b7542556d481dfda727b05054cb43a6e69"
+    },
+    "replays_identical": true,
+    "synthetic": true,
+    "timing_clock": "actual elapsed with future offset; not market timestamps",
+    "timings": {
+      "before_api_gate_seconds": {
+        "count": 30,
+        "max_ms": 8.707,
+        "mean_ms": 7.169,
+        "p95_ms": 8.277
+      },
+      "before_dispatch_gate_seconds": {
+        "count": 30,
+        "max_ms": 2.885,
+        "mean_ms": 2.467,
+        "p95_ms": 2.873
+      },
+      "cycle_seconds": {
+        "count": 30,
+        "max_ms": 285.461,
+        "mean_ms": 278.28,
+        "p95_ms": 283.247
+      },
+      "recovery_before_slot_seconds": {
+        "count": 30,
+        "max_ms": 3.781,
+        "mean_ms": 1.628,
+        "p95_ms": 3.026
+      },
+      "spool_and_check_seconds": {
+        "count": 30,
+        "max_ms": 5.612,
+        "mean_ms": 3.763,
+        "p95_ms": 5.361
+      },
+      "state_prepare_seconds": {
+        "count": 30,
+        "max_ms": 2.74,
+        "mean_ms": 2.292,
+        "p95_ms": 2.701
+      },
+      "verification_seconds": {
+        "count": 30,
+        "max_ms": 8.185,
+        "mean_ms": 6.863,
+        "p95_ms": 7.788
+      }
+    }
+  }
+}

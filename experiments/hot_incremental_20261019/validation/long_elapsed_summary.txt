@@ -1,0 +1,14 @@
+Guarded incremental elapsed proof: PASS
+Prefill: 300 acquisitions / 12000 rich synthetic rows
+Actual elapsed slots: 30/30; seconds=60.082
+Full history scan during polling: False
+Audit: True; repeated replay identical: True
+cycle_seconds: {'count': 30, 'mean_ms': 278.28, 'p95_ms': 283.247, 'max_ms': 285.461}
+verification_seconds: {'count': 30, 'mean_ms': 6.863, 'p95_ms': 7.788, 'max_ms': 8.185}
+state_prepare_seconds: {'count': 30, 'mean_ms': 2.292, 'p95_ms': 2.701, 'max_ms': 2.74}
+spool_and_check_seconds: {'count': 30, 'mean_ms': 3.763, 'p95_ms': 5.361, 'max_ms': 5.612}
+before_dispatch_gate_seconds: {'count': 30, 'mean_ms': 2.467, 'p95_ms': 2.873, 'max_ms': 2.885}
+before_api_gate_seconds: {'count': 30, 'mean_ms': 7.169, 'p95_ms': 8.277, 'max_ms': 8.707}
+recovery_before_slot_seconds: {'count': 30, 'mean_ms': 1.628, 'p95_ms': 3.026, 'max_ms': 3.781}
+Rich synthetic decoded payloads; captured Schwab payload replay pending
+Local scheduling evidence; no brokerage or market capacity claim

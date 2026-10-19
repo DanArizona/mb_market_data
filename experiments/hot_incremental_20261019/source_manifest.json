@@ -1,0 +1,759 @@
+{
+  "actual_remote_parent": "8f46d28e282589c2bc2132807eef21293758d33a",
+  "contract": "guarded-incremental-hot-review-bundle-v1",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "5a1f316aafb32d9be9ddc1731181615682377ac71564cf495b706ddeb5162340"
+    },
+    {
+      "path": "05_verify_hot_incremental.cmd",
+      "sha256": "414a4138b118b3a251eab3debdd6f27c89aae2e8dd9b394ef2bce4d366a69862"
+    },
+    {
+      "path": "06_export_hot_trial_payloads.cmd",
+      "sha256": "d375499628f78289083c89f06599c89d5be50850549571c15b4657699ac304ea"
+    },
+    {
+      "path": "README.md",
+      "sha256": "901116e22b6e19a2de85e2d18501a8993725fa83718d34330c4dad56baa38b63"
+    },
+    {
+      "path": "docs/Canonical_mb_package_Project_Roadmap.md",
+      "sha256": "03ea0b8b2d9c1557c9bffcee550b2c5090ed112b11ac91ef7507e0f6d93623fb"
+    },
+    {
+      "path": "docs/Operations_Quick_Reference.md",
+      "sha256": "9673e95869ecd231c2457cc928d50c27710f8dc2a6ad8b12a94dc44278353218"
+    },
+    {
+      "path": "docs/README.md",
+      "sha256": "6ffdc6fc45407e5f4ef05009b1d73e7b257e378648d0a9e8967dba75a3edcb4f"
+    },
+    {
+      "path": "docs/contracts/Atomic_Hierarchical_Membership_Contract_and_Implementation_Plan.md",
+      "sha256": "5466a8754bc16f534658bb22e95a89b3389d9cf299a8ccd9f0891249517d1504"
+    },
+    {
+      "path": "docs/contracts/Historical_Seek_Behavior_Specification.md",
+      "sha256": "5b5dda87fd0258adaaf48056d34e613e7de67c678c0e994745f0302755532d87"
+    },
+    {
+      "path": "docs/contracts/Observation_Overlay_MVP_Contract.md",
+      "sha256": "eea26f6008b3583913317f968004a61007972be41d87a75b22cb00fc4202f23a"
+    },
+    {
+      "path": "docs/plans/Historical_Seek_Implementation_Plan.md",
+      "sha256": "994e27d6a673f317ed55d6264f8cb5acbddbbb1fda6f1569f2c09eebd9aac868"
+    },
+    {
+      "path": "docs/runbooks/Acquisition_Health_and_Manual_Restart.md",
+      "sha256": "34947124fd239832c6f0ff6913d6ff8435603737253a428be14826a22fcaf66c"
+    },
+    {
+      "path": "docs/runbooks/Daily_Universe_Production_Runbook.md",
+      "sha256": "bbb894feae85ec18b9ccd2d523f35221a3dd44de31b1332691103b0aeb81456b"
+    },
+    {
+      "path": "docs/runbooks/Polling_Resilience_Deployment.md",
+      "sha256": "5103b28705d0e5d578514d2f99edf32b6582f44e39a1d423fc0f88dc6ba5227b"
+    },
+    {
+      "path": "docs/runbooks/Schema_v2_Live_Like_Transition_Runbook.md",
+      "sha256": "d1ab80fd82ff518131bb5ef38bdcdc13de0ab5fcaa5399e6c471dda200de0d1b"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/README.md",
+      "sha256": "a63c10746449d2168fd5c86fab74f0fc44f1541890f2ea44187c1ec2744fd83d"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/elapsed_proof.py",
+      "sha256": "53f5aa960a6631aa5638188312226140a4e88a82d9233c8dd577f82abd6dbea0"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/export_payloads.py",
+      "sha256": "d0f62f8cef1b29ddc1422db1f9536b9f7c94c58330120ac42a42ca207204a868"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/run_review.py",
+      "sha256": "c132d2150a4d4d03a0ade016b86480e3a3260baeabe536afe0f7064c0c1c01d0"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/asynchronous_diagnostic.txt",
+      "sha256": "b738fc23e9db22c3cf68b8e5304d0ef1c47e70fa11bb240f537315c58e9bfd7e"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/elapsed_summary.json",
+      "sha256": "e28b96345686c45c90492254a07c19fe0dea380f480d163bdc1ffcb3371573b7"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/elapsed_summary.txt",
+      "sha256": "399bd8000098ef8c8234f1ff398294a83e22fb78d371cd31025f4de149fa397a"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/extracted_first_failure.txt",
+      "sha256": "8a5b571e9cfba008cb57a89d0de6601a1df5f88295bdae76db4acba144a4f14b"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/extracted_guard_diagnostics.txt",
+      "sha256": "1bfdab9af7e9d7a314da2d1c791c8f7da08220d68d542c9a6837ba4163115da8"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/extracted_retry.txt",
+      "sha256": "e9538c4a1209d09bc21d3b6d0d1c40c86e1853daad88e93baf1484e14d701389"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/extracted_second_failure.txt",
+      "sha256": "bc035a9ef3988f3cc9f4abd743e740f952a9b4e2e55f1189ba09626ba028fa06"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/local_regression.txt",
+      "sha256": "0291604e6ad3fe18bc5b2c6ad1526312798268fa406e3bbe1073c485b63444e4"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/local_validation.json",
+      "sha256": "f57d805b8dddca19b43f0063c12277f86f0a64b45145cb91e0cb37a9c6a0622f"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/long_elapsed_summary.json",
+      "sha256": "5b0968e940b9200bbf0f28e0010ddac877fee078f8f937a6fe6bf9be0b953ac4"
+    },
+    {
+      "path": "experiments/hot_incremental_20261019/validation/long_elapsed_summary.txt",
+      "sha256": "ae24c5e30f5dad9cb2c69a04168ef4bd4e457834b0736329ea3a82721e7ba844"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/README.md",
+      "sha256": "40a6d3a8869c4bfdae06cbfceeb38a73a761393ccec0e00fb5b3aba55e0caa68"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/bundle_guard.py",
+      "sha256": "ad811df0053030fbf4912025a7e9e1997984da64b203b1c5922a38c175b360be"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/run_review.py",
+      "sha256": "6034576a22d18ef07647023a9c8163046dcc81d234277de4cff093047d24cd3b"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/source_manifest.json",
+      "sha256": "9abd2040a00a26d3255e69e6acd3e5f8fb422c6105455b87f946adbd0c64d12e"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/validation/extracted_bundle_verification.txt",
+      "sha256": "88b08ad33900c34d5ea6cf176cd353f0928ae5ac1a4da2f66ba29e70e6588c2f"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/validation/local_regression.txt",
+      "sha256": "8179e9f2582084564887d2797f3f7a67e2abcdcdc477baefb293aace9ebd2d09"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/validation/local_synthetic_trial.json",
+      "sha256": "0b03cee77b17c4b9f769c6c9bf50c3ce33b612649462e4487c7277b48f3b2ecb"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/validation/local_validation.json",
+      "sha256": "7d13c85e79c02386d0a899faa103bfd4e983623dd87a72e934c237db4ad28d51"
+    },
+    {
+      "path": "experiments/hot_provider_trial_20261018/validation/masterbot_acceptance_20261018.json",
+      "sha256": "0e831a1d9c5c1276f4f2a8995f7bfd134aa0924b916a8f020a76d9a2e1cf7316"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/README.md",
+      "sha256": "6143d176b0444063fae05605acfad0b65420eb15e08c2d06e0e76f20e9aaa2bd"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/run_review.py",
+      "sha256": "db36646cf6303e8fc74cb3c5f3653c6f6a12759ea5d71373bbc9b9c98922547a"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/source_manifest.json",
+      "sha256": "2f7a0244837397d71983d71b32ba258d27921f2731c8dd3b8b567037b89b3d1d"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/baseline_profile.txt",
+      "sha256": "21d78bbe78e3a666bac2b08592be2944fb95fd722a452621b8b997d0fe3b64a8"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/extracted_verification.txt",
+      "sha256": "a92426ecd7159aa4a0f0e6a30edc60729bb8e3f6022a84ca188c82e1bdd5e160"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/local_regression.txt",
+      "sha256": "97b03523ce25bafc190343ba59bdc1eb5469772af33f0a22824adb77e6ea8b69"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/local_validation.json",
+      "sha256": "dd0fb9f4a72a4ccc561315bd8255d07076060422f3f817b591ed0a7ec75aa574"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/masterbot_scale_result_20261019.json",
+      "sha256": "f982cb026d87ae101c93887e551fbea45ca2523c534fd024a30af0b1ef3d602f"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/native_growth_summary.json",
+      "sha256": "66cc0825d2694b8a729e7a83a343c8e420b50610684252473c1942fd8ded14fc"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/optimized_profile.txt",
+      "sha256": "7e842dbffb68f82eb0e4eddfaaefe51e6a7540e4d73136459cbd9a268236b191"
+    },
+    {
+      "path": "experiments/hot_scale_trial_20261018/validation/profile_fixture.txt",
+      "sha256": "60ae2443544b278f541f3065df747e1469551588abb6852e3f3ecb99df795e03"
+    },
+    {
+      "path": "output/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "probes/acquire_api_overnight_volume.py",
+      "sha256": "3c951d28bcd0366ba120a3a523c9d4c81b77aeb583af1f0ae113f4f91b810a75"
+    },
+    {
+      "path": "probes/acquire_daily_universe_snapshot.py",
+      "sha256": "79c4abb258e304352aaa52cf92719010dac99293eb8a295d384335fcb6fca09f"
+    },
+    {
+      "path": "probes/acquire_observation_overlay_ohlcv.py",
+      "sha256": "cfe09f0f01da6126e95a41e705415200ccd8d9db795c4cc7fca70d64e3702251"
+    },
+    {
+      "path": "probes/analyze_api_ov_cutoffs.py",
+      "sha256": "e9ba0e6a2c57eafbb4c25d81e58bdb0b03d6fc2016ba485c9343dd44c80a764a"
+    },
+    {
+      "path": "probes/audit_quote_observation_journal.py",
+      "sha256": "83c7467a46e9603ae2ecfc99f9b3f9bff931e3cf2a0812212a9bbbbcd49b02cd"
+    },
+    {
+      "path": "probes/build_daily_universe.py",
+      "sha256": "c5db1f4fdc09f76b9f017bae5ceea3fa8e235e67b25d3b95415d6570130b4dc3"
+    },
+    {
+      "path": "probes/build_opening_sampling_hierarchy.py",
+      "sha256": "91442cefc025ed29a0c1a43a2e26869bbc73d4d824d1ba72e00129b973b03b0e"
+    },
+    {
+      "path": "probes/dashboard_quote_observation_journal.py",
+      "sha256": "a04ddb41880b1b0aa94c0652b1025fe3696bb5dc9cb3e3bd71f22eabd178b5dc"
+    },
+    {
+      "path": "probes/evidence/2026-08-08-24-hour-trading-watchlist.csv",
+      "sha256": "5874149bdbdf56d54dee0961e740864b996c636c40d05b174916789bfbb4fa1d"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-OV_FINAL-derivation-validation.csv",
+      "sha256": "53bb92e08837fd359c034e5cebb4a4e5ce1dc8131039f431193a37efdf03d7a6"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-watchlist-export-50_symbols.csv",
+      "sha256": "0d9401d7e6ec6fc6eda044cfd6202f8968a2968283ef4cd15df31d377357155a"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-watchlist-export-OV_FINAL-OV_DECISION.csv",
+      "sha256": "27bd40755deb9f821f8132f3767fec63e10e2ab55c7a61f4435762eac683c8a6"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-watchlist-export-OVtest-OV_DECISION.csv",
+      "sha256": "c1083a3880ae5a08d21be9875a9ec2aa77d91c070524f27a238466a8c65eb721"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-watchlist.csv",
+      "sha256": "92b80a0f710407b0536dadc6e43008dd71fa4da058b77df27a6087bd2564d940"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-watchlist2.csv",
+      "sha256": "31c82e1c684ba721d07cffcfe91f7df10e06617a70dd8b1a8635157b571ef7e7"
+    },
+    {
+      "path": "probes/evidence/2026-08-10-watchlist3.csv",
+      "sha256": "344f287d027ca93c3f0dd595422ca6e7e64a44db04fa3f4cc9b5ec8a9b353acb"
+    },
+    {
+      "path": "probes/evidence/OV_DECISION.thinkscript",
+      "sha256": "2bd68b6a6c729b3640188b6c3807ec34e1019196fcc3d3dc4b868283cb4fedeb"
+    },
+    {
+      "path": "probes/evidence/OV_DECISION_dlg.png",
+      "sha256": "b90873b13dd0d491e1c78f308053cee9b78841f867efae2a625ca3d3b2edfbcb"
+    },
+    {
+      "path": "probes/evidence/OV_FINAL.thinkscript",
+      "sha256": "709531a86cbf14591a33522216f8f80fc2654464715ec20b064e4931bd10d5a4"
+    },
+    {
+      "path": "probes/evidence/OV_FINAL_dlg.png",
+      "sha256": "586dd648e2542f66ab1903f09a06cf5e78243b105422a39354f878e033b432b0"
+    },
+    {
+      "path": "probes/evidence/SPY_2026-08-07_ToS_5m_COV.png",
+      "sha256": "d33673be0f87a5e786eaea88d3608687f05cf6cfeba743d77b0025fcc050893a"
+    },
+    {
+      "path": "probes/evidence/SPY_2026-08-08_quote_output.txt",
+      "sha256": "d901f9e8e6a08be04f6ec5d53d60537559196970370970561725c46a5869abe4"
+    },
+    {
+      "path": "probes/evidence/SPY_2026-08-10_ToS_1m_COV.png",
+      "sha256": "b692d2b8e74c97d29076a7110b1ad23e415e66339a155f9f25e82921225d373a"
+    },
+    {
+      "path": "probes/evidence/SPY_2026-08-10_ToS_COV_0929_607650.png",
+      "sha256": "db4bdcec6037a77c730149a8dc14c7af5d1d16f565dd7a74a4aba0dab1c2255e"
+    },
+    {
+      "path": "probes/evidence/schema_v2_transition_2026-09-17/r0.json",
+      "sha256": "96c6a8686275a8f419edd311c6deb4140ddea021b6432a589baee468b2331ec2"
+    },
+    {
+      "path": "probes/evidence/schema_v2_transition_2026-09-17/r1.json",
+      "sha256": "7bdeb53c86c1a4bdcc95e4513a377468ee40817a28c6b10a24debcc0bb849263"
+    },
+    {
+      "path": "probes/manage_polling_resilience_deployment.py",
+      "sha256": "10c65fe6447fb7027ac92b4d1b84883ffa14d017f88e9befb3c11fe0e8df2782"
+    },
+    {
+      "path": "probes/monitor_nasdaq_trade_halts.py",
+      "sha256": "64296ec19ecfb6e72f61b5802150b758bbba4593cefd0b3c2b2d2089589c2012"
+    },
+    {
+      "path": "probes/polling_health.py",
+      "sha256": "d397926a83a53dd6acda5441f4803bc446f53bfb9ae155e72ee6d745e00632ea"
+    },
+    {
+      "path": "probes/probe_chart_equity.py",
+      "sha256": "e3d98d006e8001a8fdbec02a24d887c59a4b2af259a32376fba00a191d3031f7"
+    },
+    {
+      "path": "probes/probe_daily_ohlcv.py",
+      "sha256": "3a33f6783af466429b822ea4779be0585296739bece9ffc87938a853c63483a7"
+    },
+    {
+      "path": "probes/probe_decision_snapshot_live.py",
+      "sha256": "2414c94d8fe8c11b0017d844d21e6be16b7fea1e78146039a0231550743e9b42"
+    },
+    {
+      "path": "probes/probe_hot_quote_trial.py",
+      "sha256": "e483d2b686b75a36624a7d368bb1692b71d86589bd207f68206b0f127450eb43"
+    },
+    {
+      "path": "probes/probe_levelone_equities.py",
+      "sha256": "8d41a5a29d66e321528747ab231b040b5186e0144113e8a331ba860708d94ba7"
+    },
+    {
+      "path": "probes/probe_nasdaq_symbol_directory.py",
+      "sha256": "ece75ade991df81c05a0bd7cbb43b34fce4eeb5a110d6545571a7fd77859534a"
+    },
+    {
+      "path": "probes/probe_nasdaq_trade_halts.py",
+      "sha256": "f8c4bbcf9d61ac199abed8f8d51f5150786655970f6574d39700104fadf0aa09"
+    },
+    {
+      "path": "probes/probe_ov_final_derivation.py",
+      "sha256": "70bae2d8afe3c3529177b5db816828ec691cefdcd4b11d7aa6284fde84fff99b"
+    },
+    {
+      "path": "probes/probe_price_history.py",
+      "sha256": "3a1f9911ec14220240da744a16e4c64c4472fdbbf5dbee6a76289c1316ab6c6f"
+    },
+    {
+      "path": "probes/probe_price_history_ranges.py",
+      "sha256": "ff6d9b5eebf70b679f1bc20911ee008f3a0b1b46216fa7009ad1044c5b9436cc"
+    },
+    {
+      "path": "probes/probe_price_history_transport.py",
+      "sha256": "54933d93a45b57b2e66180446de0b92d5356a1ad2b2c1bd3b69e6ea517a3fd1c"
+    },
+    {
+      "path": "probes/probe_quote.py",
+      "sha256": "e3b4cd9a58281bab08dbfc796ae79ffae79438a390903fd983fdd864ab4a01ea"
+    },
+    {
+      "path": "probes/probe_quote_watch.py",
+      "sha256": "4a2928308831a958fdc9e9b0bc7592a79f00d28e15c1234976718d746dc68871"
+    },
+    {
+      "path": "probes/probe_quotes_batch_capacity.py",
+      "sha256": "7060f5fb9d958485c77f574d1ade6fd6ab13ec150e5db2781f023ebca1bdfb99"
+    },
+    {
+      "path": "probes/probe_quotes_batched_integration.py",
+      "sha256": "7ecd9ab2b0037fbfc029968f9e4fb7bfc73d60121ff7b569b53521fa78393478"
+    },
+    {
+      "path": "probes/probe_universe_quote_watch.py",
+      "sha256": "4dd4f58ccf6f6fadc42f2ceebedebe9ffdf4ab49642376b37cc76a74dda84b63"
+    },
+    {
+      "path": "probes/publish_sampling_hierarchy.py",
+      "sha256": "9b7c376c67774cc08167344dada375e40ff0d9d688f4fffd52dd0d362fc0f1cf"
+    },
+    {
+      "path": "probes/replay_quote_observation_journal.py",
+      "sha256": "36f805d101d0f97cb04677a9caab050a05679a25986ac8ca8d44df3d388694d7"
+    },
+    {
+      "path": "probes/run_daily_universe_production.py",
+      "sha256": "fdd2983fe6f8012fbcbf66c2a8429c55784a3130dbfa70ba25fd0e5c401e2b6c"
+    },
+    {
+      "path": "probes/synthetic_polling_session.py",
+      "sha256": "b59180b6382e4a20f87a72e7900f14ae34f54f3f474d73d18029754f4e991f59"
+    },
+    {
+      "path": "probes/verify_polling_write_recovery.py",
+      "sha256": "df0c9c77c444fb22ec62893582794dc4d10c1a36d9db53ebe5f74e58982034e4"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "2219fa15ed9d69245147231aa2b23a721c5cc13b92c3b7fcb3be9c2e38d78a99"
+    },
+    {
+      "path": "src/mb_market_data/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "src/mb_market_data/acquisition_health.py",
+      "sha256": "68817b9613f2e344753b020e9bd57e7eb2a63ff55ac6470baf27a377f18e3bcf"
+    },
+    {
+      "path": "src/mb_market_data/api_overnight_volume.py",
+      "sha256": "754d79f41d796101050d436d2ad2aa57020092ce2e9edf684665724fa85722a9"
+    },
+    {
+      "path": "src/mb_market_data/assets/favicon.svg",
+      "sha256": "1e2a5690be7c7ebd1dc2232cc54ec891871b41606a1ea049101692e7cb39ed4e"
+    },
+    {
+      "path": "src/mb_market_data/assets/observation_overlay_hover.js",
+      "sha256": "f89d3530698a28ab293fd9d7bb81dcb9d0e3bed16e3f171db23a26eee5de2798"
+    },
+    {
+      "path": "src/mb_market_data/assets/quote_dashboard.css",
+      "sha256": "2c5f16424d7e1279a9b3140bb52ee685fd3d1ec5923964c39a1de1b0a09b47b2"
+    },
+    {
+      "path": "src/mb_market_data/daily_universe.py",
+      "sha256": "220d9b24babc88b5f9b7f0f42b332baba0a3dd82122f33add48bb8c2580636b1"
+    },
+    {
+      "path": "src/mb_market_data/daily_universe_snapshot.py",
+      "sha256": "6042ee1ecb847f70a4853a66e30564df03d7907f1174fb7d4ff5b5e179e80069"
+    },
+    {
+      "path": "src/mb_market_data/daily_universe_workflow.py",
+      "sha256": "c46d5cce922d9b80bf5991f9ebf4ee432d060dbea2dce3cff4a49236ec1c7f87"
+    },
+    {
+      "path": "src/mb_market_data/decision_batch.py",
+      "sha256": "0ec1ef1cdcb64274ff8ac162d4bcca80e4b6a3a1bfd0897639940dcadc17081d"
+    },
+    {
+      "path": "src/mb_market_data/decision_snapshot.py",
+      "sha256": "a983c604204a5f40139fe33c6790a30d7a27bab7184e838c6c2edcaabb30dd8c"
+    },
+    {
+      "path": "src/mb_market_data/hot_provider_trial.py",
+      "sha256": "a660b888b78850626582e47f5bb402c39935d28e152b3b65a71e623dc2e4ce7b"
+    },
+    {
+      "path": "src/mb_market_data/local_dashboard_server.py",
+      "sha256": "407f33750529f0f2316c4d04b5f88810b317566d6d4330170e08e919ab668735"
+    },
+    {
+      "path": "src/mb_market_data/nasdaq_halt_monitor.py",
+      "sha256": "84c21deba478940fdc867181e710c9e541f7c067d6d28a1aea14474b3527d64a"
+    },
+    {
+      "path": "src/mb_market_data/nasdaq_halts.py",
+      "sha256": "7a6abfcf7447075c857398258104f67cbbccec1a3801022dbcfe87efcf42fe98"
+    },
+    {
+      "path": "src/mb_market_data/nasdaq_symbol_directory.py",
+      "sha256": "e6318080551e2ec9855ce2219c42c05d89efe4405c862fab89a9a2a060c82dc1"
+    },
+    {
+      "path": "src/mb_market_data/observation_overlay.py",
+      "sha256": "ea9d08e1207e2fd359f4091986b28aaed2c4a44e92bfb77ab863eb24fe15d996"
+    },
+    {
+      "path": "src/mb_market_data/observation_overlay_acquisition.py",
+      "sha256": "d00cd2d9fecf8459ab0b2a459304381062001d6e7f42d75a0284e7b50261e224"
+    },
+    {
+      "path": "src/mb_market_data/observation_overlay_view.py",
+      "sha256": "9095f2a9168b025a5d58d220958d28fbfbe3e3530ca182ff7d9f626d809a5e39"
+    },
+    {
+      "path": "src/mb_market_data/opening_hierarchy.py",
+      "sha256": "3268b37de8b85aaab91ebfab39f3cdcc121e1a745ff8c7647b8e4e1649aeccc5"
+    },
+    {
+      "path": "src/mb_market_data/ov_cutoff_analysis.py",
+      "sha256": "4e5e3cc97f57c0a654884ef33c1ec71134752b397c80c5dc256df87b3e8dd1df"
+    },
+    {
+      "path": "src/mb_market_data/overlay_halts.py",
+      "sha256": "9f390c982dac369b75a621bf1a0e4f9936beff12684a1c1d1241f3d2951c12dc"
+    },
+    {
+      "path": "src/mb_market_data/overnight_volume.py",
+      "sha256": "76dc30be67447b2c107cf5923b534c3f51938ea9e77bc32aa7b2a888bb44585d"
+    },
+    {
+      "path": "src/mb_market_data/polling_alarm.py",
+      "sha256": "362f26d01d4e814f9566a0117091a724c05e7ec2453a8ecfa2dde35158a9afc9"
+    },
+    {
+      "path": "src/mb_market_data/polling_health_status.py",
+      "sha256": "2e1d5be4fc973fc6c92671a97d58ad843531f1e108c05c5c7612efc9fecba40f"
+    },
+    {
+      "path": "src/mb_market_data/polling_journal.py",
+      "sha256": "e6ebc364026811c5f7afb2be055075e55ff9181d19f2ad11a6ff1feb735ae0be"
+    },
+    {
+      "path": "src/mb_market_data/polling_monitor_supervisor.py",
+      "sha256": "779c8c0e9aa7c4dcd334d1d1e5009c82073139cafec0318d7e72ae1600501535"
+    },
+    {
+      "path": "src/mb_market_data/quote_dashboard.py",
+      "sha256": "39d3e76824b383340aa7c097b5f1a8e1c644ff524619c2f499e392d55c469bb6"
+    },
+    {
+      "path": "src/mb_market_data/quote_dashboard_replay.py",
+      "sha256": "1d07b2f8a062811b44e25a6d340d31aa314199919c5299dfdcf55f86fa0e236c"
+    },
+    {
+      "path": "src/mb_market_data/quote_dashboard_view.py",
+      "sha256": "c86cf94774e4ec52bab3a5f185976ee10e7f4b6ed49ffd96443f38f76af16656"
+    },
+    {
+      "path": "src/mb_market_data/quote_event_state.py",
+      "sha256": "9d0b37ec2fcd34375f9ce752b447bcd35074ec3ebc4c4b6a828a2f256f41b84a"
+    },
+    {
+      "path": "src/mb_market_data/quote_journal_audit.py",
+      "sha256": "670b224eb1feb49de7ad2997746073ecca2e3934b3be5b202dc6c283e0e65d4f"
+    },
+    {
+      "path": "src/mb_market_data/quote_journal_replay.py",
+      "sha256": "8a98c2bf505a7e1d71d33da9c2e4817cb8b2e8c34d62d4611337497787fb0b79"
+    },
+    {
+      "path": "src/mb_market_data/quote_observation_store.py",
+      "sha256": "8f473241a1533b89e44da7c3c3af9f85fc7528e3e90fae4e2c8cc74682c08016"
+    },
+    {
+      "path": "src/mb_market_data/sampling_acquisition.py",
+      "sha256": "47edfd2e1b3f34485a29d1ecaed440f6dc9fc4e482f7d7cdb7b5bba675af06f4"
+    },
+    {
+      "path": "src/mb_market_data/sampling_incremental.py",
+      "sha256": "f29071e15f395f348c1e22549a0ac50c611527e0beff57617aa480b57a6edb97"
+    },
+    {
+      "path": "src/mb_market_data/sampling_membership.py",
+      "sha256": "8cb1005894ba34f8c2a46b8eee6d4c057116cdbfd244551629d0d6e700eff15e"
+    },
+    {
+      "path": "src/mb_market_data/schwab_candles.py",
+      "sha256": "f9cbd0dd70a17206f5cdd958d95b7a71d171042bdba46a275f7fc695facea9b5"
+    },
+    {
+      "path": "src/mb_market_data/schwab_quotes.py",
+      "sha256": "ed46be5ce75d382792f0b4974d1a68464d28ffbaf4212dd77d2aec23129dc8e0"
+    },
+    {
+      "path": "src/mb_market_data/sqlite_write_recovery.py",
+      "sha256": "d08072c41409b6b824327a468d1021f638e4243c80551d055d2801f2055af07e"
+    },
+    {
+      "path": "src/mb_market_data/tos_watchlist.py",
+      "sha256": "a5fca5ba7cdf8fe7d23b07110525b856a2e925ebf4e3e13024f8e4404456fb28"
+    },
+    {
+      "path": "src/mb_market_data/watchlist_polling.py",
+      "sha256": "a4726f34f97b049ca18c3da421a0316b6e5d8e87eaccecfce72f479ed068407a"
+    },
+    {
+      "path": "tests/test_acquisition_health.py",
+      "sha256": "2ffaebef543f754b0cc3b6d856866a4553bdd13b8340bb935844861f501ba34b"
+    },
+    {
+      "path": "tests/test_api_overnight_volume.py",
+      "sha256": "77f41dc042f7715b01afaf3cd45821d63c74dbea1d92e333cc8aacc697c0fd6c"
+    },
+    {
+      "path": "tests/test_api_overnight_volume_probe.py",
+      "sha256": "ca2513bd1b2322905169b109b97659a4aed5f9336f4a5f319b75bad4166a1ca8"
+    },
+    {
+      "path": "tests/test_daily_ohlcv_probe.py",
+      "sha256": "ce13dc4441edd64d7ae25aaee4ee797bc5521d7aa2a88b13a57e618022febc72"
+    },
+    {
+      "path": "tests/test_daily_universe.py",
+      "sha256": "f34bca505998c8fbcc708cc4adbc501c279073db42940342b82e923822a1fdba"
+    },
+    {
+      "path": "tests/test_daily_universe_snapshot.py",
+      "sha256": "8ad425b4ad2414271603ba3b42de5054da98342f426f5dbf42e400a835b522ad"
+    },
+    {
+      "path": "tests/test_daily_universe_workflow.py",
+      "sha256": "1c705ed6fc43d5221cec87690eb3f2d0c5706dbda157e7c60ea08dcbc6000961"
+    },
+    {
+      "path": "tests/test_decision_batch.py",
+      "sha256": "57d1383ed0607f2562ed969fdf28c958c6d3eeb94a2f7ca48145f908a2d92757"
+    },
+    {
+      "path": "tests/test_decision_snapshot.py",
+      "sha256": "f95c6a93b90bd0ea99a88e579fc55b42b8b681b2b5d947a3bfb25ccc88a8cb33"
+    },
+    {
+      "path": "tests/test_hot_incremental_review.py",
+      "sha256": "19117dfe03af05605f2bbf440a309703ae469a9ec6d89b6a2f032c4bbc9b9407"
+    },
+    {
+      "path": "tests/test_hot_provider_trial.py",
+      "sha256": "b78c8304650b26945386a9271c4b3c4059c5ddd58f2301da55d747d1a7038611"
+    },
+    {
+      "path": "tests/test_hot_scale.py",
+      "sha256": "0544108dc23b7036276baea781add5b9dc11a65a1d2832761ae8494c76fed541"
+    },
+    {
+      "path": "tests/test_hot_trial_bundle.py",
+      "sha256": "17325bcf9af91afb0d252cb73937bd5d927f224a88db3f9de15f32ccad5790f6"
+    },
+    {
+      "path": "tests/test_local_dashboard_server.py",
+      "sha256": "b965b5ee9a0521ca6fd851b07a7922513855959679d4318d81e22b09af59ae83"
+    },
+    {
+      "path": "tests/test_monitor_status_recovery.py",
+      "sha256": "16aa6d16091dcb0cf0292dccc3c3bf350f0df360afefc61590ae641cd2c1209f"
+    },
+    {
+      "path": "tests/test_nasdaq_symbol_directory.py",
+      "sha256": "a0a3b983ea57c9ced8b378c0c876b06b3d7a14a69f2114fa2146a5405752a0f6"
+    },
+    {
+      "path": "tests/test_observation_overlay.py",
+      "sha256": "8a48e105e7cb58fae70a955434ff2b99911c9b4837419e902b64161d9c42dffb"
+    },
+    {
+      "path": "tests/test_observation_overlay_acquisition.py",
+      "sha256": "b622f77298e928cfbe6412da4d49f992846c79f1fad81a0460437a3fdc95507f"
+    },
+    {
+      "path": "tests/test_observation_overlay_acquisition_probe.py",
+      "sha256": "d3c985360f7fee6dbb48f025c3d9e81eeefadbf2e3ee761e8b807e93659362e3"
+    },
+    {
+      "path": "tests/test_observation_overlay_view.py",
+      "sha256": "562d1157f6ebbb08bc1b9a2233f17d70834030ed56163d93a12955b71e413b58"
+    },
+    {
+      "path": "tests/test_opening_hierarchy.py",
+      "sha256": "e346ad073911fb6eab86b37e3206660700082dfbe074980e9da78d1e3c3c420e"
+    },
+    {
+      "path": "tests/test_ov_cutoff_analysis.py",
+      "sha256": "0b0cca2e3fd1b2e9c44272bc42bb331453219c2ab7f3a183440584963618d593"
+    },
+    {
+      "path": "tests/test_ov_cutoff_analysis_probe.py",
+      "sha256": "14abd9bb33cb99c0e1f11558828e2cf54fff7579eac22e95055ed09976650c33"
+    },
+    {
+      "path": "tests/test_overlay_halts.py",
+      "sha256": "ef9f62c12fffc22c7431bf07b7430b3405a03c29168d41e0d1385d7aa72683aa"
+    },
+    {
+      "path": "tests/test_overnight_volume.py",
+      "sha256": "0ad802ba1862050d8f00f33263f4646750661e9409677667e38d53ba681d90da"
+    },
+    {
+      "path": "tests/test_polling_health_status.py",
+      "sha256": "53c84723db4c5b1cec1a0d877b653a564674a801897c8a63aa56506d05aa3461"
+    },
+    {
+      "path": "tests/test_polling_journal.py",
+      "sha256": "e258b7bf95817f8a23d881cac9b0d84ddbe3c01ac45ab2bb372c978575ecba97"
+    },
+    {
+      "path": "tests/test_publish_sampling_hierarchy_probe.py",
+      "sha256": "42c9129ad1ddb0b124c85807136c6fdc294472151b62b5e570199af145dcc43f"
+    },
+    {
+      "path": "tests/test_quote_dashboard.py",
+      "sha256": "90892d1dd5ae907572c156ff2d1c703d9b8082461b8ee18de879fcb86410529f"
+    },
+    {
+      "path": "tests/test_quote_dashboard_probe.py",
+      "sha256": "b1574cf084deb939dfb3806029b17b2ae23180081080f5291c28f320dbae8b13"
+    },
+    {
+      "path": "tests/test_quote_dashboard_replay.py",
+      "sha256": "48927c5ed7dc793b7f78838ac1cdce90d52a8b6f963cd69cf63ddc298e2d5227"
+    },
+    {
+      "path": "tests/test_quote_event_state.py",
+      "sha256": "7d5ce746aa1934c95ac9d49ee81142cbe507c13902b8611733a2c8b79594b5de"
+    },
+    {
+      "path": "tests/test_quote_journal_audit.py",
+      "sha256": "52c0e235aac520666128f24e7b890c0a52a61b4d3c4cf5b5050919d105a7dbab"
+    },
+    {
+      "path": "tests/test_quote_journal_replay.py",
+      "sha256": "95e024a486ba3654d0a872e568d6bb4fb58d07643437e29e906dca6746f8d5c7"
+    },
+    {
+      "path": "tests/test_quote_observation_store.py",
+      "sha256": "41040da3f5b4535a0b675c85f29e994d0c244eecffd6e3d8d567d7c2ebd92f46"
+    },
+    {
+      "path": "tests/test_sampling_acquisition.py",
+      "sha256": "361c387acf667ce9288598c04d9e3ee4e1505db360601770ed8ac6b86b13ab2d"
+    },
+    {
+      "path": "tests/test_sampling_incremental.py",
+      "sha256": "f5e3fa536caa2cb17145abb1aa21f44860b355d62ea1454994e7c13aa2b30bfd"
+    },
+    {
+      "path": "tests/test_sampling_membership.py",
+      "sha256": "8ac10790161cd186c0a32bc5889bb643c622d50c780ed16c67c3807df832186d"
+    },
+    {
+      "path": "tests/test_schwab_candles.py",
+      "sha256": "4fa252c60b10fffe5a1ec6b668ee771254c1d586907b91c0edab55c4e8b0ec0f"
+    },
+    {
+      "path": "tests/test_schwab_quotes.py",
+      "sha256": "0e5f3fd3ac22240eac4e5966b0375c4bf7962bca875c05010e558b9b16c8b249"
+    },
+    {
+      "path": "tests/test_sqlite_write_recovery.py",
+      "sha256": "d93b95a016ce4159ec512cec568349c83ecb347f70964ef979b24f37e550bff6"
+    },
+    {
+      "path": "tests/test_tos_watchlist.py",
+      "sha256": "3da32f4b5161fb0ac2d557d9f423a9f2560ef4b3e865648cc4a60edab83e50c7"
+    },
+    {
+      "path": "tests/test_universe_quote_watch_credentials.py",
+      "sha256": "89995e414a63fcf0cbc521cca959ef3351d0aaf4396f07d4b3a3f04ced6fd4ba"
+    },
+    {
+      "path": "tests/test_watchlist_polling.py",
+      "sha256": "1ec8c70490beb868f692625ba70ce1da0dfe2fef555fd8804307fe67871e5635"
+    }
+  ],
+  "market_data_baseline_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d"
+}

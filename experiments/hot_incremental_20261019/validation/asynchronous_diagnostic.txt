@@ -1,0 +1,29 @@
+Logical prefill: 50/300 acquisitions; 2000 observations
+Logical prefill: 100/300 acquisitions; 4000 observations
+Logical prefill: 150/300 acquisitions; 6000 observations
+Logical prefill: 200/300 acquisitions; 8000 observations
+Logical prefill: 250/300 acquisitions; 10000 observations
+Logical prefill: 300/300 acquisitions; 12000 observations
+Actual elapsed scheduling: 8 slots at 2 seconds; injected synthetic request latency 250 ms; 750 ms dispatch deadline unchanged.
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+  Elapsed slot: acquired
+Guarded incremental elapsed proof: PASS
+Prefill: 300 acquisitions / 12000 rich synthetic rows
+Actual elapsed slots: 8/8; seconds=16.075
+Full history scan during polling: False
+Audit: True; repeated replay identical: True
+cycle_seconds: {'count': 8, 'mean_ms': 276.192, 'p95_ms': 281.78, 'max_ms': 281.78}
+verification_seconds: {'count': 8, 'mean_ms': 6.632, 'p95_ms': 7.645, 'max_ms': 7.645}
+state_prepare_seconds: {'count': 8, 'mean_ms': 2.392, 'p95_ms': 2.637, 'max_ms': 2.637}
+spool_and_check_seconds: {'count': 8, 'mean_ms': 3.47, 'p95_ms': 4.29, 'max_ms': 4.29}
+before_dispatch_gate_seconds: {'count': 8, 'mean_ms': 2.546, 'p95_ms': 2.794, 'max_ms': 2.794}
+before_api_gate_seconds: {'count': 8, 'mean_ms': 6.916, 'p95_ms': 7.976, 'max_ms': 7.976}
+recovery_before_slot_seconds: {'count': 8, 'mean_ms': 1.387, 'p95_ms': 1.629, 'max_ms': 1.629}
+Rich synthetic decoded payloads; captured Schwab payload replay pending
+Local scheduling evidence; no brokerage or market capacity claim
