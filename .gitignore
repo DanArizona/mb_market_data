@@ -50,3 +50,4 @@ Thumbs.db
 /coordinator_src/
 /experiments/combined_load_20261019/source_manifest.json
 /experiments/combined_schwab_20261019/source_manifest.json
+/experiments/nasdaq_shadow_20261019/source_manifest.json
