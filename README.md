@@ -1236,3 +1236,11 @@ The isolated [combined-load review](experiments/combined_load_20261019/README.md
 exercises the pinned Coordinator with native incremental Uni/Focus/Hot collectors
 using generated responses, actual elapsed schedules and fresh experimental journals.
 Its packaged verify/run/stop commands require no API or credentials.
+
+### Combined Schwab trial
+
+The optional [combined Schwab trial](experiments/combined_schwab_20261019/README.md)
+adds actual provider responses to the separate four-process review, with an
+explicit five-minute/190-quote-call budget, read-only proposal inputs, private
+worker credential input, and experiment-only stop commands. It requires its own
+offline verification and does not activate production Hot polling.

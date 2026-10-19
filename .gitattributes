@@ -1,3 +1,6 @@
 09_verify_combined.cmd text eol=crlf
 10_run_combined.cmd text eol=crlf
 11_stop_combined.cmd text eol=crlf
+12_verify_combined_schwab.cmd text eol=crlf
+13_run_combined_schwab.cmd text eol=crlf
+14_stop_combined_schwab.cmd text eol=crlf
