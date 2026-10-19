@@ -12,7 +12,7 @@
     },
     {
       "path": "experiments/hot_scale_trial_20261018/README.md",
-      "sha256": "618b23bee40b98c3d507675dab1509b449bb9eb1837b8730948c91e0bff67297"
+      "sha256": "6143d176b0444063fae05605acfad0b65420eb15e08c2d06e0e76f20e9aaa2bd"
     },
     {
       "path": "experiments/hot_scale_trial_20261018/run_review.py",

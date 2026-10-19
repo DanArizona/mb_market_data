@@ -1,0 +1,105 @@
+{
+  "authenticated_trial_passed": false,
+  "bundle": "hot_scale_20261019_002119_df5781.zip",
+  "client_preparation_seconds": 1.342,
+  "evidence": {
+    "filename": "Pasted text(20261019-021156).txt",
+    "final_cmd_prompt_observed": true,
+    "host_report_files_retrieved": false,
+    "kind": "supplied CMD transcript; begins with offline verification summary",
+    "library_file_id": "libfile_bd79692438588191a7c7db58c44f18cb",
+    "sha256": "adbab6ea5e54e80d339598cbd6d0a24d70a8ec27d3d1a45804ec3537b87b27f7"
+  },
+  "four_second_scope": "75/75 slots in this five-minute phase only; full-session capacity unvalidated",
+  "host_reports": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\hot_scale_20261019_002119_df5781\\runs\\hot_scale_schwab\\20261019T015628Z-8ee830fd",
+  "implementation_commit": "2aec0f05b98601e401e07da5a4ef70248833ae04",
+  "interpretation": {
+    "evidence_supported_diagnosis": "Growing full-history verification is the leading bottleneck; pre-request lateness checks can reject slots even with acquired cycles below two seconds. Exact per-slot gate timing requires host report/sidecar inspection.",
+    "late_dispatch_gate_seconds": 0.75,
+    "misses_injected": false,
+    "next": "Fix growing verification work in the per-slot path and improve deadline diagnostics before repeating this trial or adding combined channel load.",
+    "offline_scope": "Logical clock jumps ignore elapsed CPU time for slot deadlines; small synthetic payloads and logical coverage do not prove real-time capacity.",
+    "reporting_caveat": "all requested rows are quotes=False is coverage-dependent; all actually recorded observations were quotes.",
+    "safe_behavior": "late/expired slots are missed without catch-up requests"
+  },
+  "interrupted": false,
+  "missing_slots": 42,
+  "missing_symbol_observations": 1680,
+  "offline_verification_reported": "PASS; logical 225/225 synthetic acquisitions, 9000 quotes; complete test listing not supplied",
+  "phases": [
+    {
+      "acquisitions": 108,
+      "cycle_ms": {
+        "max": 1448.628,
+        "mean": 826.619,
+        "p95": 1251.709
+      },
+      "cycle_thirds_mean_ms": [
+        504.94,
+        823.252,
+        1151.665
+      ],
+      "first_missed_slot_et": "2026-10-18T21:59:52-04:00",
+      "interval_seconds": 2,
+      "journal_ms": {
+        "max": 12.332,
+        "mean": 9.5,
+        "p95": 11.322
+      },
+      "missing_slots": 42,
+      "observations": 4320,
+      "planned_slots": 150,
+      "request_ms": {
+        "max": 437.756,
+        "mean": 251.923,
+        "p95": 328.803
+      },
+      "verification_within_cycle_ms": {
+        "max": 957.745,
+        "mean": 530.007,
+        "p95": 944.847
+      }
+    },
+    {
+      "acquisitions": 75,
+      "cycle_ms": {
+        "max": 1450.505,
+        "mean": 710.637,
+        "p95": 1061.382
+      },
+      "cycle_thirds_mean_ms": [
+        454.498,
+        734.038,
+        943.375
+      ],
+      "interval_seconds": 4,
+      "journal_ms": {
+        "max": 13.885,
+        "mean": 9.426,
+        "p95": 11.731
+      },
+      "missing_slots": 0,
+      "observations": 3000,
+      "planned_slots": 75,
+      "request_ms": {
+        "max": 1005.696,
+        "mean": 280.635,
+        "p95": 427.317
+      },
+      "verification_within_cycle_ms": {
+        "max": 812.482,
+        "mean": 389.168,
+        "p95": 726.866
+      }
+    }
+  ],
+  "planned_quote_client_calls": 225,
+  "quote_client_calls": 183,
+  "quote_observations": 7320,
+  "received_statuses": {
+    "quote": 7320
+  },
+  "reported_error_type": null,
+  "roster_size": 40,
+  "two_second_capacity_accepted": false
+}

@@ -88,3 +88,42 @@ latency, simultaneous Uni/Focus/Hot capacity, or a production Hot cadence.
 Next review the growth/capacity results, then test combined channel traffic and
 trading-hours behavior. Production catalog/broker admission, source
 transport/authentication, genuine new live-halt proof and adoption remain open.
+
+
+## MasterBot result — October 18 evening
+
+The supplied console tail reports offline verification PASS (225 synthetic
+acquisitions and 9000 quotes). The complete 60-test listing was not included.
+The authenticated larger-roster trial **failed two-second coverage**:
+
+| Interval | Acquisitions | Missed slots | Mean request | Mean complete cycle |
+| --- | --- | --- | --- | --- |
+| 2 seconds | 108/150 | 42 | 252 ms | 827 ms |
+| 4 seconds | 75/75 | 0 | 281 ms | 711 ms |
+
+All 7320 actually recorded observations are quotes, with no reported provider
+error outcomes. The summary's `all requested rows are quotes=False` includes
+missing planned acquisitions; it is not evidence that returned quote rows
+were invalid. The process completed and returned to CMD, but this is not a
+successful two-second capacity result. Four seconds covered this five-minute
+phase only; no all-day capacity claim follows.
+
+No misses were injected. The deliberately strict 750ms dispatch-lateness gate
+skips a slot before its quote request if verification/persistence has already
+consumed that budget. It is separate from the two-second period. The largest
+completed 2s-phase cycle was 1.449s, so explaining these misses as cycles simply
+exceeding two seconds would be incorrect. Full-history verification inside
+and ahead of each request grows: first/middle/last-third cycle means were
+505/823/1152ms at 2s and 454/734/943ms at 4s. The evidence strongly points to this
+local work and the dispatch deadline; precise per-slot gate timings remain in
+the unrequested host report/sidecar. The offline logical proof never claimed
+wall-clock deadlines and used smaller synthetic payloads.
+
+The next priority is to remove growing full-history work from normal per-slot
+processing while preserving durable incremental integrity and full restart/
+audit checks, then repeat this isolated measurement before combined-load work.
+Add explicit timings for the lateness gates and distinguish received quote
+success from planned coverage in summaries. This result is retained in
+`validation/masterbot_scale_result_20261019.json`; implementation/tests and the
+accepted test ZIP are unchanged. No rerun is needed for this documentation-only
+record, and another provider run is not the next action.
