@@ -106,7 +106,7 @@ def main(argv=None):
             if (folder/'summary.txt').is_file(): print((folder/'summary.txt').read_text(encoding='utf-8'),flush=True)
             print('Result: '+result['result']+'; reports: '+str(folder),flush=True)
             print('Finished. This command returns to its prompt.',flush=True)
-            return 0 if result['result'] in ('PASS','STOPPED') else 1
+            return 0 if result['result'] in ('PASS','PASS_WITH_WARNINGS','STOPPED') else 1
     except KeyboardInterrupt:
         if folder is not None and folder.is_dir():write_json(folder/'result.json',{'result':'STOPPED','reason':'operator_interrupt'})
         print('Experiment interrupted; owned workers stopped. Inspect retained evidence for unresolved outcomes.',flush=True)

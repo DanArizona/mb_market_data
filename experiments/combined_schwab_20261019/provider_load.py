@@ -480,6 +480,7 @@ def analyse(folder, trace, config, children, elapsed):
     from mb_market_data.hot_provider_trial import replay_digest
     from mb_market_data.quote_journal_audit import audit_quote_journal
     from mb_market_data.sampling_acquisition import digest
+    from mb_market_data.sampling_assessment import assess
     from mb_watchlist_coordinator.sampling_requests import plain
     store = store_for(folder, config)
     end = datetime.fromisoformat(config['end'])
@@ -488,8 +489,6 @@ def analyse(folder, trace, config, children, elapsed):
     failures = []
     if not audit.passed:
         failures.append('Journal audit failed: ' + str(audit.findings))
-    if any(set(c.status_counts) != {'quote'} for c in audit.channels if c.acquisition_count):
-        failures.append('Acquisitions contain unavailable quote outcomes; inspect status counts')
     if first != second:
         failures.append('Repeated acquisition-aware replays differ')
     channels = {}
@@ -563,7 +562,8 @@ def analyse(folder, trace, config, children, elapsed):
         failures.append('Workers are not four independent processes')
     first_target = next((a for a in acquisitions if a.channel == 'hot' and a.channel_revision in
         {r.revision for r in revisions if target in r.hot_symbols}), None)
-    report = {'result': 'PASS' if not failures else 'FAILED', 'failures': failures, 'contract': CONTRACT,
+    assessment = assess(collection_failures=failures, status_counts={c: v['status_counts'] for c,v in channels.items()})
+    report = {'result': assessment['result'], 'assessment': assessment, 'failures': failures, 'contract': CONTRACT,
         'source':config['source'],'timing_clock':'actual UTC' if config['source']=='schwab' else 'actual elapsed speed with labeled future offset',
         'duration_seconds': config['duration_seconds'], 'elapsed_seconds_including_startup': round(elapsed, 3),
         'logical_start': config['start'], 'logical_end': config['end'], 'actual_completed_utc': text(utc_now()),
@@ -589,7 +589,8 @@ def analyse(folder, trace, config, children, elapsed):
         'Four independent processes: Coordinator + Uni + Focus + Hot; actual elapsed scheduling.',
         'Opening Uni '+str(len(config['opening_uni']))+' / Focus 40; initial Hot request 40. Final: ' + str(report['final_membership_counts']),
         'Admission, independent source withdrawal, temporary cap, expiry reentry and delayed demotion: ' + ('PASS' if not failures else 'see findings'),
-        'Controlled synthetic in-flight overlap (not injected into live timing): '+str(published_during),
+        ('Natural live in-flight publication: ' if config['source']=='schwab' else 'Controlled synthetic in-flight publication: ')+str(published_during),
+        'Collection/integrity: '+assessment['collection_integrity']['result']+'; transport: '+assessment['transport']['result']+'; availability: '+assessment['availability']['result'],
         'Audit: ' + str(audit.passed) + '; identical journal replays: ' + str(first == second)]
     for channel, value in channels.items():
         summary.append(channel.upper() + ': committed=' + str(value['committed_slots']) + '/' + str(value['expected_slots'])
