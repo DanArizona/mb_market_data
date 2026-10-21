@@ -1,0 +1,18 @@
+{
+  "package": "coordinator_scaling_20261021_211638_62f0a8.zip",
+  "bytes": 152072,
+  "sha256": "965895957bf7b923709f7a98eab8faa34096affba76bfb8dbbb1c89ea3b70372",
+  "files": 71,
+  "coordinator_source_local_commit": "e42513b987d2571b37793f6d7ab92f73cfcf8705",
+  "coordinator_github_commit": "0e8d4630f9a3670f79201d829abfb8f43ea83533",
+  "coordinator_github_branch": "experiment/coordinator-scaling-2026-10-21",
+  "full_tree_verified": "dd44043c3f13d61c17c56f445cb3d9ad442d4bd5",
+  "focused_tests": 165,
+  "source_tree_and_extracted_qualification": "PASS",
+  "inventory_tamper_stopped_before_tests": true,
+  "retained_live_request_original_bytes_match_archive": true,
+  "windows_qualification": "PENDING",
+  "production_changed": false,
+  "provider_calls": 0,
+  "scope": "First measured scaling increment; full replay remains linear in history, with no persistent ledger-validation cache."
+}
