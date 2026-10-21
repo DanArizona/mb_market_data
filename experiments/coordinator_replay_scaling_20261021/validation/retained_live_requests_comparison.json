@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "source": "Read-only original accepted interleaved live request ledger; no provider calls",
+  "ledger_sha256_before_and_after": "96e1b67fabef1534559cf34ec8e5b68e14402e609bf0681d864b25665952b804",
+  "ledger_bytes_unchanged": true,
+  "results": {
+    "accepted_first_increment": {
+      "events": 11,
+      "state_digest": "e7407c99d31d7dba6f7992daea6b97752147d3700a7fbe9384e35c65d2ae4693"
+    },
+    "replay_value_reuse": {
+      "events": 11,
+      "state_digest": "e7407c99d31d7dba6f7992daea6b97752147d3700a7fbe9384e35c65d2ae4693"
+    }
+  },
+  "scope": "Pure saved request-state reconstruction only; no relocated publication or provider-capacity claim."
+}

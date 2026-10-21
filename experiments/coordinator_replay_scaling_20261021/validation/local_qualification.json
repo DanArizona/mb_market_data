@@ -1,0 +1,254 @@
+{
+  "result": "PASS",
+  "source": "synthetic_only",
+  "network": "denied",
+  "tests": 171,
+  "baseline_commit": "abeeeb67274581b579a1c325c902e7383a3ed890",
+  "baseline_github_commit": "6ffa1cd5ec0d4848b4528f4a2e4fb69c1ee9749a",
+  "benchmarks": {
+    "withdrawn_hot": {
+      "baseline": [
+        {
+          "events": 301,
+          "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+          "cold_read_ms": 99.587,
+          "warm_read_mean_ms": 104.391,
+          "pure_replay_mean_ms": 100.175,
+          "idle_cycle_mean_ms": 116.721,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "5117f03dfbd813d3b73555a3121143c7f5c18895ad1a596360b3c0fe7a8b25aa",
+          "cold_read_ms": 324.759,
+          "warm_read_mean_ms": 333.075,
+          "pure_replay_mean_ms": 300.494,
+          "idle_cycle_mean_ms": 329.463,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "c82f0220968ab3bec9415a124aab0345cec77ca111578aa8f8ae96e42ab03d89",
+          "cold_read_ms": 939.431,
+          "warm_read_mean_ms": 1037.838,
+          "pure_replay_mean_ms": 988.06,
+          "idle_cycle_mean_ms": 1102.109,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ],
+      "optimized": [
+        {
+          "events": 301,
+          "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+          "cold_read_ms": 22.37,
+          "warm_read_mean_ms": 20.499,
+          "pure_replay_mean_ms": 20.316,
+          "idle_cycle_mean_ms": 34.579,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "5117f03dfbd813d3b73555a3121143c7f5c18895ad1a596360b3c0fe7a8b25aa",
+          "cold_read_ms": 67.757,
+          "warm_read_mean_ms": 62.203,
+          "pure_replay_mean_ms": 51.924,
+          "idle_cycle_mean_ms": 74.719,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "c82f0220968ab3bec9415a124aab0345cec77ca111578aa8f8ae96e42ab03d89",
+          "cold_read_ms": 175.828,
+          "warm_read_mean_ms": 174.092,
+          "pure_replay_mean_ms": 140.228,
+          "idle_cycle_mean_ms": 176.433,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ]
+    },
+    "steady_hot": {
+      "baseline": [
+        {
+          "events": 301,
+          "state_digest": "9640831887cde8b017b06ba40d8610b1a746c101e21109d7848185519a5f359e",
+          "cold_read_ms": 131.589,
+          "warm_read_mean_ms": 116.666,
+          "pure_replay_mean_ms": 106.931,
+          "idle_cycle_mean_ms": 127.151,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "b088b6c33bd005e195c9c8c01e0245bd4fb7c2fe506484cb38a8529925466ad6",
+          "cold_read_ms": 413.533,
+          "warm_read_mean_ms": 421.043,
+          "pure_replay_mean_ms": 347.109,
+          "idle_cycle_mean_ms": 432.245,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "34f68a5b486961b5cb3ead94681f6e7077087d684ff64d9a24e064de8e22c003",
+          "cold_read_ms": 1168.288,
+          "warm_read_mean_ms": 1209.053,
+          "pure_replay_mean_ms": 1137.681,
+          "idle_cycle_mean_ms": 1246.898,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ],
+      "optimized": [
+        {
+          "events": 301,
+          "state_digest": "9640831887cde8b017b06ba40d8610b1a746c101e21109d7848185519a5f359e",
+          "cold_read_ms": 25.455,
+          "warm_read_mean_ms": 24.922,
+          "pure_replay_mean_ms": 19.821,
+          "idle_cycle_mean_ms": 46.44,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "b088b6c33bd005e195c9c8c01e0245bd4fb7c2fe506484cb38a8529925466ad6",
+          "cold_read_ms": 77.187,
+          "warm_read_mean_ms": 80.572,
+          "pure_replay_mean_ms": 69.422,
+          "idle_cycle_mean_ms": 96.054,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "34f68a5b486961b5cb3ead94681f6e7077087d684ff64d9a24e064de8e22c003",
+          "cold_read_ms": 222.763,
+          "warm_read_mean_ms": 226.414,
+          "pure_replay_mean_ms": 203.169,
+          "idle_cycle_mean_ms": 243.103,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ]
+    }
+  },
+  "replay_and_decisions_identical": true,
+  "scope": "Two logical 531-Uni/40-Focus workloads, 301/1001/3001 events, three calls per size; not elapsed market/full-day capacity.",
+  "integrity": "Every receipt/hash/admission and policy timer still replays; identical validated immutable membership values are reused only inside that replay.",
+  "remaining": "History is still fully reread/replayed; this is no persistent incremental checkpoint or full-day/provider qualification."
+}

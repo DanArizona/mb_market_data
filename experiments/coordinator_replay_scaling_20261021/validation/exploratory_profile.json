@@ -1,0 +1,125 @@
+{
+  "scope": "Exploratory single unprofiled reads plus separate cProfile runs; final paired benchmark required",
+  "before": [
+    {
+      "events": 301,
+      "validated_read_ms": 113.349,
+      "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983"
+    },
+    {
+      "events": 1001,
+      "validated_read_ms": 376.479,
+      "state_digest": "3e06d4c74dd40d9b268dfc67baa8de26535e818168ab7d8694b2fababacbe26a"
+    },
+    {
+      "events": 3001,
+      "validated_read_ms": 1165.388,
+      "state_digest": "70cb228801c4aa30b0e805339360204e7b565ca24c42ee84a31fc93cf0e6d378"
+    }
+  ],
+  "after": [
+    {
+      "events": 301,
+      "before_validated_read_ms": 113.349,
+      "after_validated_read_ms": 20.698,
+      "complete_state_digest_identical": true,
+      "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983"
+    },
+    {
+      "events": 1001,
+      "before_validated_read_ms": 376.479,
+      "after_validated_read_ms": 57.447,
+      "complete_state_digest_identical": true,
+      "state_digest": "3e06d4c74dd40d9b268dfc67baa8de26535e818168ab7d8694b2fababacbe26a"
+    },
+    {
+      "events": 3001,
+      "before_validated_read_ms": 1165.388,
+      "after_validated_read_ms": 177.276,
+      "complete_state_digest_identical": true,
+      "state_digest": "70cb228801c4aa30b0e805339360204e7b565ca24c42ee84a31fc93cf0e6d378"
+    }
+  ],
+  "profile": {
+    "before": {
+      "total_calls": 14744605,
+      "functions": [
+        {
+          "module": "sampling_policy.py",
+          "function": "apply_policy",
+          "calls": 3001,
+          "self_seconds": 0.084056,
+          "cumulative_seconds": 1.623215
+        },
+        {
+          "module": "sampling_requests.py",
+          "function": "replay_requests",
+          "calls": 1,
+          "self_seconds": 0.108123,
+          "cumulative_seconds": 3.498741
+        },
+        {
+          "module": "sampling_projection.py",
+          "function": "_symbols",
+          "calls": 36012,
+          "self_seconds": 0.025561,
+          "cumulative_seconds": 3.006427
+        },
+        {
+          "module": "sampling_projection.py",
+          "function": "__post_init__",
+          "calls": 12004,
+          "self_seconds": 0.03356,
+          "cumulative_seconds": 3.04508
+        },
+        {
+          "module": "sampling_requests.py",
+          "function": "__post_init__",
+          "calls": 3001,
+          "self_seconds": 0.00256,
+          "cumulative_seconds": 0.027866
+        }
+      ]
+    },
+    "after": {
+      "total_calls": 836591,
+      "functions": [
+        {
+          "module": "sampling_policy.py",
+          "function": "apply_policy",
+          "calls": 3001,
+          "self_seconds": 0.062766,
+          "cumulative_seconds": 0.098646
+        },
+        {
+          "module": "sampling_requests.py",
+          "function": "replay_requests",
+          "calls": 1,
+          "self_seconds": 0.050296,
+          "cumulative_seconds": 0.307882
+        },
+        {
+          "module": "sampling_requests.py",
+          "function": "__post_init__",
+          "calls": 3001,
+          "self_seconds": 0.002497,
+          "cumulative_seconds": 0.025961
+        },
+        {
+          "module": "sampling_projection.py",
+          "function": "__post_init__",
+          "calls": 9,
+          "self_seconds": 3.4e-05,
+          "cumulative_seconds": 0.002323
+        },
+        {
+          "module": "sampling_projection.py",
+          "function": "_symbols",
+          "calls": 27,
+          "self_seconds": 2e-05,
+          "cumulative_seconds": 0.002285
+        }
+      ]
+    }
+  }
+}

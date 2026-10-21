@@ -1,0 +1,254 @@
+{
+  "result": "PASS",
+  "source": "synthetic_only",
+  "network": "denied",
+  "tests": 171,
+  "baseline_commit": "abeeeb67274581b579a1c325c902e7383a3ed890",
+  "baseline_github_commit": "6ffa1cd5ec0d4848b4528f4a2e4fb69c1ee9749a",
+  "benchmarks": {
+    "withdrawn_hot": {
+      "baseline": [
+        {
+          "events": 301,
+          "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+          "cold_read_ms": 120.254,
+          "warm_read_mean_ms": 98.314,
+          "pure_replay_mean_ms": 99.489,
+          "idle_cycle_mean_ms": 125.913,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "5117f03dfbd813d3b73555a3121143c7f5c18895ad1a596360b3c0fe7a8b25aa",
+          "cold_read_ms": 337.525,
+          "warm_read_mean_ms": 333.982,
+          "pure_replay_mean_ms": 317.87,
+          "idle_cycle_mean_ms": 333.263,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "c82f0220968ab3bec9415a124aab0345cec77ca111578aa8f8ae96e42ab03d89",
+          "cold_read_ms": 868.987,
+          "warm_read_mean_ms": 1041.28,
+          "pure_replay_mean_ms": 1044.522,
+          "idle_cycle_mean_ms": 1165.445,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ],
+      "optimized": [
+        {
+          "events": 301,
+          "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+          "cold_read_ms": 22.415,
+          "warm_read_mean_ms": 24.295,
+          "pure_replay_mean_ms": 16.878,
+          "idle_cycle_mean_ms": 43.115,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "5117f03dfbd813d3b73555a3121143c7f5c18895ad1a596360b3c0fe7a8b25aa",
+          "cold_read_ms": 63.532,
+          "warm_read_mean_ms": 57.973,
+          "pure_replay_mean_ms": 50.992,
+          "idle_cycle_mean_ms": 74.127,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "c82f0220968ab3bec9415a124aab0345cec77ca111578aa8f8ae96e42ab03d89",
+          "cold_read_ms": 176.164,
+          "warm_read_mean_ms": 186.174,
+          "pure_replay_mean_ms": 133.645,
+          "idle_cycle_mean_ms": 182.603,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ]
+    },
+    "steady_hot": {
+      "baseline": [
+        {
+          "events": 301,
+          "state_digest": "9640831887cde8b017b06ba40d8610b1a746c101e21109d7848185519a5f359e",
+          "cold_read_ms": 112.976,
+          "warm_read_mean_ms": 108.131,
+          "pure_replay_mean_ms": 111.581,
+          "idle_cycle_mean_ms": 120.504,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "b088b6c33bd005e195c9c8c01e0245bd4fb7c2fe506484cb38a8529925466ad6",
+          "cold_read_ms": 361.824,
+          "warm_read_mean_ms": 410.934,
+          "pure_replay_mean_ms": 402.113,
+          "idle_cycle_mean_ms": 388.586,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "34f68a5b486961b5cb3ead94681f6e7077087d684ff64d9a24e064de8e22c003",
+          "cold_read_ms": 1200.591,
+          "warm_read_mean_ms": 1207.125,
+          "pure_replay_mean_ms": 1118.025,
+          "idle_cycle_mean_ms": 1343.282,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ],
+      "optimized": [
+        {
+          "events": 301,
+          "state_digest": "9640831887cde8b017b06ba40d8610b1a746c101e21109d7848185519a5f359e",
+          "cold_read_ms": 27.579,
+          "warm_read_mean_ms": 23.9,
+          "pure_replay_mean_ms": 21.63,
+          "idle_cycle_mean_ms": 40.679,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 1001,
+          "state_digest": "b088b6c33bd005e195c9c8c01e0245bd4fb7c2fe506484cb38a8529925466ad6",
+          "cold_read_ms": 72.205,
+          "warm_read_mean_ms": 81.352,
+          "pure_replay_mean_ms": 72.277,
+          "idle_cycle_mean_ms": 88.683,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 1001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 3001,
+          "state_digest": "34f68a5b486961b5cb3ead94681f6e7077087d684ff64d9a24e064de8e22c003",
+          "cold_read_ms": 215.657,
+          "warm_read_mean_ms": 239.993,
+          "pure_replay_mean_ms": 181.207,
+          "idle_cycle_mean_ms": 242.011,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 3001,
+            "next_at_utc": "2026-10-24T04:00:00+00:00"
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 40
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ]
+    }
+  },
+  "replay_and_decisions_identical": true,
+  "scope": "Two logical 531-Uni/40-Focus workloads, 301/1001/3001 events, three calls per size; not elapsed market/full-day capacity.",
+  "integrity": "Every receipt/hash/admission and policy timer still replays; identical validated immutable membership values are reused only inside that replay.",
+  "remaining": "History is still fully reread/replayed; this is no persistent incremental checkpoint or full-day/provider qualification."
+}
