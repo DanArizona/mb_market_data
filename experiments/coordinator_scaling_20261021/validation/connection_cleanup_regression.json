@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "deliberately_unclosed_cases": [
+    "test_warm_read_does_not_hide_hash_corruption",
+    "test_rehashed_false_admission_still_fails_after_warm_read"
+  ],
+  "missing_closes_detected": 2,
+  "garbage_collection_not_required": true,
+  "scope": "In-memory mutation of tests only; corrected source remains unchanged."
+}

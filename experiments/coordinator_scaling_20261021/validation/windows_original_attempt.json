@@ -1,0 +1,20 @@
+{
+  "source": "User-pasted MasterBot sea-green CMD output",
+  "package": "coordinator_scaling_20261021_211638_62f0a8.zip",
+  "command": "26_verify_coordinator_scaling.cmd",
+  "result": "FAILED",
+  "tests": 165,
+  "test_seconds": 5.12,
+  "errors": 2,
+  "failing_cases": [
+    "test_rehashed_false_admission_still_fails_after_warm_read",
+    "test_warm_read_does_not_hide_hash_corruption"
+  ],
+  "failure_stage": "TemporaryDirectory cleanup after corruption assertions",
+  "exception": "PermissionError: [WinError 32] requests.sqlite3 is being used by another process",
+  "cause_in_supplied_source": "Two test edit connections were committed but not explicitly closed; sqlite3.Connection context managers manage transactions rather than handle lifetime.",
+  "benchmark_ran": false,
+  "actual_cmd_prompt_return_confirmed": true,
+  "production_changes": false,
+  "provider_calls": 0
+}

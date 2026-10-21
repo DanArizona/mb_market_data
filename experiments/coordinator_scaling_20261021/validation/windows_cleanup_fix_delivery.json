@@ -1,0 +1,22 @@
+{
+  "result": "PASS",
+  "runtime_and_pinned_reference_files_compared": 59,
+  "runtime_and_pinned_reference_bytes_identical": true,
+  "archive_sha256": "62ae45344ff1ef87a70b185d4e4d6e22872e7a7a8934f69e27fc1c71ecee30b6",
+  "archive_bytes": 152965,
+  "archive_files": 71,
+  "package": "coordinator_scaling_20261021_231000_b272a9.zip",
+  "coordinator_local_commit": "abeeeb67274581b579a1c325c902e7383a3ed890",
+  "coordinator_github_commit": "6ffa1cd5ec0d4848b4528f4a2e4fb69c1ee9749a",
+  "coordinator_tree": "a0ae80a6fe6435a98cd27f24f91253b8d0ef49d2",
+  "original_windows_attempt": "FAILED (165 checks, two WinError 32 cleanup errors, benchmark not run, CMD returned)",
+  "correction": "Explicit handle close in two corruption tests and two benchmark setup blocks; retained-handle assertions in all seven verified-history tests.",
+  "focused_tests": 165,
+  "new_test_methods": 0,
+  "missing_close_mutation_regression": "PASS (both omissions rejected before temporary cleanup without garbage collection)",
+  "source_and_extracted_qualification": "PASS",
+  "extracted_test_seconds": 2.272,
+  "windows_qualification": "PENDING corrected rerun",
+  "production_changes": false,
+  "provider_calls": 0
+}
