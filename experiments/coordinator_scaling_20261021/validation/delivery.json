@@ -14,5 +14,6 @@
   "windows_qualification": "PENDING",
   "production_changed": false,
   "provider_calls": 0,
-  "scope": "First measured scaling increment; full replay remains linear in history, with no persistent ledger-validation cache."
+  "scope": "First measured scaling increment; full replay remains linear in history, with no persistent ledger-validation cache.",
+  "new_focused_tests": 14
 }
