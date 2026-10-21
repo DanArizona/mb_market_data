@@ -1,0 +1,117 @@
+{
+  "scope": "Read-only saved request-event prefix replay; profiler overhead included; not a live cycle or sole-cause attribution.",
+  "iterations_per_prefix": 15,
+  "prefix_measurements": [
+    {
+      "event_prefix": 1,
+      "mean_replay_ms": 7.783
+    },
+    {
+      "event_prefix": 4,
+      "mean_replay_ms": 27.424
+    },
+    {
+      "event_prefix": 11,
+      "mean_replay_ms": 69.9
+    }
+  ],
+  "top_cumulative_frames": [
+    {
+      "module": "sampling_requests.py",
+      "line": 284,
+      "function": "replay_requests",
+      "calls": 45,
+      "cumulative_seconds": 1.573484,
+      "self_seconds": 0.014641
+    },
+    {
+      "module": "<string>",
+      "line": 2,
+      "function": "__init__",
+      "calls": 960,
+      "cumulative_seconds": 1.432939,
+      "self_seconds": 0.000937
+    },
+    {
+      "module": "sampling_projection.py",
+      "line": 38,
+      "function": "__post_init__",
+      "calls": 960,
+      "cumulative_seconds": 1.432001,
+      "self_seconds": 0.004261
+    },
+    {
+      "module": "sampling_projection.py",
+      "line": 22,
+      "function": "_symbols",
+      "calls": 2880,
+      "cumulative_seconds": 1.427291,
+      "self_seconds": 0.001774
+    },
+    {
+      "module": "~",
+      "line": 0,
+      "function": "<built-in method builtins.any>",
+      "calls": 591795,
+      "cumulative_seconds": 1.425159,
+      "self_seconds": 0.307803
+    },
+    {
+      "module": "sampling_projection.py",
+      "line": 26,
+      "function": "<genexpr>",
+      "calls": 591795,
+      "cumulative_seconds": 1.380535,
+      "self_seconds": 0.386181
+    },
+    {
+      "module": "sampling_policy.py",
+      "line": 49,
+      "function": "apply_policy",
+      "calls": 240,
+      "cumulative_seconds": 0.726934,
+      "self_seconds": 0.013157
+    },
+    {
+      "module": "sampling_projection.py",
+      "line": 27,
+      "function": "<genexpr>",
+      "calls": 2837055,
+      "cumulative_seconds": 0.582993,
+      "self_seconds": 0.409833
+    },
+    {
+      "module": "~",
+      "line": 0,
+      "function": "<method 'isspace' of 'str' objects>",
+      "calls": 2248140,
+      "cumulative_seconds": 0.173159,
+      "self_seconds": 0.173159
+    },
+    {
+      "module": "~",
+      "line": 0,
+      "function": "<built-in method builtins.isinstance>",
+      "calls": 767685,
+      "cumulative_seconds": 0.076948,
+      "self_seconds": 0.060304
+    },
+    {
+      "module": "sampling_requests.py",
+      "line": 41,
+      "function": "digest",
+      "calls": 285,
+      "cumulative_seconds": 0.060179,
+      "self_seconds": 0.000431
+    },
+    {
+      "module": "sampling_requests.py",
+      "line": 37,
+      "function": "canonical",
+      "calls": 285,
+      "cumulative_seconds": 0.058422,
+      "self_seconds": 0.000521
+    }
+  ],
+  "coordinator_source_changed": false
+}

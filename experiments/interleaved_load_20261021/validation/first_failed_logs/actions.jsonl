@@ -1,0 +1,7 @@
+{"action": "algorithm_focus", "at_utc": "2026-10-23T14:00:06.021031+00:00", "elapsed_seconds": 6.002}
+{"action": "manual_hot", "at_utc": "2026-10-23T14:00:12.048820+00:00", "elapsed_seconds": 12.028}
+{"action": "halt_hot", "at_utc": "2026-10-23T14:00:18.040713+00:00", "elapsed_seconds": 18.006}
+{"action": "withdraw_manual_hot", "at_utc": "2026-10-23T14:00:24.056049+00:00", "elapsed_seconds": 24.023, "other_source_kept_hot": true}
+{"action": "temporary_cap", "at_utc": "2026-10-23T14:00:30.051383+00:00", "elapsed_seconds": 30.018}
+{"action": "withdraw_algorithm", "at_utc": "2026-10-23T14:00:52.855662+00:00", "elapsed_seconds": 46.213}
+{"action": "withdraw_halt", "at_utc": "2026-10-23T14:00:57.079356+00:00", "elapsed_seconds": 53.065}

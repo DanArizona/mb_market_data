@@ -1,0 +1,83 @@
+{
+  "session_date": "2026-10-21",
+  "evidence": "operator_supplied_complete_live_console_and_actual_CMD_prompt_return",
+  "attachment_sha256": "7ed89ffa7948cc3217086b217739865e218840051478c5241b26442f2df8cd1a",
+  "package": "interleaved_load_20261021_163302_1933af",
+  "source_commit": "5fdf103f626a8f5e96e62b2c09d3fbe755f9d5d5",
+  "run": "20261021T164800Z-e7dd49b2",
+  "mode": "live_quotes_simulated_membership_requests",
+  "duration_seconds": 1800,
+  "result": "FAILED",
+  "actual_prompt_return": true,
+  "audit_reported": false,
+  "identical_replays_reported": true,
+  "collection_integrity": "FAILED",
+  "transport": "PASS",
+  "availability": "PASS",
+  "channels": {
+    "uni": {
+      "committed": 60,
+      "expected": 60,
+      "missing": 0,
+      "batches": 120,
+      "observation_statuses": {
+        "quote": 31907
+      },
+      "cycle_max_ms": 2089.208
+    },
+    "focus": {
+      "committed": 120,
+      "expected": 120,
+      "missing": 0,
+      "batches": 120,
+      "observation_statuses": {
+        "quote": 4932
+      },
+      "cycle_max_ms": 2122.926
+    },
+    "hot": {
+      "committed": 719,
+      "expected": 720,
+      "missing": 1,
+      "batches": 719,
+      "observation_statuses": {
+        "quote": 29084
+      },
+      "cycle_mean_ms": 337.209,
+      "cycle_p95_ms": 493.207,
+      "cycle_max_ms": 4357.17,
+      "quote_request_mean_ms": 280.099,
+      "quote_request_p95_ms": 438.688,
+      "quote_request_max_ms": 3818.881,
+      "verification_max_ms": 23.576
+    }
+  },
+  "quote_client_calls": 959,
+  "quote_call_ceiling": 960,
+  "retained_quote_observations": 65923,
+  "final_hierarchy": {
+    "uni": 532,
+    "focus": 40,
+    "hot": 40
+  },
+  "natural_live_inflight_publication_revisions": [
+    7
+  ],
+  "replay_sha256": "c3c2ea019af6f6e1000f2ef2f262b122471bd721353e109e64c42985380ea94f",
+  "combined_stable_hot_cadence": "FAILED",
+  "combined_stable_hot_outcome_coverage": false,
+  "combined_stable_hot_response_gap_max_seconds": 5.503822,
+  "combined_stable_hot_commit_observer_gap_max_seconds": 5.780832,
+  "cross_channel_quote_client_overlap_pairs": 1,
+  "coordinator_cpu_seconds": 105.984375,
+  "all_worker_memory_counters_available": true,
+  "precise_missing_slot": null,
+  "root_cause": "NOT_ESTABLISHED_FROM_CONSOLE_AGGREGATES",
+  "source_review_inference": "Sequential worker selects next strictly future slot after work; a slow cycle crossing a slot is plausible but requires retained timestamp correlation.",
+  "host_database_and_raw_sidecars_independently_retrieved": false,
+  "latest_supplied_production_health_et": "2026-10-21T12:46:37-04:00",
+  "posttrial_production_health": "NOT_YET_SUPPLIED",
+  "production_cadence_changed": false,
+  "production_hot_enabled": false,
+  "next_step": "Archive and review retained run evidence and fresh independent production health; no automatic live rerun."
+}

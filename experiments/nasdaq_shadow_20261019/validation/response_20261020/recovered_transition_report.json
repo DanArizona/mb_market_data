@@ -1,0 +1,142 @@
+{
+  "assessment": {
+    "all_observations_are_quotes": true,
+    "availability": {
+      "invalid_observations": 0,
+      "missing_observations": 0,
+      "result": "PASS",
+      "unknown_statuses": {}
+    },
+    "collection_integrity": {
+      "findings": [],
+      "result": "PASS"
+    },
+    "result": "PASS",
+    "status_counts": {
+      "quote": 3
+    },
+    "transport": {
+      "request_error_observations": 0,
+      "result": "PASS"
+    }
+  },
+  "audit_passed": true,
+  "committed_slots": 6,
+  "contract": "nasdaq-shadow-v1",
+  "coordinator_commit": "0417b345e2725f4e1e184d3b3202bedb846dbfca",
+  "cutoff_utc": "2026-10-22T14:00:12+00:00",
+  "duplicate_outcome_slot_ids": [],
+  "empty_hot_skips": 3,
+  "expected_hot_acquisitions": 3,
+  "expected_slots": 6,
+  "failures": [],
+  "feed_attempts": 5,
+  "feed_health": {
+    "attempts": 5,
+    "consecutive_failures": 0,
+    "failed_captures": 1,
+    "halt_discovery_continuity": "NOT_ESTABLISHED",
+    "interruption_receipts": [
+      {
+        "failed_attempts": [
+          2
+        ],
+        "first_failed_request_at_utc": "2026-10-22T14:00:02.034896+00:00",
+        "recovered_at_utc": "2026-10-22T14:00:04.063843+00:00"
+      }
+    ],
+    "limitation": "Unavailable responses are unknown feed intervals, never evidence of no halts.",
+    "maximum_consecutive_failures": 1,
+    "status": "RECOVERED_WITH_GAPS",
+    "stop_reason": null,
+    "successful_captures": 4
+  },
+  "final_hierarchy": {
+    "focus": 2,
+    "hot": 1,
+    "uni": 2
+  },
+  "gate_dispositions": {
+    "nasdaq-halt-1bf092bea2dd3100bc6e488ddd6daf72c7bd939c258efa23ccdb4f452a0c270f": {
+      "at_utc": "2026-10-22T14:00:04.092278+00:00",
+      "disposition": "approved",
+      "event_id": "nasdaq-halt-1bf092bea2dd3100bc6e488ddd6daf72c7bd939c258efa23ccdb4f452a0c270f",
+      "kind": "decision",
+      "previous_sha256": "2df1d09ab131c1094fd395b98375a795e08ef69ba7822c67edf36b44053946e1",
+      "response_file": "resolution_nasdaq-halt-1bf092bea2dd3100bc6e488ddd6daf72c7bd939c258efa23ccdb4f452a0c270f.json",
+      "response_sha256": "9c4b557db08ef93183fbd55a3e21792aa36caa50303b0c8cd485778bfba1fe7b",
+      "sequence": 2,
+      "symbol": "NEWX"
+    },
+    "nasdaq-halt-5a4db28d7f56f3035d7842622341d6692cff9cc41b6dfc536ddfabe277728dcc": {
+      "at_utc": "2026-10-22T14:00:04.106086+00:00",
+      "disposition": "shadow_capacity_rejected",
+      "event_id": "nasdaq-halt-5a4db28d7f56f3035d7842622341d6692cff9cc41b6dfc536ddfabe277728dcc",
+      "kind": "decision",
+      "previous_sha256": "ba1a7f5bd298d4134731d07abf54e1743de7bafb5f83f40befd9644119de8434",
+      "sequence": 3,
+      "symbol": "OTHER"
+    }
+  },
+  "hot_acquisitions": 3,
+  "journal_replay": {
+    "acquisitions": 3,
+    "events": 5,
+    "observations": 3,
+    "sequence_sha256": "006f452ca1cc62608a8ab48b7c78451ff00bbfe1f671a4ee26856be31ec4fb8b"
+  },
+  "limitations": [
+    "Review settings only; production Hot disabled and production journals/processes untouched",
+    "Only shadow Hot acquires quotes; this increment is not another combined-load capacity trial",
+    "Broker quote identity confirmation is not tradability or an explanation of invalid responses",
+    "No new qualifying event means readiness only, never a live-transition claim",
+    "Commit timestamps are observer receipts immediately after successful journal writes",
+    "No automatic live restart, missed-slot catch-up or full-day provider-capacity claim"
+  ],
+  "max_quote_calls": 33,
+  "milestone": "SYNTHETIC_TRANSITION",
+  "missing_slots": [],
+  "out_of_window_outcome_slot_ids": [],
+  "pids": {
+    "coordinator": 7,
+    "hot": 8
+  },
+  "producer_pending_with_terminal_gate_disposition": {
+    "nasdaq-halt-5a4db28d7f56f3035d7842622341d6692cff9cc41b6dfc536ddfabe277728dcc": "shadow_capacity_rejected"
+  },
+  "producer_pid": 6,
+  "producer_replay_identical": true,
+  "publication_replay_identical": true,
+  "quote_call_permits": {
+    "hot": 3,
+    "resolution": 1
+  },
+  "quote_calls": 4,
+  "replays_identical": true,
+  "request_replay_identical": true,
+  "result": "PASS_WITH_WARNINGS",
+  "selected_symbol": "NEWX",
+  "source": "synthetic",
+  "successful_captures": 4,
+  "timeline": {
+    "broker_resolution_returned_at_utc": "2026-10-22T14:00:04.087255+00:00",
+    "broker_resolution_started_at_utc": "2026-10-22T14:00:04.087200+00:00",
+    "feed_acquired_at_utc": "2026-10-22T14:00:04.063843+00:00",
+    "first_discovered_at_utc": "2026-10-22T14:00:04.074139+00:00",
+    "first_eligible_hot_slot_utc": "2026-10-22T14:00:06+00:00",
+    "first_observed_hot_slot_utc": "2026-10-22T14:00:06+00:00",
+    "first_seen_to_commit_seconds": 1.968653,
+    "halt_at_utc": "2026-10-22T14:00:02+00:00",
+    "journal_commit_observed_at_utc": "2026-10-22T14:00:06.042792+00:00",
+    "membership_effective_at_utc": "2026-10-22T14:00:04.760748+00:00",
+    "provider_response_assembled_at_utc": "2026-10-22T14:00:06.035026+00:00",
+    "provider_response_returned_at_utc": "2026-10-22T14:00:06.034057+00:00",
+    "publication_at_event_clock_utc": "2026-10-22T14:00:04.268257+00:00",
+    "published_at_utc": "2026-10-20T15:05:37.026588+00:00",
+    "request_received_at_utc": "2026-10-22T14:00:04.096832+00:00"
+  },
+  "timing_clock": "labeled future UTC offset at actual elapsed speed; journal publication retains actual UTC",
+  "warnings": [
+    "Feed interruption retained; discovery during the gap is unknown"
+  ]
+}

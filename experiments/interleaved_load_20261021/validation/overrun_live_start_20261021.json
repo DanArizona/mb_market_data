@@ -1,0 +1,53 @@
+{
+  "session_date": "2026-10-21",
+  "evidence": "operator_supplied_prelaunch_production_health_and_live_progress_console",
+  "package": "interleaved_overrun_20261021_184151_d3b920",
+  "source_commit": "324cd4f94ef2aeb9a37622f8406f697e3b8bbb64",
+  "run": "20261021T191217Z-79e57f47",
+  "mode": "live_quotes_simulated_membership_requests",
+  "state": "ACTIVE_COLLECTION_FINAL_RESULT_PENDING",
+  "credential_horizon_accepted": true,
+  "latest_supplied_elapsed_seconds": 100,
+  "measurement_duration_seconds": 1800,
+  "latest_supplied_acquisitions": {
+    "uni": 4,
+    "focus": 7,
+    "hot": 40
+  },
+  "actual_aligned_start_time": null,
+  "final_result": "PENDING",
+  "actual_prompt_return": false,
+  "quote_call_ceiling": 960,
+  "initial_membership": {
+    "uni": 531,
+    "focus": 40,
+    "hot": 40
+  },
+  "dispatch_allowance_seconds": 0.75,
+  "live_delays_injected": false,
+  "prelaunch_production_health": {
+    "as_of_et": "2026-10-21T15:10:57-04:00",
+    "journal_read": "OK",
+    "uni": {
+      "state": "RUNNING",
+      "pid": 52620,
+      "members": 531,
+      "acquisitions": 682,
+      "last_slot_et": "15:10:30",
+      "empty_skips": 0,
+      "overdue_missing_slots": 0
+    },
+    "focus": {
+      "state": "RUNNING",
+      "pid": 35812,
+      "members": 40,
+      "acquisitions": 1364,
+      "last_slot_et": "15:10:50",
+      "empty_skips": 0,
+      "overdue_missing_slots": 0
+    }
+  },
+  "postlaunch_production_health": "NOT_YET_SUPPLIED",
+  "production_changes": false,
+  "host_run_artifacts_independently_retrieved": false
+}

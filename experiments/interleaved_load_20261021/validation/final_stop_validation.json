@@ -1,0 +1,14 @@
+{
+  "final_workers": {
+    "coordinator": "stopped",
+    "focus": "stopped",
+    "hot": "stopped",
+    "uni": "stopped"
+  },
+  "fresh_interpreter_live_config_stop": "PASS",
+  "fresh_stop_return_code": 0,
+  "network_or_authentication": false,
+  "result": "STOPPED",
+  "returned_after_stop_seconds": 0.1685485059997518,
+  "stop_at": 4198.355251954
+}

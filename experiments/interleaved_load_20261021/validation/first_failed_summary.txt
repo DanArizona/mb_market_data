@@ -1,0 +1,43 @@
+COMBINED SYNTHETIC_ONLY LOAD: FAILED
+Four independent processes: Coordinator + Uni + Focus + Hot; actual elapsed scheduling.
+Opening Uni 554 / Focus 40; initial Hot request 40. Final: {'uni': 555, 'focus': 42, 'hot': 41}
+Admission, independent source withdrawal, temporary cap, expiry reentry and delayed demotion: see findings
+Controlled synthetic in-flight publication: [3]
+Collection/integrity: FAILED; transport: PASS; availability: PASS
+Audit: False; identical journal replays: True
+UNI: committed=2/2; missing=0; batches=4
+  cycle mean/p95/max ms: {'count': 2, 'mean_ms': 603.62, 'p95_ms': 611.167, 'max_ms': 611.167}
+  verification mean/p95/max ms: {'count': 2, 'mean_ms': 36.459, 'p95_ms': 41.607, 'max_ms': 41.607}
+  provider request mean/p95/max ms: {'count': 4, 'mean_ms': 182.862, 'p95_ms': 184.295, 'max_ms': 184.295}
+  observation statuses: {'quote': 1109}
+FOCUS: committed=3/4; missing=1; batches=3
+  cycle mean/p95/max ms: {'count': 3, 'mean_ms': 282.135, 'p95_ms': 333.067, 'max_ms': 333.067}
+  verification mean/p95/max ms: {'count': 3, 'mean_ms': 17.014, 'p95_ms': 18.6, 'max_ms': 18.6}
+  provider request mean/p95/max ms: {'count': 3, 'mean_ms': 200.871, 'p95_ms': 201.566, 'max_ms': 201.566}
+  observation statuses: {'quote': 125}
+HOT: committed=18/24; missing=6; batches=18
+  cycle mean/p95/max ms: {'count': 18, 'mean_ms': 558.902, 'p95_ms': 3348.453, 'max_ms': 3348.453}
+  verification mean/p95/max ms: {'count': 18, 'mean_ms': 19.681, 'p95_ms': 37.933, 'max_ms': 37.933}
+  provider request mean/p95/max ms: {'count': 18, 'mean_ms': 307.229, 'p95_ms': 1100.591, 'max_ms': 1100.591}
+  observation statuses: {'quote': 729}
+Quote-client calls/budget: 25/32
+Journal replay SHA-256: d54d27e06e634609df31eedd92c7a7680279dfdbd74bb2a66593b597f0b01c94
+Journal audit failed: (AuditFinding(code='missing_poll_slots', detail='focus: 1 configured slots have neither an acquisition nor an empty-membership skip'), AuditFinding(code='missing_poll_slots', detail='hot: 6 configured slots have neither an acquisition nor an empty-membership skip'))
+focus coverage, steady-state scan or pending-outcome check failed
+hot coverage, steady-state scan or pending-outcome check failed
+Final hierarchy or session Uni retention differs
+Admission/cap/expiry/demotion trace differs: [(False, False, False), (True, True, True), (True, False, False), (True, True, True)]
+Combined stable-Hot symbol outcome coverage differs from the declared grids
+Thirty-minute bounded review; the offline qualification is 60 actual elapsed seconds, not full-session capacity
+Combined cadence is measured for the 40 continuously Hot opening-Focus symbols; dynamic admission is audited separately
+Quote-client intervals are observed around SDK calls, not a wire-level audit of all HTTP or authentication requests
+Response/commit gap review threshold is 4s; nominal opportunities do not guarantee fresh provider quote/trade timestamps
+No automatic higher-channel replacement, production cadence switch, restart drill or full-day restart guarantee
+All three channels use the native guarded incremental collector; production Uni/Focus use their existing launcher
+Direct synthetic halt-source requests; no live Nasdaq transport or adapter latency claim
+No full-session history prefill or production journal access; proposal inputs are copied as read-only roster values
+Combined stable-Hot cadence: FAILED; outcome coverage=False
+  per-symbol response gaps: {'count': 880, 'mean_seconds': 2.477589, 'p95_seconds': 2.832507, 'max_seconds': 12.446623}
+  per-symbol post-commit observer gaps: {'count': 880, 'mean_seconds': 2.57902, 'p95_seconds': 2.818212, 'max_seconds': 14.709717}
+Cross-channel quote-client overlapping pairs: 0
+Worker resource summary: {'coordinator': {'samples': 4, 'peak_working_set_bytes': 29683712, 'process_cpu_seconds': 30.102974, 'startup_reconstruction_seconds': None, 'memory_available': True}, 'uni': {'samples': 2, 'peak_working_set_bytes': 31502336, 'process_cpu_seconds': 1.082722, 'startup_reconstruction_seconds': 0.09402462699972602, 'memory_available': True}, 'focus': {'samples': 3, 'peak_working_set_bytes': 29253632, 'process_cpu_seconds': 7.493317, 'startup_reconstruction_seconds': 0.09885236099989925, 'memory_available': True}, 'hot': {'samples': 3, 'peak_working_set_bytes': 29253632, 'process_cpu_seconds': 9.066689, 'startup_reconstruction_seconds': 0.08735964099969351, 'memory_available': True}}

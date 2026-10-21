@@ -1,0 +1,122 @@
+{
+  "session_date": "2026-10-21",
+  "source": "live",
+  "preset": "extended",
+  "package": "nasdaq_shadow_20261021_011301_66edd0",
+  "run": "20261021T141646Z-6292a5ad",
+  "evidence": "operator_supplied_full_console_and_actual_prompt_return",
+  "attachment_sha256": "bce42227ea9265c6cf6f43ac0dc3d979324d83ccc14c88d245bc4683c1d14c5b",
+  "result": "PASS",
+  "milestone": "LIVE_TRANSITION",
+  "symbol": "MPU",
+  "hot_acquisitions": 450,
+  "expected_hot_acquisitions": 450,
+  "empty_skips": 92,
+  "missing_slots": 0,
+  "quote_calls": 451,
+  "maximum_quote_calls": 453,
+  "permits": {
+    "hot": 450,
+    "resolution": 1
+  },
+  "audit_reported": true,
+  "identical_replays_reported": true,
+  "replay_sha256": "d146b0fde253355c7a2d1612fddeb2a6b3aead3a71ab8aea5a7a1c266e6f2567",
+  "feed": {
+    "valid": 18,
+    "failed": 0,
+    "status": "OK",
+    "continuity": "SAMPLED_FEED_ONLY"
+  },
+  "trade_resumption_status": "REPORTED_BY_FEED",
+  "exact_resumption_and_quote_review": "COMPLETE_SAVED_RUN",
+  "raw_evidence_independently_reviewed": true,
+  "timeline_utc": {
+    "broker_resolution_returned_at_utc": "2026-10-21T14:20:08.037649+00:00",
+    "broker_resolution_started_at_utc": "2026-10-21T14:20:07.679819+00:00",
+    "feed_acquired_at_utc": "2026-10-21T14:20:07.577213+00:00",
+    "first_discovered_at_utc": "2026-10-21T14:20:07.612374+00:00",
+    "first_eligible_hot_slot_utc": "2026-10-21T14:20:10+00:00",
+    "first_observed_hot_slot_utc": "2026-10-21T14:20:10+00:00",
+    "first_seen_to_commit_seconds": 2.757442,
+    "halt_at_utc": "2026-10-21T14:19:05.410000+00:00",
+    "journal_commit_observed_at_utc": "2026-10-21T14:20:10.369816+00:00",
+    "membership_effective_at_utc": "2026-10-21T14:20:08.922612+00:00",
+    "provider_response_assembled_at_utc": "2026-10-21T14:20:10.358121+00:00",
+    "provider_response_returned_at_utc": "2026-10-21T14:20:10.356118+00:00",
+    "publication_at_event_clock_utc": "2026-10-21T14:20:08.511217+00:00",
+    "published_at_utc": "2026-10-21T14:20:08.511217+00:00",
+    "request_received_at_utc": "2026-10-21T14:20:08.086202+00:00"
+  },
+  "computed_timings": {
+    "halt_to_discovery_seconds": 62.202374,
+    "discovery_to_first_hot_slot_seconds": 2.387626,
+    "discovery_to_first_commit_observer_seconds": 2.757442,
+    "halt_to_first_commit_observer_seconds": 64.959816
+  },
+  "post_trial_production": {
+    "as_of_et": "10:39:35",
+    "uni": {
+      "pid": 52620,
+      "acquisitions": 140,
+      "members": 531,
+      "overdue_missing": 0
+    },
+    "focus": {
+      "pid": 35812,
+      "acquisitions": 278,
+      "members": 40,
+      "overdue_missing": 0
+    }
+  },
+  "production_hot": false,
+  "full_day_capacity_claim": false,
+  "saved_run_review": {
+    "archive_sha256": "0f3a129c22f2ed9cc894db754b1ef24b50f029bbfdf65f4874a204302fe05bfb",
+    "archive_bytes": 1148766,
+    "archive_entries": 102,
+    "archive_crc": "PASS",
+    "original_files_match_archive": true,
+    "raw_snapshot_pairs_verified": 18,
+    "native_read_only_audit": "PASS",
+    "fresh_replays": 2,
+    "events": 452,
+    "quote_observations": 450,
+    "invalid_observations": 0,
+    "missing_observations": 0,
+    "request_error_observations": 0,
+    "replay_sha256": "d146b0fde253355c7a2d1612fddeb2a6b3aead3a71ab8aea5a7a1c266e6f2567",
+    "http_200_provider_calls": 451,
+    "minimum_rss_attempt_completion_to_next_start_seconds": 60.060311,
+    "opening_mpu_membership": {
+      "uni": false,
+      "focus": false
+    },
+    "final_experimental_membership": {
+      "uni": 532,
+      "focus": 41,
+      "hot": 1
+    },
+    "other_symbols_shadow_capacity_rejected": [
+      "REED",
+      "WHLRP",
+      "RFAIU",
+      "POM",
+      "WZRD"
+    ],
+    "reported_resumption_quote_and_trade_et": "2026-10-21T10:24:05-04:00",
+    "first_capture_with_reported_resumption_et": "2026-10-21T10:25:09.594679-04:00",
+    "first_adapter_receipt_with_reported_resumption_et": "2026-10-21T10:25:09.641701-04:00",
+    "first_broker_normal_hot_slot_et": "2026-10-21T10:24:06-04:00",
+    "first_hot_slot_with_provider_regular_market_trade_after_reported_resume_et": "2026-10-21T10:30:42-04:00",
+    "provider_regular_market_trade_time_in_that_sample_et": "2026-10-21T10:30:40.983-04:00",
+    "review_mutated_production": false,
+    "live_rerun": false,
+    "limits": [
+      "one_distinct_admitted_symbol",
+      "sampled_feed_only",
+      "no_executed_trade_at_scheduled_reopening_claim",
+      "no_full_day_capacity_claim"
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "session_date": "2026-10-21",
+  "evidence": "operator_supplied_complete_Windows_console_and_actual_CMD_prompt_return",
+  "attachment_sha256": "d873ccac145fb9586b921bd3aeb5dc72a9145caf9052115426df90ef8e3bbdc2",
+  "package": "interleaved_overrun_20261021_184151_d3b920",
+  "source_commit": "324cd4f94ef2aeb9a37622f8406f697e3b8bbb64",
+  "run": "20261021T190717Z-60bd2d8c",
+  "source": "synthetic_only",
+  "tests": 21,
+  "test_seconds": 2.57,
+  "actual_elapsed_proof_seconds": 60,
+  "trial_result": "PASS_WITH_WARNINGS",
+  "changed_path_qualification": "PASS",
+  "actual_prompt_return": true,
+  "acquisitions": {
+    "uni": 2,
+    "focus": 4,
+    "hot": 24
+  },
+  "missing_slots": {
+    "uni": 0,
+    "focus": 0,
+    "hot": 0
+  },
+  "quote_client_calls": 32,
+  "quote_call_ceiling": 32,
+  "retained_quote_observations": 2246,
+  "all_retained_observations_are_quotes": true,
+  "audit_reported": true,
+  "identical_replays_reported": true,
+  "late_hot_acquisitions": [
+    "hot:2026-10-23T10:00:22-04:00"
+  ],
+  "exact_lateness_seconds": "NOT_PRINTED_IN_CONSOLE",
+  "response_gap_max_seconds": 5.225753,
+  "commit_observer_gap_max_seconds": 5.223924,
+  "expected_injected_gap_warnings_preserved": true,
+  "cross_channel_quote_client_overlap_pairs": 1,
+  "coordinator_cpu_seconds": 5.546875,
+  "all_worker_memory_counters_available": true,
+  "replay_sha256": "6ff573c57a54bd0438b54bca73f35ab892e2099ba4767c5c2f1adbb0af0c26ba",
+  "final_hierarchy": {
+    "uni": 555,
+    "focus": 40,
+    "hot": 40
+  },
+  "host_run_artifacts_independently_retrieved": false,
+  "prior_local_ledger_inconsistency_resolved_by_this_result": false,
+  "live_retrial": "PENDING_SEPARATE_INVOCATION_AND_FRESH_PRODUCTION_HEALTH",
+  "production_changes": false
+}

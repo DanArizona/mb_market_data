@@ -1,0 +1,12 @@
+{
+  "final_workers": {
+    "coordinator": "stopped",
+    "focus": "stopped",
+    "hot": "stopped",
+    "uni": "stopped"
+  },
+  "message": "Stop requested for this experiment only. Results: /tmp/interleaved instrumented review with spaces 20261021/interleaved_load_20261021_162341_ccf48e/runs/interleaved_provider/stop-drill-df8a9089",
+  "result": "STOPPED",
+  "returned_after_stop_seconds": 0.11503941299997678,
+  "stop_at": 3612.132063468
+}

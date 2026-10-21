@@ -1,0 +1,63 @@
+{
+  "session_date": "2026-10-21",
+  "source": "operator_supplied_read_only_frozen_decision_ledger_rows",
+  "daily_universe_source_session": "2026-10-20",
+  "focus_decision_folder": "2026-10-21-09-15-21",
+  "POM": {
+    "uni_decision": "include",
+    "focus_decision": "exclude",
+    "focus_reason": "below_selection_limit",
+    "ov_decision": 0,
+    "candle_count": 0,
+    "attempts": 1,
+    "ov_rank": 477,
+    "eligible": true,
+    "zero_matching_candle_cause": "UNRESOLVED",
+    "acquisition": {
+      "status": "ok",
+      "http_status": 200,
+      "window_start_et": "2026-10-21T00:00:00-04:00",
+      "window_end_et": "2026-10-21T09:00:00-04:00",
+      "request_started_at_utc": "2026-10-21T13:05:27.862509Z",
+      "response_received_at_utc": "2026-10-21T13:05:28.497868Z"
+    },
+    "chart_evidence": {
+      "attachment": "image(20261021-153012).png",
+      "sha256": "a4c52185b954291f543f1e4bf8636149483f253764e6b6898ac20863e9e2ca37",
+      "visible_activity_interval_et": "09:00-09:30",
+      "independent_pre_0900_activity_established": false
+    }
+  },
+  "SDEV": {
+    "uni_decision": "reject",
+    "uni_reason": "market_cap_above_max",
+    "close_price": "0.83",
+    "shares_outstanding": 50615437,
+    "calculated_market_cap": "42010812.71",
+    "maximum_market_cap": "40000000",
+    "entered_focus_ranking": false
+  },
+  "cutoff": {
+    "rank": 40,
+    "symbol": "TPET",
+    "ov_decision": 19919,
+    "candle_count": 4
+  },
+  "first_excluded": {
+    "rank": 41,
+    "symbol": "TPST",
+    "ov_decision": 19406,
+    "candle_count": 8
+  },
+  "source_inspection": {
+    "api_overnight_volume_unchanged_from_production": "a082f54",
+    "empty_selected_candle_set_is_ok_zero_volume": true,
+    "empty_success_is_retried": false,
+    "saved_candles_are_normalized_selected_only": true
+  },
+  "next_evidence": "No further evidence needed to explain the displayed post-cutoff activity; pre-09:00 trading has not been independently established.",
+  "production_changes": false,
+  "live_reacquisition": false,
+  "selection_outcomes_explained": true,
+  "late_premarket_policy_change_approved": false
+}

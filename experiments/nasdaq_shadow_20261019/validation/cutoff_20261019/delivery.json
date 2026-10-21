@@ -1,0 +1,11 @@
+{
+  "zip": "nasdaq_shadow_20261019_184318_45a262.zip",
+  "stem": "nasdaq_shadow_20261019_184318_45a262",
+  "sha256": "c5a991b7cd66d1fb907e50ef4ab9ad5114e8457e86e3aae36fca6e9904b98f56",
+  "bytes": 243765,
+  "files": 82,
+  "code_commit": "cb2c8dafdf6f155600d1130929c3f098563173c8",
+  "focused_checks": 36,
+  "native_windows_acceptance": "PENDING",
+  "original_native_failure_preserved": true
+}

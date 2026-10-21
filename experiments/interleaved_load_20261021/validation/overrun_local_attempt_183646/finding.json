@@ -1,0 +1,16 @@
+{
+  "result": "FAILED",
+  "stage": "native_full_sidecar_reconstruction_during_final_analysis",
+  "source_commit": "d643ebb1184a4633996e358d18d8390f83367c2c",
+  "reported_acquisitions": {
+    "uni": 2,
+    "focus": 4,
+    "hot": 24
+  },
+  "actual_uni_sidecar_events": 4,
+  "expected_uni_events": 6,
+  "error": "Journal acquisition exists without this ledger assembled response",
+  "cold_native_validator_retained": true,
+  "cause": "NOT_ESTABLISHED",
+  "workspace_path_used_for_runtime": true
+}

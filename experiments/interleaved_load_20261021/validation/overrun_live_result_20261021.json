@@ -1,0 +1,81 @@
+{
+  "session_date": "2026-10-21",
+  "evidence": "operator_supplied_complete_live_console_and_actual_CMD_prompt_return",
+  "attachment_sha256": "855e6af7035ae226710f6eb42ee19044723a71a48d7a0e3191a75e2bc5a78c96",
+  "package": "interleaved_overrun_20261021_184151_d3b920",
+  "source_commit": "324cd4f94ef2aeb9a37622f8406f697e3b8bbb64",
+  "run": "20261021T191217Z-79e57f47",
+  "source": "schwab_quotes_simulated_membership_requests",
+  "duration_seconds": 1800,
+  "result": "PASS",
+  "actual_prompt_return": true,
+  "coverage": {
+    "uni": {
+      "committed": 60,
+      "expected": 60,
+      "missing": 0,
+      "batches": 120,
+      "quote_observations": 31907
+    },
+    "focus": {
+      "committed": 120,
+      "expected": 120,
+      "missing": 0,
+      "batches": 120,
+      "quote_observations": 4932
+    },
+    "hot": {
+      "committed": 720,
+      "expected": 720,
+      "missing": 0,
+      "batches": 720,
+      "quote_observations": 29125
+    }
+  },
+  "total_acquisitions": 900,
+  "total_quote_observations": 65964,
+  "quote_client_calls": 960,
+  "quote_call_budget": 960,
+  "audit_reported": true,
+  "replays_identical_reported": true,
+  "replay_sha256": "75ef980be8f209868494b42836e16f9dc9e43a454d2020d8162de8569af53f0e",
+  "collection_integrity": "PASS",
+  "transport": "PASS",
+  "availability": "PASS",
+  "combined_stable_hot_cadence": "PASS",
+  "combined_outcome_coverage": true,
+  "response_gap_mean_seconds": 1.999646,
+  "response_gap_p95_seconds": 2.174056,
+  "response_gap_max_seconds": 3.100622,
+  "commit_observer_gap_mean_seconds": 1.999299,
+  "commit_observer_gap_p95_seconds": 2.562579,
+  "commit_observer_gap_max_seconds": 3.241743,
+  "scheduler_overruns": {
+    "uni": 0,
+    "focus": 0,
+    "hot": 0
+  },
+  "late_acquisitions": {
+    "uni": [],
+    "focus": [],
+    "hot": []
+  },
+  "recorded_misses": 0,
+  "cross_channel_quote_client_overlap_pairs": 0,
+  "natural_live_inflight_publications": [],
+  "final_membership": {
+    "uni": 532,
+    "focus": 40,
+    "hot": 40
+  },
+  "coordinator_cpu_seconds": 127.421875,
+  "all_worker_memory_counters_available": true,
+  "live_slow_fixture_injected": false,
+  "real_overrun_recovery_observed": false,
+  "late_slot_path_qualification": "SYNTHETIC_ONLY",
+  "host_raw_evidence_independently_retrieved": false,
+  "latest_supplied_production_health_et": "2026-10-21T15:10:57-04:00",
+  "posttrial_production_health": "NOT_YET_SUPPLIED",
+  "original_live_failed_result_reclassified": false,
+  "production_changes": false
+}

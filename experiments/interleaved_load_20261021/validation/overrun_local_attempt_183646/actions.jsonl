@@ -1,0 +1,7 @@
+{"action": "algorithm_focus", "action_cpu_seconds": 0.011021594000000023, "action_seconds": 0.013558196999838401, "at_utc": "2026-10-23T14:00:06.028479+00:00", "elapsed_seconds": 6.015}
+{"action": "manual_hot", "action_cpu_seconds": 0.014538362999999999, "action_seconds": 0.017186409999794705, "at_utc": "2026-10-23T14:00:12.057846+00:00", "elapsed_seconds": 12.04}
+{"action": "halt_hot", "action_cpu_seconds": 0.016994017000000028, "action_seconds": 0.019406244000037987, "at_utc": "2026-10-23T14:00:18.034973+00:00", "elapsed_seconds": 18.015}
+{"action": "withdraw_manual_hot", "action_cpu_seconds": 0.02238009299999999, "action_seconds": 0.023670376000154647, "at_utc": "2026-10-23T14:00:24.034257+00:00", "elapsed_seconds": 24.01, "other_source_kept_hot": true}
+{"action": "temporary_cap", "action_cpu_seconds": 0.026398703999999995, "action_seconds": 0.028149099000074784, "at_utc": "2026-10-23T14:00:30.052483+00:00", "elapsed_seconds": 30.023}
+{"action": "withdraw_algorithm", "action_cpu_seconds": 0.03867864799999987, "action_seconds": 0.04067774200029817, "at_utc": "2026-10-23T14:00:45.063172+00:00", "elapsed_seconds": 45.021}
+{"action": "withdraw_halt", "action_cpu_seconds": 0.04250119100000038, "action_seconds": 0.04410701500000869, "at_utc": "2026-10-23T14:00:48.059704+00:00", "elapsed_seconds": 48.015}

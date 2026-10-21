@@ -1,0 +1,1690 @@
+{
+  "actual_completed_utc": "2026-10-21T16:20:27.579865+00:00",
+  "assessment": {
+    "all_observations_are_quotes": true,
+    "availability": {
+      "invalid_observations": 0,
+      "missing_observations": 0,
+      "result": "PASS",
+      "unknown_statuses": {}
+    },
+    "collection_integrity": {
+      "findings": [
+        "Journal audit failed: (AuditFinding(code='missing_poll_slots', detail='focus: 1 configured slots have neither an acquisition nor an empty-membership skip'), AuditFinding(code='missing_poll_slots', detail='hot: 6 configured slots have neither an acquisition nor an empty-membership skip'))",
+        "focus coverage, steady-state scan or pending-outcome check failed",
+        "hot coverage, steady-state scan or pending-outcome check failed",
+        "Final hierarchy or session Uni retention differs",
+        "Admission/cap/expiry/demotion trace differs: [(False, False, False), (True, True, True), (True, False, False), (True, True, True)]",
+        "Combined stable-Hot symbol outcome coverage differs from the declared grids"
+      ],
+      "result": "FAILED"
+    },
+    "result": "FAILED",
+    "status_counts": {
+      "quote": 1963
+    },
+    "transport": {
+      "request_error_observations": 0,
+      "result": "PASS"
+    }
+  },
+  "audit_passed": false,
+  "channels": {
+    "focus": {
+      "acquisitions": 3,
+      "actual_quote_calls": 3,
+      "batch_calls": 3,
+      "budget_permits": 3,
+      "committed_slots": 3,
+      "complete": false,
+      "empty_skips": 0,
+      "expected_slots": 4,
+      "growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 333.067,
+            "mean_ms": 333.067,
+            "p95_ms": 333.067
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 18.627,
+            "mean_ms": 18.627,
+            "p95_ms": 18.627
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 18.6,
+            "mean_ms": 18.6,
+            "p95_ms": 18.6
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 255.862,
+            "mean_ms": 255.862,
+            "p95_ms": 255.862
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 8.985,
+            "mean_ms": 8.985,
+            "p95_ms": 8.985
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 15.843,
+            "mean_ms": 15.843,
+            "p95_ms": 15.843
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 257.477,
+            "mean_ms": 257.477,
+            "p95_ms": 257.477
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 10.019,
+            "mean_ms": 10.019,
+            "p95_ms": 10.019
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 16.599,
+            "mean_ms": 16.599,
+            "p95_ms": 16.599
+          }
+        }
+      },
+      "missed_gate_events": [
+        {
+          "at_utc": "2026-10-23T14:00:54.394653+00:00",
+          "full_reconstructions": 2,
+          "gate": "before_api_deadline",
+          "gate_lateness_seconds": 4.386934,
+          "pid": 15,
+          "resources": {
+            "memory_status": "AVAILABLE",
+            "peak_working_set_bytes": 29253632,
+            "process_cpu_seconds": 7.488264,
+            "working_set_bytes": 25468928
+          },
+          "slot_id": "focus:2026-10-23T10:00:50-04:00",
+          "spool_and_check_seconds": 3.716074832999766,
+          "state_prepare_seconds": 0.006824940999649698,
+          "status": "missed"
+        }
+      ],
+      "missing_slots": 1,
+      "no_full_scan_during_polling": true,
+      "quote_request_timing": {
+        "count": 3,
+        "max_ms": 201.566,
+        "mean_ms": 200.871,
+        "p95_ms": 201.566
+      },
+      "retries": 0,
+      "status_counts": {
+        "quote": 125
+      },
+      "timings": {
+        "before_api_gate_seconds": {
+          "count": 3,
+          "max_ms": 26.732,
+          "mean_ms": 24.639,
+          "p95_ms": 26.732
+        },
+        "before_dispatch_gate_seconds": {
+          "count": 3,
+          "max_ms": 7.873,
+          "mean_ms": 6.45,
+          "p95_ms": 7.873
+        },
+        "collector_seconds": {
+          "count": 3,
+          "max_ms": 269.128,
+          "mean_ms": 226.388,
+          "p95_ms": 269.128
+        },
+        "cycle_seconds": {
+          "count": 3,
+          "max_ms": 333.067,
+          "mean_ms": 282.135,
+          "p95_ms": 333.067
+        },
+        "journal_seconds": {
+          "count": 3,
+          "max_ms": 18.627,
+          "mean_ms": 12.544,
+          "p95_ms": 18.627
+        },
+        "recovery_before_slot_seconds": {
+          "count": 3,
+          "max_ms": 2.847,
+          "mean_ms": 2.106,
+          "p95_ms": 2.847
+        },
+        "verification_seconds": {
+          "count": 3,
+          "max_ms": 18.6,
+          "mean_ms": 17.014,
+          "p95_ms": 18.6
+        }
+      }
+    },
+    "hot": {
+      "acquisitions": 18,
+      "actual_quote_calls": 18,
+      "batch_calls": 18,
+      "budget_permits": 18,
+      "committed_slots": 18,
+      "complete": false,
+      "empty_skips": 0,
+      "expected_slots": 24,
+      "growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 6,
+            "max_ms": 1151.332,
+            "mean_ms": 457.304,
+            "p95_ms": 1151.332
+          },
+          "journal_seconds": {
+            "count": 6,
+            "max_ms": 17.17,
+            "mean_ms": 9.805,
+            "p95_ms": 17.17
+          },
+          "verification_seconds": {
+            "count": 6,
+            "max_ms": 20.128,
+            "mean_ms": 16.709,
+            "p95_ms": 20.128
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 6,
+            "max_ms": 3348.453,
+            "mean_ms": 874.395,
+            "p95_ms": 3348.453
+          },
+          "journal_seconds": {
+            "count": 6,
+            "max_ms": 214.568,
+            "mean_ms": 43.859,
+            "p95_ms": 214.568
+          },
+          "verification_seconds": {
+            "count": 6,
+            "max_ms": 37.933,
+            "mean_ms": 21.151,
+            "p95_ms": 37.933
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 6,
+            "max_ms": 434.288,
+            "mean_ms": 345.008,
+            "p95_ms": 434.288
+          },
+          "journal_seconds": {
+            "count": 6,
+            "max_ms": 13.053,
+            "mean_ms": 11.189,
+            "p95_ms": 13.053
+          },
+          "verification_seconds": {
+            "count": 6,
+            "max_ms": 25.73,
+            "mean_ms": 21.184,
+            "p95_ms": 25.73
+          }
+        }
+      },
+      "missed_gate_events": [
+        {
+          "at_utc": "2026-10-23T14:00:48.183546+00:00",
+          "full_reconstructions": 2,
+          "gate": "before_dispatch_deadline",
+          "gate_lateness_seconds": 4.109689,
+          "pid": 16,
+          "slot_id": "hot:2026-10-23T10:00:44-04:00",
+          "state_prepare_seconds": 4.049435661999723,
+          "status": "missed"
+        },
+        {
+          "at_utc": "2026-10-23T14:00:53.817189+00:00",
+          "full_reconstructions": 2,
+          "gate": "before_api_deadline",
+          "gate_lateness_seconds": 0.872759,
+          "pid": 16,
+          "slot_id": "hot:2026-10-23T10:00:52-04:00",
+          "spool_and_check_seconds": 0.056211289999737346,
+          "state_prepare_seconds": 0.06899385700035054,
+          "status": "missed"
+        },
+        {
+          "at_utc": "2026-10-23T14:00:58.924379+00:00",
+          "full_reconstructions": 2,
+          "gate": "before_dispatch_deadline",
+          "gate_lateness_seconds": 0.918436,
+          "pid": 16,
+          "slot_id": "hot:2026-10-23T10:00:58-04:00",
+          "state_prepare_seconds": 0.8432495860001836,
+          "status": "missed"
+        }
+      ],
+      "missing_slots": 6,
+      "no_full_scan_during_polling": true,
+      "quote_request_timing": {
+        "count": 18,
+        "max_ms": 1100.591,
+        "mean_ms": 307.229,
+        "p95_ms": 1100.591
+      },
+      "retries": 0,
+      "status_counts": {
+        "quote": 729
+      },
+      "timings": {
+        "before_api_gate_seconds": {
+          "count": 18,
+          "max_ms": 403.873,
+          "mean_ms": 48.261,
+          "p95_ms": 403.873
+        },
+        "before_dispatch_gate_seconds": {
+          "count": 18,
+          "max_ms": 381.76,
+          "mean_ms": 26.731,
+          "p95_ms": 381.76
+        },
+        "collector_seconds": {
+          "count": 18,
+          "max_ms": 1104.92,
+          "mean_ms": 322.956,
+          "p95_ms": 1104.92
+        },
+        "cycle_seconds": {
+          "count": 18,
+          "max_ms": 3348.453,
+          "mean_ms": 558.902,
+          "p95_ms": 3348.453
+        },
+        "journal_seconds": {
+          "count": 18,
+          "max_ms": 214.568,
+          "mean_ms": 21.618,
+          "p95_ms": 214.568
+        },
+        "recovery_before_slot_seconds": {
+          "count": 18,
+          "max_ms": 4.124,
+          "mean_ms": 2.657,
+          "p95_ms": 4.124
+        },
+        "verification_seconds": {
+          "count": 18,
+          "max_ms": 37.933,
+          "mean_ms": 19.681,
+          "p95_ms": 37.933
+        }
+      }
+    },
+    "uni": {
+      "acquisitions": 2,
+      "actual_quote_calls": 4,
+      "batch_calls": 4,
+      "budget_permits": 4,
+      "committed_slots": 2,
+      "complete": true,
+      "empty_skips": 0,
+      "expected_slots": 2,
+      "growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 611.167,
+            "mean_ms": 611.167,
+            "p95_ms": 611.167
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 37.197,
+            "mean_ms": 37.197,
+            "p95_ms": 37.197
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 31.311,
+            "mean_ms": 31.311,
+            "p95_ms": 31.311
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          },
+          "journal_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          },
+          "verification_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 596.074,
+            "mean_ms": 596.074,
+            "p95_ms": 596.074
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 70.718,
+            "mean_ms": 70.718,
+            "p95_ms": 70.718
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 41.607,
+            "mean_ms": 41.607,
+            "p95_ms": 41.607
+          }
+        }
+      },
+      "missed_gate_events": [],
+      "missing_slots": 0,
+      "no_full_scan_during_polling": true,
+      "quote_request_timing": {
+        "count": 4,
+        "max_ms": 184.295,
+        "mean_ms": 182.862,
+        "p95_ms": 184.295
+      },
+      "retries": 0,
+      "status_counts": {
+        "quote": 1109
+      },
+      "timings": {
+        "before_api_gate_seconds": {
+          "count": 2,
+          "max_ms": 29.297,
+          "mean_ms": 23.119,
+          "p95_ms": 29.297
+        },
+        "before_dispatch_gate_seconds": {
+          "count": 2,
+          "max_ms": 5.164,
+          "mean_ms": 4.75,
+          "p95_ms": 5.164
+        },
+        "collector_seconds": {
+          "count": 2,
+          "max_ms": 437.887,
+          "mean_ms": 413.847,
+          "p95_ms": 437.887
+        },
+        "cycle_seconds": {
+          "count": 2,
+          "max_ms": 611.167,
+          "mean_ms": 603.62,
+          "p95_ms": 611.167
+        },
+        "journal_seconds": {
+          "count": 2,
+          "max_ms": 70.718,
+          "mean_ms": 53.957,
+          "p95_ms": 70.718
+        },
+        "recovery_before_slot_seconds": {
+          "count": 2,
+          "max_ms": 11.561,
+          "mean_ms": 6.764,
+          "p95_ms": 11.561
+        },
+        "verification_seconds": {
+          "count": 2,
+          "max_ms": 41.607,
+          "mean_ms": 36.459,
+          "p95_ms": 41.607
+        }
+      }
+    }
+  },
+  "combined_symbol_cadence": {
+    "all_channels": {
+      "commit_gaps_over_review_threshold": 40,
+      "commit_observer_gaps": {
+        "count": 880,
+        "max_seconds": 14.709717,
+        "mean_seconds": 2.57902,
+        "p95_seconds": 2.818212
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 1200,
+      "expected_points_per_symbol": 30,
+      "missing_outcomes": 280,
+      "nonquote_outcomes": 0,
+      "per_symbol": {
+        "S0000": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0001": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0002": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0003": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0004": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0005": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0006": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0007": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0008": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0009": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0010": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0011": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0012": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0013": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0014": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0015": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0016": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0017": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0018": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0019": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0020": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0021": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0022": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0023": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0024": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0025": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0026": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0027": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0028": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0029": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0030": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0031": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0032": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0033": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0034": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0035": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0036": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0037": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0038": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        },
+        "S0039": {
+          "commit_observer_gaps": {
+            "count": 22,
+            "max_seconds": 14.709717,
+            "mean_seconds": 2.57902,
+            "p95_seconds": 2.818212
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.271079+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:54.778032+00:00",
+          "missing_slots": 7,
+          "outcomes": 23,
+          "quotes": 23,
+          "response_gaps": {
+            "count": 22,
+            "max_seconds": 12.446623,
+            "mean_seconds": 2.477589,
+            "p95_seconds": 2.832507
+          },
+          "status_counts": {
+            "quote": 23
+          }
+        }
+      },
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 920,
+      "response_gaps": {
+        "count": 880,
+        "max_seconds": 12.446623,
+        "mean_seconds": 2.477589,
+        "p95_seconds": 2.832507
+      },
+      "response_gaps_over_review_threshold": 40,
+      "scheduled_gaps": {
+        "count": 880,
+        "max_seconds": 12.0,
+        "mean_seconds": 2.454545,
+        "p95_seconds": 2.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    },
+    "clock_note": "Actual response receipts and post-write observer receipts, sorted per symbol; not fresh-market-data guarantees",
+    "cohort": "40 opening-Focus symbols held in experimental Hot throughout the window",
+    "focus_only": {
+      "commit_gaps_over_review_threshold": 80,
+      "commit_observer_gaps": {
+        "count": 80,
+        "max_seconds": 19.998667,
+        "mean_seconds": 14.961623,
+        "p95_seconds": 19.998667
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 160,
+      "expected_points_per_symbol": 4,
+      "missing_outcomes": 40,
+      "nonquote_outcomes": 0,
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 120,
+      "response_gaps": {
+        "count": 80,
+        "max_seconds": 19.995858,
+        "mean_seconds": 14.965963,
+        "p95_seconds": 19.995858
+      },
+      "response_gaps_over_review_threshold": 80,
+      "scheduled_gaps": {
+        "count": 80,
+        "max_seconds": 20.0,
+        "mean_seconds": 15.0,
+        "p95_seconds": 20.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    },
+    "hot_only": {
+      "commit_gaps_over_review_threshold": 120,
+      "commit_observer_gaps": {
+        "count": 680,
+        "max_seconds": 14.709717,
+        "mean_seconds": 3.235114,
+        "p95_seconds": 14.709717
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 960,
+      "expected_points_per_symbol": 24,
+      "missing_outcomes": 240,
+      "nonquote_outcomes": 0,
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 720,
+      "response_gaps": {
+        "count": 680,
+        "max_seconds": 12.446623,
+        "mean_seconds": 3.085027,
+        "p95_seconds": 12.446623
+      },
+      "response_gaps_over_review_threshold": 120,
+      "scheduled_gaps": {
+        "count": 680,
+        "max_seconds": 12.0,
+        "mean_seconds": 3.058824,
+        "p95_seconds": 12.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    },
+    "outcome_coverage_complete": false,
+    "result": "FAILED",
+    "review_threshold_seconds": 4.0,
+    "uni_focus": {
+      "commit_gaps_over_review_threshold": 160,
+      "commit_observer_gaps": {
+        "count": 160,
+        "max_seconds": 10.340431,
+        "mean_seconds": 9.911152,
+        "p95_seconds": 10.340431
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 240,
+      "expected_points_per_symbol": 6,
+      "missing_outcomes": 40,
+      "nonquote_outcomes": 0,
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 200,
+      "response_gaps": {
+        "count": 160,
+        "max_seconds": 10.022806,
+        "mean_seconds": 9.988683,
+        "p95_seconds": 10.022806
+      },
+      "response_gaps_over_review_threshold": 160,
+      "scheduled_gaps": {
+        "count": 160,
+        "max_seconds": 10.0,
+        "mean_seconds": 10.0,
+        "p95_seconds": 10.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    }
+  },
+  "contract": "isolated-interleaved-provider-v1",
+  "coordinator_commit": "0417b345e2725f4e1e184d3b3202bedb846dbfca",
+  "duration_seconds": 60,
+  "elapsed_seconds_including_startup": 80.526,
+  "failures": [
+    "Journal audit failed: (AuditFinding(code='missing_poll_slots', detail='focus: 1 configured slots have neither an acquisition nor an empty-membership skip'), AuditFinding(code='missing_poll_slots', detail='hot: 6 configured slots have neither an acquisition nor an empty-membership skip'))",
+    "focus coverage, steady-state scan or pending-outcome check failed",
+    "hot coverage, steady-state scan or pending-outcome check failed",
+    "Final hierarchy or session Uni retention differs",
+    "Admission/cap/expiry/demotion trace differs: [(False, False, False), (True, True, True), (True, False, False), (True, True, True)]",
+    "Combined stable-Hot symbol outcome coverage differs from the declared grids"
+  ],
+  "final_membership_counts": {
+    "focus": 42,
+    "hot": 41,
+    "uni": 555
+  },
+  "first_target_hot_revision": 3,
+  "grids": {
+    "focus": [
+      10,
+      20,
+      40,
+      50
+    ],
+    "hot": [
+      2,
+      4,
+      6,
+      8,
+      12,
+      14,
+      16,
+      18,
+      22,
+      24,
+      26,
+      28,
+      32,
+      34,
+      36,
+      38,
+      42,
+      44,
+      46,
+      48,
+      52,
+      54,
+      56,
+      58
+    ],
+    "uni": [
+      0,
+      30
+    ]
+  },
+  "hierarchy_revisions": 6,
+  "inflight_hot_revision": 2,
+  "journal_replay": {
+    "acquisitions": 23,
+    "events": 29,
+    "observations": 1963,
+    "sequence_sha256": "d54d27e06e634609df31eedd92c7a7680279dfdbd74bb2a66593b597f0b01c94"
+  },
+  "limitations": [
+    "Thirty-minute bounded review; the offline qualification is 60 actual elapsed seconds, not full-session capacity",
+    "Combined cadence is measured for the 40 continuously Hot opening-Focus symbols; dynamic admission is audited separately",
+    "Quote-client intervals are observed around SDK calls, not a wire-level audit of all HTTP or authentication requests",
+    "Response/commit gap review threshold is 4s; nominal opportunities do not guarantee fresh provider quote/trade timestamps",
+    "No automatic higher-channel replacement, production cadence switch, restart drill or full-day restart guarantee",
+    "All three channels use the native guarded incremental collector; production Uni/Focus use their existing launcher",
+    "Direct synthetic halt-source requests; no live Nasdaq transport or adapter latency claim",
+    "No full-session history prefill or production journal access; proposal inputs are copied as read-only roster values"
+  ],
+  "live_quote_calls": 0,
+  "logical_end": "2026-10-23T14:01:00+00:00",
+  "logical_start": "2026-10-23T14:00:00+00:00",
+  "network_disabled": true,
+  "pids": {
+    "coordinator": 13,
+    "focus": 15,
+    "hot": 16,
+    "uni": 14
+  },
+  "publication_replay_identical": true,
+  "published_during_hot_request": [
+    3
+  ],
+  "quote_call_budget": 32,
+  "quote_client_overlap": {
+    "cross_channel_overlap_pairs": 0,
+    "dispatched_intervals": 25,
+    "examples": [],
+    "maximum_concurrent_quote_client_calls": 1,
+    "pairs_by_channels": {},
+    "scope": "Intervals around SDK quote calls; excludes independent production and is not a wire-level HTTP trace"
+  },
+  "replays_identical": true,
+  "request_replay_identical": true,
+  "request_replay_sha256": "d5b5c012de4897d55f2736ac611626a4495d180c908a8283170a9f3f76fbc851",
+  "result": "FAILED",
+  "source": "synthetic_only",
+  "table_counts": {
+    "poll_run": 6,
+    "poll_slot_skip": 0,
+    "quote_acquisition": 23,
+    "quote_observation": 1963,
+    "sampling_channel_member": 3775,
+    "sampling_channel_revision": 18,
+    "sampling_membership_revision": 6
+  },
+  "target_membership_trace": [
+    [
+      false,
+      false,
+      false
+    ],
+    [
+      true,
+      true,
+      true
+    ],
+    [
+      true,
+      false,
+      false
+    ],
+    [
+      true,
+      true,
+      true
+    ]
+  ],
+  "timing_clock": "actual elapsed speed with labeled future offset",
+  "trace": [
+    {
+      "action": "algorithm_focus",
+      "at_utc": "2026-10-23T14:00:06.021031+00:00",
+      "elapsed_seconds": 6.002
+    },
+    {
+      "action": "manual_hot",
+      "at_utc": "2026-10-23T14:00:12.048820+00:00",
+      "elapsed_seconds": 12.028
+    },
+    {
+      "action": "halt_hot",
+      "at_utc": "2026-10-23T14:00:18.040713+00:00",
+      "elapsed_seconds": 18.006
+    },
+    {
+      "action": "withdraw_manual_hot",
+      "at_utc": "2026-10-23T14:00:24.056049+00:00",
+      "elapsed_seconds": 24.023,
+      "other_source_kept_hot": true
+    },
+    {
+      "action": "temporary_cap",
+      "at_utc": "2026-10-23T14:00:30.051383+00:00",
+      "elapsed_seconds": 30.018
+    },
+    {
+      "action": "withdraw_algorithm",
+      "at_utc": "2026-10-23T14:00:52.855662+00:00",
+      "elapsed_seconds": 46.213
+    },
+    {
+      "action": "withdraw_halt",
+      "at_utc": "2026-10-23T14:00:57.079356+00:00",
+      "elapsed_seconds": 53.065
+    }
+  ],
+  "worker_resources": {
+    "coordinator": {
+      "memory_available": true,
+      "peak_working_set_bytes": 29683712,
+      "process_cpu_seconds": 30.102974,
+      "samples": 4,
+      "startup_reconstruction_seconds": null
+    },
+    "focus": {
+      "memory_available": true,
+      "peak_working_set_bytes": 29253632,
+      "process_cpu_seconds": 7.493317,
+      "samples": 3,
+      "startup_reconstruction_seconds": 0.09885236099989925
+    },
+    "hot": {
+      "memory_available": true,
+      "peak_working_set_bytes": 29253632,
+      "process_cpu_seconds": 9.066689,
+      "samples": 3,
+      "startup_reconstruction_seconds": 0.08735964099969351
+    },
+    "uni": {
+      "memory_available": true,
+      "peak_working_set_bytes": 31502336,
+      "process_cpu_seconds": 1.082722,
+      "samples": 2,
+      "startup_reconstruction_seconds": 0.09402462699972602
+    }
+  }
+}

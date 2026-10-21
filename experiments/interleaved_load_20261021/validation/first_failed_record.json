@@ -1,0 +1,15 @@
+{
+  "source_commit": "b2a2203f8f6ca1257a95685f3fe4e8d4c289c8a4",
+  "package": "interleaved_load_20261021_161857_f3b6f2",
+  "archive_sha256": "2c67b225bebcfc00f113f8d5464efb04af7ed628c17a7fc37eb7383f58e3f8be",
+  "result": "FAILED",
+  "uni_committed": 2,
+  "uni_expected": 2,
+  "focus_committed": 3,
+  "focus_expected": 4,
+  "hot_committed": 18,
+  "hot_expected": 24,
+  "provider": "synthetic_only",
+  "cause": "not established; late local work exceeded dispatch gates",
+  "followup": "Added per-sample CPU, Coordinator cycle wall/CPU, action timings and worker event-clock/elapsed-clock receipts; did not change cadence, deadline, native collector or pinned Coordinator."
+}

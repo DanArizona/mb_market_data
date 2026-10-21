@@ -1,0 +1,275 @@
+{
+  "run": "20261021T191217Z-79e57f47",
+  "archive_sha256": "73bd29a44e7aeafb3022a86bff2e1d3aa30ca922ffa7a7d868018b12527139b8",
+  "archive_files": 31,
+  "uncompressed_bytes": 147391239,
+  "original_archived_bytes_verified_unchanged": true,
+  "network_provider_calls_performed": false,
+  "window_start_utc": "2026-10-21T19:14:00+00:00",
+  "window_end_utc": "2026-10-21T19:44:00+00:00",
+  "independent_native_audit_passed": true,
+  "audit_findings": [],
+  "table_counts": {
+    "poll_run": 6,
+    "sampling_membership_revision": 8,
+    "sampling_channel_revision": 24,
+    "sampling_channel_member": 4863,
+    "poll_slot_skip": 0,
+    "quote_acquisition": 900,
+    "quote_observation": 65964
+  },
+  "independent_replay_1": {
+    "sequence_sha256": "75ef980be8f209868494b42836e16f9dc9e43a454d2020d8162de8569af53f0e",
+    "events": 908,
+    "acquisitions": 900,
+    "observations": 65964
+  },
+  "independent_replay_2": {
+    "sequence_sha256": "75ef980be8f209868494b42836e16f9dc9e43a454d2020d8162de8569af53f0e",
+    "events": 908,
+    "acquisitions": 900,
+    "observations": 65964
+  },
+  "sidecar_verification": {
+    "uni": {
+      "events": 180,
+      "acknowledged_acquisitions": 60,
+      "pending": null,
+      "chain_and_native_response_receipt_verification": "PASS"
+    },
+    "focus": {
+      "events": 360,
+      "acknowledged_acquisitions": 120,
+      "pending": null,
+      "chain_and_native_response_receipt_verification": "PASS"
+    },
+    "hot": {
+      "events": 2160,
+      "acknowledged_acquisitions": 720,
+      "pending": null,
+      "chain_and_native_response_receipt_verification": "PASS"
+    }
+  },
+  "cadence_recomputed_matches_report": true,
+  "combined_response_gap_max_seconds": 3.100622,
+  "combined_observer_gap_max_seconds": 3.241743,
+  "overlap_recomputed": {
+    "dispatched_intervals": 960,
+    "cross_channel_overlap_pairs": 0,
+    "pairs_by_channels": {},
+    "maximum_concurrent_quote_client_calls": 1,
+    "examples": [],
+    "scope": "Intervals around SDK quote calls; excludes independent production and is not a wire-level HTTP trace"
+  },
+  "quote_permits_and_call_records_match": true,
+  "request_replay_hash": "e7407c99d31d7dba6f7992daea6b97752147d3700a7fbe9384e35c65d2ae4693",
+  "request_replay_states": 12,
+  "publication_events_verified": 19,
+  "publication_acknowledgements_match_full_journal_revisions": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "original_Windows_identity_preserved": true,
+  "full_native_relocated_publication_snapshot_performed": false,
+  "growth_by_fixed_ten_minute_bins": {
+    "uni": [
+      {
+        "third": 1,
+        "count": 20,
+        "mean_cycle_ms": 953.473,
+        "mean_verification_ms": 49.464,
+        "mean_journal_ms": 44.354
+      },
+      {
+        "third": 2,
+        "count": 20,
+        "mean_cycle_ms": 926.441,
+        "mean_verification_ms": 50.902,
+        "mean_journal_ms": 50.979
+      },
+      {
+        "third": 3,
+        "count": 20,
+        "mean_cycle_ms": 969.16,
+        "mean_verification_ms": 56.167,
+        "mean_journal_ms": 57.442
+      }
+    ],
+    "focus": [
+      {
+        "third": 1,
+        "count": 40,
+        "mean_cycle_ms": 302.183,
+        "mean_verification_ms": 20.797,
+        "mean_journal_ms": 10.779
+      },
+      {
+        "third": 2,
+        "count": 40,
+        "mean_cycle_ms": 299.255,
+        "mean_verification_ms": 22.096,
+        "mean_journal_ms": 11.483
+      },
+      {
+        "third": 3,
+        "count": 40,
+        "mean_cycle_ms": 310.571,
+        "mean_verification_ms": 22.127,
+        "mean_journal_ms": 11.872
+      }
+    ],
+    "hot": [
+      {
+        "third": 1,
+        "count": 240,
+        "mean_cycle_ms": 308.639,
+        "mean_verification_ms": 20.963,
+        "mean_journal_ms": 10.656
+      },
+      {
+        "third": 2,
+        "count": 240,
+        "mean_cycle_ms": 324.001,
+        "mean_verification_ms": 21.894,
+        "mean_journal_ms": 11.651
+      },
+      {
+        "third": 3,
+        "count": 240,
+        "mean_cycle_ms": 316.448,
+        "mean_verification_ms": 22.782,
+        "mean_journal_ms": 12.424
+      }
+    ],
+    "coordinator": [
+      {
+        "third": 1,
+        "count": 575,
+        "mean_cycle_ms": 36.873,
+        "mean_cpu_ms": 35.87
+      },
+      {
+        "third": 2,
+        "count": 558,
+        "mean_cycle_ms": 66.502,
+        "mean_cpu_ms": 64.348
+      },
+      {
+        "third": 3,
+        "count": 535,
+        "mean_cycle_ms": 116.573,
+        "mean_cpu_ms": 114.398
+      }
+    ]
+  },
+  "revision_counts": [
+    {
+      "revision": 0,
+      "effective_at_utc": "2026-10-21T19:12:20.000465+00:00",
+      "uni": 531,
+      "focus": 40,
+      "hot": 0,
+      "MSFT_channels": []
+    },
+    {
+      "revision": 1,
+      "effective_at_utc": "2026-10-21T19:12:21.017511+00:00",
+      "uni": 531,
+      "focus": 40,
+      "hot": 40,
+      "MSFT_channels": []
+    },
+    {
+      "revision": 2,
+      "effective_at_utc": "2026-10-21T19:17:00.563286+00:00",
+      "uni": 531,
+      "focus": 41,
+      "hot": 40,
+      "MSFT_channels": []
+    },
+    {
+      "revision": 3,
+      "effective_at_utc": "2026-10-21T19:20:01.150921+00:00",
+      "uni": 532,
+      "focus": 42,
+      "hot": 41,
+      "MSFT_channels": [
+        "uni",
+        "focus",
+        "hot"
+      ]
+    },
+    {
+      "revision": 4,
+      "effective_at_utc": "2026-10-21T19:29:01.205481+00:00",
+      "uni": 532,
+      "focus": 41,
+      "hot": 40,
+      "MSFT_channels": [
+        "uni"
+      ]
+    },
+    {
+      "revision": 5,
+      "effective_at_utc": "2026-10-21T19:33:30.677357+00:00",
+      "uni": 532,
+      "focus": 42,
+      "hot": 41,
+      "MSFT_channels": [
+        "uni",
+        "focus",
+        "hot"
+      ]
+    },
+    {
+      "revision": 6,
+      "effective_at_utc": "2026-10-21T19:36:32.805876+00:00",
+      "uni": 532,
+      "focus": 41,
+      "hot": 41,
+      "MSFT_channels": [
+        "uni",
+        "focus",
+        "hot"
+      ]
+    },
+    {
+      "revision": 7,
+      "effective_at_utc": "2026-10-21T19:38:02.816076+00:00",
+      "uni": 532,
+      "focus": 40,
+      "hot": 40,
+      "MSFT_channels": [
+        "uni"
+      ]
+    }
+  ],
+  "scheduler_overruns_observed": 0,
+  "actual_late_acquisitions": 0,
+  "verdict": "PASS",
+  "scope": "30 minutes real quotes, simulated membership requests; no live slow-overrun recovery or full-session capacity claim",
+  "post_trial_production_health": {
+    "as_of_et": "2026-10-21T15:47:06-04:00",
+    "uni": {
+      "state": "RUNNING",
+      "pid": 52620,
+      "members": 531,
+      "acquisitions": 755,
+      "last_slot_et": "15:47:00",
+      "overdue_missing_slots": 0
+    },
+    "focus": {
+      "state": "RUNNING",
+      "pid": 35812,
+      "members": 40,
+      "acquisitions": 1509,
+      "last_slot_et": "15:47:05",
+      "overdue_missing_slots": 0
+    }
+  }
+}

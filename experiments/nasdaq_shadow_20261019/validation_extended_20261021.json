@@ -1,0 +1,71 @@
+{
+  "code_commit": "2c28d4fd79c1e46b1d9d7a80cedc6348e8397388",
+  "coordinator_commit": "0417b345e2725f4e1e184d3b3202bedb846dbfca",
+  "development_checks_before_boundary_correction": {
+    "count": 68,
+    "seconds": 51.184,
+    "result": "PASS"
+  },
+  "final_packaged_checks": {
+    "count": 60,
+    "seconds": 49.935,
+    "result": "PASS"
+  },
+  "final_packaged_elapsed_proof": {
+    "result": "PASS_WITH_WARNINGS",
+    "source": "synthetic",
+    "hot": 3,
+    "empty": 3,
+    "missing": [],
+    "quote_calls": 4,
+    "feed_health": {
+      "attempts": 5,
+      "consecutive_failures": 0,
+      "failed_captures": 1,
+      "halt_discovery_continuity": "NOT_ESTABLISHED",
+      "interruption_receipts": [
+        {
+          "failed_attempts": [
+            2
+          ],
+          "first_failed_request_at_utc": "2026-10-23T14:00:02.093045+00:00",
+          "recovered_at_utc": "2026-10-23T14:00:04.113158+00:00"
+        }
+      ],
+      "limitation": "Unavailable responses are unknown feed intervals, never evidence of no halts.",
+      "maximum_consecutive_failures": 1,
+      "status": "RECOVERED_WITH_GAPS",
+      "stop_reason": null,
+      "successful_captures": 4
+    },
+    "audit": true,
+    "identical_replays": true,
+    "replay": {
+      "acquisitions": 3,
+      "events": 5,
+      "observations": 3,
+      "sequence_sha256": "712030fab1db8aa83be69524ce71cbea254e6e26b98ff7eb88a3c5699247f5f4"
+    }
+  },
+  "extended_logical_coverage": {
+    "hot_slots": 450,
+    "tail_seconds": 900,
+    "endpoint_refused": true,
+    "call_451_refused": true,
+    "no_event_deadline_enforced_in_worker": true,
+    "last_moment_selection_extends_window": true,
+    "elapsed_live_capacity_claim": false
+  },
+  "native_windows": "PENDING",
+  "live_extended_trial": "PENDING",
+  "production_hot": false,
+  "bundle": {
+    "zip": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_shadow_20261021_011301_66edd0.zip",
+    "stem": "nasdaq_shadow_20261021_011301_66edd0",
+    "sha256": "202a69493a7671ed3d9c4f60680561a78cc5b068327f95813d9c3cd8cc08775a",
+    "bytes": 258758,
+    "files": 85,
+    "code_commit": "2c28d4fd79c1e46b1d9d7a80cedc6348e8397388"
+  },
+  "patch_sha256": "d664d686b26c29ca92841f76fa407c0c2f443c1cb123c2aab038cede86de8357"
+}

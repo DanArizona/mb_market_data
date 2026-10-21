@@ -1,0 +1,47 @@
+{
+  "implementation_commit": "5fdf103f626a8f5e96e62b2c09d3fbe755f9d5d5",
+  "package": "interleaved_load_20261021_163302_1933af",
+  "archive_sha256": "1960623787c9816ae65b3989eb3c922f92403d00315b67cb9e145695f4f35187",
+  "archive_bytes": 247861,
+  "archive_files": 84,
+  "tests": 39,
+  "extracted_test_seconds": 1.051,
+  "extracted_elapsed_proof": "PASS",
+  "proof_duration_seconds": 60,
+  "channels": {
+    "focus": {
+      "expected_slots": 4,
+      "committed_slots": 4,
+      "missing_slots": 0
+    },
+    "hot": {
+      "expected_slots": 24,
+      "committed_slots": 24,
+      "missing_slots": 0
+    },
+    "uni": {
+      "expected_slots": 2,
+      "committed_slots": 2,
+      "missing_slots": 0
+    }
+  },
+  "observations": 2246,
+  "all_observation_statuses": "quote",
+  "quote_calls": 32,
+  "replay_sha256": "1800d5fe94068ef0c3b58a5d8bf8e6b7e6a0e17c944b3799bd37454a6bf25a44",
+  "combined_hot_response_gap_max_seconds": 3.219675,
+  "combined_hot_commit_observer_gap_max_seconds": 3.196057,
+  "cross_channel_quote_client_overlaps": 0,
+  "stop_drill_seconds": 0.1685485059997518,
+  "first_failure_preserved": true,
+  "first_failure_root_cause_established": false,
+  "native_acquisition_and_coordinator_changes": false,
+  "windows_qualification": "PENDING",
+  "live_thirty_minute_trial": "PENDING",
+  "production_schedule_changes": false,
+  "coordinator_poll_seconds": 1.0,
+  "coordinator_cpu_seconds": 8.824781,
+  "synthetic_only_overlap_delay_seconds": 1.5,
+  "fresh_stop_entry_live_config": "PASS",
+  "earlier_failed_rehearsals_preserved": 2
+}

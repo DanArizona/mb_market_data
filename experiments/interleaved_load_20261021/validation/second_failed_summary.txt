@@ -1,0 +1,40 @@
+COMBINED SYNTHETIC_ONLY LOAD: FAILED
+Four independent processes: Coordinator + Uni + Focus + Hot; actual elapsed scheduling.
+Opening Uni 554 / Focus 40; initial Hot request 40. Final: {'uni': 555, 'focus': 40, 'hot': 40}
+Admission, independent source withdrawal, temporary cap, expiry reentry and delayed demotion: see findings
+Controlled synthetic in-flight publication: [3]
+Collection/integrity: FAILED; transport: PASS; availability: PASS
+Audit: False; identical journal replays: True
+UNI: committed=2/2; missing=0; batches=4
+  cycle mean/p95/max ms: {'count': 2, 'mean_ms': 624.482, 'p95_ms': 661.921, 'max_ms': 661.921}
+  verification mean/p95/max ms: {'count': 2, 'mean_ms': 42.426, 'p95_ms': 44.265, 'max_ms': 44.265}
+  provider request mean/p95/max ms: {'count': 4, 'mean_ms': 184.428, 'p95_ms': 186.804, 'max_ms': 186.804}
+  observation statuses: {'quote': 1109}
+FOCUS: committed=4/4; missing=0; batches=4
+  cycle mean/p95/max ms: {'count': 4, 'mean_ms': 522.232, 'p95_ms': 735.949, 'max_ms': 735.949}
+  verification mean/p95/max ms: {'count': 4, 'mean_ms': 33.697, 'p95_ms': 44.684, 'max_ms': 44.684}
+  provider request mean/p95/max ms: {'count': 4, 'mean_ms': 202.399, 'p95_ms': 205.053, 'max_ms': 205.053}
+  observation statuses: {'quote': 165}
+HOT: committed=22/24; missing=2; batches=22
+  cycle mean/p95/max ms: {'count': 22, 'mean_ms': 610.314, 'p95_ms': 1854.577, 'max_ms': 1947.69}
+  verification mean/p95/max ms: {'count': 22, 'mean_ms': 41.079, 'p95_ms': 161.694, 'max_ms': 207.671}
+  provider request mean/p95/max ms: {'count': 22, 'mean_ms': 302.728, 'p95_ms': 390.707, 'max_ms': 1100.408}
+  observation statuses: {'quote': 890}
+Quote-client calls/budget: 30/32
+Journal replay SHA-256: 897019fe906cee64c49b36376fa55f6e89c36a0ed67086fc195cedf16ef89619
+Journal audit failed: (AuditFinding(code='missing_poll_slots', detail='hot: 2 configured slots have neither an acquisition nor an empty-membership skip'),)
+hot coverage, steady-state scan or pending-outcome check failed
+Combined stable-Hot symbol outcome coverage differs from the declared grids
+Thirty-minute bounded review; the offline qualification is 60 actual elapsed seconds, not full-session capacity
+Combined cadence is measured for the 40 continuously Hot opening-Focus symbols; dynamic admission is audited separately
+Quote-client intervals are observed around SDK calls, not a wire-level audit of all HTTP or authentication requests
+Response/commit gap review threshold is 4s; nominal opportunities do not guarantee fresh provider quote/trade timestamps
+No automatic higher-channel replacement, production cadence switch, restart drill or full-day restart guarantee
+All three channels use the native guarded incremental collector; production Uni/Focus use their existing launcher
+Direct synthetic halt-source requests; no live Nasdaq transport or adapter latency claim
+No full-session history prefill or production journal access; proposal inputs are copied as read-only roster values
+Combined stable-Hot cadence: FAILED; outcome coverage=False
+  per-symbol response gaps: {'count': 1080, 'mean_seconds': 2.148351, 'p95_seconds': 3.887456, 'max_seconds': 4.363626}
+  per-symbol post-commit observer gaps: {'count': 1080, 'mean_seconds': 2.135875, 'p95_seconds': 2.84011, 'max_seconds': 5.370061}
+Cross-channel quote-client overlapping pairs: 0
+Worker resource summary: {'coordinator': {'samples': 4, 'peak_working_set_bytes': 31793152, 'process_cpu_seconds': 31.533047, 'startup_reconstruction_seconds': None, 'memory_available': True}, 'uni': {'samples': 2, 'peak_working_set_bytes': 31920128, 'process_cpu_seconds': 1.445525, 'startup_reconstruction_seconds': 0.13838418600016666, 'memory_available': True}, 'focus': {'samples': 3, 'peak_working_set_bytes': 29257728, 'process_cpu_seconds': 5.337334, 'startup_reconstruction_seconds': 0.14255914700015637, 'memory_available': True}, 'hot': {'samples': 3, 'peak_working_set_bytes': 29257728, 'process_cpu_seconds': 8.021028, 'startup_reconstruction_seconds': 0.0629051209998579, 'memory_available': True}}

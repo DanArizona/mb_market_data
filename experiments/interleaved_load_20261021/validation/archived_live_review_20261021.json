@@ -1,0 +1,265 @@
+{
+  "run": "20261021T164800Z-e7dd49b2",
+  "archive_sha256": "492bf4aa78ef7aad81007405bbbc850234032b9c216ac794a53b2005569ddba0",
+  "archive_files": 31,
+  "archive_bytes_extracted": 147157592,
+  "original_archive_and_extracted_files_modified": false,
+  "live_network_calls_performed": false,
+  "window_start_utc": "2026-10-21T16:49:00+00:00",
+  "window_end_utc": "2026-10-21T17:19:00+00:00",
+  "verdict_preserved": "FAILED",
+  "independent_sqlite_integrity": [
+    "ok"
+  ],
+  "independent_audit_findings": [
+    {
+      "code": "missing_poll_slots",
+      "detail": "hot: 1 configured slots have neither an acquisition nor an empty-membership skip"
+    }
+  ],
+  "independent_replays": [
+    {
+      "sequence_sha256": "c3c2ea019af6f6e1000f2ef2f262b122471bd721353e109e64c42985380ea94f",
+      "events": 907,
+      "acquisitions": 899,
+      "observations": 65923
+    },
+    {
+      "sequence_sha256": "c3c2ea019af6f6e1000f2ef2f262b122471bd721353e109e64c42985380ea94f",
+      "events": 907,
+      "acquisitions": 899,
+      "observations": 65923
+    }
+  ],
+  "independent_missing_slots": {
+    "uni": [],
+    "focus": [],
+    "hot": [
+      "2026-10-21T16:59:42+00:00"
+    ]
+  },
+  "independent_cadence_matches_archived_report": true,
+  "stable_hot_missing_outcomes": 40,
+  "independent_quote_overlap": {
+    "dispatched_intervals": 959,
+    "cross_channel_overlap_pairs": 1,
+    "pairs_by_channels": {
+      "focus/hot": 1
+    },
+    "maximum_concurrent_quote_client_calls": 2,
+    "examples": [
+      {
+        "channels": "focus/hot",
+        "first_slot": "hot:2026-10-21T12:59:38-04:00",
+        "second_slot": "focus:2026-10-21T12:59:40-04:00",
+        "overlap_seconds": 1.458239
+      }
+    ],
+    "scope": "Intervals around SDK quote calls; excludes independent production and is not a wire-level HTTP trace"
+  },
+  "request_and_publication_verification": {
+    "request_replay_sha256": "cec36c9fe1fc5ccc5195a6d5dc6a4b25c0a5af925644f69aa0a0b34c68c4d8ca",
+    "request_states": 12,
+    "request_replays_identical": true,
+    "matches_retained_request_digest": true,
+    "publication_chain_events": 19,
+    "publication_chain_head_sha256": "ec8415fc3f3597b5a20329b3faf492acad2f52aafddc48e3d11373a6743b295c",
+    "publication_chain_and_request_prefixes_verified": true,
+    "full_native_publication_relocation_replay_performed": false
+  },
+  "missed_slot_timeline": [
+    {
+      "channel": "hot",
+      "slot_id": "hot:2026-10-21T12:59:36-04:00",
+      "quote_sdk_started_at_utc": "2026-10-21T16:59:36.028301+00:00",
+      "quote_sdk_returned_at_utc": "2026-10-21T16:59:36.255659+00:00",
+      "sdk_call_seconds": 0.23069580004084855,
+      "status_code": 200,
+      "commit_observed_at_utc": "2026-10-21T16:59:36.351821+00:00",
+      "cycle_seconds": 0.34974039997905493,
+      "journal_seconds": 0.033819800009950995,
+      "verification_seconds": 0.019099100143648684
+    },
+    {
+      "channel": "hot",
+      "slot_id": "hot:2026-10-21T12:59:38-04:00",
+      "quote_sdk_started_at_utc": "2026-10-21T16:59:38.169637+00:00",
+      "quote_sdk_returned_at_utc": "2026-10-21T16:59:41.985346+00:00",
+      "sdk_call_seconds": 3.818881400045939,
+      "status_code": 200,
+      "commit_observed_at_utc": "2026-10-21T16:59:42.361525+00:00",
+      "cycle_seconds": 4.357170499977656,
+      "journal_seconds": 0.1565394001081586,
+      "verification_seconds": 0.019205500138923526
+    },
+    {
+      "channel": "focus",
+      "slot_id": "focus:2026-10-21T12:59:40-04:00",
+      "quote_sdk_started_at_utc": "2026-10-21T16:59:40.305530+00:00",
+      "quote_sdk_returned_at_utc": "2026-10-21T16:59:41.763769+00:00",
+      "sdk_call_seconds": 1.4610322000226006,
+      "status_code": 200,
+      "commit_observed_at_utc": "2026-10-21T16:59:42.132653+00:00",
+      "cycle_seconds": 2.12292570003774,
+      "journal_seconds": 0.18537650001235306,
+      "verification_seconds": 0.018233900074847043
+    },
+    {
+      "channel": "hot",
+      "slot_id": "hot:2026-10-21T12:59:44-04:00",
+      "quote_sdk_started_at_utc": "2026-10-21T16:59:44.038084+00:00",
+      "quote_sdk_returned_at_utc": "2026-10-21T16:59:44.475461+00:00",
+      "sdk_call_seconds": 0.4370204999577254,
+      "status_code": 200,
+      "commit_observed_at_utc": "2026-10-21T16:59:44.505534+00:00",
+      "cycle_seconds": 0.49233800009824336,
+      "journal_seconds": 0.009995699976570904,
+      "verification_seconds": 0.018484999891370535
+    }
+  ],
+  "largest_AMOD_combined_receipt_gaps": {
+    "response": {
+      "seconds": 5.503822,
+      "from": {
+        "at_utc": "2026-10-21T16:59:36.259947+00:00",
+        "channel": "hot",
+        "scheduled_at_utc": "2026-10-21T16:59:36.000000Z"
+      },
+      "to": {
+        "at_utc": "2026-10-21T16:59:41.763769+00:00",
+        "channel": "focus",
+        "scheduled_at_utc": "2026-10-21T16:59:40.000000Z"
+      }
+    },
+    "commit": {
+      "seconds": 5.780832,
+      "from": {
+        "at_utc": "2026-10-21T16:59:36.351821+00:00",
+        "channel": "hot",
+        "scheduled_at_utc": "2026-10-21T16:59:36.000000Z"
+      },
+      "to": {
+        "at_utc": "2026-10-21T16:59:42.132653+00:00",
+        "channel": "focus",
+        "scheduled_at_utc": "2026-10-21T16:59:40.000000Z"
+      }
+    }
+  },
+  "growth_by_fixed_ten_minute_bins": {
+    "uni": [
+      {
+        "third": 1,
+        "acquisitions": 20,
+        "cycle_seconds_mean_ms": 934.245,
+        "verification_seconds_mean_ms": 40.972,
+        "journal_seconds_mean_ms": 35.138
+      },
+      {
+        "third": 2,
+        "acquisitions": 20,
+        "cycle_seconds_mean_ms": 907.124,
+        "verification_seconds_mean_ms": 41.54,
+        "journal_seconds_mean_ms": 40.843
+      },
+      {
+        "third": 3,
+        "acquisitions": 20,
+        "cycle_seconds_mean_ms": 1068.886,
+        "verification_seconds_mean_ms": 41.348,
+        "journal_seconds_mean_ms": 44.319
+      }
+    ],
+    "focus": [
+      {
+        "third": 1,
+        "acquisitions": 40,
+        "cycle_seconds_mean_ms": 312.157,
+        "verification_seconds_mean_ms": 18.819,
+        "journal_seconds_mean_ms": 10.04
+      },
+      {
+        "third": 2,
+        "acquisitions": 40,
+        "cycle_seconds_mean_ms": 411.741,
+        "verification_seconds_mean_ms": 18.542,
+        "journal_seconds_mean_ms": 14.306
+      },
+      {
+        "third": 3,
+        "acquisitions": 40,
+        "cycle_seconds_mean_ms": 369.997,
+        "verification_seconds_mean_ms": 18.78,
+        "journal_seconds_mean_ms": 10.066
+      }
+    ],
+    "hot": [
+      {
+        "third": 1,
+        "acquisitions": 240,
+        "cycle_seconds_mean_ms": 325.227,
+        "verification_seconds_mean_ms": 19.026,
+        "journal_seconds_mean_ms": 9.916
+      },
+      {
+        "third": 2,
+        "acquisitions": 239,
+        "cycle_seconds_mean_ms": 349.786,
+        "verification_seconds_mean_ms": 18.638,
+        "journal_seconds_mean_ms": 10.875
+      },
+      {
+        "third": 3,
+        "acquisitions": 240,
+        "cycle_seconds_mean_ms": 336.668,
+        "verification_seconds_mean_ms": 18.716,
+        "journal_seconds_mean_ms": 10.169
+      }
+    ],
+    "coordinator": [
+      {
+        "third": 1,
+        "cycles": 577,
+        "mean_cycle_ms": 32.851,
+        "mean_cpu_ms": 31.683
+      },
+      {
+        "third": 2,
+        "cycles": 565,
+        "mean_cycle_ms": 54.877,
+        "mean_cpu_ms": 53.678
+      },
+      {
+        "third": 3,
+        "cycles": 546,
+        "mean_cycle_ms": 92.587,
+        "mean_cpu_ms": 90.573
+      }
+    ]
+  },
+  "mechanism": "The 12:59:38 Hot call returned at 12:59:41.985346 ET; its processing/commit observer arrived at 12:59:42.361525. Sequential next_slot strictly after current time then selected 12:59:44, leaving 12:59:42 unselected. No late-dispatch rejection, retry or attempted call exists for the missed slot.",
+  "underlying_slow_SDK_call_cause": "NOT_ESTABLISHED; no wire-level/provider/backend/OS trace",
+  "gap_interpretation": "Largest response and observer gaps precede the delayed Focus :40 and Hot :38 receipts; adding an outcome for :42 would not remove that preceding delay.",
+  "production_health": {
+    "as_of_et": "2026-10-21T13:58:12-04:00",
+    "journal_read_seconds": 0.015,
+    "uni": {
+      "pid": 52620,
+      "state": "RUNNING",
+      "members": 531,
+      "acquisitions": 537,
+      "last_slot_et": "13:58:00",
+      "missing_after_grace": 0
+    },
+    "focus": {
+      "pid": 35812,
+      "state": "RUNNING",
+      "members": 40,
+      "acquisitions": 1073,
+      "last_slot_et": "13:58:05",
+      "missing_after_grace": 0
+    }
+  },
+  "production_changes": false,
+  "next_work": "Reproduce the slow-call/commit crossing offline; review explicit overrun/gap reporting and bounded late-slot policy before a separately qualified live run. Profile growing Coordinator validation cost before a full-session claim.",
+  "all_original_archived_file_bytes_verified_unchanged": true
+}

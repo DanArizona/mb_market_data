@@ -1,0 +1,33 @@
+{
+  "proof": "PASS_EXPECTED_FAILED_FEED_STOP",
+  "report": "/workspace/scratch/78e6acba7246/response review with spaces/nasdaq_shadow_20261020_150440_48e887/runs/nasdaq_shadow/stop-after-three-unavailable/report.json",
+  "result": "FAILED",
+  "milestone": "UNQUALIFIED",
+  "feed": {
+    "status": "STOP_REQUIRED",
+    "attempts": 3,
+    "successful_captures": 0,
+    "failed_captures": 3,
+    "consecutive_failures": 3,
+    "maximum_consecutive_failures": 3,
+    "stop_reason": "three_consecutive_unavailable_feed_attempts",
+    "interruption_receipts": [
+      {
+        "first_failed_request_at_utc": "2026-10-22T14:00:00.015961+00:00",
+        "failed_attempts": [
+          1,
+          2,
+          3
+        ],
+        "recovered_at_utc": null
+      }
+    ],
+    "halt_discovery_continuity": "NOT_ESTABLISHED",
+    "limitation": "Unavailable responses are unknown feed intervals, never evidence of no halts."
+  },
+  "quote_calls": 0,
+  "expected_slots": 3,
+  "missing_slots": [],
+  "audit_passed": true,
+  "replays_identical": true
+}

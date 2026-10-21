@@ -1,0 +1,37 @@
+COMBINED SYNTHETIC_ONLY LOAD: PASS
+Four independent processes: Coordinator + Uni + Focus + Hot; actual elapsed scheduling.
+Opening Uni 554 / Focus 40; initial Hot request 40. Final: {'uni': 555, 'focus': 40, 'hot': 40}
+Admission, independent source withdrawal, temporary cap, expiry reentry and delayed demotion: PASS
+Controlled synthetic in-flight publication: [3]
+Collection/integrity: PASS; transport: PASS; availability: PASS
+Audit: True; identical journal replays: True
+UNI: committed=2/2; missing=0; batches=4
+  cycle mean/p95/max ms: {'count': 2, 'mean_ms': 636.609, 'p95_ms': 687.715, 'max_ms': 687.715}
+  verification mean/p95/max ms: {'count': 2, 'mean_ms': 43.688, 'p95_ms': 49.826, 'max_ms': 49.826}
+  provider request mean/p95/max ms: {'count': 4, 'mean_ms': 183.403, 'p95_ms': 184.857, 'max_ms': 184.857}
+  observation statuses: {'quote': 1109}
+FOCUS: committed=4/4; missing=0; batches=4
+  cycle mean/p95/max ms: {'count': 4, 'mean_ms': 298.623, 'p95_ms': 375.873, 'max_ms': 375.873}
+  verification mean/p95/max ms: {'count': 4, 'mean_ms': 18.89, 'p95_ms': 23.656, 'max_ms': 23.656}
+  provider request mean/p95/max ms: {'count': 4, 'mean_ms': 201.042, 'p95_ms': 201.687, 'max_ms': 201.687}
+  observation statuses: {'quote': 166}
+HOT: committed=24/24; missing=0; batches=24
+  cycle mean/p95/max ms: {'count': 24, 'mean_ms': 386.965, 'p95_ms': 547.745, 'max_ms': 1572.073}
+  verification mean/p95/max ms: {'count': 24, 'mean_ms': 27.581, 'p95_ms': 37.582, 'max_ms': 201.537}
+  provider request mean/p95/max ms: {'count': 24, 'mean_ms': 302.985, 'p95_ms': 252.648, 'max_ms': 1500.553}
+  observation statuses: {'quote': 971}
+Quote-client calls/budget: 32/32
+Journal replay SHA-256: 1800d5fe94068ef0c3b58a5d8bf8e6b7e6a0e17c944b3799bd37454a6bf25a44
+Thirty-minute bounded review; the offline qualification is 60 actual elapsed seconds, not full-session capacity
+Combined cadence is measured for the 40 continuously Hot opening-Focus symbols; dynamic admission is audited separately
+Quote-client intervals are observed around SDK calls, not a wire-level audit of all HTTP or authentication requests
+Response/commit gap review threshold is 4s; nominal opportunities do not guarantee fresh provider quote/trade timestamps
+No automatic higher-channel replacement, production cadence switch, restart drill or full-day restart guarantee
+All three channels use the native guarded incremental collector; production Uni/Focus use their existing launcher
+Direct synthetic halt-source requests; no live Nasdaq transport or adapter latency claim
+No full-session history prefill or production journal access; proposal inputs are copied as read-only roster values
+Combined stable-Hot cadence: PASS; outcome coverage=True
+  per-symbol response gaps: {'count': 1160, 'mean_seconds': 1.999302, 'p95_seconds': 2.254439, 'max_seconds': 3.219675}
+  per-symbol post-commit observer gaps: {'count': 1160, 'mean_seconds': 1.986477, 'p95_seconds': 2.315172, 'max_seconds': 3.196057}
+Cross-channel quote-client overlapping pairs: 0
+Worker resource summary: {'coordinator': {'samples': 4, 'peak_working_set_bytes': 31956992, 'process_cpu_seconds': 8.824781, 'startup_reconstruction_seconds': None, 'memory_available': True}, 'uni': {'samples': 2, 'peak_working_set_bytes': 31928320, 'process_cpu_seconds': 1.919198, 'startup_reconstruction_seconds': 0.14251466599989726, 'memory_available': True}, 'focus': {'samples': 3, 'peak_working_set_bytes': 29265920, 'process_cpu_seconds': 2.051348, 'startup_reconstruction_seconds': 0.15408297100020718, 'memory_available': True}, 'hot': {'samples': 3, 'peak_working_set_bytes': 29265920, 'process_cpu_seconds': 3.197523, 'startup_reconstruction_seconds': 0.09837628700006462, 'memory_available': True}}

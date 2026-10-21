@@ -1,0 +1,58 @@
+{
+  "session_date": "2026-10-21",
+  "evidence": "operator_supplied_prelaunch_health_and_live_startup_console",
+  "package": "interleaved_load_20261021_163302_1933af",
+  "source_commit": "5fdf103f626a8f5e96e62b2c09d3fbe755f9d5d5",
+  "run": "20261021T164800Z-e7dd49b2",
+  "mode": "live_quotes_simulated_membership_requests",
+  "state": "STARTUP_OBSERVED_FINAL_RESULT_PENDING",
+  "credentials_and_horizon_accepted": true,
+  "last_supplied_worker_state": "Waiting for four workers/opening",
+  "initial_printed_acquisition_counters": {
+    "uni": 0,
+    "focus": 0,
+    "hot": 0
+  },
+  "aligned_opening_time": null,
+  "committed_live_acquisitions_established_by_supplied_output": false,
+  "actual_prompt_return_established": false,
+  "duration_seconds_after_setup_and_alignment": 1800,
+  "quote_call_ceilings": {
+    "uni": 120,
+    "focus": 120,
+    "hot": 720,
+    "total": 960
+  },
+  "initial_membership": {
+    "uni": 531,
+    "focus": 40,
+    "hot": 40
+  },
+  "outside_uni_probe": "MSFT",
+  "prelaunch_production_health": {
+    "as_of_et": "2026-10-21T12:46:37-04:00",
+    "journal_read": "OK",
+    "uni": {
+      "state": "RUNNING",
+      "pid": 52620,
+      "members": 531,
+      "acquisitions": 394,
+      "last_slot_et": "12:46:30",
+      "empty_skips": 0,
+      "overdue_missing_slots": 0
+    },
+    "focus": {
+      "state": "RUNNING",
+      "pid": 35812,
+      "members": 40,
+      "acquisitions": 787,
+      "last_slot_et": "12:46:35",
+      "empty_skips": 0,
+      "overdue_missing_slots": 0
+    }
+  },
+  "production_schedules_changed": false,
+  "production_hot_enabled": false,
+  "final_live_result": "PENDING",
+  "host_run_artifacts_independently_retrieved": false
+}

@@ -1,0 +1,11 @@
+{
+  "zip": "nasdaq_shadow_20261019_173301_329063.zip",
+  "stem": "nasdaq_shadow_20261019_173301_329063",
+  "sha256": "f4889eb61c76f0c1d879710238c6950ba3d918e2bb70e1ec5dacf9110564c445",
+  "bytes": 241945,
+  "files": 82,
+  "code_commit": "ffe9d2b1932eaa60fe5c340bd0e78a66dc7398db",
+  "new_tests": 30,
+  "platform": "Linux; Windows acceptance remains pending",
+  "new_native_runtime_changes": false
+}

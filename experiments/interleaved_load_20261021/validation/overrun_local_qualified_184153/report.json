@@ -1,0 +1,1713 @@
+{
+  "actual_completed_utc": "2026-10-21T18:43:12.760194+00:00",
+  "assessment": {
+    "all_observations_are_quotes": true,
+    "availability": {
+      "invalid_observations": 0,
+      "missing_observations": 0,
+      "result": "PASS",
+      "unknown_statuses": {}
+    },
+    "collection_integrity": {
+      "findings": [],
+      "result": "PASS"
+    },
+    "result": "PASS_WITH_WARNINGS",
+    "status_counts": {
+      "quote": 2246
+    },
+    "transport": {
+      "request_error_observations": 0,
+      "result": "PASS"
+    }
+  },
+  "audit_passed": true,
+  "channels": {
+    "focus": {
+      "acquisitions": 4,
+      "actual_quote_calls": 4,
+      "batch_calls": 4,
+      "budget_permits": 4,
+      "committed_slots": 4,
+      "complete": true,
+      "empty_skips": 0,
+      "expected_slots": 4,
+      "growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 2,
+            "max_ms": 1494.829,
+            "mean_ms": 877.399,
+            "p95_ms": 1494.829
+          },
+          "journal_seconds": {
+            "count": 2,
+            "max_ms": 6.596,
+            "mean_ms": 5.956,
+            "p95_ms": 6.596
+          },
+          "verification_seconds": {
+            "count": 2,
+            "max_ms": 8.892,
+            "mean_ms": 8.731,
+            "p95_ms": 8.892
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          },
+          "journal_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          },
+          "verification_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 2,
+            "max_ms": 257.641,
+            "mean_ms": 247.448,
+            "p95_ms": 257.641
+          },
+          "journal_seconds": {
+            "count": 2,
+            "max_ms": 11.8,
+            "mean_ms": 9.788,
+            "p95_ms": 11.8
+          },
+          "verification_seconds": {
+            "count": 2,
+            "max_ms": 10.143,
+            "mean_ms": 9.245,
+            "p95_ms": 10.143
+          }
+        }
+      },
+      "late_acquisitions": [],
+      "missed_gate_events": [],
+      "missing_slots": 0,
+      "no_full_scan_during_polling": true,
+      "quote_request_timing": {
+        "count": 4,
+        "max_ms": 1461.498,
+        "mean_ms": 516.268,
+        "p95_ms": 1461.498
+      },
+      "retries": 0,
+      "scheduler_overruns": [],
+      "status_counts": {
+        "quote": 166
+      },
+      "timings": {
+        "before_api_gate_seconds": {
+          "count": 4,
+          "max_ms": 13.82,
+          "mean_ms": 12.695,
+          "p95_ms": 13.82
+        },
+        "before_dispatch_gate_seconds": {
+          "count": 4,
+          "max_ms": 2.72,
+          "mean_ms": 2.479,
+          "p95_ms": 2.72
+        },
+        "collector_seconds": {
+          "count": 4,
+          "max_ms": 1464.176,
+          "mean_ms": 526.341,
+          "p95_ms": 1464.176
+        },
+        "cycle_seconds": {
+          "count": 4,
+          "max_ms": 1494.829,
+          "mean_ms": 562.423,
+          "p95_ms": 1494.829
+        },
+        "journal_seconds": {
+          "count": 4,
+          "max_ms": 11.8,
+          "mean_ms": 7.872,
+          "p95_ms": 11.8
+        },
+        "recovery_before_slot_seconds": {
+          "count": 4,
+          "max_ms": 1.521,
+          "mean_ms": 1.332,
+          "p95_ms": 1.521
+        },
+        "sample_cpu_seconds": {
+          "count": 4,
+          "max_ms": 53.853,
+          "mean_ms": 39.539,
+          "p95_ms": 53.853
+        },
+        "verification_seconds": {
+          "count": 4,
+          "max_ms": 10.143,
+          "mean_ms": 8.988,
+          "p95_ms": 10.143
+        }
+      }
+    },
+    "hot": {
+      "acquisitions": 24,
+      "actual_quote_calls": 24,
+      "batch_calls": 24,
+      "budget_permits": 24,
+      "committed_slots": 24,
+      "complete": true,
+      "empty_skips": 0,
+      "expected_slots": 24,
+      "growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 8,
+            "max_ms": 4202.507,
+            "mean_ms": 934.952,
+            "p95_ms": 4202.507
+          },
+          "journal_seconds": {
+            "count": 8,
+            "max_ms": 7.165,
+            "mean_ms": 5.875,
+            "p95_ms": 7.165
+          },
+          "verification_seconds": {
+            "count": 8,
+            "max_ms": 10.895,
+            "mean_ms": 9.264,
+            "p95_ms": 10.895
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 8,
+            "max_ms": 310.722,
+            "mean_ms": 289.606,
+            "p95_ms": 310.722
+          },
+          "journal_seconds": {
+            "count": 8,
+            "max_ms": 22.481,
+            "mean_ms": 8.139,
+            "p95_ms": 22.481
+          },
+          "verification_seconds": {
+            "count": 8,
+            "max_ms": 14.611,
+            "mean_ms": 9.827,
+            "p95_ms": 14.611
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 8,
+            "max_ms": 297.077,
+            "mean_ms": 283.105,
+            "p95_ms": 297.077
+          },
+          "journal_seconds": {
+            "count": 8,
+            "max_ms": 11.486,
+            "mean_ms": 6.51,
+            "p95_ms": 11.486
+          },
+          "verification_seconds": {
+            "count": 8,
+            "max_ms": 9.632,
+            "mean_ms": 8.477,
+            "p95_ms": 9.632
+          }
+        }
+      },
+      "late_acquisitions": [
+        "hot:2026-10-23T10:00:22-04:00"
+      ],
+      "missed_gate_events": [],
+      "missing_slots": 0,
+      "no_full_scan_during_polling": true,
+      "quote_request_timing": {
+        "count": 24,
+        "max_ms": 3819.247,
+        "mean_ms": 451.257,
+        "p95_ms": 1500.414
+      },
+      "retries": 0,
+      "scheduler_overruns": [
+        {
+          "at_utc": "2026-10-23T14:00:22.204292+00:00",
+          "dispatch_allowance_seconds": 0.75,
+          "event_clock_elapsed_seconds": 39.911535,
+          "lateness_seconds": 0.204271,
+          "noticed_at_utc": "2026-10-23T14:00:22.204271+00:00",
+          "pid": 8,
+          "slot_id": "hot:2026-10-23T10:00:22-04:00",
+          "slot_selection_policy": "continuous-next-slot-existing-dispatch-budget-v1",
+          "status": "scheduler_overrun",
+          "worker_elapsed_seconds": 39.911544575000335
+        }
+      ],
+      "status_counts": {
+        "quote": 971
+      },
+      "timings": {
+        "before_api_gate_seconds": {
+          "count": 24,
+          "max_ms": 214.781,
+          "mean_ms": 22.096,
+          "p95_ms": 19.332
+        },
+        "before_dispatch_gate_seconds": {
+          "count": 24,
+          "max_ms": 205.835,
+          "mean_ms": 10.867,
+          "p95_ms": 4.208
+        },
+        "collector_seconds": {
+          "count": 24,
+          "max_ms": 3822.638,
+          "mean_ms": 455.759,
+          "p95_ms": 1505.49
+        },
+        "cycle_seconds": {
+          "count": 24,
+          "max_ms": 4202.507,
+          "mean_ms": 502.554,
+          "p95_ms": 1535.143
+        },
+        "journal_seconds": {
+          "count": 24,
+          "max_ms": 22.481,
+          "mean_ms": 6.841,
+          "p95_ms": 11.486
+        },
+        "recovery_before_slot_seconds": {
+          "count": 24,
+          "max_ms": 2.064,
+          "mean_ms": 1.483,
+          "p95_ms": 2.006
+        },
+        "sample_cpu_seconds": {
+          "count": 24,
+          "max_ms": 61.293,
+          "mean_ms": 29.468,
+          "p95_ms": 38.871
+        },
+        "verification_seconds": {
+          "count": 24,
+          "max_ms": 14.611,
+          "mean_ms": 9.19,
+          "p95_ms": 10.895
+        }
+      }
+    },
+    "uni": {
+      "acquisitions": 2,
+      "actual_quote_calls": 4,
+      "batch_calls": 4,
+      "budget_permits": 4,
+      "committed_slots": 2,
+      "complete": true,
+      "empty_skips": 0,
+      "expected_slots": 2,
+      "growth": {
+        "first_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 546.161,
+            "mean_ms": 546.161,
+            "p95_ms": 546.161
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 32.315,
+            "mean_ms": 32.315,
+            "p95_ms": 32.315
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 29.106,
+            "mean_ms": 29.106,
+            "p95_ms": 29.106
+          }
+        },
+        "last_third": {
+          "cycle_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          },
+          "journal_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          },
+          "verification_seconds": {
+            "count": 0,
+            "max_ms": null,
+            "mean_ms": null,
+            "p95_ms": null
+          }
+        },
+        "middle_third": {
+          "cycle_seconds": {
+            "count": 1,
+            "max_ms": 480.303,
+            "mean_ms": 480.303,
+            "p95_ms": 480.303
+          },
+          "journal_seconds": {
+            "count": 1,
+            "max_ms": 32.346,
+            "mean_ms": 32.346,
+            "p95_ms": 32.346
+          },
+          "verification_seconds": {
+            "count": 1,
+            "max_ms": 20.233,
+            "mean_ms": 20.233,
+            "p95_ms": 20.233
+          }
+        }
+      },
+      "late_acquisitions": [],
+      "missed_gate_events": [],
+      "missing_slots": 0,
+      "no_full_scan_during_polling": true,
+      "quote_request_timing": {
+        "count": 4,
+        "max_ms": 182.9,
+        "mean_ms": 181.939,
+        "p95_ms": 182.9
+      },
+      "retries": 0,
+      "scheduler_overruns": [],
+      "status_counts": {
+        "quote": 1109
+      },
+      "timings": {
+        "before_api_gate_seconds": {
+          "count": 2,
+          "max_ms": 21.402,
+          "mean_ms": 16.891,
+          "p95_ms": 21.402
+        },
+        "before_dispatch_gate_seconds": {
+          "count": 2,
+          "max_ms": 4.437,
+          "mean_ms": 3.362,
+          "p95_ms": 4.437
+        },
+        "collector_seconds": {
+          "count": 2,
+          "max_ms": 413.145,
+          "mean_ms": 393.595,
+          "p95_ms": 413.145
+        },
+        "cycle_seconds": {
+          "count": 2,
+          "max_ms": 546.161,
+          "mean_ms": 513.232,
+          "p95_ms": 546.161
+        },
+        "journal_seconds": {
+          "count": 2,
+          "max_ms": 32.346,
+          "mean_ms": 32.331,
+          "p95_ms": 32.346
+        },
+        "recovery_before_slot_seconds": {
+          "count": 2,
+          "max_ms": 6.686,
+          "mean_ms": 3.892,
+          "p95_ms": 6.686
+        },
+        "sample_cpu_seconds": {
+          "count": 2,
+          "max_ms": 175.375,
+          "mean_ms": 143.599,
+          "p95_ms": 175.375
+        },
+        "verification_seconds": {
+          "count": 2,
+          "max_ms": 29.106,
+          "mean_ms": 24.67,
+          "p95_ms": 29.106
+        }
+      }
+    }
+  },
+  "combined_symbol_cadence": {
+    "all_channels": {
+      "commit_gaps_over_review_threshold": 40,
+      "commit_observer_gaps": {
+        "count": 1160,
+        "max_seconds": 5.21489,
+        "mean_seconds": 1.990799,
+        "p95_seconds": 3.2752
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 1200,
+      "expected_points_per_symbol": 30,
+      "missing_outcomes": 0,
+      "nonquote_outcomes": 0,
+      "per_symbol": {
+        "S0000": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0001": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0002": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0003": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0004": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0005": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0006": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0007": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0008": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0009": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0010": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0011": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0012": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0013": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0014": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0015": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0016": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0017": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0018": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0019": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0020": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0021": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0022": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0023": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0024": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0025": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0026": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0027": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0028": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0029": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0030": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0031": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0032": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0033": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0034": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0035": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0036": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0037": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0038": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        },
+        "S0039": {
+          "commit_observer_gaps": {
+            "count": 29,
+            "max_seconds": 5.21489,
+            "mean_seconds": 1.990799,
+            "p95_seconds": 3.2752
+          },
+          "first_response_at_utc": "2026-10-23T14:00:00.240272+00:00",
+          "last_response_at_utc": "2026-10-23T14:00:58.263749+00:00",
+          "missing_slots": 0,
+          "outcomes": 30,
+          "quotes": 30,
+          "response_gaps": {
+            "count": 29,
+            "max_seconds": 5.212291,
+            "mean_seconds": 2.00081,
+            "p95_seconds": 3.274208
+          },
+          "status_counts": {
+            "quote": 30
+          }
+        }
+      },
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 1200,
+      "response_gaps": {
+        "count": 1160,
+        "max_seconds": 5.212291,
+        "mean_seconds": 2.00081,
+        "p95_seconds": 3.274208
+      },
+      "response_gaps_over_review_threshold": 40,
+      "scheduled_gaps": {
+        "count": 1160,
+        "max_seconds": 2.0,
+        "mean_seconds": 2.0,
+        "p95_seconds": 2.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    },
+    "clock_note": "Actual response receipts and post-write observer receipts, sorted per symbol; not fresh-market-data guarantees",
+    "cohort": "40 opening-Focus symbols held in experimental Hot throughout the window",
+    "focus_only": {
+      "commit_gaps_over_review_threshold": 120,
+      "commit_observer_gaps": {
+        "count": 120,
+        "max_seconds": 18.742444,
+        "mean_seconds": 13.33259,
+        "p95_seconds": 18.742444
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 160,
+      "expected_points_per_symbol": 4,
+      "missing_outcomes": 0,
+      "nonquote_outcomes": 0,
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 160,
+      "response_gaps": {
+        "count": 120,
+        "max_seconds": 18.738392,
+        "mean_seconds": 13.325134,
+        "p95_seconds": 18.738392
+      },
+      "response_gaps_over_review_threshold": 120,
+      "scheduled_gaps": {
+        "count": 120,
+        "max_seconds": 20.0,
+        "mean_seconds": 13.333333,
+        "p95_seconds": 20.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    },
+    "hot_only": {
+      "commit_gaps_over_review_threshold": 80,
+      "commit_observer_gaps": {
+        "count": 920,
+        "max_seconds": 5.922679,
+        "mean_seconds": 2.433145,
+        "p95_seconds": 5.241514
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 960,
+      "expected_points_per_symbol": 24,
+      "missing_outcomes": 0,
+      "nonquote_outcomes": 0,
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 960,
+      "response_gaps": {
+        "count": 920,
+        "max_seconds": 5.572235,
+        "mean_seconds": 2.433226,
+        "p95_seconds": 5.248106
+      },
+      "response_gaps_over_review_threshold": 120,
+      "scheduled_gaps": {
+        "count": 920,
+        "max_seconds": 4.0,
+        "mean_seconds": 2.434783,
+        "p95_seconds": 4.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    },
+    "outcome_coverage_complete": true,
+    "result": "WARNING",
+    "review_threshold_seconds": 4.0,
+    "uni_focus": {
+      "commit_gaps_over_review_threshold": 200,
+      "commit_observer_gaps": {
+        "count": 200,
+        "max_seconds": 11.234847,
+        "mean_seconds": 9.942117,
+        "p95_seconds": 11.234847
+      },
+      "duplicate_outcomes": 0,
+      "expected_outcomes": 240,
+      "expected_points_per_symbol": 6,
+      "missing_outcomes": 0,
+      "nonquote_outcomes": 0,
+      "quote_outcomes_without_commit_observer": 0,
+      "quote_outcomes_without_response_time": 0,
+      "recorded_outcomes": 240,
+      "response_gaps": {
+        "count": 200,
+        "max_seconds": 11.232705,
+        "mean_seconds": 9.99574,
+        "p95_seconds": 11.232705
+      },
+      "response_gaps_over_review_threshold": 200,
+      "scheduled_gaps": {
+        "count": 200,
+        "max_seconds": 10.0,
+        "mean_seconds": 10.0,
+        "p95_seconds": 10.0
+      },
+      "symbol_count": 40,
+      "unexpected_outcomes": 0
+    }
+  },
+  "contract": "isolated-interleaved-provider-v2-bounded-late",
+  "coordinator_commit": "0417b345e2725f4e1e184d3b3202bedb846dbfca",
+  "coordinator_cycle_cpu_seconds": {
+    "count": 75,
+    "max_ms": 565.114,
+    "mean_ms": 87.804,
+    "p95_ms": 252.574
+  },
+  "coordinator_cycle_seconds": {
+    "count": 75,
+    "max_ms": 571.221,
+    "mean_ms": 89.097,
+    "p95_ms": 258.413
+  },
+  "duration_seconds": 60,
+  "elapsed_seconds_including_startup": 78.021,
+  "failures": [],
+  "final_membership_counts": {
+    "focus": 40,
+    "hot": 40,
+    "uni": 555
+  },
+  "first_target_hot_revision": 3,
+  "grids": {
+    "focus": [
+      10,
+      20,
+      40,
+      50
+    ],
+    "hot": [
+      2,
+      4,
+      6,
+      8,
+      12,
+      14,
+      16,
+      18,
+      22,
+      24,
+      26,
+      28,
+      32,
+      34,
+      36,
+      38,
+      42,
+      44,
+      46,
+      48,
+      52,
+      54,
+      56,
+      58
+    ],
+    "uni": [
+      0,
+      30
+    ]
+  },
+  "hierarchy_revisions": 8,
+  "inflight_hot_revision": 2,
+  "journal_replay": {
+    "acquisitions": 30,
+    "events": 38,
+    "observations": 2246,
+    "sequence_sha256": "5f5944fd81fd91461c5996cd158d85c1af5f45608f05a28449419fff9521848b"
+  },
+  "limitations": [
+    "Thirty-minute bounded review; the offline qualification is 60 actual elapsed seconds, not full-session capacity",
+    "Combined cadence is measured for the 40 continuously Hot opening-Focus symbols; dynamic admission is audited separately",
+    "Quote-client intervals are observed around SDK calls, not a wire-level audit of all HTTP or authentication requests",
+    "Response/commit gap review threshold is 4s; nominal opportunities do not guarantee fresh provider quote/trade timestamps",
+    "No automatic higher-channel replacement, production cadence switch, restart drill or full-day restart guarantee",
+    "All three channels use the native guarded incremental collector; production Uni/Focus use their existing launcher",
+    "Direct synthetic halt-source requests; no live Nasdaq transport or adapter latency claim",
+    "No full-session history prefill or production journal access; proposal inputs are copied as read-only roster values"
+  ],
+  "live_quote_calls": 0,
+  "logical_end": "2026-10-23T14:01:00+00:00",
+  "logical_start": "2026-10-23T14:00:00+00:00",
+  "network_disabled": true,
+  "pids": {
+    "coordinator": 5,
+    "focus": 7,
+    "hot": 8,
+    "uni": 6
+  },
+  "publication_replay_identical": true,
+  "published_during_hot_request": [
+    3
+  ],
+  "quote_call_budget": 32,
+  "quote_client_overlap": {
+    "cross_channel_overlap_pairs": 1,
+    "dispatched_intervals": 32,
+    "examples": [
+      {
+        "channels": "focus/hot",
+        "first_slot": "hot:2026-10-23T10:00:18-04:00",
+        "overlap_seconds": 1.461505,
+        "second_slot": "focus:2026-10-23T10:00:20-04:00"
+      }
+    ],
+    "maximum_concurrent_quote_client_calls": 2,
+    "pairs_by_channels": {
+      "focus/hot": 1
+    },
+    "scope": "Intervals around SDK quote calls; excludes independent production and is not a wire-level HTTP trace"
+  },
+  "replays_identical": true,
+  "request_replay_identical": true,
+  "request_replay_sha256": "c3ef3d28926b686fde1caff6cc1ac10dd9b55314dbe76667702e5df97ca8c8d4",
+  "result": "PASS_WITH_WARNINGS",
+  "slot_selection_policy": "continuous-next-slot-existing-dispatch-budget-v1",
+  "slow_fixture": {
+    "at_seconds": 18,
+    "call_seconds": 3.818881,
+    "enabled": true,
+    "focus_call_seconds": 1.461032,
+    "post_response_seconds": 0.35
+  },
+  "source": "synthetic_only",
+  "table_counts": {
+    "poll_run": 6,
+    "poll_slot_skip": 0,
+    "quote_acquisition": 30,
+    "quote_observation": 2246,
+    "sampling_channel_member": 5047,
+    "sampling_channel_revision": 24,
+    "sampling_membership_revision": 8
+  },
+  "target_membership_trace": [
+    [
+      false,
+      false,
+      false
+    ],
+    [
+      true,
+      true,
+      true
+    ],
+    [
+      true,
+      false,
+      false
+    ],
+    [
+      true,
+      true,
+      true
+    ],
+    [
+      true,
+      false,
+      false
+    ]
+  ],
+  "timing_clock": "actual elapsed speed with labeled future offset",
+  "trace": [
+    {
+      "action": "algorithm_focus",
+      "action_cpu_seconds": 0.00963881600000005,
+      "action_seconds": 0.011461193000286585,
+      "at_utc": "2026-10-23T14:00:06.015959+00:00",
+      "elapsed_seconds": 6.004
+    },
+    {
+      "action": "manual_hot",
+      "action_cpu_seconds": 0.01277098199999993,
+      "action_seconds": 0.014227597000171954,
+      "at_utc": "2026-10-23T14:00:12.054192+00:00",
+      "elapsed_seconds": 12.039
+    },
+    {
+      "action": "halt_hot",
+      "action_cpu_seconds": 0.019653728999999842,
+      "action_seconds": 0.02121963199988386,
+      "at_utc": "2026-10-23T14:00:18.030051+00:00",
+      "elapsed_seconds": 18.008
+    },
+    {
+      "action": "withdraw_manual_hot",
+      "action_cpu_seconds": 0.021829204999999963,
+      "action_seconds": 0.023012849000224378,
+      "at_utc": "2026-10-23T14:00:24.031083+00:00",
+      "elapsed_seconds": 24.007,
+      "other_source_kept_hot": true
+    },
+    {
+      "action": "temporary_cap",
+      "action_cpu_seconds": 0.02420179400000011,
+      "action_seconds": 0.026261488999807625,
+      "at_utc": "2026-10-23T14:00:30.042065+00:00",
+      "elapsed_seconds": 30.015
+    },
+    {
+      "action": "withdraw_algorithm",
+      "action_cpu_seconds": 0.043570902999999994,
+      "action_seconds": 0.04481857199971273,
+      "at_utc": "2026-10-23T14:00:45.059866+00:00",
+      "elapsed_seconds": 45.014
+    },
+    {
+      "action": "withdraw_halt",
+      "action_cpu_seconds": 0.04859473699999972,
+      "action_seconds": 0.04978466100010337,
+      "at_utc": "2026-10-23T14:00:48.063705+00:00",
+      "elapsed_seconds": 48.013
+    }
+  ],
+  "worker_resources": {
+    "coordinator": {
+      "memory_available": true,
+      "peak_working_set_bytes": 32079872,
+      "process_cpu_seconds": 6.912487,
+      "samples": 4,
+      "startup_reconstruction_seconds": null
+    },
+    "focus": {
+      "memory_available": true,
+      "peak_working_set_bytes": 27422720,
+      "process_cpu_seconds": 0.536239,
+      "samples": 3,
+      "startup_reconstruction_seconds": 0.04670803699991666
+    },
+    "hot": {
+      "memory_available": true,
+      "peak_working_set_bytes": 27422720,
+      "process_cpu_seconds": 1.173165,
+      "samples": 3,
+      "startup_reconstruction_seconds": 0.05439341500004957
+    },
+    "uni": {
+      "memory_available": true,
+      "peak_working_set_bytes": 31940608,
+      "process_cpu_seconds": 0.623113,
+      "samples": 2,
+      "startup_reconstruction_seconds": 0.05965902499974618
+    }
+  }
+}

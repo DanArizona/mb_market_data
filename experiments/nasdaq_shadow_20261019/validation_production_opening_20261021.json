@@ -1,0 +1,50 @@
+{
+  "session_date": "2026-10-21",
+  "evidence": "operator_supplied_console",
+  "production_commits": {
+    "market_data": "a082f54",
+    "watchlists": "e2ef6f6"
+  },
+  "api_ov": {
+    "requested": 531,
+    "successful": 531,
+    "failed": 0,
+    "directory": "2026-10-21-09-00-26-session-2026-10-21",
+    "completed_at_et": "2026-10-21T09:07:10.352183-04:00"
+  },
+  "r1": {
+    "directory": "2026-10-21-09-15-21",
+    "content_sha256": "17c21a5cd7d4848aaafd5d9695aac51788ff9053f562e1cc2f7452572670e97a",
+    "hierarchy": [
+      531,
+      40,
+      0
+    ],
+    "published_at_utc": "2026-10-21T13:16:26.622085+00:00",
+    "pre_worker_audit": "PASS",
+    "pre_worker_replay_sha256": "8534758441c9085d0dedf5a3866c3c45db96a30af81213de357cfe90051af611"
+  },
+  "opening_health": {
+    "as_of_et": "2026-10-21T09:31:22-04:00",
+    "uni": {
+      "pid": 52620,
+      "status": "RUNNING",
+      "acquisitions": 3,
+      "members": 531,
+      "last_slot_et": "09:31:00",
+      "overdue_missing": 0
+    },
+    "focus": {
+      "pid": 35812,
+      "status": "RUNNING",
+      "acquisitions": 6,
+      "members": 40,
+      "last_slot_et": "09:31:20",
+      "overdue_missing": 0
+    }
+  },
+  "production_opening": "VERIFIED",
+  "production_full_day": "PENDING",
+  "production_hot": false,
+  "extended_live_trial": "PENDING"
+}

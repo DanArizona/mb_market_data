@@ -1,0 +1,82 @@
+OFFLINE NASDAQ SHADOW: response-handling checks and an elapsed HTML-interruption/recovery proof. No API or password.
+test_absolute_slot_wait_handles_an_early_wall_clock_tick (test_nasdaq_shadow.ShadowTests.test_absolute_slot_wait_handles_an_early_wall_clock_tick) ... ok
+test_atomic_admission_drives_native_hot_and_commit_receipt_with_exact_replays (test_nasdaq_shadow.ShadowTests.test_atomic_admission_drives_native_hot_and_commit_receipt_with_exact_replays) ... ok
+test_authorization_callback_on_transport_exception_stops_the_shadow (test_nasdaq_shadow.ShadowTests.test_authorization_callback_on_transport_exception_stops_the_shadow) ... ok
+test_broker_alias_or_wrong_asset_cannot_approve (test_nasdaq_shadow.ShadowTests.test_broker_alias_or_wrong_asset_cannot_approve) ... ok
+test_capacity_rejection_is_visible_without_second_symbol_lookup_or_request (test_nasdaq_shadow.ShadowTests.test_capacity_rejection_is_visible_without_second_symbol_lookup_or_request) ... ok
+test_catalog_or_configuration_changes_fail_closed (test_nasdaq_shadow.ShadowTests.test_catalog_or_configuration_changes_fail_closed) ... ok
+test_catalog_unresolved_event_does_not_reach_broker_or_coordinator (test_nasdaq_shadow.ShadowTests.test_catalog_unresolved_event_does_not_reach_broker_or_coordinator) ... ok
+test_deadline_is_derived_without_parent_hint_file (test_nasdaq_shadow.ShadowTests.test_deadline_is_derived_without_parent_hint_file) ... ok
+test_directory_identity_excludes_test_etf_alias_and_punctuation (test_nasdaq_shadow.ShadowTests.test_directory_identity_excludes_test_etf_alias_and_punctuation) ... ok
+test_duplicate_call_permit_cannot_repeat_provider_request (test_nasdaq_shadow.ShadowTests.test_duplicate_call_permit_cannot_repeat_provider_request) ... ok
+test_duplicate_directory_identity_rejected (test_nasdaq_shadow.ShadowTests.test_duplicate_directory_identity_rejected) ... ok
+test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check (test_nasdaq_shadow.ShadowTests.test_endpoint_slot_cannot_enter_when_clock_crosses_cutoff_after_stop_check) ... ok
+test_forged_tail_deadline_fails_closed (test_nasdaq_shadow.ShadowTests.test_forged_tail_deadline_fails_closed) ... ok
+test_future_endpoint_slot_is_excluded_before_any_native_dispatch (test_nasdaq_shadow.ShadowTests.test_future_endpoint_slot_is_excluded_before_any_native_dispatch) ... ok
+test_gate_history_tampering_fails_closed (test_nasdaq_shadow.ShadowTests.test_gate_history_tampering_fails_closed) ... ok
+test_hot_call_budget_prevents_thirty_first_request (test_nasdaq_shadow.ShadowTests.test_hot_call_budget_prevents_thirty_first_request) ... ok
+test_invalid_broker_response_is_unconfirmed_without_cause_inference (test_nasdaq_shadow.ShadowTests.test_invalid_broker_response_is_unconfirmed_without_cause_inference) ... ok
+test_invalid_hot_outcomes_keep_independent_warning_after_confirmed_identity (test_nasdaq_shadow.ShadowTests.test_invalid_hot_outcomes_keep_independent_warning_after_confirmed_identity) ... ok
+test_late_discovery_of_prestartup_event_stays_suppressed (test_nasdaq_shadow.ShadowTests.test_late_discovery_of_prestartup_event_stays_suppressed) ... ok
+test_later_distinct_halt_same_symbol_keeps_distinct_request_and_reuses_identity (test_nasdaq_shadow.ShadowTests.test_later_distinct_halt_same_symbol_keeps_distinct_request_and_reuses_identity) ... ok
+test_live_window_requires_regular_weekday_before_cutoff (test_nasdaq_shadow.ShadowTests.test_live_window_requires_regular_weekday_before_cutoff) ... ok
+test_lookup_call_budget_is_hard (test_nasdaq_shadow.ShadowTests.test_lookup_call_budget_is_hard) ... ok
+test_malformed_or_unrelated_xml_never_establishes_baseline (test_nasdaq_shadow.ShadowTests.test_malformed_or_unrelated_xml_never_establishes_baseline) ... ok
+test_new_outside_uni_event_gets_exact_resolution_and_owned_request (test_nasdaq_shadow.ShadowTests.test_new_outside_uni_event_gets_exact_resolution_and_owned_request) ... ok
+test_no_event_report_is_readiness_only_and_does_not_call_provider (test_nasdaq_shadow.ShadowTests.test_no_event_report_is_readiness_only_and_does_not_call_provider) ... ok
+test_owned_stop_prevents_provider_request (test_nasdaq_shadow.ShadowTests.test_owned_stop_prevents_provider_request) ... ok
+test_quote_guard_rechecks_tail_after_budget_reservation (test_nasdaq_shadow.ShadowTests.test_quote_guard_rechecks_tail_after_budget_reservation) ... ok
+test_quote_guard_rejects_endpoint_without_consuming_a_permit (test_nasdaq_shadow.ShadowTests.test_quote_guard_rejects_endpoint_without_consuming_a_permit) ... ok
+test_repeat_and_resumption_update_do_not_duplicate_or_withdraw (test_nasdaq_shadow.ShadowTests.test_repeat_and_resumption_update_do_not_duplicate_or_withdraw) ... ok
+test_request_commit_lost_ack_recovers_original_receipt_without_lookup (test_nasdaq_shadow.ShadowTests.test_request_commit_lost_ack_recovers_original_receipt_without_lookup) ... ok
+test_settings_have_hard_review_budgets_and_live_unshifted_clock (test_nasdaq_shadow.ShadowTests.test_settings_have_hard_review_budgets_and_live_unshifted_clock) ... ok
+test_startup_active_halt_is_baseline_without_quote_calls (test_nasdaq_shadow.ShadowTests.test_startup_active_halt_is_baseline_without_quote_calls) ... ok
+test_tail_deadline_is_derived_from_real_publication_and_enforced_independently (test_nasdaq_shadow.ShadowTests.test_tail_deadline_is_derived_from_real_publication_and_enforced_independently) ... ok
+test_timeout_retains_unknown_lookup_and_never_reissues_it (test_nasdaq_shadow.ShadowTests.test_timeout_retains_unknown_lookup_and_never_reissues_it) ... ok
+test_unknown_source_rejected (test_nasdaq_shadow.ShadowTests.test_unknown_source_rejected) ... ok
+test_worker_and_stop_path_cannot_escape_its_package (test_nasdaq_shadow.ShadowTests.test_worker_and_stop_path_cannot_escape_its_package) ... ok
+test_bad_response_preserves_state_and_recovery_can_deliver_new_event (test_nasdaq_feed_capture.FeedIntegrationTests.test_bad_response_preserves_state_and_recovery_can_deliver_new_event) ... ok
+test_failed_capture_body_metadata_and_receipt_tampering_are_detected (test_nasdaq_feed_capture.FeedIntegrationTests.test_failed_capture_body_metadata_and_receipt_tampering_are_detected) ... ok
+test_html_does_not_establish_baseline_and_first_valid_snapshot_is_baseline (test_nasdaq_feed_capture.FeedIntegrationTests.test_html_does_not_establish_baseline_and_first_valid_snapshot_is_baseline) ... ok
+test_recovered_no_event_is_readiness_only_with_gap_and_zero_quote_calls (test_nasdaq_feed_capture.FeedIntegrationTests.test_recovered_no_event_is_readiness_only_with_gap_and_zero_quote_calls) ... ok
+test_recovered_transition_keeps_independent_feed_warning (test_nasdaq_feed_capture.FeedIntegrationTests.test_recovered_transition_keeps_independent_feed_warning) ... ok
+test_terminal_response_is_retained_without_changing_source_state (test_nasdaq_feed_capture.FeedIntegrationTests.test_terminal_response_is_retained_without_changing_source_state) ... ok
+test_three_consecutive_failures_stop_and_success_resets_streak (test_nasdaq_feed_capture.FeedIntegrationTests.test_three_consecutive_failures_stop_and_success_resets_streak) ... ok
+test_changed_final_url_is_terminal (test_nasdaq_feed_capture.FeedTransportTests.test_changed_final_url_is_terminal) ... ok
+test_content_length_and_xml_structure_are_validated (test_nasdaq_feed_capture.FeedTransportTests.test_content_length_and_xml_structure_are_validated) ... ok
+test_denial_rate_limit_and_redirect_require_stop_without_another_request (test_nasdaq_feed_capture.FeedTransportTests.test_denial_rate_limit_and_redirect_require_stop_without_another_request) ... ok
+test_fixed_request_retains_allowlisted_headers_without_cookies (test_nasdaq_feed_capture.FeedTransportTests.test_fixed_request_retains_allowlisted_headers_without_cookies) ... ok
+test_html_is_unavailable_even_with_http_200 (test_nasdaq_feed_capture.FeedTransportTests.test_html_is_unavailable_even_with_http_200) ... ok
+test_http_error_body_status_and_retry_after_are_retained (test_nasdaq_feed_capture.FeedTransportTests.test_http_error_body_status_and_retry_after_are_retained) ... ok
+test_oversized_body_is_bounded_and_terminal (test_nasdaq_feed_capture.FeedTransportTests.test_oversized_body_is_bounded_and_terminal) ... ok
+test_partial_response_and_transport_errors_are_explicit (test_nasdaq_feed_capture.FeedTransportTests.test_partial_response_and_transport_errors_are_explicit) ... ok
+test_valid_rss_is_checked_by_body_instead_of_mislabeled_content_type (test_nasdaq_feed_capture.FeedTransportTests.test_valid_rss_is_checked_by_body_instead_of_mislabeled_content_type) ... ok
+
+----------------------------------------------------------------------
+Ran 52 tests in 5.343s
+
+OK
+Output: /workspace/scratch/78e6acba7246/response review with spaces/nasdaq_shadow_20261020_150440_48e887/runs/nasdaq_shadow/20261020T150512Z-cf9997e8
+Progress every 10 seconds. Ctrl+C or command 21 stops this shadow run only.
+Nasdaq shadow: waiting for startup; attempts=0; valid captures=0; selected=None; quote permits={}
+Nasdaq shadow: waiting for startup; attempts=0; valid captures=0; selected=None; quote permits={}
+Nasdaq shadow: observing; attempts=1; valid captures=1; selected=None; quote permits={}
+Nasdaq feed unavailable: non_feed_html; consecutive=1/3
+Nasdaq shadow: observing; attempts=5; valid captures=4; selected=NEWX; quote permits={'hot': 3, 'resolution': 1}
+NASDAQ SHADOW: PASS_WITH_WARNINGS (SYNTHETIC_TRANSITION)
+Source: synthetic; selected symbol: NEWX
+Hot acquisitions=3/3; empty skips=3; missing=0
+Quote calls/maximum: 4/33; permits={'hot': 3, 'resolution': 1}
+Audit=True; identical replays=True
+Feed=RECOVERED_WITH_GAPS; valid=4; failed=1; discovery continuity=NOT_ESTABLISHED
+Replay SHA-256: 006f452ca1cc62608a8ab48b7c78451ff00bbfe1f671a4ee26856be31ec4fb8b
+Timeline: {"broker_resolution_returned_at_utc": "2026-10-22T14:00:04.087255+00:00", "broker_resolution_started_at_utc": "2026-10-22T14:00:04.087200+00:00", "feed_acquired_at_utc": "2026-10-22T14:00:04.063843+00:00", "first_discovered_at_utc": "2026-10-22T14:00:04.074139+00:00", "first_eligible_hot_slot_utc": "2026-10-22T14:00:06+00:00", "first_observed_hot_slot_utc": "2026-10-22T14:00:06+00:00", "first_seen_to_commit_seconds": 1.968653, "halt_at_utc": "2026-10-22T14:00:02+00:00", "journal_commit_observed_at_utc": "2026-10-22T14:00:06.042792+00:00", "membership_effective_at_utc": "2026-10-22T14:00:04.760748+00:00", "provider_response_assembled_at_utc": "2026-10-22T14:00:06.035026+00:00", "provider_response_returned_at_utc": "2026-10-22T14:00:06.034057+00:00", "publication_at_event_clock_utc": "2026-10-22T14:00:04.268257+00:00", "published_at_utc": "2026-10-20T15:05:37.026588+00:00", "request_received_at_utc": "2026-10-22T14:00:04.096832+00:00"}
+Feed interruption retained; discovery during the gap is unknown
+Review settings only; production Hot disabled and production journals/processes untouched
+Only shadow Hot acquires quotes; this increment is not another combined-load capacity trial
+Broker quote identity confirmation is not tradability or an explanation of invalid responses
+No new qualifying event means readiness only, never a live-transition claim
+Commit timestamps are observer receipts immediately after successful journal writes
+No automatic live restart, missed-slot catch-up or full-day provider-capacity claim
+
+Finished. This command returns to its prompt.
