@@ -1,0 +1,24 @@
+{
+  "publication": "authorized-github-checkpoint-2026-10-21",
+  "repository": "DanArizona/mb_market_data",
+  "branch": "checkpoint/mb-package-2026-10-21",
+  "first_checkpoint_commit": "c99afebb32259399b675097f338bc33c2af5132e",
+  "base_commit": "376959f26f2ffbc6ea321ae7d86bef7f1f2f1362",
+  "preserved_local_commit": "94f549d258cc2f896716152b40b5ac14761bdf94",
+  "verified_complete_tree": "1dc1ed0d5ef8bbc5855ac6245c4d58eeb799b7eb",
+  "changed_files_from_base": 120,
+  "original_local_commits_preserved_in_recovery_archive": 45,
+  "recovery_archive": "mb_package_recovery_20261021.zip",
+  "recovery_archive_sha256": "a743a8881c7f3cf8cc312a8b3e579aeb26a5aab6537834ca5076a38cc6fe37cf",
+  "verification": {
+    "branch_head_matches_checkpoint": true,
+    "remote_tree_matches_complete_local_tree": true,
+    "main_unchanged_at": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+    "source_changes_during_publication": false,
+    "provider_calls": 0
+  },
+  "scope": "Checkpoint commit preserves the reviewed final tree; original local commit identities remain in the retained recovery archive. Follow-up publication notes do not change qualified source.",
+  "authorization": "User explicitly authorized executing GitHub commits on October 21. Continue project commits within the authorized experimental scope without repeating the same permission request.",
+  "qualification": "Existing accepted offline/Windows/live evidence remains unchanged; no duplicate tests or provider rerun.",
+  "pending": "Coordinator history-cost scaling; production adoption remains a separate project step."
+}
