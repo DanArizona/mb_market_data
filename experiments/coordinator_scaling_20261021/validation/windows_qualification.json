@@ -1,0 +1,159 @@
+{
+  "acceptance": "ACCEPTED: first Coordinator scaling increment, native offline Windows qualification",
+  "evidence_source": "Operator-pasted MasterBot sea-green CMD console; saved report file itself was not uploaded",
+  "package": "coordinator_scaling_20261021_231000_b272a9.zip",
+  "archive_sha256": "62ae45344ff1ef87a70b185d4e4d6e22872e7a7a8934f69e27fc1c71ecee30b6",
+  "coordinator_qualified_github_commit": "6ffa1cd5ec0d4848b4528f4a2e4fb69c1ee9749a",
+  "coordinator_qualified_local_commit": "abeeeb67274581b579a1c325c902e7383a3ed890",
+  "qualified_full_tree": "a0ae80a6fe6435a98cd27f24f91253b8d0ef49d2",
+  "command": "26_verify_coordinator_scaling.cmd",
+  "test_console": {
+    "tests": 165,
+    "seconds": 5.124,
+    "result": "OK"
+  },
+  "saved_report_path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\coordinator_scaling_20261021_231000_b272a9\\runs\\scaling_qualification\\20261021T231437Z-869e11e7\\report.json",
+  "actual_cmd_prompt_return_confirmed": true,
+  "reported_qualification": {
+    "result": "PASS",
+    "source": "synthetic_only",
+    "network": "denied",
+    "tests": 165,
+    "baseline_commit": "0417b345e2725f4e1e184d3b3202bedb846dbfca",
+    "benchmarks": {
+      "baseline": [
+        {
+          "events": 11,
+          "state_digest": "d8ca4ea770e99fa6ba9babf62e2203e6ffc8af459f7dc0ba2e8358f4603a8c84",
+          "cold_read_ms": 26.963,
+          "warm_read_mean_ms": 26.337,
+          "pure_replay_mean_ms": 12.463,
+          "idle_cycle_mean_ms": 39.047,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 11,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 101,
+          "state_digest": "1468a1022b27970848faf3785692ad15ac8ff31d9ce12585db4ab9e6fdebec0e",
+          "cold_read_ms": 203.155,
+          "warm_read_mean_ms": 202.933,
+          "pure_replay_mean_ms": 100.595,
+          "idle_cycle_mean_ms": 217.32,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 101,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 301,
+          "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+          "cold_read_ms": 599.171,
+          "warm_read_mean_ms": 598.925,
+          "pure_replay_mean_ms": 300.861,
+          "idle_cycle_mean_ms": 659.289,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ],
+      "optimized": [
+        {
+          "events": 11,
+          "state_digest": "d8ca4ea770e99fa6ba9babf62e2203e6ffc8af459f7dc0ba2e8358f4603a8c84",
+          "cold_read_ms": 6.194,
+          "warm_read_mean_ms": 4.706,
+          "pure_replay_mean_ms": 3.668,
+          "idle_cycle_mean_ms": 17.776,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 11,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 101,
+          "state_digest": "1468a1022b27970848faf3785692ad15ac8ff31d9ce12585db4ab9e6fdebec0e",
+          "cold_read_ms": 27.288,
+          "warm_read_mean_ms": 26.947,
+          "pure_replay_mean_ms": 25.354,
+          "idle_cycle_mean_ms": 40.415,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 101,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        },
+        {
+          "events": 301,
+          "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+          "cold_read_ms": 76.403,
+          "warm_read_mean_ms": 78.264,
+          "pure_replay_mean_ms": 76.341,
+          "idle_cycle_mean_ms": 98.897,
+          "decision": {
+            "status": "idle",
+            "processed_sequence": 301,
+            "next_at_utc": null
+          },
+          "final_membership": {
+            "uni": 532,
+            "focus": 40,
+            "hot": 0
+          },
+          "cold_publication_reopen_identical": true
+        }
+      ]
+    },
+    "replay_and_decisions_identical": true,
+    "scope": "Logical 531-member history sizes, five measured calls per size; not elapsed market/full-day capacity.",
+    "integrity": "Every history read still fully validates; bounded cache stores only short built-in string predicates.",
+    "remaining": "Full history is still replayed; history growth and real-provider production qualification remain pending."
+  },
+  "original_failed_windows_attempt_preserved": true,
+  "runtime_bundle_rebuilt": false,
+  "production_installation": false,
+  "production_hot_enabled": false,
+  "production_cadence_changed": false,
+  "provider_calls": 0,
+  "remaining_scope": [
+    "Full history is still reread/replayed and cost grows with its length.",
+    "Incremental replay/checkpoint design must preserve complete integrity validation and cold recovery.",
+    "Longer real-provider capacity, startup/outage halt reconciliation, and production adoption remain pending."
+  ]
+}

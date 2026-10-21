@@ -16,7 +16,14 @@
   "missing_close_mutation_regression": "PASS (both omissions rejected before temporary cleanup without garbage collection)",
   "source_and_extracted_qualification": "PASS",
   "extracted_test_seconds": 2.272,
-  "windows_qualification": "PENDING corrected rerun",
+  "windows_qualification": "ACCEPTED: native offline first scaling increment",
   "production_changes": false,
-  "provider_calls": 0
+  "provider_calls": 0,
+  "windows_tests": 165,
+  "windows_test_seconds": 5.124,
+  "windows_report_result": "PASS",
+  "windows_report_path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\coordinator_scaling_20261021_231000_b272a9\\runs\\scaling_qualification\\20261021T231437Z-869e11e7\\report.json",
+  "windows_actual_prompt_return_confirmed": true,
+  "windows_acceptance_github_checkpoint": "b48f0cb4cd1af685aa282625040f79c119fafdfc",
+  "runtime_archive_unchanged_after_windows_acceptance": true
 }
