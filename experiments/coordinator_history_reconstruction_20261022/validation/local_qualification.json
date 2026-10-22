@@ -8,7 +8,7 @@
   "correctness": "PASS",
   "performance": "FAILED",
   "qualification": "INCOMPLETE",
-  "native_windows": "PENDING_COMMAND_31",
+  "native_windows": "ACCEPTED_COMMAND_31",
   "production_changes": false,
   "reference_local_commit": "a513f64f19b39daf65a7d2fb92edc081cb783110",
   "reference_public_commit": "d78e5ca0daa9b18bbbfb7245f751fd30cee7d93b",
@@ -40,7 +40,6 @@
   "extracted_path_with_spaces": true,
   "changed_source_refused_before_tests": true,
   "not_qualified": [
-    "Native Windows command 31 verification",
     "Complete recovery, normal recovered request delivery or supervision",
     "New full-size native fixture construction",
     "Real-clock state-changing/burst, memory/soak or busy-tail performance",
@@ -53,5 +52,10 @@
     "sha256": "1bbdf21f1a4526972bbba1f579eaa114c763a078b5d765c93362f1ac817be720",
     "files": 55
   },
-  "coordinator_record": "https://github.com/DanArizona/mb_watchlist_coordinator/tree/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_reconstruction_20261022"
+  "coordinator_record": "https://github.com/DanArizona/mb_watchlist_coordinator/tree/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_reconstruction_20261022",
+  "native_windows_tests": 281,
+  "native_windows_seconds": 10.932056899997406,
+  "native_windows_actual_cmd_prompt_return_observed": true,
+  "native_windows_evidence_source": "Complete operator-supplied CMD console; saved report file not independently uploaded",
+  "native_windows_record": "https://github.com/DanArizona/mb_watchlist_coordinator/blob/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_reconstruction_20261022/validation/windows_qualification.json"
 }
