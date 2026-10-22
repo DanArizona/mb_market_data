@@ -33,5 +33,6 @@
   "native_windows_actual_cmd_prompt_return_observed": true,
   "native_windows_evidence_source": "Operator-supplied console; no independent report-file upload",
   "native_windows_record": "https://github.com/DanArizona/mb_watchlist_coordinator/blob/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_cost_20261022/validation/windows_qualification.json",
-  "native_windows_record_publication": "PENDING_EXPLICIT_COORDINATOR_PUBLICATION_APPROVAL"
+  "native_windows_record_publication": "PUBLISHED",
+  "native_windows_record_commit": "d78e5ca0daa9b18bbbfb7245f751fd30cee7d93b"
 }
