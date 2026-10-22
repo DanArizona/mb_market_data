@@ -11,7 +11,7 @@
   ],
   "coordinator_record": "https://github.com/DanArizona/mb_watchlist_coordinator/tree/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_cost_20261022",
   "metadata_dependency_matches_coordinator_reference": true,
-  "native_windows": "PENDING_COMMAND_30",
+  "native_windows": "ACCEPTED_COMMAND_30",
   "performance": "FAILED",
   "qualification": "INCOMPLETE",
   "production_changes": false,
@@ -27,5 +27,11 @@
     1.8422252830005164
   ],
   "delivery": "coordinator_history_cost_20261022_205839_ce0f7b.zip",
-  "delivery_sha256": "18f971331dfe50f27e0a4b1a5c572be1d84236beed07061d2d536d170fd30541"
+  "delivery_sha256": "18f971331dfe50f27e0a4b1a5c572be1d84236beed07061d2d536d170fd30541",
+  "native_windows_tests": 264,
+  "native_windows_seconds": 10.756023699999787,
+  "native_windows_actual_cmd_prompt_return_observed": true,
+  "native_windows_evidence_source": "Operator-supplied console; no independent report-file upload",
+  "native_windows_record": "https://github.com/DanArizona/mb_watchlist_coordinator/blob/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_cost_20261022/validation/windows_qualification.json",
+  "native_windows_record_publication": "PENDING_EXPLICIT_COORDINATOR_PUBLICATION_APPROVAL"
 }
