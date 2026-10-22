@@ -1,0 +1,158 @@
+{
+  "session_date": "2026-10-22",
+  "acceptance": "Production opening VERIFIED through supplied 09:31:04 ET health check",
+  "evidence_source": "Operator-pasted Windows CMD preflight, OV, Focus build, publication/audit/replay, startup banners and health output",
+  "production_commits": {
+    "mb_market_data": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+    "schwab_watchlists": "e2ef6f62856ba3226c41456b7779951aa8640cbf"
+  },
+  "tracked_worktrees_clean": true,
+  "credential_horizon_accepted_by_both_pollers": true,
+  "opening_r0": {
+    "members": {
+      "uni": 543,
+      "focus": 0,
+      "hot": 0
+    },
+    "path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\daily_universe_production\\2026-10-22-from-2026-10-21\\opening_hierarchy_r0.json",
+    "sha256": "3e39fa875ecf29c18c8d407ec7bed8bc2e7b519fa8b0462d3aee24567760a187"
+  },
+  "api_overnight_volume": {
+    "result": "PASS",
+    "successful": 543,
+    "failed": 0,
+    "complete_opening_uni": true,
+    "decision_window_et": "[00:00,09:00)",
+    "completed_at_et": "2026-10-22T09:13:12.785921-04:00",
+    "manifest": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\api_overnight_volume\\2026-10-22-09-06-12-session-2026-10-22\\manifest.json"
+  },
+  "focus_proposal": {
+    "result": "PASS",
+    "source_rows": 543,
+    "eligible": 543,
+    "ranked_focus": [
+      "STAK",
+      "GIXI",
+      "POM",
+      "NCPL",
+      "SURG",
+      "SOAR",
+      "BATL",
+      "DDC",
+      "XHLD",
+      "LHSW",
+      "MEDS",
+      "GPUS",
+      "NMTC",
+      "GNS",
+      "AMOD",
+      "EDHL",
+      "PRSO",
+      "REED",
+      "MERC",
+      "AHT",
+      "HTCO",
+      "ARAI",
+      "MDXH",
+      "EYPT",
+      "TCRT",
+      "BENF",
+      "GUTS",
+      "SNAL",
+      "HTOO",
+      "SKYQ",
+      "ATCH",
+      "BZAI",
+      "CELU",
+      "FRTT",
+      "BURU",
+      "HCTI",
+      "HAIN",
+      "PLAG",
+      "OLB",
+      "ESLA"
+    ],
+    "revision": 1,
+    "path": "C:\\Users\\danla\\Documents\\github\\schwab_watchlists\\output\\ov_focus_production\\2026-10-22-09-13-52\\sampling_hierarchy_r1.json",
+    "sha256": "4de9c8a5dbed3b29afe9997475a62f93825177ff29f8c4784647f4ec1c568b0b",
+    "effective_at_et": "2026-10-22T09:30:00-04:00",
+    "published_at_utc": "2026-10-22T13:14:37.439677+00:00",
+    "publication_result": "inserted"
+  },
+  "preopen_audit": {
+    "result": "PASS",
+    "integrity": "ok",
+    "poll_runs": 0,
+    "membership_revisions": 2,
+    "channel_revisions": 6,
+    "member_rows": 1126,
+    "skips": 0,
+    "acquisitions": 0,
+    "observations": 0
+  },
+  "preopen_replay": {
+    "events": 2,
+    "final_members": {
+      "uni": 543,
+      "focus": 40,
+      "hot": 0
+    },
+    "sequence_sha256": "59b4db729cbb05305411e0eaeddcddcecd18c577c0188be70ea5a8d6fa10973f"
+  },
+  "journal": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\quote_observation_journal_v2_api_opening_2026-10-22\\2026-10-22.sqlite3",
+  "startup": {
+    "uni": {
+      "started_at_et": "2026-10-22T09:15:20-04:00",
+      "output": "output/universe_quote_watch/2026-10-22-09-15-20-uni",
+      "cadence_seconds": [
+        0,
+        30
+      ]
+    },
+    "focus": {
+      "started_at_et": "2026-10-22T09:15:45-04:00",
+      "output": "output/universe_quote_watch/2026-10-22-09-15-45-focus",
+      "cadence_seconds": [
+        5,
+        20,
+        35,
+        50
+      ]
+    },
+    "start_at_et": "2026-10-22T09:30:00-04:00",
+    "stop_at_et": "2026-10-22T16:00:00-04:00",
+    "monitor_watchdog_running_confirmed": true
+  },
+  "opening_health": {
+    "as_of_et": "2026-10-22T09:31:04-04:00",
+    "journal_read": "OK",
+    "journal_read_seconds": 0.016,
+    "slot_grace_seconds": 90,
+    "uni": {
+      "status": "RUNNING",
+      "candidate_pids": [
+        36960
+      ],
+      "last_committed_slot_et": "09:31:00",
+      "acquisitions": 3,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 543
+    },
+    "focus": {
+      "status": "RUNNING",
+      "candidate_pids": [
+        41968
+      ],
+      "last_committed_slot_et": "09:30:50",
+      "acquisitions": 4,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 40
+    }
+  },
+  "production_hot_enabled": false,
+  "experimental_cadence_adopted": false,
+  "scope": "Opening coverage/health only. Full-day outcome, detailed quote/invalid status counts and after-open full-session audit/replay are not established by this health report.",
+  "full_day_result": "PENDING"
+}
