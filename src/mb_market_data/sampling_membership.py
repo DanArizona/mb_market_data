@@ -28,6 +28,7 @@ from mb_market_data.schwab_quotes import normalize_symbols
 
 SAMPLING_HIERARCHY_CONTRACT = "nested-uni-focus-hot-v1"
 _JSON_SCALAR_TYPES = frozenset((str, bool, int, type(None)))
+_MISSING_METADATA_JSON = object()
 
 
 class SamplingChannel(StrEnum):
@@ -146,6 +147,103 @@ def _freeze_json(value: Any) -> Any:
     return value
 
 
+def _validated_hierarchy_content(*, session_date, revision, effective_at,
+        uni_symbols, focus_symbols, hot_symbols, source, reason, metadata,
+        published_at, contract, _metadata_json_text=_MISSING_METADATA_JSON):
+    """Validate one hierarchy and compute its unchanged canonical wire hash.
+
+    Both public immutable values and the store's plain receipt reader use this
+    validation. Raw storage JSON is decoded here, never accepted as a trusted
+    hash or prevalidated payload. JSON decoding gives exact built-in containers
+    and string keys; canonical encoding below still refuses nonfinite numbers.
+    """
+    if isinstance(session_date, datetime) or not isinstance(
+        session_date, date
+    ):
+        raise TypeError("session_date must be a date")
+
+    if isinstance(revision, bool) or not isinstance(
+        revision, int
+    ):
+        raise TypeError("revision must be an integer")
+    if revision < 0:
+        raise ValueError("revision must be nonnegative")
+
+    _require_aware(effective_at, "effective_at")
+    if published_at is not None:
+        _require_aware(published_at, "published_at")
+        if effective_at < published_at:
+            raise MembershipRevisionError(
+                "effective_at cannot precede published_at"
+            )
+
+    source = _require_nonblank(source, "source")
+    if reason is not None:
+        if not isinstance(reason, str):
+            raise TypeError("reason must be a string or None")
+        reason = reason.strip() or None
+
+    if contract != SAMPLING_HIERARCHY_CONTRACT:
+        raise MembershipRevisionError(
+            "unsupported sampling hierarchy contract: "
+            f"{contract!r}"
+        )
+
+    uni_symbols = _canonical_symbols(uni_symbols)
+    focus_symbols = _canonical_symbols(focus_symbols)
+    hot_symbols = _canonical_symbols(hot_symbols)
+
+    if not uni_symbols:
+        raise MembershipRevisionError(
+            "uni_symbols must contain at least one symbol"
+        )
+
+    uni_members = set(uni_symbols)
+    focus_members = set(focus_symbols)
+    hot_members = set(hot_symbols)
+    focus_outside_uni = tuple(sorted(focus_members - uni_members))
+    hot_outside_focus = tuple(sorted(hot_members - focus_members))
+
+    if focus_outside_uni:
+        raise MembershipRevisionError(
+            "Focus must be a subset of Uni; outside Uni: "
+            f"{', '.join(focus_outside_uni)}"
+        )
+    if hot_outside_focus:
+        raise MembershipRevisionError(
+            "Hot must be a subset of Focus; outside Focus: "
+            f"{', '.join(hot_outside_focus)}"
+        )
+
+    if _metadata_json_text is _MISSING_METADATA_JSON:
+        metadata_value = json.loads(_canonical_metadata_json(metadata))
+    else:
+        metadata_value = json.loads(_metadata_json_text)
+        if not isinstance(metadata_value, dict):
+            raise TypeError("metadata must be a mapping")
+    payload = {
+        "contract": contract,
+        "session_date": session_date.isoformat(),
+        "revision": revision,
+        "effective_at_utc": _utc_text(effective_at),
+        "uni_symbols": uni_symbols,
+        "focus_symbols": focus_symbols,
+        "hot_symbols": hot_symbols,
+        "source": source,
+        "reason": reason,
+        "metadata": metadata_value,
+    }
+    canonical_payload = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+    return payload, hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class SamplingHierarchyRevision:
     """One complete, immutable Uni/Focus/Hot membership snapshot.
@@ -169,100 +267,16 @@ class SamplingHierarchyRevision:
     content_sha256: str = field(init=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.session_date, datetime) or not isinstance(
-            self.session_date, date
-        ):
-            raise TypeError("session_date must be a date")
-
-        if isinstance(self.revision, bool) or not isinstance(
-            self.revision, int
-        ):
-            raise TypeError("revision must be an integer")
-        if self.revision < 0:
-            raise ValueError("revision must be nonnegative")
-
-        _require_aware(self.effective_at, "effective_at")
-        if self.published_at is not None:
-            _require_aware(self.published_at, "published_at")
-            if self.effective_at < self.published_at:
-                raise MembershipRevisionError(
-                    "effective_at cannot precede published_at"
-                )
-
-        source = _require_nonblank(self.source, "source")
-        reason = self.reason
-        if reason is not None:
-            if not isinstance(reason, str):
-                raise TypeError("reason must be a string or None")
-            reason = reason.strip() or None
-
-        if self.contract != SAMPLING_HIERARCHY_CONTRACT:
-            raise MembershipRevisionError(
-                "unsupported sampling hierarchy contract: "
-                f"{self.contract!r}"
-            )
-
-        uni_symbols = _canonical_symbols(self.uni_symbols)
-        focus_symbols = _canonical_symbols(self.focus_symbols)
-        hot_symbols = _canonical_symbols(self.hot_symbols)
-
-        if not uni_symbols:
-            raise MembershipRevisionError(
-                "uni_symbols must contain at least one symbol"
-            )
-
-        uni_members = set(uni_symbols)
-        focus_members = set(focus_symbols)
-        hot_members = set(hot_symbols)
-        focus_outside_uni = tuple(sorted(focus_members - uni_members))
-        hot_outside_focus = tuple(sorted(hot_members - focus_members))
-
-        if focus_outside_uni:
-            raise MembershipRevisionError(
-                "Focus must be a subset of Uni; outside Uni: "
-                f"{', '.join(focus_outside_uni)}"
-            )
-        if hot_outside_focus:
-            raise MembershipRevisionError(
-                "Hot must be a subset of Focus; outside Focus: "
-                f"{', '.join(hot_outside_focus)}"
-            )
-
-        metadata_json = _canonical_metadata_json(self.metadata)
-        metadata_value = json.loads(metadata_json)
-        frozen_metadata = _freeze_json(metadata_value)
-
-        object.__setattr__(self, "source", source)
-        object.__setattr__(self, "reason", reason)
-        object.__setattr__(self, "uni_symbols", uni_symbols)
-        object.__setattr__(self, "focus_symbols", focus_symbols)
-        object.__setattr__(self, "hot_symbols", hot_symbols)
-        object.__setattr__(self, "metadata", frozen_metadata)
-
-        payload = {
-            "contract": self.contract,
-            "session_date": self.session_date.isoformat(),
-            "revision": self.revision,
-            "effective_at_utc": _utc_text(self.effective_at),
-            "uni_symbols": uni_symbols,
-            "focus_symbols": focus_symbols,
-            "hot_symbols": hot_symbols,
-            "source": source,
-            "reason": reason,
-            "metadata": metadata_value,
-        }
-        canonical_payload = json.dumps(
-            payload,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-        object.__setattr__(
-            self,
-            "content_sha256",
-            hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest(),
-        )
+        payload, content_sha256 = _validated_hierarchy_content(
+            session_date=self.session_date, revision=self.revision,
+            effective_at=self.effective_at, uni_symbols=self.uni_symbols,
+            focus_symbols=self.focus_symbols, hot_symbols=self.hot_symbols,
+            source=self.source, reason=self.reason, metadata=self.metadata,
+            published_at=self.published_at, contract=self.contract)
+        for name in ("source", "reason", "uni_symbols", "focus_symbols", "hot_symbols"):
+            object.__setattr__(self, name, payload[name])
+        object.__setattr__(self, "metadata", _freeze_json(payload["metadata"]))
+        object.__setattr__(self, "content_sha256", content_sha256)
 
     def symbols_for(
         self,

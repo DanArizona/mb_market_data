@@ -31,6 +31,7 @@ from mb_market_data.sampling_membership import (
     SamplingChannel,
     SamplingHierarchyRevision,
     assess_revision_candidate,
+    _validated_hierarchy_content,
 )
 from mb_market_data.schwab_quotes import (
     QuoteBatchResult,
@@ -1222,6 +1223,22 @@ class QuoteObservationStore:
                 for row in rows
             )
 
+    def validated_membership_revision_payloads(self) -> tuple[dict[str, Any], ...]:
+        """Read fresh, fully validated plain receipts without freezing metadata.
+
+        This shares every channel/header/fingerprint check with normal native
+        revision reads and the exact hierarchy validation/hash function with
+        SamplingHierarchyRevision. Returned dictionaries are detached values;
+        changing one cannot change the database or a later read.
+        """
+        self._require_schema_version(HIERARCHY_SCHEMA_VERSION)
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM sampling_membership_revision ORDER BY effective_at_utc, revision"
+            ).fetchall()
+            return tuple(self._membership_revision_from_row(connection, row, _plain=True)
+                         for row in rows)
+
     def latest_membership_revision_effective_at(
         self,
         value: datetime,
@@ -1257,7 +1274,8 @@ class QuoteObservationStore:
         self,
         connection: sqlite3.Connection,
         row: sqlite3.Row,
-    ) -> SamplingHierarchyRevision:
+        *, _plain: bool = False,
+    ) -> SamplingHierarchyRevision | dict[str, Any]:
         channel_rows = connection.execute(
             """
             SELECT *
@@ -1338,6 +1356,27 @@ class QuoteObservationStore:
                     f"{channel_row['channel']} r{row['revision']}"
                 )
             memberships[channel_row["channel"]] = symbols
+
+        if _plain:
+            payload, content_sha256 = _validated_hierarchy_content(
+                session_date=date.fromisoformat(row["session_date"]),
+                revision=row["revision"], effective_at=_parse_utc(row["effective_at_utc"]),
+                uni_symbols=memberships[SamplingChannel.UNI.value],
+                focus_symbols=memberships[SamplingChannel.FOCUS.value],
+                hot_symbols=memberships[SamplingChannel.HOT.value],
+                source=row["source"], reason=row["reason"], metadata={},
+                published_at=_parse_utc(row["published_at_utc"]),
+                contract=row["membership_contract"], _metadata_json_text=row["metadata_json"])
+            if content_sha256 != row["content_sha256"]:
+                raise QuoteObservationStoreError(
+                    "Hierarchy revision content hash does not match: " f"r{row['revision']}"
+                )
+            proposal = {k: v for k, v in payload.items() if k != "contract"}
+            proposal["effective_at_utc"] = _parse_utc(proposal["effective_at_utc"]).isoformat()
+            for name in ("uni_symbols", "focus_symbols", "hot_symbols"):
+                proposal[name] = list(proposal[name])
+            return {"proposal": proposal, "content_sha256": content_sha256,
+                    "published_at_utc": _parse_utc(row["published_at_utc"]).isoformat()}
 
         revision = SamplingHierarchyRevision(
             session_date=date.fromisoformat(row["session_date"]),

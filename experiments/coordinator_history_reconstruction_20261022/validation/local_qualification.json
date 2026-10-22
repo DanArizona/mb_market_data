@@ -1,0 +1,57 @@
+{
+  "result": "PASS_AFFECTED_CHECKS",
+  "affected_tests": 281,
+  "local_seconds": 5.771819266999955,
+  "extracted_seconds": 5.843861769000796,
+  "network": "denied",
+  "production_access": false,
+  "correctness": "PASS",
+  "performance": "FAILED",
+  "qualification": "INCOMPLETE",
+  "native_windows": "PENDING_COMMAND_31",
+  "production_changes": false,
+  "reference_local_commit": "a513f64f19b39daf65a7d2fb92edc081cb783110",
+  "reference_public_commit": "d78e5ca0daa9b18bbbfb7245f751fd30cee7d93b",
+  "reference_measurement_reused": true,
+  "reference_measured_at_utc": "2026-10-22T22:46:04.586648+00:00",
+  "reference_report_sha256": "ec1d016c7ff16793ce77d398ff2f0c3ff9ef22e621b4751d0fcee50829223b42",
+  "reference_idle_seconds": {
+    "count": 100,
+    "median": 1.289163191499938,
+    "p95": 1.391135875001055,
+    "maximum": 1.461647301000994
+  },
+  "candidate_idle_seconds": {
+    "count": 100,
+    "median": 0.9964169369995943,
+    "p95": 1.118303299001127,
+    "maximum": 1.2645057939989783
+  },
+  "candidate_cold_seconds": [
+    1.4238723020007455,
+    1.4175910880003357,
+    1.4317550970008597
+  ],
+  "full_request_states_and_publication_snapshot_identical": true,
+  "fixture_database_bytes_unchanged": true,
+  "request_states_sha256": "5539f2c172b9f46272211d7e44357edad1e678ed170ee3d782e36db1d21f08b2",
+  "publication_snapshot_sha256": "f6d29079ff4dee3c529c5c61c88180011786fbf5e7f22f44f75e012374c494a4",
+  "experimental_native_dependency_matches_market_checkpoint": true,
+  "extracted_path_with_spaces": true,
+  "changed_source_refused_before_tests": true,
+  "not_qualified": [
+    "Native Windows command 31 verification",
+    "Complete recovery, normal recovered request delivery or supervision",
+    "New full-size native fixture construction",
+    "Real-clock state-changing/burst, memory/soak or busy-tail performance",
+    "Full-day or real-provider capacity",
+    "Production adoption or Hot activation"
+  ],
+  "delivery": {
+    "folder": "coordinator_history_reconstruction_20261022_230120_adda03",
+    "bytes": 149065,
+    "sha256": "1bbdf21f1a4526972bbba1f579eaa114c763a078b5d765c93362f1ac817be720",
+    "files": 55
+  },
+  "coordinator_record": "https://github.com/DanArizona/mb_watchlist_coordinator/tree/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_reconstruction_20261022"
+}
