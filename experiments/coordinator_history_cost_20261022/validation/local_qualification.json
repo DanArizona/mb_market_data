@@ -1,0 +1,31 @@
+{
+  "result": "PASS_AFFECTED_CHECKS",
+  "coordinator_reference_commit": "3588cf8090279bd014417e9560d10e37c75a6dac",
+  "affected_tests": 264,
+  "local_seconds": 7.306706033999944,
+  "extracted_seconds": 8.6826913470004,
+  "native_dependency_test_suites": [
+    "test_sampling_membership",
+    "test_quote_observation_store",
+    "test_sampling_metadata_cost"
+  ],
+  "coordinator_record": "https://github.com/DanArizona/mb_watchlist_coordinator/tree/experiment/coordinator-scaling-2026-10-21/experiments/coordinator_history_cost_20261022",
+  "metadata_dependency_matches_coordinator_reference": true,
+  "native_windows": "PENDING_COMMAND_30",
+  "performance": "FAILED",
+  "qualification": "INCOMPLETE",
+  "production_changes": false,
+  "candidate_idle_seconds": {
+    "count": 100,
+    "median": 1.4164222455001436,
+    "p95": 1.530041113000152,
+    "maximum": 1.6084540540005037
+  },
+  "candidate_cold_seconds": [
+    1.879085741000381,
+    2.0221700279998913,
+    1.8422252830005164
+  ],
+  "delivery": "coordinator_history_cost_20261022_205839_ce0f7b.zip",
+  "delivery_sha256": "18f971331dfe50f27e0a4b1a5c572be1d84236beed07061d2d536d170fd30541"
+}

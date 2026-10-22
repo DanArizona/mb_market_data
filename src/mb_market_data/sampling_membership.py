@@ -16,16 +16,18 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any
 
 from mb_market_data.schwab_quotes import normalize_symbols
 
 
 SAMPLING_HIERARCHY_CONTRACT = "nested-uni-focus-hot-v1"
+_JSON_SCALAR_TYPES = frozenset((str, bool, int, type(None)))
 
 
 class SamplingChannel(StrEnum):
@@ -78,6 +80,19 @@ def _canonical_symbols(value: Any) -> tuple[str, ...]:
 
 
 def _plain_json_value(value: Any) -> Any:
+    # Most metadata leaves are exact JSON scalars. Avoid a generic Mapping
+    # check for each one; keep subclasses on the original validation path.
+    kind = type(value)
+    if kind in _JSON_SCALAR_TYPES:
+        return value
+    if kind is float:
+        if not math.isfinite(value):
+            raise ValueError("metadata numbers must be finite")
+        return value
+    if kind is list or kind is tuple:
+        if all(type(item) in _JSON_SCALAR_TYPES for item in value):
+            return list(value)
+        return [_plain_json_value(item) for item in value]
     if isinstance(value, Mapping):
         if any(not isinstance(key, str) for key in value):
             raise TypeError("metadata keys must be strings")
@@ -123,6 +138,10 @@ def _freeze_json(value: Any) -> Any:
             {key: _freeze_json(item) for key, item in value.items()}
         )
     if isinstance(value, list):
+        # This function receives json.loads output, so scalar leaves are exact
+        # built-ins. A fresh tuple still detaches the caller's mutable list.
+        if all(type(item) in _JSON_SCALAR_TYPES or type(item) is float for item in value):
+            return tuple(value)
         return tuple(_freeze_json(item) for item in value)
     return value
 
