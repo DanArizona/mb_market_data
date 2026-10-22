@@ -1,0 +1,144 @@
+{
+  "session_date": "2026-10-22",
+  "acceptance": "FULL_SESSION_ACQUISITION_AUDIT_AND_REPLAY_ACCEPTED",
+  "evidence_source": "Operator-supplied Windows CMD final health and complete audit/replay console; original journal and evidence files were not uploaded",
+  "journal": "output/quote_observation_journal_v2_api_opening_2026-10-22/2026-10-22.sqlite3",
+  "production_version": "0.1.0.dev0+git.a082f5441126",
+  "health": {
+    "as_of_et": "2026-10-22T17:44:55-04:00",
+    "journal_read": "OK",
+    "journal_read_seconds": 0.0,
+    "slot_grace_seconds": 90,
+    "uni": {
+      "status": "WINDOW_ENDED",
+      "candidate_pids": [],
+      "last_committed_slot_et": "15:59:30",
+      "acquisitions": 780,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 543
+    },
+    "focus": {
+      "status": "WINDOW_ENDED",
+      "candidate_pids": [],
+      "last_committed_slot_et": "15:59:50",
+      "acquisitions": 1560,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 40
+    }
+  },
+  "audit": {
+    "result": "PASS",
+    "schema_version": 2,
+    "membership": "nested-uni-focus-hot-v1",
+    "sqlite_integrity": "ok",
+    "rows": {
+      "poll_run": 2,
+      "sampling_membership_revision": 2,
+      "sampling_channel_revision": 6,
+      "sampling_channel_member": 1126,
+      "poll_slot_skip": 0,
+      "quote_acquisition": 2340,
+      "quote_observation": 485940
+    },
+    "poll_runs": [
+      {
+        "channel": "uni",
+        "started_at_utc": "2026-10-22T13:15:20.308368Z",
+        "version": "0.1.0.dev0+git.a082f5441126",
+        "host": "MasterBot"
+      },
+      {
+        "channel": "focus",
+        "started_at_utc": "2026-10-22T13:15:45.882665Z",
+        "version": "0.1.0.dev0+git.a082f5441126",
+        "host": "MasterBot"
+      }
+    ],
+    "channels": {
+      "uni": {
+        "revisions": 2,
+        "member_rows": 1086,
+        "acquisitions": 780,
+        "expected_acquisitions": 780,
+        "skipped": 0,
+        "missing": 0,
+        "observations": 423540,
+        "requested_observations": 423540,
+        "row_mismatches": 0,
+        "statuses": {
+          "quote": 423540
+        }
+      },
+      "focus": {
+        "revisions": 2,
+        "member_rows": 40,
+        "acquisitions": 1560,
+        "expected_acquisitions": 1560,
+        "skipped": 0,
+        "missing": 0,
+        "observations": 62400,
+        "requested_observations": 62400,
+        "row_mismatches": 0,
+        "statuses": {
+          "quote": 62400
+        }
+      },
+      "hot": {
+        "revisions": 2,
+        "member_rows": 0,
+        "acquisitions": 0,
+        "expected_acquisitions": 0,
+        "skipped": 0,
+        "missing": 0,
+        "observations": 0,
+        "requested_observations": 0,
+        "row_mismatches": 0,
+        "statuses": {}
+      }
+    },
+    "reported_storage": {
+      "database_mib": 245.9,
+      "wal_bytes": 0,
+      "shm_kib": 32.0,
+      "sqlite_total_mib": 246.0,
+      "evidence_gib": 1.1
+    }
+  },
+  "replay": {
+    "result": "COMPLETED",
+    "events": 2342,
+    "revisions": 2,
+    "acquisitions": 2340,
+    "observations": 485940,
+    "statuses": {
+      "quote": 485940
+    },
+    "window_start_et": "2026-10-22T09:30:00-04:00",
+    "window_end_et": "2026-10-22T15:59:50.412303-04:00",
+    "wall_seconds": 13.047,
+    "observations_per_second": 37244,
+    "sequence_sha256": "55381d932bd69c049faa465302da1174bbf50e6c43ede7513a528604aa28ee0a",
+    "projected_members": {
+      "uni": 543,
+      "focus": 40,
+      "hot": 0
+    },
+    "projected_latest": {
+      "uni": 543,
+      "focus": 40,
+      "hot": 0
+    },
+    "unique_members": 543,
+    "multi_channel": 40
+  },
+  "closeout_command_prompt_return_observed": true,
+  "monitor_stop_request": "NOT_YET_REPORTED",
+  "monitor_and_watchdog_actual_exit": "NOT_YET_REPORTED",
+  "next_target_date": "2026-10-23",
+  "next_target_preparation": "NOT_YET_REPORTED",
+  "production_hot_enabled": false,
+  "experimental_cadence_adopted": false,
+  "scope": "Full-session scheduled acquisition coverage and observation row/status consistency accepted from the supplied native audit/replay. Monitor exit and next-session preparation remain separate pending steps."
+}
