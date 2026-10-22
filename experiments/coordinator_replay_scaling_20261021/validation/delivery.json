@@ -15,11 +15,19 @@
   "source_qualification": "PASS",
   "extracted_qualification": "PASS",
   "inventory_tamper_stopped_before_tests": true,
-  "windows_qualification": "PENDING",
+  "windows_qualification": "ACCEPTED: second Coordinator replay-value increment, native offline Windows",
   "network": "denied",
   "provider_calls": 0,
   "production_changed": false,
   "scope": "Second measured increment: identical immutable membership values reused inside each full verified replay. No persistent state-validity cache or constant-time/full-day/provider-capacity claim.",
   "extracted_test_seconds": 2.311,
-  "extracted_path_with_spaces": true
+  "extracted_path_with_spaces": true,
+  "windows_tests": 171,
+  "windows_test_seconds": 5.114,
+  "windows_report_result": "PASS",
+  "windows_report_path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\coordinator_replay_scaling_20261021_233432_337ec6\\runs\\replay_scaling_qualification\\20261022T000447Z-4d6194b3\\report.json",
+  "windows_actual_prompt_return_confirmed": true,
+  "windows_six_complete_state_digests_match_local_reference": true,
+  "windows_acceptance_github_checkpoint": "5024b843524c834ff39384239913cf3bb346b251",
+  "runtime_archive_unchanged_after_windows_acceptance": true
 }

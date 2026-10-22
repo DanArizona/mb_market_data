@@ -1,0 +1,279 @@
+{
+  "acceptance": "ACCEPTED: second Coordinator replay-value increment, native offline Windows qualification",
+  "evidence_source": "Uploaded complete operator console transcript; saved report file itself was not uploaded",
+  "operator_evidence_filename": "Pasted text(20261022-011653).txt",
+  "operator_evidence_sha256": "7b40b0f01dc4f778ebdef6b17d462451e85c8943306c5fbc1bb653f9d59e5bfc",
+  "package": "coordinator_replay_scaling_20261021_233432_337ec6.zip",
+  "archive_sha256": "aa325223b96b8df6df005bb19e334501391ed3d513b54fafd8a4a248e4d05a2e",
+  "coordinator_qualified_github_commit": "192eeb516c5011cd404313197e5e95e3ee05a79b",
+  "coordinator_qualified_local_commit": "109521bc91ee2fbff608528589dd871f5325cb0e",
+  "qualified_full_tree": "687d763d37c26a0bce3ec856afd8eddf98ec7ec4",
+  "command": "27_verify_coordinator_replay_scaling.cmd",
+  "test_console": {
+    "tests": 171,
+    "seconds": 5.114,
+    "result": "OK"
+  },
+  "saved_report_path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\coordinator_replay_scaling_20261021_233432_337ec6\\runs\\replay_scaling_qualification\\20261022T000447Z-4d6194b3\\report.json",
+  "actual_cmd_prompt_return_confirmed": true,
+  "reported_qualification": {
+    "result": "PASS",
+    "source": "synthetic_only",
+    "network": "denied",
+    "tests": 171,
+    "baseline_commit": "abeeeb67274581b579a1c325c902e7383a3ed890",
+    "baseline_github_commit": "6ffa1cd5ec0d4848b4528f4a2e4fb69c1ee9749a",
+    "benchmarks": {
+      "withdrawn_hot": {
+        "baseline": [
+          {
+            "events": 301,
+            "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+            "cold_read_ms": 75.974,
+            "warm_read_mean_ms": 76.362,
+            "pure_replay_mean_ms": 73.65,
+            "idle_cycle_mean_ms": 89.424,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 301,
+              "next_at_utc": null
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 0
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 1001,
+            "state_digest": "5117f03dfbd813d3b73555a3121143c7f5c18895ad1a596360b3c0fe7a8b25aa",
+            "cold_read_ms": 247.951,
+            "warm_read_mean_ms": 266.732,
+            "pure_replay_mean_ms": 246.733,
+            "idle_cycle_mean_ms": 266.401,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 1001,
+              "next_at_utc": null
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 0
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 3001,
+            "state_digest": "c82f0220968ab3bec9415a124aab0345cec77ca111578aa8f8ae96e42ab03d89",
+            "cold_read_ms": 741.293,
+            "warm_read_mean_ms": 789.857,
+            "pure_replay_mean_ms": 758.448,
+            "idle_cycle_mean_ms": 828.474,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 3001,
+              "next_at_utc": null
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 0
+            },
+            "cold_publication_reopen_identical": true
+          }
+        ],
+        "optimized": [
+          {
+            "events": 301,
+            "state_digest": "062d6d5543ab0528bf78d6cadf161678a383f2537cd06be90cde0422b960d983",
+            "cold_read_ms": 14.915,
+            "warm_read_mean_ms": 14.044,
+            "pure_replay_mean_ms": 11.186,
+            "idle_cycle_mean_ms": 27.976,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 301,
+              "next_at_utc": null
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 0
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 1001,
+            "state_digest": "5117f03dfbd813d3b73555a3121143c7f5c18895ad1a596360b3c0fe7a8b25aa",
+            "cold_read_ms": 41.419,
+            "warm_read_mean_ms": 41.006,
+            "pure_replay_mean_ms": 32.958,
+            "idle_cycle_mean_ms": 54.219,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 1001,
+              "next_at_utc": null
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 0
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 3001,
+            "state_digest": "c82f0220968ab3bec9415a124aab0345cec77ca111578aa8f8ae96e42ab03d89",
+            "cold_read_ms": 126.33,
+            "warm_read_mean_ms": 117.683,
+            "pure_replay_mean_ms": 95.811,
+            "idle_cycle_mean_ms": 131.657,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 3001,
+              "next_at_utc": null
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 0
+            },
+            "cold_publication_reopen_identical": true
+          }
+        ]
+      },
+      "steady_hot": {
+        "baseline": [
+          {
+            "events": 301,
+            "state_digest": "9640831887cde8b017b06ba40d8610b1a746c101e21109d7848185519a5f359e",
+            "cold_read_ms": 84.182,
+            "warm_read_mean_ms": 84.595,
+            "pure_replay_mean_ms": 82.752,
+            "idle_cycle_mean_ms": 98.39,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 301,
+              "next_at_utc": "2026-10-24T04:00:00+00:00"
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 40
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 1001,
+            "state_digest": "b088b6c33bd005e195c9c8c01e0245bd4fb7c2fe506484cb38a8529925466ad6",
+            "cold_read_ms": 278.18,
+            "warm_read_mean_ms": 294.357,
+            "pure_replay_mean_ms": 277.237,
+            "idle_cycle_mean_ms": 309.284,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 1001,
+              "next_at_utc": "2026-10-24T04:00:00+00:00"
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 40
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 3001,
+            "state_digest": "34f68a5b486961b5cb3ead94681f6e7077087d684ff64d9a24e064de8e22c003",
+            "cold_read_ms": 884.625,
+            "warm_read_mean_ms": 931.359,
+            "pure_replay_mean_ms": 891.545,
+            "idle_cycle_mean_ms": 992.792,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 3001,
+              "next_at_utc": "2026-10-24T04:00:00+00:00"
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 40
+            },
+            "cold_publication_reopen_identical": true
+          }
+        ],
+        "optimized": [
+          {
+            "events": 301,
+            "state_digest": "9640831887cde8b017b06ba40d8610b1a746c101e21109d7848185519a5f359e",
+            "cold_read_ms": 18.944,
+            "warm_read_mean_ms": 17.715,
+            "pure_replay_mean_ms": 14.977,
+            "idle_cycle_mean_ms": 32.899,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 301,
+              "next_at_utc": "2026-10-24T04:00:00+00:00"
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 40
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 1001,
+            "state_digest": "b088b6c33bd005e195c9c8c01e0245bd4fb7c2fe506484cb38a8529925466ad6",
+            "cold_read_ms": 54.196,
+            "warm_read_mean_ms": 54.736,
+            "pure_replay_mean_ms": 46.77,
+            "idle_cycle_mean_ms": 69.167,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 1001,
+              "next_at_utc": "2026-10-24T04:00:00+00:00"
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 40
+            },
+            "cold_publication_reopen_identical": true
+          },
+          {
+            "events": 3001,
+            "state_digest": "34f68a5b486961b5cb3ead94681f6e7077087d684ff64d9a24e064de8e22c003",
+            "cold_read_ms": 158.129,
+            "warm_read_mean_ms": 159.59,
+            "pure_replay_mean_ms": 146.457,
+            "idle_cycle_mean_ms": 201.429,
+            "decision": {
+              "status": "idle",
+              "processed_sequence": 3001,
+              "next_at_utc": "2026-10-24T04:00:00+00:00"
+            },
+            "final_membership": {
+              "uni": 532,
+              "focus": 40,
+              "hot": 40
+            },
+            "cold_publication_reopen_identical": true
+          }
+        ]
+      }
+    },
+    "replay_and_decisions_identical": true,
+    "scope": "Two logical 531-Uni/40-Focus workloads, 301/1001/3001 events, three calls per size; not elapsed market/full-day capacity.",
+    "integrity": "Every receipt/hash/admission and policy timer still replays; identical validated immutable membership values are reused only inside that replay.",
+    "remaining": "History is still fully reread/replayed; this is no persistent incremental checkpoint or full-day/provider qualification."
+  },
+  "six_complete_state_digests_also_match_local_reference": true,
+  "production_installation": false,
+  "production_hot_enabled": false,
+  "production_cadence_changed": false,
+  "provider_calls": 0,
+  "remaining_scope": "Full history is still reread/replayed; request-rich/publication-history growth, full acquisition-history recovery/resource behavior, longer real-provider operation, startup/outage reconciliation and production adoption remain pending."
+}
