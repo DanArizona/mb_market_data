@@ -1,5 +1,5 @@
 {
-  "result": "LOCAL_SCOPE_PASS_WINDOWS_PENDING",
+  "result": "ACCEPTED_LOCAL_AND_WINDOWS_SELECTED_SCOPE",
   "tests": 341,
   "extracted_test_seconds": 7.373917533999702,
   "network": "denied",
@@ -13,9 +13,107 @@
     "files": 59
   },
   "selected_workload_idle_gates": "PASS",
-  "windows": "PENDING",
+  "windows": {
+    "result": "PASS",
+    "qualification": "ACCEPTED_AFFECTED_PATH_AND_SELECTED_NATIVE_WORKLOAD_WINDOWS_VERIFICATION",
+    "evidence_source": "Complete operator-supplied CMD console, including embedded verification summary and workload progress; detailed saved report files and Windows databases not independently uploaded",
+    "operator_environment": {
+      "host": "MasterBot",
+      "platform": "Windows",
+      "conda_environment": "sea-green",
+      "shell": "CMD"
+    },
+    "command": "32_verify_nasdaq_request_reuse.cmd",
+    "run": "20261023T021322Z-f9b1e24a",
+    "run_date_utc": "2026-10-23",
+    "run_date_et": "2026-10-22",
+    "tests": 341,
+    "seconds": 13.570929800043814,
+    "actual_cmd_prompt_return_observed": true,
+    "network": "denied",
+    "production_access": false,
+    "scope": "Changed Nasdaq reuse/store paths plus affected admission/replay/publication/native integration. Recovery transport and provider capacity are not qualified.",
+    "suites": [
+      "test_sampling_admission",
+      "test_sampling_policy",
+      "test_sampling_requests",
+      "test_sampling_scaling",
+      "test_sampling_service",
+      "test_nasdaq_recovery",
+      "test_nasdaq_sampling",
+      "test_coordinator_growth",
+      "test_history_cost",
+      "test_history_reconstruction",
+      "test_sampling_membership",
+      "test_quote_observation_store",
+      "test_sampling_metadata_cost",
+      "test_sampling_payload_reader",
+      "test_nasdaq_request_reuse",
+      "test_nasdaq_reuse_workload"
+    ],
+    "workloads": "PASS",
+    "workload_evidence": "Pinned harness completed all six fresh native logical fixtures. Console p95 values are rounded; exact maxima, cold timings, hashes and databases require the saved detailed report for independent inspection.",
+    "cases": {
+      "typical": {
+        "halts": 42,
+        "symbols": 21,
+        "coordinator_receipts_per_event": 42,
+        "coordinator_receipts_reuse": 21,
+        "per_event_idle_p95_seconds_console": 0.0856,
+        "reuse_idle_p95_seconds_console": 0.0641
+      },
+      "busiest": {
+        "halts": 107,
+        "symbols": 27,
+        "coordinator_receipts_per_event": 107,
+        "coordinator_receipts_reuse": 27,
+        "per_event_idle_p95_seconds_console": 0.1939,
+        "reuse_idle_p95_seconds_console": 0.0976
+      },
+      "margin": {
+        "halts": 160,
+        "symbols": 40,
+        "coordinator_receipts_per_event": 160,
+        "coordinator_receipts_reuse": 40,
+        "per_event_idle_p95_seconds_console": 0.3389,
+        "reuse_idle_p95_seconds_console": 0.15
+      }
+    },
+    "workload_basis": "Historical selected halt counts/times for typical and busiest cases; explicitly synthetic margin. Synthetic 553/40/0 anchor, logical clock, fabricated receipt/resumption availability and changed-row captures; not all 390 cumulative minute RSS captures.",
+    "reported_saved_verification_relative_to_handoff": "runs/20261023T021322Z-f9b1e24a/verification.json",
+    "reported_saved_workload_relative_to_handoff": "runs/20261023T021322Z-f9b1e24a/workloads/report.json",
+    "saved_report_files_uploaded": false,
+    "raw_windows_databases_reviewed": false,
+    "qualified_public_source_commit": "14e405a7884d11e984ab9590430d0570604f0e31",
+    "delivery": {
+      "folder": "nasdaq_request_reuse_20261023_004809_6660ad",
+      "archive": "nasdaq_request_reuse_20261023_004809_6660ad.zip",
+      "bytes": 163669,
+      "sha256": "a72647cfbb99f881ca9ed2aa7bdc39c097c286ad2ebf0e4eba0cf132f5ce1101",
+      "files": 59
+    },
+    "runtime_changes_for_acceptance": false,
+    "repeat_unchanged_command_32_required": false,
+    "unchanged_findings": {
+      "earlier_1000_receipt_200_publication_idle_gate": "FAILED remains unchanged",
+      "earlier_cloud_publication_head_failure_cause": "UNRESOLVED",
+      "initial_after_expiry_development_timings": "REJECTED"
+    },
+    "not_qualified": [
+      "Full retained source history or all cumulative minute captures",
+      "Mixed-source, state-changing real-clock, memory-soak or full-session capacity",
+      "Recovery HTTP transport, normal recovered request delivery or process resuscitation",
+      "Real-provider combined load using this new runtime",
+      "Production adoption, cadence change or Hot activation"
+    ],
+    "next": [
+      "Share live/recovered halt identity and implement normal recovery request delivery with admission/restriction/lifetime rules",
+      "Add paced query/failure handling and an explicit recover/reconcile/ready sequence",
+      "Measure remaining cumulative source/history-growth and mixed-source capacity separately"
+    ]
+  },
   "source_updates": "All captured versions and receipt times retained independently of membership reuse.",
-  "scope": "Observed-count/native logical workloads with fabricated availability and release times, final-source 100-cycle idle measurements and three fresh-object reopens. Not full-day source history, operational recovery, Windows performance or provider capacity.",
+  "scope": "Observed-count/native logical workloads with fabricated availability and release times. Local final-source 100-cycle idle measurements and three fresh-object reopens; Windows 341 affected checks and all three paired workloads accepted from complete operator console. Not full retained-history, full-day/mixed-source/provider capacity or operational recovery.",
   "earlier_1000_receipt_200_publication_gate": "FAILED remains unchanged",
   "development_rejections": [
     "Initial after-expiry idle timings rejected for active-Hot qualification.",
