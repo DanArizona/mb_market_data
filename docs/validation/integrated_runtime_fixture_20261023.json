@@ -1,0 +1,252 @@
+{
+  "milestone": "Command45 subsequent-halt fixture causality and retained runtime failure evidence",
+  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "d257e1d726f13349c789eacf9dc14d4c57397b98",
+  "implementation_tree": "378b5f5a66c1cb6c155dcbfdc96c01168f8fb592",
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/integrated_runtime_fixture_20261023_204217_bc2903.zip",
+    "folder": "integrated_runtime_fixture_20261023_204217_bc2903",
+    "bytes": 282984,
+    "files": 96,
+    "sha256": "eefc144d560aee53e7b3a82e6e11ac7c39aaf3bb48e634bc6877f7670b432515",
+    "inventory_sha256": "9b58a331cabaef06df5a53e686afb3f9b748cf735f68bfb0265dcd6844102399",
+    "repository_files_matched": 92,
+    "source_commit": "d257e1d726f13349c789eacf9dc14d4c57397b98",
+    "source_tree": "378b5f5a66c1cb6c155dcbfdc96c01168f8fb592",
+    "local_tests": 52,
+    "local_passed": 52,
+    "local_seconds": 38.96151868299967,
+    "extracted_tests": 52,
+    "extracted_passed": 52,
+    "extracted_seconds": 39.045404442999825,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "command44_windows_result": "FAILED",
+    "command44_windows_cause": "UNKNOWN",
+    "runtime_source_files_unchanged": 61,
+    "scope": "Synthetic fixture causality and failure evidence with affected coupled-runtime/process regressions. No runtime change, live/profile/full resume/capacity qualification."
+  },
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 52,
+    "passed": 52,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [],
+    "seconds": 38.96151868299967,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_runtime_process_evidence",
+      "test_integrated_runtime_process",
+      "test_integrated_runtime",
+      "test_supervised_hot_worker"
+    ],
+    "scope": "Affected fixture causality and allowlisted pre-cleanup failure evidence, followed by fresh command-43 session coupled to the accepted feed/source/request/publication authority, explicit prepared-client identity delivery and authenticated native owned Hot worker. Independent first-completed-work 3s gate with separate 8s credentials; synthetic HTTP/SDK and actual process failures. Logical feed pacing and elapsed worker drills are distinguished. Not installed/live authentication, an independently preempting outer controller/profile harness, full manual controller resume, live recovery, production adoption or capacity.",
+    "prior_accepted_runtime_sources_changed": false,
+    "command44_runtime_source_files_checked": 61,
+    "command44_runtime_sources_unchanged": true,
+    "command44_windows_failure_retained": true,
+    "command44_windows_failure_cause": "UNKNOWN",
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "fresh_runtime_pump_offline_qualified": true,
+    "outer_controller_profile_harness_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "original_active_window_seconds": 720
+    },
+    "remaining": [
+      "full manual controller resume with original identities, frozen window and budgets",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 52,
+    "passed": 52,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [],
+    "seconds": 39.045404442999825,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_runtime_process_evidence",
+      "test_integrated_runtime_process",
+      "test_integrated_runtime",
+      "test_supervised_hot_worker"
+    ],
+    "scope": "Affected fixture causality and allowlisted pre-cleanup failure evidence, followed by fresh command-43 session coupled to the accepted feed/source/request/publication authority, explicit prepared-client identity delivery and authenticated native owned Hot worker. Independent first-completed-work 3s gate with separate 8s credentials; synthetic HTTP/SDK and actual process failures. Logical feed pacing and elapsed worker drills are distinguished. Not installed/live authentication, an independently preempting outer controller/profile harness, full manual controller resume, live recovery, production adoption or capacity.",
+    "prior_accepted_runtime_sources_changed": false,
+    "command44_runtime_source_files_checked": 61,
+    "command44_runtime_sources_unchanged": true,
+    "command44_windows_failure_retained": true,
+    "command44_windows_failure_cause": "UNKNOWN",
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "fresh_runtime_pump_offline_qualified": true,
+    "outer_controller_profile_harness_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "original_active_window_seconds": 720
+    },
+    "remaining": [
+      "full manual controller resume with original identities, frozen window and budgets",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 92,
+    "source_commit": "d257e1d726f13349c789eacf9dc14d4c57397b98",
+    "source_tree": "378b5f5a66c1cb6c155dcbfdc96c01168f8fb592",
+    "inventory_sha256": "9b58a331cabaef06df5a53e686afb3f9b748cf735f68bfb0265dcd6844102399",
+    "command44_runtime_sources_unchanged": 61,
+    "command44_archive_unchanged": true,
+    "network": "denied",
+    "production_access": false
+  },
+  "command44_failure": {
+    "result": "FAILED",
+    "command": "44_verify_integrated_runtime.cmd",
+    "date": "2026-10-23",
+    "host": "MasterBot",
+    "environment": "sea-green",
+    "run": "20261023T201928Z-685c3cd0",
+    "basis": "Operator-supplied complete console, final JSON and actual CMD prompt return. Structured report transcribed from that console; original saved report not independently uploaded.",
+    "saved_report_independently_uploaded": false,
+    "actual_cmd_prompt_returned": true,
+    "reported_saved_report": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\integrated_runtime_20261023_201031_c76e79\\runs\\20261023T201928Z-685c3cd0\\verification.json",
+    "runner_seconds": 129.829,
+    "report_seconds": 130.09843080001883,
+    "tests": 293,
+    "passed": 292,
+    "skipped": 0,
+    "failures": 1,
+    "errors": 0,
+    "failed_test": "test_owned_child_fault_restarts_future_slots_with_original_symbol_window_and_budgets (test_integrated_runtime_process.RuntimeProcessTests)",
+    "failed_line": 183,
+    "wait_line": 66,
+    "failed_phase": "Waiting for the first native acquisition, before child fault injection.",
+    "message": "Owned synthetic runtime did not reach its bounded state",
+    "cause": "UNKNOWN: failing temporary runtime/source/worker diagnostics were not retained in the supplied output.",
+    "archive_sha256": "2617a11a09151231e15d68a32232ab7b435b3fd7a8796bbc152b60406a0dfe6f",
+    "archive_unchanged": true,
+    "implementation_commit": "0bc6c554a2a033906049709a96f4852f177f6e7f",
+    "implementation_tree": "874b5bb5fa1e60a9a410a583a38c5523f9a3fb0d",
+    "network": "denied",
+    "production_access": false,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "FAILED",
+    "verifier_windows_acceptance_label_retained": "OPERATOR_RESULT_REQUIRED",
+    "fresh_runtime_pump_offline_qualified": false,
+    "prior_local_and_extracted_pass_records_retained": true,
+    "prior_accepted_commands_43_and_earlier_unchanged": true,
+    "inferences_not_supported": [
+      "The injected child fault or its restart caused this failure.",
+      "The 10ms synthetic fixture backdating defect is proven to have caused this Windows failure.",
+      "Live acquisition/recovery, complete resume, production adoption or capacity is qualified."
+    ]
+  },
+  "controlled_boundary": {
+    "result": "REPRODUCED_FIXTURE_BOUNDARY",
+    "network": "denied",
+    "production_access": false,
+    "baseline_retrieved_at_utc": "2026-10-24T14:01:01+00:00",
+    "observation_after_baseline_ms": 5,
+    "old_fixture_backdating_ms": 10,
+    "outcomes": [
+      {
+        "capture_id": "feed-a3a97b648ff8404ba1aa7a27fa65fc9c",
+        "mode": "CURRENT",
+        "events": [],
+        "status": "initial_baseline"
+      },
+      {
+        "capture_id": "controlled-command44-boundary",
+        "mode": "CURRENT",
+        "events": [
+          {
+            "event_id": "nasdaq-halt-3de889e67b493673b891622ea48edff8d22220eab1e97228be5059fbc80283e0",
+            "symbol": "NVDA",
+            "status": "predates_startup"
+          }
+        ],
+        "status": "incremental"
+      }
+    ],
+    "commands": 0,
+    "interpretation": "Demonstrates an independent command-44 fixture defect. Does not establish the cause of the operator Windows failure."
+  },
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "next": [
+    "Command 45 affected Windows verification and actual CMD prompt return",
+    "Full manual controller resume with original identities, frozen window and cumulative budgets",
+    "Owned outer-controller hard deadline/shutdown and profile-goal/coverage/audit harness",
+    "Separately invoked live acquisition/recovery profiles",
+    "Read-only Overlay adapter",
+    "Broader capacity and production adoption"
+  ]
+}
