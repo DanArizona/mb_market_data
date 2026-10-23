@@ -1,5 +1,5 @@
 {
-  "result": "CORRECTIVE_EXTRACTED_PASS_WINDOWS_PENDING",
+  "result": "CORRECTIVE_LOCAL_AND_WINDOWS_ACCEPTED",
   "delivery": {
     "archive": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_recovery_worker_fix_20261023_044926_3d57d2.zip",
     "folder": "nasdaq_recovery_worker_fix_20261023_044926_3d57d2",
@@ -42,7 +42,7 @@
     "execution_environment": "offline_current_host",
     "windows_operator_acceptance_recorded_separately": true,
     "extracted_path_contains_spaces": true,
-    "windows_acceptance": "PENDING",
+    "windows_acceptance": "ACCEPTED_BY_SEPARATE_COMPLETED_OPERATOR_CONSOLE",
     "source_inventory_matches_checkout": true,
     "altered_source_refused_before_tests": true
   },
@@ -90,7 +90,75 @@
     "Drain child stderr with an 8 KiB tail; persist exact owned exit code/reason and include unhealthy heartbeat evidence",
     "Preserve startup/staleness/restart limits and valid-heartbeat health gate"
   ],
-  "scope": "Offline synthetic processes only; native Windows file-sharing check awaits Windows; no live feed/broker/production/capacity claim",
+  "scope": "Offline synthetic process/native qualification accepted locally and on Windows, including actual Windows sharing check. No live HTTP, broker collector integration, production adoption or capacity claim.",
   "qualified_public_source_commit": "d09bf3774a23736860d268aba7f4c0d6178e8f28",
-  "source_branch": "experiment/nasdaq-recovery-supervision-2026-10-23"
+  "source_branch": "experiment/nasdaq-recovery-supervision-2026-10-23",
+  "windows_acceptance": {
+    "result": "WINDOWS_ACCEPTED",
+    "command": 35,
+    "qualified_public_source_commit": "d09bf3774a23736860d268aba7f4c0d6178e8f28",
+    "source_branch": "experiment/nasdaq-recovery-supervision-2026-10-23",
+    "host": "MasterBot",
+    "operating_system": "Windows 11",
+    "environment": "sea-green",
+    "package": {
+      "archive": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_recovery_worker_fix_20261023_044926_3d57d2.zip",
+      "folder": "nasdaq_recovery_worker_fix_20261023_044926_3d57d2",
+      "bytes": 208617,
+      "sha256": "86eb56a2b700277ed1d42e44a9f70f6b273bb4290dff2a7ea16943cc17fef3b6",
+      "files": 68
+    },
+    "run": "20261023T052046Z-a0d65acb",
+    "operator_report_path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\nasdaq_recovery_worker_fix_20261023_044926_3d57d2\\runs\\20261023T052046Z-a0d65acb\\verification.json",
+    "operator_report": {
+      "result": "PASS",
+      "tests": 438,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "passed": 438,
+      "seconds": 34.959442999912426,
+      "network": "denied",
+      "production_access": false,
+      "scope": "Paced feed transport and isolated recovery authority/owned-worker protocol; synthetic HTTP children, source/store/admission/publication/native integration. Not live HTTP, broker collector integration, production adoption or capacity.",
+      "suites": [
+        "test_sampling_admission",
+        "test_sampling_policy",
+        "test_sampling_requests",
+        "test_sampling_scaling",
+        "test_sampling_service",
+        "test_nasdaq_recovery",
+        "test_nasdaq_sampling",
+        "test_coordinator_growth",
+        "test_history_cost",
+        "test_history_reconstruction",
+        "test_sampling_membership",
+        "test_quote_observation_store",
+        "test_sampling_metadata_cost",
+        "test_sampling_payload_reader",
+        "test_nasdaq_request_reuse",
+        "test_nasdaq_reuse_workload",
+        "test_nasdaq_recovery_delivery",
+        "test_nasdaq_feed_recovery",
+        "test_nasdaq_recovery_supervisor"
+      ],
+      "execution_environment": "offline_current_host",
+      "windows_operator_acceptance_recorded_separately": true
+    },
+    "prompt_returned": true,
+    "evidence": "Completed operator-supplied console, including summary, full JSON and actual CMD prompt return",
+    "saved_report_file_independently_uploaded": false,
+    "native_windows_sharing_check": "PASS (no skipped tests)",
+    "original_command34": "FAILED, retained unchanged; not retrospectively accepted",
+    "original_child_exit_cause": "Not proven by command 34 or by this successful correction run",
+    "corrective_tests": "All previous failing checks pass in this completed source-pinned run",
+    "runtime_or_test_source_changes_for_acceptance": false,
+    "remaining": [
+      "Actual broker Hot collector driver integration and acquisition-evidence recovery",
+      "Bounded live HTTP response validation",
+      "Market-hours recovery trial",
+      "Production adoption approval and broader capacity qualification"
+    ],
+    "scope": "Paced feed transport and isolated recovery authority/owned-worker protocol; synthetic HTTP children, source/store/admission/publication/native integration. Not live HTTP, broker collector integration, production adoption or capacity."
+  }
 }
