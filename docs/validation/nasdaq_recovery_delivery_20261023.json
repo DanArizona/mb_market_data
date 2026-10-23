@@ -1,5 +1,5 @@
 {
-  "result": "LOCAL_AFFECTED_PATH_PASS_WINDOWS_PENDING",
+  "result": "ACCEPTED_LOCAL_AND_WINDOWS_AFFECTED_SCOPE",
   "tests": 372,
   "local_seconds": 7.626273061999882,
   "extracted_seconds": 7.121416628000134,
@@ -26,10 +26,80 @@
     "Full fresh source-prefix/request/outbox validation; missing ledger fails"
   ],
   "remaining": [
-    "Windows command 33 for changed source bytes",
     "Paced dated-query HTTP transport and failure handling",
     "Explicit recover/reconcile/ready and process recovery supervision",
     "Broker identity integration, old producer migration policy and performance/capacity qualification"
   ],
-  "scope": "No HTTP, broker calls, process restart, live acquisition or READY claim. Earlier stress and cloud publication-head failures retained. No production adoption."
+  "scope": "No HTTP, broker calls, process restart, live acquisition or READY claim. Earlier stress and cloud publication-head failures retained. No production adoption.",
+  "windows": {
+    "result": "PASS",
+    "qualification": "ACCEPTED_AFFECTED_PATH_AND_NATIVE_RECOVERED_MEMBERSHIP_WINDOWS_VERIFICATION",
+    "evidence_source": "Complete operator-supplied CMD console, including embedded verification JSON and actual prompt return; saved report file not independently uploaded",
+    "operator_environment": {
+      "host": "MasterBot",
+      "platform": "Windows",
+      "conda_environment": "sea-green",
+      "shell": "CMD"
+    },
+    "command": "33_verify_nasdaq_recovery_delivery.cmd",
+    "run": "20261023T034426Z-4b4672e3",
+    "run_date_utc": "2026-10-23",
+    "run_date_et": "2026-10-22",
+    "tests": 372,
+    "seconds": 15.829235299956053,
+    "actual_cmd_prompt_return_observed": true,
+    "network": "denied",
+    "production_access": false,
+    "scope": "Shared live/recovered identity and normal request delivery; affected source/store/admission/publication/native tests. Not HTTP transport, process recovery, live acquisition or capacity.",
+    "suites": [
+      "test_sampling_admission",
+      "test_sampling_policy",
+      "test_sampling_requests",
+      "test_sampling_scaling",
+      "test_sampling_service",
+      "test_nasdaq_recovery",
+      "test_nasdaq_sampling",
+      "test_coordinator_growth",
+      "test_history_cost",
+      "test_history_reconstruction",
+      "test_sampling_membership",
+      "test_quote_observation_store",
+      "test_sampling_metadata_cost",
+      "test_sampling_payload_reader",
+      "test_nasdaq_request_reuse",
+      "test_nasdaq_reuse_workload",
+      "test_nasdaq_recovery_delivery"
+    ],
+    "reported_summary_windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "operator_requirement": "Satisfied by completed operator console; the verifier emits a fixed operator-result-required label and cannot record independent operator acceptance itself",
+    "reported_saved_report_relative_to_handoff": "runs/20261023T034426Z-4b4672e3/verification.json",
+    "saved_report_file_uploaded": false,
+    "qualified_public_source_commit": "0beb31a0541a7724633fa6ad0667cd7fcad0f6f8",
+    "delivery": {
+      "archive": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_recovery_delivery_20261023_033429_c9a081.zip",
+      "folder": "nasdaq_recovery_delivery_20261023_033429_c9a081",
+      "bytes": 174121,
+      "sha256": "1cc8fd44f73527390811830d78124a61442c3b51d8d0d88a1b484d0b756abe8c",
+      "files": 61
+    },
+    "runtime_changes_for_acceptance": false,
+    "repeat_unchanged_command_33_required": false,
+    "accepted": "Affected offline source/store/admission/publication/native tests, including shared live/recovered identity, duplicate-safe normal delivery, interruption/cancellation/expiry boundaries and synthetic current/future recovered Hot membership publication",
+    "not_qualified": [
+      "Paced dated-query HTTP transport or transport failure/retry scheduling",
+      "Broker identity resolution integration",
+      "Process restart, health/readiness or recover/reconcile/ready supervision",
+      "Live recovered Hot acquisition, full retained source-history, mixed-source, full-session or provider capacity",
+      "Existing direct producer migration or production adoption"
+    ],
+    "unchanged_findings": {
+      "earlier_stress_timing_gate": "FAILED remains unchanged",
+      "earlier_cloud_publication_head_failure_cause": "UNRESOLVED"
+    },
+    "next": [
+      "Implement explicitly paced dated-query HTTP transport with durable response/failure/retry evidence",
+      "Implement recover/reconcile/ready orchestration and fault qualification",
+      "Qualify remaining cumulative source-history, mixed-source, memory/soak/provider load separately"
+    ]
+  }
 }
