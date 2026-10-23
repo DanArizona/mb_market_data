@@ -1,0 +1,182 @@
+{
+  "session_date": "2026-10-23",
+  "acceptance": "Production opening VERIFIED through supplied 09:32:02 ET health check",
+  "evidence_source": "Operator-pasted Windows CMD preflight, complete-Uni API OV, Focus build, r1 publication/audit/replay, both poller startup banners, monitor/watchdog startup and opening health; saved local files/databases not independently uploaded",
+  "production_commits": {
+    "mb_market_data": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+    "schwab_watchlists": "e2ef6f62856ba3226c41456b7779951aa8640cbf"
+  },
+  "tracked_worktrees_clean": true,
+  "credential_horizon_accepted_by_both_pollers": true,
+  "opening_r0": {
+    "members": {
+      "uni": 553,
+      "focus": 0,
+      "hot": 0
+    },
+    "path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\daily_universe_production\\2026-10-23-from-2026-10-22\\opening_hierarchy_r0.json",
+    "sha256": "8de589429b0783c4abe176b1e36063101f952e1c5685f81c5722702a2793746a",
+    "prior_evening_publication_audit_replay_accepted": true
+  },
+  "api_overnight_volume": {
+    "result": "PASS",
+    "successful": 553,
+    "failed": 0,
+    "complete_opening_uni": true,
+    "decision_window_et": "[00:00,09:00)",
+    "completed_at_et": "2026-10-23T09:07:50.583757-04:00",
+    "manifest": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\api_overnight_volume\\2026-10-23-09-01-12-session-2026-10-23\\manifest.json"
+  },
+  "focus_proposal": {
+    "result": "PASS",
+    "source_rows": 553,
+    "eligible": 553,
+    "requested_limit": 40,
+    "focus_symbols": 40,
+    "ranked_focus": [
+      "GPUS",
+      "YMAT",
+      "AUID",
+      "CLIK",
+      "STAK",
+      "BKYI",
+      "SURG",
+      "DDC",
+      "FMST",
+      "POM",
+      "NCPL",
+      "EYPT",
+      "SOAR",
+      "COSM",
+      "MEDS",
+      "PRSO",
+      "ARAI",
+      "EONR",
+      "GNS",
+      "TCRT",
+      "SCAG",
+      "SKYQ",
+      "AAME",
+      "KPTI",
+      "TANH",
+      "OLB",
+      "ESLA",
+      "EDHL",
+      "FNGR",
+      "SAGT",
+      "DCGO",
+      "AMOD",
+      "CHOW",
+      "INV",
+      "LHSW",
+      "REED",
+      "PRZO",
+      "FRTT",
+      "ATCH",
+      "MVIS"
+    ],
+    "revision": 1,
+    "path": "C:\\Users\\danla\\Documents\\github\\schwab_watchlists\\output\\ov_focus_production\\2026-10-23-09-08-49\\sampling_hierarchy_r1.json",
+    "sha256": "2ca5c08ab456ff7f602a4c71d8f6233b566dd64ed25d5e5dcb67222c0ebce281",
+    "effective_at_et": "2026-10-23T09:30:00-04:00",
+    "published_at_utc": "2026-10-23T13:09:30.335067+00:00",
+    "publication_result": "inserted"
+  },
+  "preopen_audit": {
+    "result": "PASS",
+    "integrity": "ok",
+    "poll_runs": 0,
+    "membership_revisions": 2,
+    "channel_revisions": 6,
+    "member_rows": 1146,
+    "skips": 0,
+    "acquisitions": 0,
+    "observations": 0
+  },
+  "preopen_replay": {
+    "events": 2,
+    "final_members": {
+      "uni": 553,
+      "focus": 40,
+      "hot": 0
+    },
+    "sequence_sha256": "aa3b40d76ff97878beae377732894409a81d876927037b9626f7e7ae59cf0126",
+    "cmd_prompt_returned": true
+  },
+  "journal": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\quote_observation_journal_v2_api_opening_2026-10-23\\2026-10-23.sqlite3",
+  "startup": {
+    "uni": {
+      "started_at_et": "2026-10-23T09:10:29-04:00",
+      "output": "output/universe_quote_watch/2026-10-23-09-10-29-uni",
+      "cadence_seconds": [
+        0,
+        30
+      ]
+    },
+    "focus": {
+      "started_at_et": "2026-10-23T09:10:49-04:00",
+      "output": "output/universe_quote_watch/2026-10-23-09-10-49-focus",
+      "cadence_seconds": [
+        5,
+        20,
+        35,
+        50
+      ]
+    },
+    "start_at_et": "2026-10-23T09:30:00-04:00",
+    "stop_at_et": "2026-10-23T16:00:00-04:00",
+    "monitor_watchdog_running_confirmed": true,
+    "monitor_first_check_at_et": "2026-10-23T09:11:09-04:00",
+    "initial_candidate_pids": {
+      "uni": [
+        28000
+      ],
+      "focus": [
+        55284
+      ]
+    }
+  },
+  "opening_health": {
+    "as_of_et": "2026-10-23T09:32:02-04:00",
+    "journal_read": "OK",
+    "journal_read_seconds": 0.016,
+    "slot_grace_seconds": 90,
+    "uni": {
+      "status": "RUNNING",
+      "candidate_pids": [
+        28000
+      ],
+      "last_committed_slot_et": "09:32:00",
+      "acquisitions": 5,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 553
+    },
+    "focus": {
+      "status": "RUNNING",
+      "candidate_pids": [
+        55284
+      ],
+      "last_committed_slot_et": "09:31:50",
+      "acquisitions": 8,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 40
+    },
+    "status_command_returned_to_prompt": true
+  },
+  "production_hot_enabled": false,
+  "experimental_cadence_adopted": false,
+  "scope": "Opening coverage/health only. Full-day outcome, detailed quote/invalid status counts and after-open full-session audit/replay are not established by this health report.",
+  "full_day_result": "PENDING",
+  "host": "MasterBot",
+  "environment": "sea-green",
+  "preflight": {
+    "observed_at_utc": "2026-10-23T12:27:23.968315+00:00",
+    "access_expires_at_utc": "2026-10-23T12:36:08.753609+00:00",
+    "refresh_expires_at_utc": "2026-10-27T13:06:11.393050+00:00",
+    "both_pollers_required_through_et": "2026-10-23T17:15:30-04:00",
+    "credential_values_retained": false
+  },
+  "standing_publication_approval_applied": true
+}
