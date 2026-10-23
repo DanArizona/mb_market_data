@@ -1,6 +1,6 @@
 {
   "milestone": "Bounded exact catalog and cumulative Nasdaq identity gate",
-  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "status": "WINDOWS_ACCEPTED",
   "implementation_commit": "fd2ddfb58bdf88278e80698ac2d4f108579091e8",
   "implementation_tree": "091a85d65bb5c685bc5b440f4e4f5a2df70bbcac",
   "local_qualification": {
@@ -100,8 +100,13 @@
     "extracted_tests": 211,
     "extracted_seconds": 6.813594320999982,
     "source_guard_checks": "PASS",
-    "windows_acceptance": "PENDING",
-    "scope": "Exact catalog and cumulative identity gate with synthetic HTTP/provider responses and native integration; not coupled runtime or live recovery."
+    "windows_acceptance": "ACCEPTED_OFFLINE_WINDOWS",
+    "scope": "Exact catalog and cumulative identity gate with synthetic HTTP/provider responses and native integration; not coupled runtime or live recovery.",
+    "windows_operator_run": "20261023T162931Z-fc6b086a",
+    "windows_operator_tests": 211,
+    "windows_operator_seconds": 13.80042899993714,
+    "windows_operator_prompt_returned": true,
+    "windows_operator_evidence": "windows_command42_acceptance.json"
   },
   "source_guard_checks": {
     "result": "PASS",
@@ -150,7 +155,49 @@
     "scope": "Development records remain original; not Windows or live qualification."
   },
   "prior_accepted_runtime_sources_changed": false,
-  "windows_operator_acceptance": null,
+  "windows_operator_acceptance": {
+    "result": "ACCEPTED",
+    "date": "2026-10-23",
+    "command": "42_verify_integrated_identity.cmd",
+    "host": "MasterBot",
+    "environment": "sea-green",
+    "run": "20261023T162931Z-fc6b086a",
+    "reported_saved_report": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\integrated_identity_20261023_162302_1791ad\\runs\\20261023T162931Z-fc6b086a\\verification.json",
+    "basis": "Complete operator-supplied Windows console, final JSON and actual CMD prompt return.",
+    "saved_report_independently_uploaded": false,
+    "actual_cmd_prompt_returned": true,
+    "runner_seconds": 13.6,
+    "report_seconds": 13.80042899993714,
+    "tests": 211,
+    "passed": 211,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "verifier_windows_acceptance_label": "OPERATOR_RESULT_REQUIRED",
+    "label_interpretation": "Original fixed verifier label retained verbatim; this separate acceptance records the completed operator result.",
+    "implementation_commit": "fd2ddfb58bdf88278e80698ac2d4f108579091e8",
+    "implementation_tree": "091a85d65bb5c685bc5b440f4e4f5a2df70bbcac",
+    "archive_sha256": "fd207cb10646d38ad8f6792510e019e724720dcff7b16e9cae0bf352a196b5e5",
+    "archive_unchanged": true,
+    "bundled_repository_files_unchanged": 72,
+    "acceptance_changes": "Documentation and validation records only; bundled source/tests/reference/verifier bytes unchanged.",
+    "network": "denied",
+    "production_access": false,
+    "actual_vault_access": false,
+    "real_feed_or_broker_requests": 0,
+    "runtime_loop_or_live_recovery_qualified": false,
+    "scope": "Owned synthetic directory retrieval/deadlines, immutable exact-symbol catalog, durable cumulative identity reservations and one-symbol authorization, ordinary shared request/reuse/admission and native Hot publication/acquisition. Synthetic provider/HTTP only; not installed SDK, coupled bootstrap/runtime, manual controller resume, live transport/recovery, production adoption or capacity.",
+    "remaining": [
+      "catalog acquisition after credential acceptance in the coupled bootstrap",
+      "prepared-client injection into runtime supervision and owned worker startup timing",
+      "manual controller resume with all original bindings and cumulative budgets",
+      "bounded live feed and authenticated native Hot recovery",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ],
+    "prior_failed_verdicts_retained": true,
+    "unchanged_rerun_required": false
+  },
   "production_access": false,
   "production_hot_enabled": false,
   "runtime_loop_or_live_recovery_qualified": false,
@@ -160,5 +207,46 @@
     "directory_limit_scope": "per invocation; cumulative invocation ownership still requires coupled controller",
     "native_hot_permits": "separate accepted 60-permit collector ledger; complete 63-permit profile integration pending"
   },
-  "scope": "Synthetic HTTP/provider and native request/publication/acquisition only. Installed-client evidence remains separately accepted under commands39/40; no actual authentication or live discovery/recovery is established here."
+  "scope": "Synthetic HTTP/provider and native request/publication/acquisition only. Installed-client evidence remains separately accepted under commands39/40; no actual authentication or live discovery/recovery is established here.",
+  "windows_qualification": {
+    "result": "PASS",
+    "tests": 211,
+    "passed": 211,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 13.80042899993714,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      13
+    ],
+    "executable": "C:\\Users\\danla\\anaconda3\\envs\\sea-green\\python.exe",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "suites": [
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests",
+      "test_controller_bootstrap"
+    ],
+    "scope": "Owned synthetic directory retrieval/deadlines, immutable exact-symbol catalog, durable cumulative identity reservations and one-symbol authorization, ordinary shared request/reuse/admission and native Hot publication/acquisition. Synthetic provider/HTTP only; not installed SDK, coupled bootstrap/runtime, manual controller resume, live transport/recovery, production adoption or capacity.",
+    "actual_vault_access": false,
+    "real_feed_or_broker_requests": 0,
+    "prior_accepted_runtime_sources_changed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_live_recovery_qualified": false,
+    "remaining": [
+      "catalog acquisition after credential acceptance in the coupled bootstrap",
+      "prepared-client injection into runtime supervision and owned worker startup timing",
+      "manual controller resume with all original bindings and cumulative budgets",
+      "bounded live feed and authenticated native Hot recovery",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  }
 }
