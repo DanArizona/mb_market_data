@@ -1,0 +1,35 @@
+{
+  "result": "LOCAL_AFFECTED_PATH_PASS_WINDOWS_PENDING",
+  "tests": 372,
+  "local_seconds": 7.626273061999882,
+  "extracted_seconds": 7.121416628000134,
+  "network": "denied",
+  "production_access": false,
+  "source_commit": "0beb31a0541a7724633fa6ad0667cd7fcad0f6f8",
+  "source_branch": "experiment/nasdaq-recovery-delivery-2026-10-23",
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_recovery_delivery_20261023_033429_c9a081.zip",
+    "folder": "nasdaq_recovery_delivery_20261023_033429_c9a081",
+    "bytes": 174121,
+    "sha256": "1cc8fd44f73527390811830d78124a61442c3b51d8d0d88a1b484d0b756abe8c",
+    "files": 61
+  },
+  "source_inventory_tamper_refused": true,
+  "native_integration": "Synthetic recovered outside-Uni request -> normal Coordinator publication -> current/future effective Hot membership; native audit and matching replays PASS",
+  "source_defaults": "Direct v1/v2 identities and CURRENT startup-baseline/HISTORICAL audit-only semantics remain unchanged. New external v3 observation ledger and shared outbox require explicit fresh configuration.",
+  "properties": [
+    "One immutable queued command per shared live/recovered halt ID",
+    "Recovery waits for complete declared query receipts; live demand may continue",
+    "Request/binding commit precedes ACK; lost ACK retries preserve cancellation/expiry",
+    "Normal catalog/source/capacity/restriction/lifetime decisions",
+    "Same-source full-lifetime active request reuse; manual/algorithmic ownership independent",
+    "Full fresh source-prefix/request/outbox validation; missing ledger fails"
+  ],
+  "remaining": [
+    "Windows command 33 for changed source bytes",
+    "Paced dated-query HTTP transport and failure handling",
+    "Explicit recover/reconcile/ready and process recovery supervision",
+    "Broker identity integration, old producer migration policy and performance/capacity qualification"
+  ],
+  "scope": "No HTTP, broker calls, process restart, live acquisition or READY claim. Earlier stress and cloud publication-head failures retained. No production adoption."
+}
