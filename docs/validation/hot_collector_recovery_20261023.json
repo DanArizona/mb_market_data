@@ -1,0 +1,71 @@
+{
+  "result": "EXTRACTED_AFFECTED_SCOPE_PASS_WINDOWS_PENDING",
+  "source_branch": "experiment/hot-collector-recovery-2026-10-23",
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/hot_collector_recovery_20261023_083736_88b09e.zip",
+    "folder": "hot_collector_recovery_20261023_083736_88b09e",
+    "bytes": 227621,
+    "sha256": "3bbf23893ae5f320f80e8dd72f37a06d4cca71657928bab60d89add7a8739dc1",
+    "files": 73
+  },
+  "qualification": {
+    "result": "PASS",
+    "tests": 491,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "passed": 490,
+    "seconds": 38.539396859000135,
+    "network": "denied",
+    "production_access": false,
+    "scope": "Native Hot collector integration and saved-acquisition recovery under fenced worker supervision; synthetic provider responses and actual process fault drills. Not authenticated broker access, live HTTP, market-hours recovery, production adoption or capacity.",
+    "suites": [
+      "test_sampling_admission",
+      "test_sampling_policy",
+      "test_sampling_requests",
+      "test_sampling_scaling",
+      "test_sampling_service",
+      "test_nasdaq_recovery",
+      "test_nasdaq_sampling",
+      "test_coordinator_growth",
+      "test_history_cost",
+      "test_history_reconstruction",
+      "test_sampling_membership",
+      "test_quote_observation_store",
+      "test_sampling_metadata_cost",
+      "test_sampling_payload_reader",
+      "test_nasdaq_request_reuse",
+      "test_nasdaq_reuse_workload",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_feed_recovery",
+      "test_nasdaq_recovery_supervisor",
+      "test_hot_recovery_collector",
+      "test_sampling_acquisition"
+    ],
+    "execution_environment": "offline_current_host",
+    "windows_operator_acceptance_recorded_separately": true,
+    "windows_acceptance": "PENDING",
+    "extracted_path_contains_spaces": true,
+    "source_inventory_matches_checkout": true,
+    "altered_source_refused_before_tests": true
+  },
+  "implemented": [
+    "Fenced experimental worker adapter around native Hot acquisition and Schwab-compatible batch collector",
+    "Exact saved-response/journal ACK recovery without duplicate provider calls",
+    "Unknown dispatch retained without reissue or past-slot catch-up",
+    "Durable window/budget/roster/native-journal binding across reopen",
+    "Lazy supplied-client factory with no built-in credential or authorization discovery",
+    "Recovered Nasdaq halt -> normal Coordinator publication -> separate supervised native Hot acquisition"
+  ],
+  "native_source_copied_unchanged": true,
+  "prior_commands_32_33_35": "Windows accepted for their pins; no unchanged rerun",
+  "original_command34": "FAILED, retained unchanged",
+  "remaining": [
+    "Windows command 36 acceptance",
+    "Authenticated/noninteractive broker SDK startup and credential handoff",
+    "Bounded live HTTP and market-hours recovery",
+    "Full cumulative history/soak/provider capacity and production adoption"
+  ],
+  "scope": "Native Hot collector integration and saved-acquisition recovery under fenced worker supervision; synthetic provider responses and actual process fault drills. Not authenticated broker access, live HTTP, market-hours recovery, production adoption or capacity.",
+  "qualified_public_source_commit": "047aed80fdc758d3c305f036a3f83d12e87b4d25"
+}
