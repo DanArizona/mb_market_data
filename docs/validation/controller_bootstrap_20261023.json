@@ -1,0 +1,139 @@
+{
+  "milestone": "Fresh authenticated experiment bootstrap",
+  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "84883ed51238aa08ff494623d6088f64df3260b5",
+  "implementation_tree": "584d834306e62c21cfbfd5140897097c65cf97b4",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 53,
+    "passed": 53,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 14.990272796000227,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "scope": "Fresh-session credential-before-initial-journal/poll_run creation, bound native request/publication/source initialization and owned private-pipe deadline/redaction drills. Pinned mb_tools with synthetic configuration/SDK only.",
+    "suites": [
+      "test_controller_bootstrap",
+      "test_controller_bootstrap_process",
+      "test_authenticated_startup"
+    ],
+    "quote_dispatches_started": 0,
+    "feed_attempts_started": 0,
+    "actual_vault_access": false,
+    "installed_sdk_or_live_authentication_qualified": false,
+    "runtime_loop_or_live_recovery_qualified": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "unattended_controller_bootstrap": false,
+    "prior_accepted_runtime_sources_changed": false,
+    "remaining": [
+      "coupled runtime supervision and worker startup timing",
+      "live directory/catalog and identity-resolution integration",
+      "durable cumulative identity budget and one-symbol admission fence",
+      "manual controller resume",
+      "bounded live feed and authenticated native Hot recovery",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 53,
+    "passed": 53,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 15.918759968999893,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "scope": "Fresh-session credential-before-initial-journal/poll_run creation, bound native request/publication/source initialization and owned private-pipe deadline/redaction drills. Pinned mb_tools with synthetic configuration/SDK only.",
+    "suites": [
+      "test_controller_bootstrap",
+      "test_controller_bootstrap_process",
+      "test_authenticated_startup"
+    ],
+    "quote_dispatches_started": 0,
+    "feed_attempts_started": 0,
+    "actual_vault_access": false,
+    "installed_sdk_or_live_authentication_qualified": false,
+    "runtime_loop_or_live_recovery_qualified": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "unattended_controller_bootstrap": false,
+    "prior_accepted_runtime_sources_changed": false,
+    "remaining": [
+      "coupled runtime supervision and worker startup timing",
+      "live directory/catalog and identity-resolution integration",
+      "durable cumulative identity budget and one-symbol admission fence",
+      "manual controller resume",
+      "bounded live feed and authenticated native Hot recovery",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/controller_bootstrap_20261023_153236_3cd56a.zip",
+    "folder": "controller_bootstrap_20261023_153236_3cd56a",
+    "bytes": 181239,
+    "sha256": "d37743e99165326231f99f74ce947b08bb25a5929ccd278b864fa40c83503eba",
+    "files": 68,
+    "source_commit": "84883ed51238aa08ff494623d6088f64df3260b5",
+    "source_tree": "584d834306e62c21cfbfd5140897097c65cf97b4",
+    "repository_files_matched": 64,
+    "inventory_sha256": "c63b8ac81676ded4e49cc9cefa5f499999b5c68abdd8c32fc801c56fcb16696d",
+    "windows_acceptance": "PENDING",
+    "extracted_tests": 53,
+    "extracted_seconds": 15.918759968999893,
+    "source_guard_checks": "PASS",
+    "scope": "Fresh bootstrap ordering and affected native/credential interfaces only; synthetic SDK/configuration. Windows acceptance and actual coupled live recovery remain pending."
+  },
+  "source_guards": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source_file",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "network": "denied",
+    "actual_credentials_or_production_access": false
+  },
+  "development_failure_retained": {
+    "phase": "uncommitted_initial_development",
+    "result": "FAILED",
+    "tests": 16,
+    "failures": 1,
+    "errors": 0,
+    "seconds": 0.4,
+    "failure": "test_window_cannot_cross_regular_close_or_target_session",
+    "cause": "Close-time construction retained the opening time's minute=30, allowing the preliminary plan validator to accept a window ending after 16:00 ET.",
+    "correction": "Set close minute explicitly to zero; add exact-16:00 and one-microsecond-later boundary checks.",
+    "scope": "Development-only failure; corrected before packaging. No provider, actual credentials or production access. This remains a failed record, not a validation of final source."
+  },
+  "windows_operator_acceptance": null,
+  "prior_accepted_sources_changed": false,
+  "production_hot_enabled": false,
+  "runtime_loop_and_coupled_live_recovery_qualified": false,
+  "scope": "Credential-before-initial-journal/poll_run creation and bound native initialization; synthetic configuration/SDK, no quote/feed calls or actual vault/production access. Actual installed startup/one-quote acceptance remains separately recorded under commands39/40."
+}
