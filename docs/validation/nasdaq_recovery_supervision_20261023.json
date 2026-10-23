@@ -1,5 +1,5 @@
 {
-  "result": "FINAL_EXTRACTED_AFFECTED_SCOPE_PASS_WINDOWS_PENDING",
+  "result": "LOCAL_EXTRACTED_PASS_WINDOWS_FAILED",
   "tests": 432,
   "extracted_seconds": 19.322003510000286,
   "network": "denied",
@@ -45,7 +45,7 @@
     ],
     "execution_environment": "offline_current_host",
     "windows_operator_acceptance_recorded_separately": true,
-    "windows_acceptance": "PENDING",
+    "windows_acceptance": "FAILED",
     "extracted_path_contains_spaces": true,
     "final_source_inventory_matches_checkout": true
   },
@@ -58,7 +58,7 @@
   ],
   "actual_worker_driver": "Only the network-denied no-acquisition process-protocol fixture is qualified; the real broker Hot collector is not wired to this job/heartbeat contract",
   "remaining": [
-    "Windows command 34 acceptance",
+    "Corrective command 35 Windows acceptance",
     "Live HTTP response validation",
     "Actual broker collector adapter and acquisition-evidence recovery",
     "Market-hours bounded recovery trial and production migration approval",
@@ -69,5 +69,43 @@
     "earlier_stress_timing": "FAILED",
     "earlier_cloud_publication_head_failure": "UNRESOLVED"
   },
-  "scope": "Offline native/synthetic input qualification, including actual isolated child processes. No live feed, credential, broker, production or capacity claim."
+  "scope": "Offline native/synthetic input qualification, including actual isolated child processes. No live feed, credential, broker, production or capacity claim.",
+  "windows_result": {
+    "result": "FAILED",
+    "command": 34,
+    "tests": 432,
+    "errors": 2,
+    "failures": 1,
+    "seconds": 31.085244499961846,
+    "network": "denied",
+    "production_access": false,
+    "host": "MasterBot",
+    "environment": "sea-green",
+    "source_commit": "4ed3f6a6a190fa0803e651f594aeb226773330a3",
+    "package": "nasdaq_recovery_supervision_20261023_043222_f640c7",
+    "run": "20261023T044321Z-4fe479a0",
+    "prompt_returned": true,
+    "evidence": "Complete operator-supplied console; saved report file not independently uploaded",
+    "failed_checks": [
+      {
+        "test": "test_failed_feed_does_not_erase_saved_valid_demand_or_stop_healthy_worker",
+        "line": 197,
+        "error": "AttributeError: 'NoneType' object has no attribute 'pid'"
+      },
+      {
+        "test": "test_five_and_thirty_minute_outages_use_explicit_new_bounded_window",
+        "line": 337,
+        "error": "AttributeError: 'NoneType' object has no attribute 'pid'"
+      },
+      {
+        "test": "test_valid_empty_dated_scope_does_not_claim_full_trace",
+        "line": 220,
+        "actual": "RECOVERING",
+        "expected": "READY_WITH_GAPS"
+      }
+    ],
+    "cause": "Not established by original console: child stderr was discarded",
+    "followup": "Correct reproduced transient Windows heartbeat replacement failure and retain bounded worker diagnostics; new command 35 Windows acceptance pending",
+    "unchanged_commands_32_33": "Previously accepted; do not rerun"
+  }
 }
