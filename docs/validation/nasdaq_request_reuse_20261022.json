@@ -1,0 +1,59 @@
+{
+  "result": "LOCAL_SCOPE_PASS_WINDOWS_PENDING",
+  "tests": 341,
+  "extracted_test_seconds": 7.373917533999702,
+  "network": "denied",
+  "production_access": false,
+  "source_inventory_matches_final_measurement": true,
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_request_reuse_20261023_004809_6660ad.zip",
+    "folder": "nasdaq_request_reuse_20261023_004809_6660ad",
+    "bytes": 163669,
+    "sha256": "a72647cfbb99f881ca9ed2aa7bdc39c097c286ad2ebf0e4eba0cf132f5ce1101",
+    "files": 59
+  },
+  "selected_workload_idle_gates": "PASS",
+  "windows": "PENDING",
+  "source_updates": "All captured versions and receipt times retained independently of membership reuse.",
+  "scope": "Observed-count/native logical workloads with fabricated availability and release times, final-source 100-cycle idle measurements and three fresh-object reopens. Not full-day source history, operational recovery, Windows performance or provider capacity.",
+  "earlier_1000_receipt_200_publication_gate": "FAILED remains unchanged",
+  "development_rejections": [
+    "Initial after-expiry idle timings rejected for active-Hot qualification.",
+    "Initial margin-reuse publication-head failure retained, cause unresolved."
+  ],
+  "cases": {
+    "typical": {
+      "halts": 42,
+      "symbols": 21,
+      "coordinator_receipts_per_event": 42,
+      "coordinator_receipts_reuse": 21,
+      "reuse_idle_p95_seconds": 0.08395426700008102,
+      "reuse_idle_max_seconds": 0.13941742699989845,
+      "all_source_facts_and_membership_timing_match": true
+    },
+    "busiest": {
+      "halts": 107,
+      "symbols": 27,
+      "coordinator_receipts_per_event": 107,
+      "coordinator_receipts_reuse": 27,
+      "reuse_idle_p95_seconds": 0.1275200230002156,
+      "reuse_idle_max_seconds": 0.1443824300004053,
+      "all_source_facts_and_membership_timing_match": true
+    },
+    "margin": {
+      "halts": 160,
+      "symbols": 40,
+      "coordinator_receipts_per_event": 160,
+      "coordinator_receipts_reuse": 40,
+      "reuse_idle_p95_seconds": 0.20279065199974866,
+      "reuse_idle_max_seconds": 0.2159460709999621,
+      "all_source_facts_and_membership_timing_match": true
+    }
+  },
+  "raw_evidence_archive": {
+    "path": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_request_reuse_evidence_20261022.zip",
+    "bytes": 16189661,
+    "sha256": "55d46244f640e2dd7b89eedb0d1efc9b76c29c0ea430b166f727f1cf46d9747c"
+  },
+  "published_coordinator_commit": "14e405a7884d11e984ab9590430d0570604f0e31"
+}
