@@ -1,0 +1,73 @@
+{
+  "result": "FINAL_EXTRACTED_AFFECTED_SCOPE_PASS_WINDOWS_PENDING",
+  "tests": 432,
+  "extracted_seconds": 19.322003510000286,
+  "network": "denied",
+  "production_access": false,
+  "qualified_public_source_commit": "4ed3f6a6a190fa0803e651f594aeb226773330a3",
+  "source_branch": "experiment/nasdaq-recovery-supervision-2026-10-23",
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/nasdaq_recovery_supervision_20261023_043222_f640c7.zip",
+    "folder": "nasdaq_recovery_supervision_20261023_043222_f640c7",
+    "bytes": 205269,
+    "sha256": "6d3da546d7de6280d46811cd74cb74fa9a8988006521cf5156a64dfa8b672763",
+    "files": 68
+  },
+  "source_inventory_matches_checkout": true,
+  "altered_source_refused_before_tests": true,
+  "qualification": {
+    "result": "PASS",
+    "tests": 432,
+    "seconds": 19.322003510000286,
+    "network": "denied",
+    "production_access": false,
+    "scope": "Paced feed transport and isolated recovery authority/owned-worker protocol; synthetic HTTP children, source/store/admission/publication/native integration. Not live HTTP, broker collector integration, production adoption or capacity.",
+    "suites": [
+      "test_sampling_admission",
+      "test_sampling_policy",
+      "test_sampling_requests",
+      "test_sampling_scaling",
+      "test_sampling_service",
+      "test_nasdaq_recovery",
+      "test_nasdaq_sampling",
+      "test_coordinator_growth",
+      "test_history_cost",
+      "test_history_reconstruction",
+      "test_sampling_membership",
+      "test_quote_observation_store",
+      "test_sampling_metadata_cost",
+      "test_sampling_payload_reader",
+      "test_nasdaq_request_reuse",
+      "test_nasdaq_reuse_workload",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_feed_recovery",
+      "test_nasdaq_recovery_supervisor"
+    ],
+    "execution_environment": "offline_current_host",
+    "windows_operator_acceptance_recorded_separately": true,
+    "windows_acceptance": "PENDING",
+    "extracted_path_contains_spaces": true,
+    "final_source_inventory_matches_checkout": true
+  },
+  "implemented": [
+    "One hash-chained current/dated transport ledger with shared completion-based pacing, bounded attempts and retained bytes/HTTP diagnostics",
+    "Nonblocking exact owned HTTP child with parent/worker deadlines and stale-reservation fencing",
+    "Explicit per-window CURRENT baseline, complete fresh dated scope and later CURRENT cutover",
+    "Native source/request/publication recovery with scoped readiness and explicit gaps",
+    "Registered experimental Hot process health, future-slot job gates, bounded owned restart and untouched healthy/external processes"
+  ],
+  "actual_worker_driver": "Only the network-denied no-acquisition process-protocol fixture is qualified; the real broker Hot collector is not wired to this job/heartbeat contract",
+  "remaining": [
+    "Windows command 34 acceptance",
+    "Live HTTP response validation",
+    "Actual broker collector adapter and acquisition-evidence recovery",
+    "Market-hours bounded recovery trial and production migration approval",
+    "Cumulative source-history/mixed-source/memory/soak/provider capacity"
+  ],
+  "preserved_findings": {
+    "previous_command_33": "Windows accepted; no unchanged rerun",
+    "earlier_stress_timing": "FAILED",
+    "earlier_cloud_publication_head_failure": "UNRESOLVED"
+  },
+  "scope": "Offline native/synthetic input qualification, including actual isolated child processes. No live feed, credential, broker, production or capacity claim."
+}
