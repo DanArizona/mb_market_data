@@ -1,0 +1,221 @@
+{
+  "milestone": "Authenticated catalog-bound fresh startup",
+  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "46e96d7951b881b1cc6f07c37de2941aecdd5ad1",
+  "implementation_tree": "06a11d44333e01e983a0898f443bd69227f04cf6",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 288,
+    "passed": 288,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 37.30795769899987,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_catalog_bootstrap",
+      "test_catalog_bootstrap_process",
+      "test_controller_bootstrap",
+      "test_controller_bootstrap_process",
+      "test_authenticated_startup",
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests"
+    ],
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity.",
+    "changed_accepted_source_paths": [
+      "src/mb_watchlist_coordinator/controller_bootstrap.py",
+      "src/mb_watchlist_coordinator/bootstrap_entry.py"
+    ],
+    "legacy_v1_public_identity_preserved": true,
+    "prior_pinned_acceptances_and_archives_retained": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "remaining": [
+      "prepared-client runtime and owned-worker startup timing integration",
+      "full manual controller resume with original identities and budgets",
+      "separately invoked bounded live acquisition and worker recovery profiles",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 288,
+    "passed": 288,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 37.77484418899985,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_catalog_bootstrap",
+      "test_catalog_bootstrap_process",
+      "test_controller_bootstrap",
+      "test_controller_bootstrap_process",
+      "test_authenticated_startup",
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests"
+    ],
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity.",
+    "changed_accepted_source_paths": [
+      "src/mb_watchlist_coordinator/controller_bootstrap.py",
+      "src/mb_watchlist_coordinator/bootstrap_entry.py"
+    ],
+    "legacy_v1_public_identity_preserved": true,
+    "prior_pinned_acceptances_and_archives_retained": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "remaining": [
+      "prepared-client runtime and owned-worker startup timing integration",
+      "full manual controller resume with original identities and budgets",
+      "separately invoked bounded live acquisition and worker recovery profiles",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/catalog_bootstrap_20261023_191459_210b73.zip",
+    "folder": "catalog_bootstrap_20261023_191459_210b73",
+    "bytes": 237574,
+    "sha256": "c517271807c6190827fdfd6485f5f191132e48b0d2e85aa3d4f286926aa135b7",
+    "files": 83,
+    "inventory_sha256": "066dfb150ac76148817459d762469ba7d9ed08cc76a20a25d49408baf2d40032",
+    "source_commit": "46e96d7951b881b1cc6f07c37de2941aecdd5ad1",
+    "source_tree": "06a11d44333e01e983a0898f443bd69227f04cf6",
+    "repository_files_matched": 79,
+    "local_tests": 288,
+    "local_seconds": 37.30795769899987,
+    "extracted_tests": 288,
+    "extracted_seconds": 37.77484418899985,
+    "source_guard_checks": "PASS",
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity."
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 79,
+    "prior_command42_repository_files_checked": 72,
+    "intentional_changed_prior_source_paths": [
+      "src/mb_watchlist_coordinator/bootstrap_entry.py",
+      "src/mb_watchlist_coordinator/controller_bootstrap.py"
+    ],
+    "original_command42_archive_unchanged": true,
+    "network": "denied",
+    "production_access": false,
+    "original_command41_archive_unchanged": true
+  },
+  "development_failure": {
+    "result": "FAILED",
+    "tests": 288,
+    "passed": 287,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 1,
+    "seconds": 35.97427717200003,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_catalog_bootstrap",
+      "test_catalog_bootstrap_process",
+      "test_controller_bootstrap",
+      "test_controller_bootstrap_process",
+      "test_authenticated_startup",
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests"
+    ],
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity.",
+    "changed_accepted_source_paths": [
+      "src/mb_watchlist_coordinator/controller_bootstrap.py",
+      "src/mb_watchlist_coordinator/bootstrap_entry.py"
+    ],
+    "legacy_v1_public_identity_preserved": true,
+    "prior_pinned_acceptances_and_archives_retained": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "remaining": [
+      "prepared-client runtime and owned-worker startup timing integration",
+      "full manual controller resume with original identities and budgets",
+      "separately invoked bounded live acquisition and worker recovery profiles",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "development_correction": "Test imported utc_text directly rather than referring to a name not exported by another test module; runtime unchanged for this correction. Original FAILED record retained.",
+  "changed_accepted_source_paths": [
+    "src/mb_watchlist_coordinator/controller_bootstrap.py",
+    "src/mb_watchlist_coordinator/bootstrap_entry.py"
+  ],
+  "original_acceptances_and_archives_retained": true,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "runtime_loop_or_full_manual_resume_qualified": false,
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "next": [
+    "Command 43 affected offline Windows verification and actual prompt return",
+    "Prepared-client runtime supervision and unchanged 3s/8s worker gates",
+    "Full manual controller resume with original bindings, frozen window and cumulative budgets",
+    "Affected process/extracted Windows qualification",
+    "Two separately invoked live profiles, contingent on fresh production health",
+    "Read-only Overlay adapter",
+    "Scaling/capacity and production-adoption gates remain separate"
+  ]
+}
