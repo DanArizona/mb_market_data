@@ -1,0 +1,207 @@
+{
+  "milestone": "Fresh authenticated runtime coupling and original first-work startup gate",
+  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "0bc6c554a2a033906049709a96f4852f177f6e7f",
+  "implementation_tree": "874b5bb5fa1e60a9a410a583a38c5523f9a3fb0d",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 293,
+    "passed": 292,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_native_windows_reader_releases_replacement_before_retry_deadline (test_nasdaq_recovery_supervisor.AtomicWorkerRecordTests.test_native_windows_reader_releases_replacement_before_retry_deadline)",
+        "reason": "Actual Windows file sharing requires Windows"
+      }
+    ],
+    "seconds": 92.56318843699955,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_integrated_runtime",
+      "test_integrated_runtime_process",
+      "test_supervised_hot_worker",
+      "test_authenticated_startup",
+      "test_authenticated_worker",
+      "test_hot_recovery_collector",
+      "test_sampling_acquisition",
+      "test_nasdaq_recovery_supervisor",
+      "test_nasdaq_feed_recovery",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_catalog_bootstrap"
+    ],
+    "scope": "Fresh command-43 session coupled to the accepted feed/source/request/publication authority, explicit prepared-client identity delivery and authenticated native owned Hot worker. Independent first-completed-work 3s gate with separate 8s credentials; synthetic HTTP/SDK and actual process failures. Logical feed pacing and elapsed worker drills are distinguished. Not installed/live authentication, an independently preempting outer controller/profile harness, full manual controller resume, live recovery, production adoption or capacity.",
+    "prior_accepted_runtime_sources_changed": false,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "fresh_runtime_pump_offline_qualified": true,
+    "outer_controller_profile_harness_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "original_active_window_seconds": 720
+    },
+    "remaining": [
+      "full manual controller resume with original identities, frozen window and budgets",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 293,
+    "passed": 292,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_native_windows_reader_releases_replacement_before_retry_deadline (test_nasdaq_recovery_supervisor.AtomicWorkerRecordTests.test_native_windows_reader_releases_replacement_before_retry_deadline)",
+        "reason": "Actual Windows file sharing requires Windows"
+      }
+    ],
+    "seconds": 93.51348462100032,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_integrated_runtime",
+      "test_integrated_runtime_process",
+      "test_supervised_hot_worker",
+      "test_authenticated_startup",
+      "test_authenticated_worker",
+      "test_hot_recovery_collector",
+      "test_sampling_acquisition",
+      "test_nasdaq_recovery_supervisor",
+      "test_nasdaq_feed_recovery",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_catalog_bootstrap"
+    ],
+    "scope": "Fresh command-43 session coupled to the accepted feed/source/request/publication authority, explicit prepared-client identity delivery and authenticated native owned Hot worker. Independent first-completed-work 3s gate with separate 8s credentials; synthetic HTTP/SDK and actual process failures. Logical feed pacing and elapsed worker drills are distinguished. Not installed/live authentication, an independently preempting outer controller/profile harness, full manual controller resume, live recovery, production adoption or capacity.",
+    "prior_accepted_runtime_sources_changed": false,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "fresh_runtime_pump_offline_qualified": true,
+    "outer_controller_profile_harness_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "original_active_window_seconds": 720
+    },
+    "remaining": [
+      "full manual controller resume with original identities, frozen window and budgets",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/integrated_runtime_20261023_201031_c76e79.zip",
+    "folder": "integrated_runtime_20261023_201031_c76e79",
+    "bytes": 272646,
+    "sha256": "2617a11a09151231e15d68a32232ab7b435b3fd7a8796bbc152b60406a0dfe6f",
+    "files": 93,
+    "inventory_sha256": "fc4b9ac2877fe19cee91a94fed020fb4eb0fd346df8b5d46b16c0c185c661e98",
+    "repository_files_matched": 89,
+    "source_commit": "0bc6c554a2a033906049709a96f4852f177f6e7f",
+    "source_tree": "874b5bb5fa1e60a9a410a583a38c5523f9a3fb0d",
+    "local_tests": 293,
+    "local_passed": 292,
+    "local_skipped": 1,
+    "local_seconds": 92.56318843699955,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "scope": "Fresh runtime pump and independent original first-work startup gate, synthetic HTTP/SDK only. Outer hard controller/profile harness, full manual resume, live acquisition/recovery and capacity are not qualified.",
+    "extracted_tests": 293,
+    "extracted_passed": 292,
+    "extracted_skipped": 1,
+    "extracted_seconds": 93.51348462100032,
+    "source_guard_checks": "PASS"
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 89,
+    "accepted_command43_mapped_files_unchanged": 79,
+    "accepted_command43_archive_unchanged": true,
+    "network": "denied",
+    "production_access": false
+  },
+  "development_records": [
+    "development_initial.json",
+    "development_second.json",
+    "development_third.json",
+    "development_process_initial.json",
+    "development_coupled_process.json",
+    "development_full_import_failure.json"
+  ],
+  "development_notes": {
+    "initial": "development_initial.json retains 18 setup errors from a datetime/string API mismatch; its first report writer also failed and the record states the available rounded timing.",
+    "second": "development_second.json retains 4 failures and 2 errors caused by reusing runtime.owner.lock for both the lifetime controller and per-cycle authority. The lifetime lease now uses controller.owner.lock.",
+    "subsequent": "development_third.json (18 PASS), development_process_initial.json (13 PASS), development_coupled_process.json (36 PASS) retain their original staged outcomes.",
+    "scope": "Development only; no Windows, installed-client, market/provider, full manual resume or capacity claim.",
+    "prior_failed_verdicts_retained": true,
+    "first_affected_full_run": "development_full_import_failure.json retains FAILED: 264 tests, 262 passed, one Windows-only skip, one ModuleNotFoundError for native test_sampling_acquisition. The verifier now uses its existing pinned native_tests directory. Runtime unchanged for this verifier path correction."
+  },
+  "prior_accepted_runtime_sources_changed": false,
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "fresh_runtime_pump_offline_qualified": true,
+  "outer_controller_profile_harness_or_full_manual_resume_qualified": false,
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "next": [
+    "Command 44 affected offline Windows verification and actual CMD prompt return",
+    "Full manual controller resume with original identities, frozen window and cumulative budgets",
+    "Owned outer-controller hard-deadline/shutdown and profile-goal/coverage/audit harness",
+    "Affected process/Windows qualification before separate live acquisition/recovery profiles",
+    "Read-only Overlay adapter",
+    "Broader capacity and production adoption remain separate"
+  ]
+}
