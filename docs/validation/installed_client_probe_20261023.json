@@ -1,5 +1,5 @@
 {
-  "status": "LOCAL_OFFLINE_PASS_OPERATOR_RESULTS_PENDING",
+  "status": "WINDOWS_OFFLINE_AND_INSTALLED_STARTUP_TRANSPORT_ACCEPTED",
   "offline_command": "39_verify_installed_probe.cmd",
   "installed_command": "40_check_installed_client.cmd",
   "date": "2026-10-23",
@@ -18,11 +18,9 @@
   "errors": 0,
   "failures": 0,
   "extracted_seconds": 21.65595559799999,
-  "network_in_qualification": "denied",
-  "actual_credentials_in_qualification": false,
-  "installed_sdk_or_live_authentication_qualified": false,
-  "operator_command39_result": "PENDING",
-  "operator_command40_result": "PENDING",
+  "installed_sdk_or_live_authentication_qualified": true,
+  "operator_command39_result": "PASS_WINDOWS_ACCEPTED",
+  "operator_command40_result": "PASS_INSTALLED_STARTUP_TRANSPORT_ACCEPTED",
   "installed_probe_scope": {
     "symbol": "SPY",
     "maximum_quote_client_invocations": 1,
@@ -39,7 +37,6 @@
   "dependency_gate": "Stable installed Schwabdev 4.x and eight installed mb_tools sources matching the reviewed public pin after only CRLF-to-LF normalization; never use bundled reference for command40",
   "source_and_qualification_guards": "Source inventory verified before either mode; command40 requires same-package/interpreter command39 success; new failed verification revokes prior success receipt",
   "not_qualified": [
-    "actual installed SDK authentication until command40",
     "native collector/recovery integration with real SDK",
     "live Nasdaq HTTP",
     "market-hours outage recovery",
@@ -48,11 +45,17 @@
     "production adoption"
   ],
   "prior_results": "Commands 32/33/35/37/38 retain acceptance; command34/36 and prior stress/cloud verdicts retained; no unchanged reruns",
-  "next": "Windows command39 then command40 with explicit ecfg path, one hidden prompt and at most one SPY quote-client invocation; retain sanitized JSON and actual CMD prompt return",
+  "next": "Compose and qualify bounded live Nasdaq/feed recovery, Coordinator publication and authenticated native Hot collection under accepted ownership/recovery supervision; separate market-hours interruption/recovery evidence remains pending",
+  "installed_qualification_scope": "Observed installed interfaces, human-started startup and one authenticated SPY quote only",
+  "operator_acceptance_record": "windows_commands39_40_acceptance.json",
+  "network_in_local_and_command39_qualification": "denied",
+  "actual_credentials_in_local_and_command39_qualification": false,
+  "actual_operator_credentials_used_in_command40": true,
   "source_repository": "DanArizona/mb_watchlist_coordinator",
   "source_branch": "experiment/installed-client-probe-2026-10-23",
   "source_commit": "905af96d531a24e43f122bcb19b9d0f4f625fc84",
   "source_tree": "bb3be63bcd53aa85df4f70ccff560e67e25a2a59",
+  "acceptance_commit": "1a405393798c7311217316993d05d2c1552056d3",
   "extracted_qualification": {
     "result": "PASS",
     "tests": 51,
@@ -81,5 +84,179 @@
     "tampered_source_refused_before_tests_or_password": true,
     "accepted_command38_repository_file_hashes_unchanged": 85,
     "credentials_or_network_used": false
+  },
+  "operator_acceptance": {
+    "contract": "windows-installed-client-acceptance-v1",
+    "status": "ACCEPTED",
+    "date": "2026-10-23",
+    "implementation_commit": "905af96d531a24e43f122bcb19b9d0f4f625fc84",
+    "implementation_tree": "bb3be63bcd53aa85df4f70ccff560e67e25a2a59",
+    "environment": {
+      "host": "MasterBot",
+      "os": "Windows",
+      "shell": "CMD",
+      "conda_environment": "sea-green"
+    },
+    "evidence_basis": "Complete operator-supplied commands 39/40 console including final JSON and actual CMD prompt returns; saved report files not independently uploaded",
+    "saved_report_files_independently_uploaded": false,
+    "actual_cmd_prompt_returned_for_both": true,
+    "command39": {
+      "result": "PASS",
+      "tests": 51,
+      "passed": 51,
+      "skipped": 0,
+      "errors": 0,
+      "failures": 0,
+      "reported_seconds": 20.524087899946608,
+      "console_runner_seconds": 20.392,
+      "network": "denied",
+      "run": "20261023T115019Z-7bbbb8dc",
+      "record": "windows_command39_qualification.json",
+      "reported_file": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\installed_client_probe_20261023_113947_111588\\runs\\offline\\20261023T115019Z-7bbbb8dc\\verification.json"
+    },
+    "command40": {
+      "result": "PASS",
+      "scope": "Observed installed interfaces, human-started startup and one authenticated SPY quote only",
+      "run": "20261023T120609Z-73eee953",
+      "record": "windows_command40_report.json",
+      "reported_file": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\installed_client_probe_20261023_113947_111588\\runs\\installed_client\\20261023T120609Z-73eee953\\report.json",
+      "symbol": "SPY",
+      "quote_dispatch_permits": 1,
+      "quote_response_returned": true,
+      "http_status": 200,
+      "returned_symbol_matches": true,
+      "client_close_invoked": true,
+      "child_returncode": 0,
+      "owned_child_exit_observed": true,
+      "dependency_fingerprint": "816e7ac345693337cbf8bf897ba4d316199fac672d933f358432cec05aa6f48b",
+      "reported_canonical_helper_hashes_match_reviewed_source": 8,
+      "reported_raw_hashes_differing_after_normalization": 6,
+      "shared_token_refresh_occurrence": "not observed or audited",
+      "complete_sdk_http_call_audit": false,
+      "precise_startup_or_quote_latency_reported": false
+    },
+    "archive": "installed_client_probe_20261023_113947_111588.zip",
+    "archive_sha256": "8b6ea6b0728265ba6afd6f9f86bade9024b0842bbd0a12c902fb9b300c8f22fd",
+    "archive_bytes": 128557,
+    "archive_files": 59,
+    "source_inventory_sha256": "22b57d38feee8f870ed20de4f860aca52f5427e38c9fdcb3235c62f5c96cab98",
+    "bundled_repository_source_files_unchanged": 54,
+    "runtime_or_tests_changed_for_acceptance": false,
+    "native_polling_or_market_hours_recovery_qualified": false,
+    "market_freshness_or_capacity_qualified": false,
+    "next": "Compose and qualify bounded live Nasdaq/feed recovery, Coordinator publication and authenticated native Hot collection under accepted ownership/recovery supervision; separate market-hours interruption/recovery evidence remains pending",
+    "production_hot_enabled": false,
+    "main_or_production_changes": false,
+    "earlier_failed_verdicts_unchanged": true
+  },
+  "operator_command39_qualification": {
+    "result": "PASS",
+    "tests": 51,
+    "passed": 51,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 20.524087899946608,
+    "network": "denied",
+    "production_access": false,
+    "scope": "Changed installed-client probe/launcher plus accepted credential interface regressions; synthetic encrypted configuration/SDK and owned process deadline/redaction drills only",
+    "installed_sdk_or_live_authentication_qualified": false,
+    "prior_command38_unchanged": true,
+    "suites": [
+      "test_authenticated_startup",
+      "test_installed_startup_probe",
+      "test_installed_probe_launcher"
+    ]
+  },
+  "operator_command40_report": {
+    "contract": "installed-schwab-startup-probe-v1",
+    "result": "PASS",
+    "reason": "probe_pass",
+    "dependencies": {
+      "qualified": true,
+      "reason": "probe_pass",
+      "python": [
+        3,
+        12,
+        13
+      ],
+      "executable": "C:\\Users\\danla\\anaconda3\\envs\\sea-green\\python.exe",
+      "versions": {
+        "mb-tools": "0.6.0",
+        "schwabdev": "4.0.0",
+        "cryptography": "49.0.0"
+      },
+      "mb_tools_root": "C:\\Users\\danla\\Documents\\github\\mb_tools\\src\\mb_tools",
+      "source": {
+        "__init__.py": {
+          "sha256": "873508b463e1e5388ddf493836ce1dfeca089aef1eac22f851b41701423a2958",
+          "canonical_source_sha256": "a4f32c299d9eac0a0c0fda4f8fc3ea6779364f6830d28c04ca92bde99b618bf7",
+          "expected_sha256": "a4f32c299d9eac0a0c0fda4f8fc3ea6779364f6830d28c04ca92bde99b618bf7"
+        },
+        "schwab_secure/__init__.py": {
+          "sha256": "e9a71e88b415d8576a5879f008956fbf2b058605a202f4bff1408db523e59b70",
+          "canonical_source_sha256": "4598710eb0c749366a632a4f8282614f243dfcd9226afa31b032de161aaff712",
+          "expected_sha256": "4598710eb0c749366a632a4f8282614f243dfcd9226afa31b032de161aaff712"
+        },
+        "schwab_secure/client.py": {
+          "sha256": "2bad76d4d86aad31e9186e8e7c87028c04f6ae629f0e741bc5d230f3a8c4e6ea",
+          "canonical_source_sha256": "2bad76d4d86aad31e9186e8e7c87028c04f6ae629f0e741bc5d230f3a8c4e6ea",
+          "expected_sha256": "2bad76d4d86aad31e9186e8e7c87028c04f6ae629f0e741bc5d230f3a8c4e6ea"
+        },
+        "schwab_secure/config.py": {
+          "sha256": "519842e37ed80cc39051fae2546ea11f813edd1a1cd73e5019189b86623f483b",
+          "canonical_source_sha256": "7da559d38a29ce3cf771e1524d160ca41d4671eb25221abaf11342347b00b2fa",
+          "expected_sha256": "7da559d38a29ce3cf771e1524d160ca41d4671eb25221abaf11342347b00b2fa"
+        },
+        "schwab_secure/status.py": {
+          "sha256": "6b264ac2ca99aaefc54b9da2b0a7cf7501a0702608000582e1e5861cfc21a141",
+          "canonical_source_sha256": "6b264ac2ca99aaefc54b9da2b0a7cf7501a0702608000582e1e5861cfc21a141",
+          "expected_sha256": "6b264ac2ca99aaefc54b9da2b0a7cf7501a0702608000582e1e5861cfc21a141"
+        },
+        "schwab_secure/reauthorize.py": {
+          "sha256": "ed106cd5e2ca17c592a5bbd6029ec435c2aa9f84b5c9a14c4ba33e636b427601",
+          "canonical_source_sha256": "d1faaf0547730dbe7d9949dc90747e2f14e371e028dba00bf095376141dba1d6",
+          "expected_sha256": "d1faaf0547730dbe7d9949dc90747e2f14e371e028dba00bf095376141dba1d6"
+        },
+        "secure_config/__init__.py": {
+          "sha256": "250a90bc2b3b3dfe17a1b0718059ee2ab7e6a159491c822ee90ccf9cdcc90328",
+          "canonical_source_sha256": "b234604319b99e0fa98e486ec30e8f120419688a8587af13270b76c1d18d0581",
+          "expected_sha256": "b234604319b99e0fa98e486ec30e8f120419688a8587af13270b76c1d18d0581"
+        },
+        "secure_config/ecfg.py": {
+          "sha256": "02a1b77523911dea68fbfbe9961d8a1d3f6d0b9adfd0ed2dc4a495a0cabf7cb4",
+          "canonical_source_sha256": "0bd6c3d2160876cb5d428723694b9c38ba63f64780a1782690d74e33e4f4da6e",
+          "expected_sha256": "0bd6c3d2160876cb5d428723694b9c38ba63f64780a1782690d74e33e4f4da6e"
+        }
+      }
+    },
+    "symbol": "SPY",
+    "maximum_quote_dispatches": 1,
+    "reserved_quote_budget": 1,
+    "quote_dispatch_permits": 1,
+    "child_receipt": {
+      "client_close_invoked": true,
+      "contract": "installed-schwab-startup-probe-v1",
+      "dependency_sha256": "816e7ac345693337cbf8bf897ba4d316199fac672d933f358432cec05aa6f48b",
+      "http_status": 200,
+      "nonce": "a0874bae4cbf4d0eb42f8012b228d261",
+      "quote_dispatch_permits": 1,
+      "quote_response_returned": true,
+      "reason": "probe_pass",
+      "result": "PASS",
+      "returned_symbol_matches": true,
+      "symbol": "SPY"
+    },
+    "child_returncode": 0,
+    "owned_child_exit_observed": true,
+    "request_timeout_seconds": 3,
+    "startup_timeout_seconds": 8,
+    "hard_seconds": 20,
+    "network_scope": "installed_client_and_one_quote_only",
+    "native_polling_started": false,
+    "nasdaq_requests": 0,
+    "production_journal_or_process_access": false,
+    "shared_sdk_token_refresh_possible": true,
+    "market_freshness_or_capacity_qualified": false
   }
 }
