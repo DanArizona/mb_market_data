@@ -1,5 +1,5 @@
 {
-  "result": "TEST_CLEANUP_CORRECTION_LOCAL_PASS_WINDOWS_PENDING",
+  "result": "CORRECTED_LOCAL_AND_WINDOWS_ACCEPTED",
   "runtime_source_commit": "047aed80fdc758d3c305f036a3f83d12e87b4d25",
   "runtime_changed": false,
   "delivery": {
@@ -45,7 +45,7 @@
     ],
     "execution_environment": "offline_current_host",
     "windows_operator_acceptance_recorded_separately": true,
-    "windows_acceptance": "PENDING",
+    "windows_acceptance": "ACCEPTED_BY_SEPARATE_COMPLETED_OPERATOR_CONSOLE",
     "extracted_path_contains_spaces": true,
     "source_inventory_matches_checkout": true,
     "altered_source_refused_before_tests": true,
@@ -126,6 +126,75 @@
     "next": "Corrective command 37 Windows acceptance pending"
   },
   "source_branch": "experiment/hot-collector-recovery-2026-10-23",
-  "next": "Only new command 37 Windows verification; prior accepted commands need no unchanged rerun",
-  "qualified_public_source_commit": "966cb4f459f1b976c22731988b749de1cd4a6852"
+  "next": "Authenticated/noninteractive SDK client startup and credential-handoff/horizon qualification; no unchanged command 37 rerun",
+  "qualified_public_source_commit": "966cb4f459f1b976c22731988b749de1cd4a6852",
+  "windows_acceptance": {
+    "result": "WINDOWS_ACCEPTED",
+    "command": 37,
+    "host": "MasterBot",
+    "operating_system": "Windows 11",
+    "environment": "sea-green",
+    "qualified_public_source_commit": "966cb4f459f1b976c22731988b749de1cd4a6852",
+    "runtime_source_commit": "047aed80fdc758d3c305f036a3f83d12e87b4d25",
+    "source_branch": "experiment/hot-collector-recovery-2026-10-23",
+    "package": {
+      "archive": "/workspace/scratch/78e6acba7246/deliverables/hot_collector_cleanup_20261023_084558_055166.zip",
+      "folder": "hot_collector_cleanup_20261023_084558_055166",
+      "bytes": 227945,
+      "sha256": "aa49858e7aa3c9b7631ee714f256c56d9b7363ab5048ee3c916f0a5f10726bca",
+      "files": 73
+    },
+    "run": "20261023T090727Z-4ace00da",
+    "operator_report": {
+      "result": "PASS",
+      "tests": 491,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0,
+      "passed": 491,
+      "seconds": 55.021683200029656,
+      "network": "denied",
+      "production_access": false,
+      "scope": "Native Hot collector integration and saved-acquisition recovery under fenced worker supervision; synthetic provider responses and actual process fault drills. Not authenticated broker access, live HTTP, market-hours recovery, production adoption or capacity.",
+      "suites": [
+        "test_sampling_admission",
+        "test_sampling_policy",
+        "test_sampling_requests",
+        "test_sampling_scaling",
+        "test_sampling_service",
+        "test_nasdaq_recovery",
+        "test_nasdaq_sampling",
+        "test_coordinator_growth",
+        "test_history_cost",
+        "test_history_reconstruction",
+        "test_sampling_membership",
+        "test_quote_observation_store",
+        "test_sampling_metadata_cost",
+        "test_sampling_payload_reader",
+        "test_nasdaq_request_reuse",
+        "test_nasdaq_reuse_workload",
+        "test_nasdaq_recovery_delivery",
+        "test_nasdaq_feed_recovery",
+        "test_nasdaq_recovery_supervisor",
+        "test_hot_recovery_collector",
+        "test_sampling_acquisition"
+      ],
+      "execution_environment": "offline_current_host",
+      "windows_operator_acceptance_recorded_separately": true
+    },
+    "operator_report_path": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\hot_collector_cleanup_20261023_084558_055166\\runs\\20261023T090727Z-4ace00da\\verification.json",
+    "prompt_returned": true,
+    "evidence": "Completed operator-supplied console, full report JSON and actual CMD prompt return",
+    "saved_report_file_independently_uploaded": false,
+    "native_windows_check": "PASS, zero skipped tests",
+    "runtime_tests_or_gates_changed_to_record_acceptance": false,
+    "original_command36": "FAILED, retained unchanged",
+    "previous_accepted_commands": "32/33/35 remain accepted; 37 needs no unchanged rerun",
+    "remaining": [
+      "Authenticated noninteractive SDK/client startup and safe credential handoff/horizon checks",
+      "Bounded live HTTP validation and market-hours recovery",
+      "Cumulative-history/mixed-source/soak/provider capacity and production adoption"
+    ],
+    "scope": "Native Hot collector integration and saved-acquisition recovery under fenced worker supervision; synthetic provider responses and actual process fault drills. Not authenticated broker access, live HTTP, market-hours recovery, production adoption or capacity."
+  }
 }
