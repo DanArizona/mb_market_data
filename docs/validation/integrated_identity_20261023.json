@@ -1,0 +1,164 @@
+{
+  "milestone": "Bounded exact catalog and cumulative Nasdaq identity gate",
+  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "fd2ddfb58bdf88278e80698ac2d4f108579091e8",
+  "implementation_tree": "091a85d65bb5c685bc5b440f4e4f5a2df70bbcac",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 211,
+    "passed": 211,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 6.2588491409997005,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests",
+      "test_controller_bootstrap"
+    ],
+    "scope": "Owned synthetic directory retrieval/deadlines, immutable exact-symbol catalog, durable cumulative identity reservations and one-symbol authorization, ordinary shared request/reuse/admission and native Hot publication/acquisition. Synthetic provider/HTTP only; not installed SDK, coupled bootstrap/runtime, manual controller resume, live transport/recovery, production adoption or capacity.",
+    "actual_vault_access": false,
+    "real_feed_or_broker_requests": 0,
+    "prior_accepted_runtime_sources_changed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_live_recovery_qualified": false,
+    "remaining": [
+      "catalog acquisition after credential acceptance in the coupled bootstrap",
+      "prepared-client injection into runtime supervision and owned worker startup timing",
+      "manual controller resume with all original bindings and cumulative budgets",
+      "bounded live feed and authenticated native Hot recovery",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 211,
+    "passed": 211,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 6.813594320999982,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests",
+      "test_controller_bootstrap"
+    ],
+    "scope": "Owned synthetic directory retrieval/deadlines, immutable exact-symbol catalog, durable cumulative identity reservations and one-symbol authorization, ordinary shared request/reuse/admission and native Hot publication/acquisition. Synthetic provider/HTTP only; not installed SDK, coupled bootstrap/runtime, manual controller resume, live transport/recovery, production adoption or capacity.",
+    "actual_vault_access": false,
+    "real_feed_or_broker_requests": 0,
+    "prior_accepted_runtime_sources_changed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_live_recovery_qualified": false,
+    "remaining": [
+      "catalog acquisition after credential acceptance in the coupled bootstrap",
+      "prepared-client injection into runtime supervision and owned worker startup timing",
+      "manual controller resume with all original bindings and cumulative budgets",
+      "bounded live feed and authenticated native Hot recovery",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/integrated_identity_20261023_162302_1791ad.zip",
+    "folder": "integrated_identity_20261023_162302_1791ad",
+    "bytes": 215969,
+    "sha256": "fd207cb10646d38ad8f6792510e019e724720dcff7b16e9cae0bf352a196b5e5",
+    "files": 76,
+    "source_commit": "fd2ddfb58bdf88278e80698ac2d4f108579091e8",
+    "source_tree": "091a85d65bb5c685bc5b440f4e4f5a2df70bbcac",
+    "repository_files_matched": 72,
+    "inventory_sha256": "f239271e469e19b10b030f42eabfd15f105ae62a48711e913043766d7ecc8ebd",
+    "local_tests": 211,
+    "local_seconds": 6.2588491409997005,
+    "extracted_tests": 211,
+    "extracted_seconds": 6.813594320999982,
+    "source_guard_checks": "PASS",
+    "windows_acceptance": "PENDING",
+    "scope": "Exact catalog and cumulative identity gate with synthetic HTTP/provider responses and native integration; not coupled runtime or live recovery."
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "network": "denied",
+    "production_access": false
+  },
+  "development_initial_failure": {
+    "result": "FAILED",
+    "phase": "initial_local_development",
+    "tests": 45,
+    "failures": 0,
+    "errors": 1,
+    "skipped": 0,
+    "seconds": 3.2898803929992937,
+    "network": "denied",
+    "production_access": false,
+    "failures_detail": [
+      [
+        "test_definitive_request_rejection_does_not_substitute_a_different_symbol (test_integrated_identity.IdentityTests.test_definitive_request_rejection_does_not_substitute_a_different_symbol)",
+        "Traceback (most recent call last):\n  File \"/workspace/scratch/78e6acba7246/mb_watchlist_coordinator_shadow/tests/test_integrated_identity.py\", line 182, in test_definitive_request_rejection_does_not_substitute_a_different_symbol\n    self.gate.requests.restrict_symbol('cap', symbol='NVDA', max_group='none', actor_id='admin')\n  File \"/workspace/scratch/78e6acba7246/mb_watchlist_coordinator_shadow/src/mb_watchlist_coordinator/sampling_request_store.py\", line 259, in restrict_symbol\n    raise ValueError(\"max_group must be uni or focus\")\nValueError: max_group must be uni or focus\n"
+      ]
+    ]
+  },
+  "development_notes": {
+    "initial_result_retained": "development_initial.json",
+    "initial_tests": 45,
+    "initial_errors": 1,
+    "cause": "A new test fixture incorrectly requested max_group=none; the existing API supports only uni or focus.",
+    "correction": "Use the supported uni restriction and assert it does not release the experiment symbol fence.",
+    "runtime_correction_for_this_failure": false,
+    "subsequent_native_development": "native_development.json (52/52 PASS before final added checks)",
+    "final_qualification": "local_qualification.json (211/211 PASS)",
+    "scope": "Development records remain original; not Windows or live qualification."
+  },
+  "prior_accepted_runtime_sources_changed": false,
+  "windows_operator_acceptance": null,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "runtime_loop_or_live_recovery_qualified": false,
+  "design_choices": {
+    "first_broker_confirmation_reserves_trial_symbol_even_if_membership_restricted": true,
+    "catalog_footer_maximum_age_days": 7,
+    "directory_limit_scope": "per invocation; cumulative invocation ownership still requires coupled controller",
+    "native_hot_permits": "separate accepted 60-permit collector ledger; complete 63-permit profile integration pending"
+  },
+  "scope": "Synthetic HTTP/provider and native request/publication/acquisition only. Installed-client evidence remains separately accepted under commands39/40; no actual authentication or live discovery/recovery is established here."
+}
