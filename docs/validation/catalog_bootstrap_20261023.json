@@ -1,6 +1,6 @@
 {
   "milestone": "Authenticated catalog-bound fresh startup",
-  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "status": "WINDOWS_ACCEPTED",
   "implementation_commit": "46e96d7951b881b1cc6f07c37de2941aecdd5ad1",
   "implementation_tree": "06a11d44333e01e983a0898f443bd69227f04cf6",
   "local_qualification": {
@@ -118,8 +118,13 @@
     "extracted_tests": 288,
     "extracted_seconds": 37.77484418899985,
     "source_guard_checks": "PASS",
-    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
-    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity."
+    "windows_acceptance": "ACCEPTED_OFFLINE_WINDOWS",
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity.",
+    "windows_operator_run": "20261023T193036Z-851ae3c3",
+    "windows_operator_tests": 288,
+    "windows_operator_seconds": 51.14706789993215,
+    "windows_operator_prompt_returned": true,
+    "windows_operator_evidence": "windows_command43_acceptance.json"
   },
   "source_guard_checks": {
     "result": "PASS",
@@ -208,14 +213,104 @@
   "actual_vault_access": false,
   "real_feed_directory_or_broker_requests": 0,
   "runtime_loop_or_full_manual_resume_qualified": false,
-  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "windows_operator_acceptance": {
+    "result": "ACCEPTED",
+    "date": "2026-10-23",
+    "command": "43_verify_catalog_bootstrap.cmd",
+    "host": "MasterBot",
+    "environment": "sea-green",
+    "run": "20261023T193036Z-851ae3c3",
+    "reported_saved_report": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\catalog_bootstrap_20261023_191459_210b73\\runs\\20261023T193036Z-851ae3c3\\verification.json",
+    "basis": "Complete operator-supplied Windows console, final JSON and actual CMD prompt return.",
+    "saved_report_independently_uploaded": false,
+    "actual_cmd_prompt_returned": true,
+    "runner_seconds": 50.907,
+    "report_seconds": 51.14706789993215,
+    "tests": 288,
+    "passed": 288,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "verifier_windows_acceptance_label": "OPERATOR_RESULT_REQUIRED",
+    "label_interpretation": "Original fixed verifier label retained verbatim; this separate acceptance records the completed operator result.",
+    "implementation_commit": "46e96d7951b881b1cc6f07c37de2941aecdd5ad1",
+    "implementation_tree": "06a11d44333e01e983a0898f443bd69227f04cf6",
+    "archive_sha256": "c517271807c6190827fdfd6485f5f191132e48b0d2e85aa3d4f286926aa135b7",
+    "archive_unchanged": true,
+    "bundled_repository_files_unchanged": 79,
+    "acceptance_changes": "Documentation and validation records only; bundled source/tests/reference/verifier bytes unchanged.",
+    "network": "denied",
+    "production_access": false,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "runtime_loop_or_full_manual_resume_qualified": false,
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity.",
+    "remaining": [
+      "prepared-client runtime and owned-worker startup timing integration",
+      "full manual controller resume with original identities and budgets",
+      "separately invoked bounded live acquisition and worker recovery profiles",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ],
+    "prior_failed_verdicts_retained": true,
+    "unchanged_rerun_required": false
+  },
   "next": [
-    "Command 43 affected offline Windows verification and actual prompt return",
     "Prepared-client runtime supervision and unchanged 3s/8s worker gates",
     "Full manual controller resume with original bindings, frozen window and cumulative budgets",
     "Affected process/extracted Windows qualification",
     "Two separately invoked live profiles, contingent on fresh production health",
     "Read-only Overlay adapter",
     "Scaling/capacity and production-adoption gates remain separate"
-  ]
+  ],
+  "windows_qualification": {
+    "result": "PASS",
+    "tests": 288,
+    "passed": 288,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "seconds": 51.14706789993215,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      13
+    ],
+    "executable": "C:\\Users\\danla\\anaconda3\\envs\\sea-green\\python.exe",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "suites": [
+      "test_catalog_bootstrap",
+      "test_catalog_bootstrap_process",
+      "test_controller_bootstrap",
+      "test_controller_bootstrap_process",
+      "test_authenticated_startup",
+      "test_integrated_catalog",
+      "test_integrated_identity",
+      "test_nasdaq_recovery_delivery",
+      "test_nasdaq_request_reuse",
+      "test_sampling_admission",
+      "test_sampling_requests"
+    ],
+    "scope": "Post-credential one-invocation/two-permit catalog reservation, retained source bytes, catalog/admission/identity/native bootstrap binding and private-pipe process interruption/deadline regressions. Pinned mb_tools with synthetic configuration, SDK and directory HTTP only; not installed authentication, running collector supervision, full manual controller resume, live acquisition/recovery, production adoption or capacity.",
+    "changed_accepted_source_paths": [
+      "src/mb_watchlist_coordinator/controller_bootstrap.py",
+      "src/mb_watchlist_coordinator/bootstrap_entry.py"
+    ],
+    "legacy_v1_public_identity_preserved": true,
+    "prior_pinned_acceptances_and_archives_retained": true,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "runtime_loop_or_full_manual_resume_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "remaining": [
+      "prepared-client runtime and owned-worker startup timing integration",
+      "full manual controller resume with original identities and budgets",
+      "separately invoked bounded live acquisition and worker recovery profiles",
+      "Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  }
 }
