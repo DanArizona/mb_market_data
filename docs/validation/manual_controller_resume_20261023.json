@@ -1,0 +1,219 @@
+{
+  "milestone": "Explicit human-started manual controller resume with original bindings and budgets",
+  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "4489d27a80a7359888d6471929785bb6b8160fe6",
+  "implementation_tree": "2da67f6eacc14c9374d5f0df67134eec1de93eb7",
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/manual_controller_resume_20261024_003115_86e083.zip",
+    "folder": "manual_controller_resume_20261024_003115_86e083",
+    "bytes": 310666,
+    "files": 104,
+    "sha256": "84f43b6535094c860c02a79b78d1c865aa21d508ebd29ed4f467d52cbd2da2a5",
+    "inventory_sha256": "8ed0ee65c9e38007804b6a9ab4e0d09090be2fb4f609d9f115e65a24073dce1c",
+    "repository_files_matched": 100,
+    "source_commit": "4489d27a80a7359888d6471929785bb6b8160fe6",
+    "source_tree": "2da67f6eacc14c9374d5f0df67134eec1de93eb7",
+    "local_tests": 59,
+    "local_passed": 59,
+    "local_seconds": 88.99027961000002,
+    "extracted_tests": 59,
+    "extracted_passed": 59,
+    "extracted_seconds": 87.3174064470004,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "accepted_runtime_reference_files_unchanged": 61,
+    "production_access": false,
+    "scope": "Explicit new-human private-handoff reopen of an already initialized catalog-bound runtime, original proposal/dependency/session/window/source/native bindings, cumulative permits and generation history, request/publication/assembled-response recovery, unknown charged dispatches, lease-based orphan fencing and future-only native work. Synthetic credentials/SDK/HTTP and actual process exits/role leases only. Logical 59+1 native-budget workload is distinct from elapsed process drills. Not installed/live authentication, an independently preempting outer/profile harness, live acquisition/recovery, Overlay, production adoption or capacity."
+  },
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 59,
+    "passed": 59,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [],
+    "failed_tests": [],
+    "seconds": 88.99027961000002,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_controller_resume",
+      "test_resume_entry",
+      "test_controller_resume_process",
+      "test_supervised_hot_worker",
+      "test_integrated_runtime.IntegratedRuntimeTests.test_existing_partial_runtime_is_not_a_fresh_reopen",
+      "test_integrated_runtime.IntegratedRuntimeTests.test_an_uninitialized_second_instance_cannot_close_the_owners_client",
+      "test_integrated_runtime_process.RuntimeProcessTests.test_three_second_gate_wins_over_eight_second_credential_budget_independently",
+      "test_integrated_runtime_process.RuntimeProcessTests.test_credential_success_without_native_work_does_not_satisfy_three_second_gate"
+    ],
+    "scope": "Explicit new-human private-handoff reopen of an already initialized catalog-bound runtime, original proposal/dependency/session/window/source/native bindings, cumulative permits and generation history, request/publication/assembled-response recovery, unknown charged dispatches, lease-based orphan fencing and future-only native work. Synthetic credentials/SDK/HTTP and actual process exits/role leases only. Logical 59+1 native-budget workload is distinct from elapsed process drills. Not installed/live authentication, an independently preempting outer/profile harness, live acquisition/recovery, Overlay, production adoption or capacity.",
+    "accepted_runtime_reference_source_files_unchanged": 61,
+    "prior_accepted_runtime_sources_changed": false,
+    "new_runtime_source_paths": [
+      "src/mb_watchlist_coordinator/controller_resume.py",
+      "src/mb_watchlist_coordinator/resume_entry.py"
+    ],
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "installed_sdk_or_live_authentication_qualified": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "manual_controller_resume_offline_qualified": true,
+    "outer_controller_profile_harness_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "manual_reopen_preparation_seconds": 60,
+      "original_active_window_seconds": 720,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "directory_source_permits": 2,
+      "feed_attempts": 10,
+      "feed_completion_spacing_seconds": 60
+    },
+    "original_failed_verdicts_retained": true,
+    "remaining": [
+      "Windows operator validation and actual CMD prompt return",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 59,
+    "passed": 59,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [],
+    "failed_tests": [],
+    "seconds": 87.3174064470004,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_controller_resume",
+      "test_resume_entry",
+      "test_controller_resume_process",
+      "test_supervised_hot_worker",
+      "test_integrated_runtime.IntegratedRuntimeTests.test_existing_partial_runtime_is_not_a_fresh_reopen",
+      "test_integrated_runtime.IntegratedRuntimeTests.test_an_uninitialized_second_instance_cannot_close_the_owners_client",
+      "test_integrated_runtime_process.RuntimeProcessTests.test_three_second_gate_wins_over_eight_second_credential_budget_independently",
+      "test_integrated_runtime_process.RuntimeProcessTests.test_credential_success_without_native_work_does_not_satisfy_three_second_gate"
+    ],
+    "scope": "Explicit new-human private-handoff reopen of an already initialized catalog-bound runtime, original proposal/dependency/session/window/source/native bindings, cumulative permits and generation history, request/publication/assembled-response recovery, unknown charged dispatches, lease-based orphan fencing and future-only native work. Synthetic credentials/SDK/HTTP and actual process exits/role leases only. Logical 59+1 native-budget workload is distinct from elapsed process drills. Not installed/live authentication, an independently preempting outer/profile harness, live acquisition/recovery, Overlay, production adoption or capacity.",
+    "accepted_runtime_reference_source_files_unchanged": 61,
+    "prior_accepted_runtime_sources_changed": false,
+    "new_runtime_source_paths": [
+      "src/mb_watchlist_coordinator/controller_resume.py",
+      "src/mb_watchlist_coordinator/resume_entry.py"
+    ],
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "installed_sdk_or_live_authentication_qualified": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "manual_controller_resume_offline_qualified": true,
+    "outer_controller_profile_harness_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "manual_reopen_preparation_seconds": 60,
+      "original_active_window_seconds": 720,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "directory_source_permits": 2,
+      "feed_attempts": 10,
+      "feed_completion_spacing_seconds": 60
+    },
+    "original_failed_verdicts_retained": true,
+    "remaining": [
+      "Windows operator validation and actual CMD prompt return",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 100,
+    "source_commit": "4489d27a80a7359888d6471929785bb6b8160fe6",
+    "source_tree": "2da67f6eacc14c9374d5f0df67134eec1de93eb7",
+    "inventory_sha256": "8ed0ee65c9e38007804b6a9ab4e0d09090be2fb4f609d9f115e65a24073dce1c",
+    "accepted_runtime_reference_files_unchanged": 61,
+    "network": "denied",
+    "production_access": false
+  },
+  "development_records": [
+    "development_first_affected_run.json",
+    "development_initial.json",
+    "development_notes.json",
+    "development_orphan_trace.json",
+    "development_process_initial.json",
+    "development_second.json",
+    "development_third.json"
+  ],
+  "controlled_read_lock": {
+    "result": "CONTROLLED_TRANSIENT_READ_LOCK_REPRODUCED",
+    "resume_result": "state_invalid",
+    "authentication_started": false,
+    "network": "denied",
+    "production_access": false,
+    "interpretation": "The draft refused a transient native-snapshot owner lock instead of bounded waiting. This controlled case does not establish the original orphan-process failure cause.",
+    "native_busy_exception_type": "AcquisitionBusy"
+  },
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "manual_controller_resume_offline_qualified": true,
+  "outer_controller_profile_harness_qualified": false,
+  "unattended_controller_bootstrap": false,
+  "remaining": [
+    "Windows operator validation and actual CMD prompt return",
+    "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+    "separately invoked live acquisition and worker recovery profiles",
+    "read-only Overlay adapter",
+    "production adoption and broader capacity"
+  ]
+}
