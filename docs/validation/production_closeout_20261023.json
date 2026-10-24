@@ -1,0 +1,179 @@
+{
+  "session_date": "2026-10-23",
+  "acceptance_recorded_on_client_date": "2026-10-24",
+  "acceptance": "FULL_SESSION_ACQUISITION_AUDIT_REPLAY_AND_MONITOR_SHUTDOWN_ACCEPTED",
+  "evidence_source": "Operator-supplied complete Windows CMD final health, native audit/replay, monitor-stop request and monitor/watchdog stop output with actual CMD prompt returns. Original journal and evidence files were not independently uploaded or read.",
+  "journal": "output/quote_observation_journal_v2_api_opening_2026-10-23/2026-10-23.sqlite3",
+  "production_version": "0.1.0.dev0+git.a082f5441126",
+  "host": "MasterBot",
+  "environment": "sea-green",
+  "health": {
+    "session_date": "2026-10-23",
+    "displayed_check_time_et": "14:20:41",
+    "full_check_timestamp": "NOT_PROVIDED_IN_STATUS_TXT",
+    "timestamp_note": "The header identifies the monitored session and a check time, not the full date of that check. Do not infer Friday 14:20:41 from the header.",
+    "journal_read": "OK",
+    "journal_read_seconds": 0.016,
+    "slot_grace_seconds": 90,
+    "uni": {
+      "status": "WINDOW_ENDED",
+      "candidate_pids": [],
+      "last_committed_slot_et": "15:59:30",
+      "acquisitions": 780,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 553
+    },
+    "focus": {
+      "status": "WINDOW_ENDED",
+      "candidate_pids": [],
+      "last_committed_slot_et": "15:59:50",
+      "acquisitions": 1560,
+      "empty_membership_skips": 0,
+      "missing_after_grace": 0,
+      "members": 40
+    }
+  },
+  "audit": {
+    "result": "PASS",
+    "schema_version": 2,
+    "membership": "nested-uni-focus-hot-v1",
+    "sqlite_integrity": "ok",
+    "rows": {
+      "poll_run": 2,
+      "sampling_membership_revision": 2,
+      "sampling_channel_revision": 6,
+      "sampling_channel_member": 1146,
+      "poll_slot_skip": 0,
+      "quote_acquisition": 2340,
+      "quote_observation": 493740
+    },
+    "poll_runs": [
+      {
+        "channel": "uni",
+        "started_at_utc": "2026-10-23T13:10:29.604344Z",
+        "version": "0.1.0.dev0+git.a082f5441126",
+        "host": "MasterBot"
+      },
+      {
+        "channel": "focus",
+        "started_at_utc": "2026-10-23T13:10:49.128206Z",
+        "version": "0.1.0.dev0+git.a082f5441126",
+        "host": "MasterBot"
+      }
+    ],
+    "channels": {
+      "uni": {
+        "revisions": 2,
+        "member_rows": 1106,
+        "acquisitions": 780,
+        "expected_acquisitions": 780,
+        "skipped": 0,
+        "missing": 0,
+        "observations": 431340,
+        "requested_observations": 431340,
+        "row_mismatches": 0,
+        "statuses": {
+          "quote": 431340
+        }
+      },
+      "focus": {
+        "revisions": 2,
+        "member_rows": 40,
+        "acquisitions": 1560,
+        "expected_acquisitions": 1560,
+        "skipped": 0,
+        "missing": 0,
+        "observations": 62400,
+        "requested_observations": 62400,
+        "row_mismatches": 0,
+        "statuses": {
+          "quote": 62400
+        }
+      },
+      "hot": {
+        "revisions": 2,
+        "member_rows": 0,
+        "acquisitions": 0,
+        "expected_acquisitions": 0,
+        "skipped": 0,
+        "missing": 0,
+        "observations": 0,
+        "requested_observations": 0,
+        "row_mismatches": 0,
+        "statuses": {}
+      }
+    },
+    "reported_storage": {
+      "database_mib": 249.8,
+      "wal_bytes": 0,
+      "shm_kib": 32.0,
+      "sqlite_total_mib": 249.8,
+      "evidence_gib": 1.1
+    }
+  },
+  "replay": {
+    "result": "COMPLETED",
+    "events": 2342,
+    "revisions": 2,
+    "acquisitions": 2340,
+    "observations": 493740,
+    "channels": {
+      "uni": {
+        "acquisitions": 780,
+        "observations": 431340
+      },
+      "focus": {
+        "acquisitions": 1560,
+        "observations": 62400
+      }
+    },
+    "statuses": {
+      "quote": 493740
+    },
+    "window_start_et": "2026-10-23T09:30:00-04:00",
+    "window_end_et": "2026-10-23T15:59:50.243600-04:00",
+    "wall_seconds": 13.072,
+    "observations_per_second": 37772,
+    "sequence_sha256": "4640e511038ca652341b27107bf6f4e80934d4353c57997770fd9ccddf2ab8b3",
+    "projected_members": {
+      "uni": 553,
+      "focus": 40,
+      "hot": 0
+    },
+    "projected_latest": {
+      "uni": 553,
+      "focus": 40,
+      "hot": 0
+    },
+    "projected_quote_status_counts": {
+      "uni": 553,
+      "focus": 40,
+      "hot": 0
+    },
+    "unique_members": 553,
+    "multi_channel": 40
+  },
+  "closeout_command_prompt_return_observed": true,
+  "monitor_stop_request": "CONFIRMED",
+  "monitor_and_watchdog_actual_exit": "CONFIRMED",
+  "monitor_shutdown": {
+    "requested_session_date": "2026-10-23",
+    "request_command_returned_to_prompt": true,
+    "monitor_stopped_by_stop_request_observed": true,
+    "watchdog_stopped_by_stop_request_observed": true,
+    "prod_health_actual_cmd_prompt_return_observed": true,
+    "retained_overdue_alert": true,
+    "publishing_completed_checks_recovered_before_stop": true,
+    "alert_cause": "NOT_ESTABLISHED; the operator reported waking the computer",
+    "pollers_and_journal_reported_unchanged": true
+  },
+  "next_target_date": "2026-10-26",
+  "next_target_preparation": "NOT_YET_REPORTED",
+  "next_target_readiness_established": false,
+  "next_preparation_boundary": "Check for retained October23 post-close outputs first. The accepted same-et-date-post-close-v1 snapshot gate does not permit newly acquired Saturday data to stand in for a Friday post-close snapshot.",
+  "production_hot_enabled": false,
+  "experimental_cadence_adopted": false,
+  "standing_publication_approval_applied": true,
+  "scope": "Full-session scheduled acquisition coverage, row/status consistency, completed native replay and actual monitor/watchdog shutdown accepted from supplied console. All observations are explicit quotes; this does not establish quote/trade freshness, next-session preparation, experimental live recovery or broader provider capacity."
+}
