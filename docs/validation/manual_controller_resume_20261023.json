@@ -210,7 +210,6 @@
   "outer_controller_profile_harness_qualified": false,
   "unattended_controller_bootstrap": false,
   "remaining": [
-    "Corrective command47 post-close scan/lifecycle Windows result and actual CMD prompt return",
     "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
     "separately invoked live acquisition and worker recovery profiles",
     "read-only Overlay adapter",
@@ -331,5 +330,7 @@
     "prior_local_and_extracted_pass_records_retained": true,
     "runtime_changes_for_correction": false
   },
-  "corrective_followup": "docs/validation/manual_resume_scan_20261023.json"
+  "corrective_followup": "docs/validation/manual_resume_scan_20261023.json",
+  "corrective_followup_status": "WINDOWS_ACCEPTED",
+  "manual_controller_resume_offline_windows_accepted_via_corrective_command47": true
 }
