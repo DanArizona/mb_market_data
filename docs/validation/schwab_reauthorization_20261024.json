@@ -1,0 +1,42 @@
+{
+  "recorded_on_client_date": "2026-10-24",
+  "acceptance": "FORCED_REAUTHORIZATION_AND_FOLLOWUP_STATUS_ACCEPTED",
+  "basis": "Operator-supplied complete command outcome and follow-up read-only status, both followed by actual CMD prompt return. Token database and backup contents were not independently accessed.",
+  "host": "MasterBot",
+  "environment": "sea-green",
+  "commands": [
+    "mb-schwab-auth --force-reauthorize",
+    "mb-schwab-auth --status"
+  ],
+  "encrypted_config_path": "C:\\Users\\danla\\MBV\\secure_schwabdev.ecfg",
+  "token_database_path": "C:\\Users\\danla\\MBV\\schwabdev_tokens.db",
+  "reauthorization_result": "PASS",
+  "backup_retained_path": "C:\\Users\\danla\\MBV\\schwabdev_tokens.before_forced_reauth_20261024T221737675665Z.db",
+  "refresh_expires_utc": "2026-10-31T22:17:38.089549+00:00",
+  "refresh_expires_et": "2026-10-31T18:17:38.089549-04:00",
+  "status": {
+    "observed_at_utc": "2026-10-24T22:18:52.892944+00:00",
+    "access_expires_utc": "2026-10-24T22:47:38.089549+00:00",
+    "access_remaining_reported": "28m 45s",
+    "refresh_expires_utc": "2026-10-31T22:17:38.089549+00:00",
+    "refresh_remaining_reported": "6d 23h 58m 45s"
+  },
+  "actual_cmd_prompt_return_observed_for_both_commands": true,
+  "reported_refresh_horizon_covers": {
+    "first_planned_session": "2026-10-26",
+    "last_planned_session": "2026-10-30",
+    "last_regular_session_stop_et": "2026-10-30T16:00:00-04:00",
+    "poller_margin_seconds": 4530,
+    "last_required_through_et": "2026-10-30T17:15:30-04:00",
+    "result": "COVERS_ALL_FIVE_PLANNED_SESSIONS_AND_CURRENT_POLLER_MARGIN",
+    "scope": "Reported expiry horizon only; fresh morning status and the existing pre/post-client horizon checks remain required."
+  },
+  "former_reported_refresh_expiry_utc": "2026-10-27T13:06:11.393050+00:00",
+  "former_tuesday_renewal_requirement_superseded": true,
+  "sensitive_values_retained": false,
+  "oauth_redirect_url_authorization_code_session_and_token_values_retained": false,
+  "publication_approval": "Existing standing approval covers operational validation metadata on the public checkpoint branch; credentials, callback URL and token values are excluded.",
+  "production_quote_collection_or_live_profile_started_by_this_record": false,
+  "monday_ov_focus_startup_and_opening_health_still_pending": true,
+  "scope": "Human-performed credential renewal and reported expiry validation only. No new quote proof, runtime/recovery/capacity qualification, package change or production cadence/Hot activation is claimed."
+}

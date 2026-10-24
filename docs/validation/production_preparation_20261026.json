@@ -179,5 +179,14 @@
   "production_hot_enabled": false,
   "experimental_cadence_adopted": false,
   "standing_checkpoint_publication_approval_applied": true,
-  "scope": "Approved carry-forward r0 preparation only. This preserves Thursday October22 selection provenance and Friday October23 roster, with a new Monday effective date. It is not a fresh Friday post-close selection, a new API acquisition, morning startup or experimental Hot adoption."
+  "scope": "Approved carry-forward r0 preparation only. This preserves Thursday October22 selection provenance and Friday October23 roster, with a new Monday effective date. It is not a fresh Friday post-close selection, a new API acquisition, morning startup or experimental Hot adoption.",
+  "advance_credential_renewal": {
+    "status": "OPERATOR_REAUTHORIZED_AND_READ_ONLY_STATUS_CONFIRMED",
+    "date": "2026-10-24",
+    "refresh_expires_utc": "2026-10-31T22:17:38.089549+00:00",
+    "refresh_expires_et": "2026-10-31T18:17:38.089549-04:00",
+    "covers_planned_october26_through30_sessions_with_current_margin": true,
+    "evidence_record": "docs/validation/schwab_reauthorization_20261024.json",
+    "fresh_monday_preflight_still_required": true
+  }
 }
