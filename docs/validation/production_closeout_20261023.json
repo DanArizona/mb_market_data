@@ -169,11 +169,13 @@
     "pollers_and_journal_reported_unchanged": true
   },
   "next_target_date": "2026-10-26",
-  "next_target_preparation": "NOT_YET_REPORTED",
-  "next_target_readiness_established": false,
-  "next_preparation_boundary": "Check for retained October23 post-close outputs first. The accepted same-et-date-post-close-v1 snapshot gate does not permit newly acquired Saturday data to stand in for a Friday post-close snapshot.",
+  "next_target_preparation": "ACCEPTED_EXPLICIT_CARRY_FORWARD_R0_PUBLISHED_AUDITED_REPLAYED",
+  "next_target_readiness_established": true,
+  "next_preparation_boundary": "No Friday snapshot/build found in standard locations. The user explicitly approved the verified unchanged 553-symbol carry-forward with October22 selection provenance. Published Monday r0 matches the draft and passes audit/replay; no next-day data was relabeled as Friday evidence.",
   "production_hot_enabled": false,
   "experimental_cadence_adopted": false,
   "standing_publication_approval_applied": true,
-  "scope": "Full-session scheduled acquisition coverage, row/status consistency, completed native replay and actual monitor/watchdog shutdown accepted from supplied console. All observations are explicit quotes; this does not establish quote/trade freshness, next-session preparation, experimental live recovery or broader provider capacity."
+  "scope": "Full-session scheduled acquisition coverage, row/status consistency, completed native replay and actual monitor/watchdog shutdown accepted from supplied console. All observations are explicit quotes; this does not establish quote/trade freshness, next-session preparation, experimental live recovery or broader provider capacity.",
+  "next_target_readiness_scope": "Opening carry-forward r0 only; Monday morning OV/Focus/startup remain pending.",
+  "next_target_preparation_record": "docs/validation/production_preparation_20261026.json"
 }
