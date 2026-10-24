@@ -1,0 +1,178 @@
+{
+  "milestone": "Credential-bound fresh live Hot profile entry and separate operator launchers",
+  "status": "LOCAL_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "1e40cde1daa005304e63f0802c8cbc28e1b18580",
+  "implementation_tree": "265ae96fad86b7c67b86f16cb0a1789af495c05a",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 34,
+    "passed": 34,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "seconds": 2.921568689999731,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_live_profile",
+      "test_live_profile_launcher",
+      "test_live_profile_process"
+    ],
+    "accepted_runtime_source_files_unchanged": 70,
+    "scope": "New human credential-bound fresh live entry, pinned role/argv dispatch, installed-helper recheck per worker, source/host offline gate, sequential invocation lease, bound stop requests, native bootstrap/runtime ordering, independent pipe deadline, owned synthetic native quote and separate read-only final audit/two replays. Synthetic APIs only. Feed reconciliation in the quote proof is logical; native child/credential/progress/cleanup work is elapsed. One quote is a wiring proof, not a completed 30 or 12+24 profile.",
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "failure_evidence_files": [],
+    "success_evidence_files": [
+      "23a1e0b17ff1.json"
+    ],
+    "unchanged_accepted_suites_repeated": false,
+    "prior_failed_results_retained": true,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "credential_bound_entry_current_host_offline_qualified": true,
+    "installed_live_integration_or_capacity_qualified": false,
+    "manual_profile_controller_resume_exposed": false,
+    "remaining": [
+      "Windows command50 final result and actual CMD prompt return",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 34,
+    "passed": 34,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "seconds": 3.2122359730001335,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_live_profile",
+      "test_live_profile_launcher",
+      "test_live_profile_process"
+    ],
+    "accepted_runtime_source_files_unchanged": 70,
+    "scope": "New human credential-bound fresh live entry, pinned role/argv dispatch, installed-helper recheck per worker, source/host offline gate, sequential invocation lease, bound stop requests, native bootstrap/runtime ordering, independent pipe deadline, owned synthetic native quote and separate read-only final audit/two replays. Synthetic APIs only. Feed reconciliation in the quote proof is logical; native child/credential/progress/cleanup work is elapsed. One quote is a wiring proof, not a completed 30 or 12+24 profile.",
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "failure_evidence_files": [],
+    "success_evidence_files": [
+      "23a1e0b17ff1.json"
+    ],
+    "unchanged_accepted_suites_repeated": false,
+    "prior_failed_results_retained": true,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "credential_bound_entry_current_host_offline_qualified": true,
+    "installed_live_integration_or_capacity_qualified": false,
+    "manual_profile_controller_resume_exposed": false,
+    "remaining": [
+      "Windows command50 final result and actual CMD prompt return",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/live_profile_entry_20261024_193721_f53abb.zip",
+    "folder": "live_profile_entry_20261024_193721_f53abb",
+    "bytes": 437093,
+    "sha256": "4f9d623ea0e25cee224a520ee9e658502ae82a7da1c7b770c11bd74c79963ddf",
+    "files": 163,
+    "repository_files_matched": 156,
+    "inventory_sha256": "29064fedcaff91c414724c4825146ccd097aa64ed634fac59373fb4256bfa24e",
+    "source_commit": "1e40cde1daa005304e63f0802c8cbc28e1b18580",
+    "source_tree": "265ae96fad86b7c67b86f16cb0a1789af495c05a",
+    "local_tests": 34,
+    "local_seconds": 2.921568689999731,
+    "extracted_tests": 34,
+    "extracted_seconds": 3.2122359730001335,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "production_access": false,
+    "live_profiles_run": false
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests_and_import": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests_and_import": true
+      },
+      {
+        "case": "extra_bytecode",
+        "returncode": 70,
+        "blocked_before_tests_and_import": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 156,
+    "source_commit": "1e40cde1daa005304e63f0802c8cbc28e1b18580",
+    "source_tree": "265ae96fad86b7c67b86f16cb0a1789af495c05a",
+    "inventory_sha256": "29064fedcaff91c414724c4825146ccd097aa64ed634fac59373fb4256bfa24e",
+    "prior_runtime_source_files_unchanged": 70,
+    "network": "denied",
+    "production_access": false
+  },
+  "native_wiring_proof": {
+    "completed_acquisitions": 1,
+    "native_profile_result_retained": "FAILED",
+    "profile_goals_complete": false,
+    "identical_fresh_replays": true,
+    "reporting_read_only": true,
+    "scope_cleanup": "EXIT_OBSERVED",
+    "scope": "One elapsed synthetic native quote through the new entry/worker role. Logical source-history advancement leaves raw pre-worker gaps; the native report is not a full-profile PASS. Complete proof retained in coordinator validation/extracted_native_wiring_evidence.json."
+  },
+  "accepted_runtime_native_helper_files_unchanged": 70,
+  "runtime_or_profile_limits_relaxed": false,
+  "prior_failed_results_retained": true,
+  "unchanged_accepted_suites_repeated": false,
+  "command50": "50_verify_live_profile_entry.cmd",
+  "ordinary_launcher": "51_run_ordinary_live_profile.cmd",
+  "recovery_launcher": "52_run_recovery_live_profile.cmd",
+  "stop_launcher": "53_stop_live_profile.cmd",
+  "live_launch_requires_same_host_source_inventory_offline_pass": true,
+  "live_launch_requires_explicit_market_confirmation": true,
+  "same_invocation_private_pipe_credentials_only": true,
+  "installed_helpers_rechecked_per_worker": true,
+  "controller_manual_profile_resume_launcher_exposed": false,
+  "original_manual_resume_api_acceptance_retained": true,
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "live_profiles_run": false,
+  "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "remaining": [
+    "Windows command50 final JSON and actual CMD prompt return",
+    "separately invoked bounded live ordinary and owned-worker recovery profiles after fresh production health",
+    "read-only Overlay adapter",
+    "profiled live controller resume entry if required",
+    "longer/mixed-source/provider capacity and controlled production adoption"
+  ]
+}
