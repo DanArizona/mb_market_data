@@ -1,6 +1,6 @@
 {
   "milestone": "Owned outer controller, fixed profile goals and read-only native evidence",
-  "status": "CORRECTED_LOCAL_EXTRACTED_PASS_WINDOWS_PENDING",
+  "status": "WINDOWS_FAILED",
   "implementation_commit": "503b2d5b0f57f95a9da23cf5b9f436e286cea892",
   "implementation_tree": "16a6fcd4174361382dffe6aa843ded31f77c32d1",
   "local_qualification": {
@@ -244,7 +244,7 @@
     "production_access": false
   },
   "earliest_extracted_controller_stop_cause": "UNKNOWN_FROM_RETAINED_EARLIEST_FIXED_DIAGNOSTIC; controlled later native module identity defect is separately established.",
-  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "windows_operator_acceptance": "FAILED",
   "windows_job_object_qualified": false,
   "credential_bound_live_profile_entry_qualified": false,
   "logical_native_goal_workloads": {
@@ -260,10 +260,104 @@
   "production_access": false,
   "production_hot_enabled": false,
   "remaining": [
-    "Windows command48 final result and actual CMD prompt return",
+    "Focused command49 Windows result and actual CMD prompt return",
     "credential-bound live profile entry and separate operator launchers with affected offline qualification",
     "separately invoked bounded live ordinary and owned-worker recovery profiles",
     "read-only Overlay adapter",
     "production adoption and broader capacity"
-  ]
+  ],
+  "windows_qualification": {
+    "result": "FAILED",
+    "tests": 42,
+    "passed": 41,
+    "skipped": 0,
+    "failures": 1,
+    "errors": 0,
+    "skipped_tests": [],
+    "failed_tests": [
+      "test_gated_controller_native_acquisition_and_independent_read_only_report (test_profile_runtime.OuterNativeProcessTests.test_gated_controller_native_acquisition_and_independent_read_only_report)"
+    ],
+    "seconds": 30.369659999967553,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      13
+    ],
+    "executable": "C:\\Users\\danla\\anaconda3\\envs\\sea-green\\python.exe",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "suites": [
+      "test_outer_deadline",
+      "test_outer_harness",
+      "test_profile_evidence",
+      "test_profile_runtime"
+    ],
+    "accepted_runtime_reference_source_files_unchanged": 63,
+    "scope": "Owned gated controller/reporting process scopes, frozen original window and new-human resume preparation, independent active/cleanup/report deadlines, durable one-fault intent/hold policy, logical native 30 and 12+24 profile workloads with real raw audit/two replays, and one elapsed owned controller/authenticated synthetic native quote/read-only reporter integration. Windows-only Job Object orphan/owner-death tests are explicitly skipped on other hosts. No installed/live client, full-goal elapsed/live profile, public HTTP, production adoption or capacity claim.",
+    "failure_evidence_files": [
+      "001-f5440292d1db.json"
+    ],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "live_launcher_exposed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "outer_profile_paths_current_host_qualified": false,
+    "windows_job_object_qualified": false,
+    "credential_bound_live_profile_entry_qualified": false,
+    "remaining": [
+      "Windows command48 final result and actual CMD prompt return",
+      "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "windows_failure": {
+    "result": "FAILED",
+    "date_utc": "2026-10-24",
+    "command": "48_verify_outer_profile_harness.cmd",
+    "host": "MasterBot",
+    "environment": "sea-green",
+    "run": "20261024T061524Z-65760ca2",
+    "basis": "Complete operator-supplied Windows console, final JSON, inline fixed failure evidence and actual CMD prompt return; saved JSON/sidecar were not independently uploaded.",
+    "actual_cmd_prompt_returned": true,
+    "saved_report_independently_uploaded": false,
+    "failure_sidecar_independently_uploaded": false,
+    "reported_saved_report": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\outer_profile_harness_20261024_060918_e5fd3c\\runs\\20261024T061524Z-65760ca2\\verification.json",
+    "tests": 42,
+    "passed": 41,
+    "skipped": 0,
+    "failures": 1,
+    "errors": 0,
+    "runner_seconds": 30.055,
+    "report_seconds": 30.369659999967553,
+    "worker_runtime_reason": "worker_credentials_rejected",
+    "worker_auth_status_code": "UNKNOWN_FROM_SUPPLIED_CONSOLE",
+    "worker_underlying_exception": "UNKNOWN_FROM_SUPPLIED_CONSOLE",
+    "controller_returncode": 70,
+    "controller_phase": "ACTIVE",
+    "outer_stop_reason": "controller_exited_before_goal",
+    "outer_result": "FAILED",
+    "reporting_result": "INCOMPLETE",
+    "reporter_returncode": 0,
+    "owned_controller_and_reporter_scopes_empty_observed": true,
+    "cleanup_forced": false,
+    "named_windows_job_object_tests_completed_without_skip": [
+      "test_windows_job_contains_orphan_descendant_after_controller_exit",
+      "test_windows_owner_death_releases_its_descendant_lease"
+    ],
+    "raw_verifier_windows_job_object_qualified_flag_retained": false,
+    "whole_command48_windows_acceptance": "FAILED",
+    "archive_sha256": "a6a1f5370b6c31fdc3991e9ec048c224bd0c41e8d8ee174e4ebf5706ca2a673d",
+    "archive_unchanged": true,
+    "network": "denied",
+    "production_access": false,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "interpretation": "The generic runtime reason also covers failures before or after credential acceptance. The supplied evidence does not name the worker auth code or original underlying exception. Separate controlled contention reproduces the same generic stop but does not establish the exact original Windows cause."
+  },
+  "corrective_followup": "docs/validation/profile_observer_20261024.json"
 }

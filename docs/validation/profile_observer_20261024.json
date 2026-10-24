@@ -1,0 +1,186 @@
+{
+  "milestone": "Read-only native progress observer and safe worker diagnostics",
+  "status": "LOCAL_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "a61809d355cc6a9d883cd3768e2db4e2d97a35b6",
+  "implementation_tree": "5bbd54a2c484ba3c44db7c2e9850cf454653f711",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 28,
+    "passed": 28,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [],
+    "failed_tests": [],
+    "seconds": 7.29836085199986,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_profile_observation",
+      "test_profile_runtime",
+      "test_profile_observer_launcher"
+    ],
+    "command48_other_runtime_source_files_unchanged": 68,
+    "original_accepted_runtime_reference_source_files_unchanged": 63,
+    "scope": "Changed active observer reads acknowledged native progress without the acquisition writer lease; verified prefix/ACK/header/normalized-row matching, concurrent append, empty membership, corrupt evidence and bounded SQLite BUSY handling. Controlled writer-lock overlap reproduces the generic credential rejection; read-only observation allows original 3s/8s startup. Affected profile policy and one elapsed synthetic native quote/read-only report integration, with safe worker diagnostics. Original strict final native snapshot/audit/replay and all other command48 runtime sources unchanged. Not live authentication, original Windows root-cause attribution, full-profile elapsed/live recovery, production or capacity.",
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "live_launcher_exposed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "observer_correction_current_host_qualified": true,
+    "command48_windows_result_retained": "FAILED",
+    "command48_named_windows_job_checks_repeated": false,
+    "credential_bound_live_profile_entry_qualified": false,
+    "remaining": [
+      "Windows command49 correction result and actual CMD prompt return",
+      "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 28,
+    "passed": 28,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [],
+    "failed_tests": [],
+    "seconds": 7.997871602000487,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_profile_observation",
+      "test_profile_runtime",
+      "test_profile_observer_launcher"
+    ],
+    "command48_other_runtime_source_files_unchanged": 68,
+    "original_accepted_runtime_reference_source_files_unchanged": 63,
+    "scope": "Changed active observer reads acknowledged native progress without the acquisition writer lease; verified prefix/ACK/header/normalized-row matching, concurrent append, empty membership, corrupt evidence and bounded SQLite BUSY handling. Controlled writer-lock overlap reproduces the generic credential rejection; read-only observation allows original 3s/8s startup. Affected profile policy and one elapsed synthetic native quote/read-only report integration, with safe worker diagnostics. Original strict final native snapshot/audit/replay and all other command48 runtime sources unchanged. Not live authentication, original Windows root-cause attribution, full-profile elapsed/live recovery, production or capacity.",
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "live_launcher_exposed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "observer_correction_current_host_qualified": true,
+    "command48_windows_result_retained": "FAILED",
+    "command48_named_windows_job_checks_repeated": false,
+    "credential_bound_live_profile_entry_qualified": false,
+    "remaining": [
+      "Windows command49 correction result and actual CMD prompt return",
+      "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_bytecode",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 119,
+    "source_commit": "a61809d355cc6a9d883cd3768e2db4e2d97a35b6",
+    "source_tree": "5bbd54a2c484ba3c44db7c2e9850cf454653f711",
+    "inventory_sha256": "5de125567b0e57c51a5208f381c18e29e86f746209a2cdc7173954a816ab4ab5",
+    "command48_other_runtime_references_unchanged": 68,
+    "original_runtime_references_unchanged": 63,
+    "network": "denied",
+    "production_access": false
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/profile_observer_20261024_063842_0ba902.zip",
+    "folder": "profile_observer_20261024_063842_0ba902",
+    "bytes": 353584,
+    "sha256": "f81a0fd8c02516eb9db1fdcba11a19b2393ee70056e2e585890b98949c9e8219",
+    "files": 123,
+    "source_commit": "a61809d355cc6a9d883cd3768e2db4e2d97a35b6",
+    "source_tree": "5bbd54a2c484ba3c44db7c2e9850cf454653f711",
+    "inventory_sha256": "5de125567b0e57c51a5208f381c18e29e86f746209a2cdc7173954a816ab4ab5",
+    "repository_files_matched": 119,
+    "local_tests": 28,
+    "local_passed": 28,
+    "local_seconds": 7.29836085199986,
+    "extracted_tests": 28,
+    "extracted_passed": 28,
+    "extracted_seconds": 7.997871602000487,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "command48_other_runtime_source_files_unchanged": 68,
+    "original_runtime_reference_files_unchanged": 63,
+    "command48_windows_result_retained": "FAILED",
+    "production_access": false,
+    "live_launcher_exposed": false
+  },
+  "command48_windows_result_retained": "FAILED",
+  "controlled_contention": {
+    "result": "CONTROLLED_DEFECT_REPRODUCED",
+    "child_returncode": 70,
+    "auth_status": "startup_failed",
+    "runtime_reason": "worker_credentials_rejected",
+    "mechanism": "Holding the acquisition writer lease during synthetic worker startup prevents its required native snapshot before credential access. Command48 progress observation uses that same exclusive lease. The replacement observer reads an acknowledged prefix via read-only SQLite without taking the writer lease.",
+    "original_windows_cause": "NOT_ESTABLISHED_BY_THE_SUPPLIED_WORKER_DETAILS",
+    "accepted_runtime_or_timing_gates_changed": false,
+    "network": "denied",
+    "production_access": false
+  },
+  "original_windows_worker_auth_code_and_exception": "UNKNOWN_FROM_SUPPLIED_CONSOLE; controlled contention proves a defect but does not attribute the original Windows failure.",
+  "strict_final_native_snapshot_audit_replay_changed": false,
+  "startup_seconds": 3,
+  "credential_seconds": 8,
+  "limits_relaxed": false,
+  "original_runtime_reference_files_unchanged": 63,
+  "command48_other_runtime_source_files_unchanged": 68,
+  "command48_named_windows_job_cases_completed_without_skip": [
+    "test_windows_job_contains_orphan_descendant_after_controller_exit",
+    "test_windows_owner_death_releases_its_descendant_lease"
+  ],
+  "command48_whole_suite_accepted": false,
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "remaining": [
+    "Windows command49 correction result and actual CMD prompt return",
+    "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+    "separately invoked bounded live ordinary and owned-worker recovery profiles",
+    "read-only Overlay adapter",
+    "production adoption and broader capacity"
+  ]
+}
