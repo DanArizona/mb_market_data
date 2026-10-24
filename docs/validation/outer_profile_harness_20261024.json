@@ -1,0 +1,269 @@
+{
+  "milestone": "Owned outer controller, fixed profile goals and read-only native evidence",
+  "status": "CORRECTED_LOCAL_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "503b2d5b0f57f95a9da23cf5b9f436e286cea892",
+  "implementation_tree": "16a6fcd4174361382dffe6aa843ded31f77c32d1",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 42,
+    "passed": 40,
+    "skipped": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_windows_job_contains_orphan_descendant_after_controller_exit (test_outer_harness.OuterHarnessTests.test_windows_job_contains_orphan_descendant_after_controller_exit)",
+        "reason": "Actual Windows Job Object orphan containment requires Windows"
+      },
+      {
+        "test": "test_windows_owner_death_releases_its_descendant_lease (test_outer_harness.OuterHarnessTests.test_windows_owner_death_releases_its_descendant_lease)",
+        "reason": "Actual Windows kill-on-job-close owner death requires Windows"
+      }
+    ],
+    "failed_tests": [],
+    "seconds": 15.313408967999749,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_outer_deadline",
+      "test_outer_harness",
+      "test_profile_evidence",
+      "test_profile_runtime"
+    ],
+    "accepted_runtime_reference_source_files_unchanged": 63,
+    "scope": "Owned gated controller/reporting process scopes, frozen original window and new-human resume preparation, independent active/cleanup/report deadlines, durable one-fault intent/hold policy, logical native 30 and 12+24 profile workloads with real raw audit/two replays, and one elapsed owned controller/authenticated synthetic native quote/read-only reporter integration. Windows-only Job Object orphan/owner-death tests are explicitly skipped on other hosts. No installed/live client, full-goal elapsed/live profile, public HTTP, production adoption or capacity claim.",
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "live_launcher_exposed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "outer_profile_paths_current_host_qualified": true,
+    "windows_job_object_qualified": false,
+    "credential_bound_live_profile_entry_qualified": false,
+    "remaining": [
+      "Windows command48 final result and actual CMD prompt return",
+      "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 42,
+    "passed": 40,
+    "skipped": 2,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_windows_job_contains_orphan_descendant_after_controller_exit (test_outer_harness.OuterHarnessTests.test_windows_job_contains_orphan_descendant_after_controller_exit)",
+        "reason": "Actual Windows Job Object orphan containment requires Windows"
+      },
+      {
+        "test": "test_windows_owner_death_releases_its_descendant_lease (test_outer_harness.OuterHarnessTests.test_windows_owner_death_releases_its_descendant_lease)",
+        "reason": "Actual Windows kill-on-job-close owner death requires Windows"
+      }
+    ],
+    "failed_tests": [],
+    "seconds": 15.885592336999707,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_outer_deadline",
+      "test_outer_harness",
+      "test_profile_evidence",
+      "test_profile_runtime"
+    ],
+    "accepted_runtime_reference_source_files_unchanged": 63,
+    "scope": "Owned gated controller/reporting process scopes, frozen original window and new-human resume preparation, independent active/cleanup/report deadlines, durable one-fault intent/hold policy, logical native 30 and 12+24 profile workloads with real raw audit/two replays, and one elapsed owned controller/authenticated synthetic native quote/read-only reporter integration. Windows-only Job Object orphan/owner-death tests are explicitly skipped on other hosts. No installed/live client, full-goal elapsed/live profile, public HTTP, production adoption or capacity claim.",
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "live_launcher_exposed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "outer_profile_paths_current_host_qualified": true,
+    "windows_job_object_qualified": false,
+    "credential_bound_live_profile_entry_qualified": false,
+    "remaining": [
+      "Windows command48 final result and actual CMD prompt return",
+      "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_bytecode",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 114,
+    "source_commit": "503b2d5b0f57f95a9da23cf5b9f436e286cea892",
+    "source_tree": "16a6fcd4174361382dffe6aa843ded31f77c32d1",
+    "inventory_sha256": "241b9ca72bda09e7b00fd4527910368e7015cf96beae00e292616c367cda14b4",
+    "accepted_runtime_reference_files_unchanged": 63,
+    "network": "denied",
+    "production_access": false
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/outer_profile_harness_20261024_060918_e5fd3c.zip",
+    "folder": "outer_profile_harness_20261024_060918_e5fd3c",
+    "bytes": 344201,
+    "sha256": "a6a1f5370b6c31fdc3991e9ec048c224bd0c41e8d8ee174e4ebf5706ca2a673d",
+    "files": 118,
+    "source_commit": "503b2d5b0f57f95a9da23cf5b9f436e286cea892",
+    "source_tree": "16a6fcd4174361382dffe6aa843ded31f77c32d1",
+    "inventory_sha256": "241b9ca72bda09e7b00fd4527910368e7015cf96beae00e292616c367cda14b4",
+    "repository_files_matched": 114,
+    "local_tests": 42,
+    "local_passed": 40,
+    "local_skipped": 2,
+    "local_seconds": 15.313408967999749,
+    "extracted_tests": 42,
+    "extracted_passed": 40,
+    "extracted_skipped": 2,
+    "extracted_seconds": 15.885592336999707,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "accepted_runtime_reference_files_unchanged": 63,
+    "production_access": false,
+    "live_launcher_exposed": false,
+    "scope": "Owned gated controller/reporting process scopes, frozen original window and new-human resume preparation, independent active/cleanup/report deadlines, durable one-fault intent/hold policy, logical native 30 and 12+24 profile workloads with real raw audit/two replays, and one elapsed owned controller/authenticated synthetic native quote/read-only reporter integration. Windows-only Job Object orphan/owner-death tests are explicitly skipped on other hosts. No installed/live client, full-goal elapsed/live profile, public HTTP, production adoption or capacity claim."
+  },
+  "first_extracted_result_retained": {
+    "result": "FAILED",
+    "tests": 42,
+    "passed": 39,
+    "skipped": 2,
+    "failures": 1,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_windows_job_contains_orphan_descendant_after_controller_exit (test_outer_harness.OuterHarnessTests.test_windows_job_contains_orphan_descendant_after_controller_exit)",
+        "reason": "Actual Windows Job Object orphan containment requires Windows"
+      },
+      {
+        "test": "test_windows_owner_death_releases_its_descendant_lease (test_outer_harness.OuterHarnessTests.test_windows_owner_death_releases_its_descendant_lease)",
+        "reason": "Actual Windows kill-on-job-close owner death requires Windows"
+      }
+    ],
+    "failed_tests": [
+      "test_gated_controller_native_acquisition_and_independent_read_only_report (test_profile_runtime.OuterNativeProcessTests.test_gated_controller_native_acquisition_and_independent_read_only_report)"
+    ],
+    "seconds": 15.221104071000354,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_outer_deadline",
+      "test_outer_harness",
+      "test_profile_evidence",
+      "test_profile_runtime"
+    ],
+    "accepted_runtime_reference_source_files_unchanged": 63,
+    "scope": "Owned gated controller/reporting process scopes, frozen original window and new-human resume preparation, independent active/cleanup/report deadlines, durable one-fault intent/hold policy, logical native 30 and 12+24 profile workloads with real raw audit/two replays, and one elapsed owned controller/authenticated synthetic native quote/read-only reporter integration. Windows-only Job Object orphan/owner-death tests are explicitly skipped on other hosts. No installed/live client, full-goal elapsed/live profile, public HTTP, production adoption or capacity claim.",
+    "failure_evidence_files": [
+      "001-f5440292d1db.json"
+    ],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "unchanged_accepted_suites_repeated": false,
+    "live_launcher_exposed": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "outer_profile_paths_current_host_qualified": false,
+    "windows_job_object_qualified": false,
+    "credential_bound_live_profile_entry_qualified": false,
+    "remaining": [
+      "Windows command48 final result and actual CMD prompt return",
+      "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "controlled_correction": {
+    "result": "CONTROLLED_CAUSE_AND_CORRECTION_VERIFIED",
+    "before_native_exception_identity_preserved": false,
+    "after_native_exception_identity_preserved": true,
+    "original_extracted_result_retained": "FAILED",
+    "controlled_failure_reproduced": "AcquisitionBusy propagated from the live poller while the handler imported a second class from the nominal same module. The runtime fixture SDK patch restores sys.modules, removing modules first loaded inside the patch.",
+    "correction": "Preload native sampling_acquisition in the new outer fixture before the synthetic SDK context, and assert preserved module and poller type. Shared accepted runtime source and timing gates are unchanged.",
+    "targeted_corrected_elapsed_native_trials": 6,
+    "targeted_trials_passed": 6,
+    "trial_runner_seconds": [
+      1.931,
+      1.871,
+      1.89,
+      1.936,
+      1.911,
+      1.931
+    ],
+    "scope": "Synthetic fixture diagnosis, not six live trials or capacity evidence.",
+    "unacknowledged_quote_semantics": "The new report now separates unacknowledged committed acquisitions from actual non-quote provider outcomes; quote statuses are retained.",
+    "network": "denied",
+    "production_access": false
+  },
+  "earliest_extracted_controller_stop_cause": "UNKNOWN_FROM_RETAINED_EARLIEST_FIXED_DIAGNOSTIC; controlled later native module identity defect is separately established.",
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "windows_job_object_qualified": false,
+  "credential_bound_live_profile_entry_qualified": false,
+  "logical_native_goal_workloads": {
+    "ordinary": 30,
+    "recovery_before_fault": 12,
+    "recovery_after_restart": 24
+  },
+  "elapsed_native_wiring_fixture": "One synthetic authenticated native acquisition plus independent read-only reporting, intentionally not a completed full profile.",
+  "accepted_runtime_reference_source_files_unchanged": 63,
+  "old_failed_verdicts_and_archives_retained": true,
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "remaining": [
+    "Windows command48 final result and actual CMD prompt return",
+    "credential-bound live profile entry and separate operator launchers with affected offline qualification",
+    "separately invoked bounded live ordinary and owned-worker recovery profiles",
+    "read-only Overlay adapter",
+    "production adoption and broader capacity"
+  ]
+}
