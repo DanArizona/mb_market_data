@@ -1,0 +1,192 @@
+{
+  "milestone": "Manual-resume test close and strict whole-artifact secret scan",
+  "status": "LOCAL_EXTRACTED_PASS_WINDOWS_PENDING",
+  "implementation_commit": "178c193fdebef3abdd0ba814c4e7e08eaf51f4a7",
+  "implementation_tree": "398e51dc4f4a3fef0b73d457db7a6b6df62a0de4",
+  "previous_command46_windows_result": "FAILED",
+  "command46_failure_record": "docs/validation/manual_controller_resume_20261023.json",
+  "unreadable_file_in_original_console": "UNKNOWN_FROM_SUPPLIED_CONSOLE",
+  "source_finding": "The original failing test invokes a separate-handle whole-artifact scan while the resumed controller still holds its exclusive controller lease. The exact original unreadable file is not established by the supplied console.",
+  "change": "Close the owned resumed controller, assert stopped state, then scan every saved file including the controller lock. Test-only scanner reports safe relative-path/numeric diagnostics and fails on unreadable files; no exclusions or permission-error suppression.",
+  "local_qualification": {
+    "result": "PASS",
+    "tests": 18,
+    "passed": 17,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_native_windows_held_lease_blocks_second_handle_and_released_lease_is_scanned (test_saved_artifact_scan.SavedArtifactScanTests.test_native_windows_held_lease_blocks_second_handle_and_released_lease_is_scanned)",
+        "reason": "Actual Windows byte-range read locks require Windows"
+      }
+    ],
+    "failed_tests": [],
+    "seconds": 14.58621698099978,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_saved_artifact_scan",
+      "test_resume_entry",
+      "test_controller_resume.ManualResumeTests.test_interruption_after_credentials_keeps_failed_attempt_and_new_nonce_can_reopen",
+      "test_controller_resume.ManualResumeTests.test_reopens_original_bindings_without_registering_a_parent_poll_run_or_dispatch",
+      "test_controller_resume.ManualResumeTests.test_pre_and_post_refresh_horizons_still_use_original_stop_plus_margin",
+      "test_controller_resume.ManualResumeTests.test_authorization_refusal_is_redacted_and_does_not_start_a_worker",
+      "test_controller_resume.ManualResumeTests.test_slow_authentication_cannot_renew_the_sixty_second_reopen_deadline",
+      "test_controller_resume_process.ManualResumeProcessTests.test_sdk_authorization_and_arbitrary_exceptions_are_redacted_without_dispatch"
+    ],
+    "scope": "Corrective test lifecycle: close the resumed controller before a strict whole-artifact secret scan. Complete lock/binary-file coverage, secret detection, unreadable/disappearing-file failures with relative paths, actual Windows exclusive-lock read behavior, and affected close/horizon/SDK-output redaction paths. Synthetic credentials/SDK and owned processes only; complementary to the retained FAILED command-46 result. Runtime implementation and limits unchanged; not a full runtime/provider/profile qualification rerun.",
+    "command46_windows_result_retained": "FAILED",
+    "command46_unreadable_file": "UNKNOWN_FROM_SUPPLIED_CONSOLE",
+    "command46_runtime_reference_files_unchanged": 63,
+    "runtime_source_changed": false,
+    "limits_relaxed": false,
+    "unreadable_artifacts_skipped": false,
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "post_close_secret_scan_offline_qualified": true,
+    "full_runtime_qualification_rerun": false,
+    "outer_controller_profile_harness_qualified": false,
+    "remaining": [
+      "Windows corrective scan/lifecycle result and actual CMD prompt return",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "extracted_qualification": {
+    "result": "PASS",
+    "tests": 18,
+    "passed": 17,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0,
+    "skipped_tests": [
+      {
+        "test": "test_native_windows_held_lease_blocks_second_handle_and_released_lease_is_scanned (test_saved_artifact_scan.SavedArtifactScanTests.test_native_windows_held_lease_blocks_second_handle_and_released_lease_is_scanned)",
+        "reason": "Actual Windows byte-range read locks require Windows"
+      }
+    ],
+    "failed_tests": [],
+    "seconds": 7.720689573000072,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      14
+    ],
+    "executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3.12",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "suites": [
+      "test_saved_artifact_scan",
+      "test_resume_entry",
+      "test_controller_resume.ManualResumeTests.test_interruption_after_credentials_keeps_failed_attempt_and_new_nonce_can_reopen",
+      "test_controller_resume.ManualResumeTests.test_reopens_original_bindings_without_registering_a_parent_poll_run_or_dispatch",
+      "test_controller_resume.ManualResumeTests.test_pre_and_post_refresh_horizons_still_use_original_stop_plus_margin",
+      "test_controller_resume.ManualResumeTests.test_authorization_refusal_is_redacted_and_does_not_start_a_worker",
+      "test_controller_resume.ManualResumeTests.test_slow_authentication_cannot_renew_the_sixty_second_reopen_deadline",
+      "test_controller_resume_process.ManualResumeProcessTests.test_sdk_authorization_and_arbitrary_exceptions_are_redacted_without_dispatch"
+    ],
+    "scope": "Corrective test lifecycle: close the resumed controller before a strict whole-artifact secret scan. Complete lock/binary-file coverage, secret detection, unreadable/disappearing-file failures with relative paths, actual Windows exclusive-lock read behavior, and affected close/horizon/SDK-output redaction paths. Synthetic credentials/SDK and owned processes only; complementary to the retained FAILED command-46 result. Runtime implementation and limits unchanged; not a full runtime/provider/profile qualification rerun.",
+    "command46_windows_result_retained": "FAILED",
+    "command46_unreadable_file": "UNKNOWN_FROM_SUPPLIED_CONSOLE",
+    "command46_runtime_reference_files_unchanged": 63,
+    "runtime_source_changed": false,
+    "limits_relaxed": false,
+    "unreadable_artifacts_skipped": false,
+    "failure_evidence_files": [],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "post_close_secret_scan_offline_qualified": true,
+    "full_runtime_qualification_rerun": false,
+    "outer_controller_profile_harness_qualified": false,
+    "remaining": [
+      "Windows corrective scan/lifecycle result and actual CMD prompt return",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "source_guard_checks": {
+    "result": "PASS",
+    "cases": [
+      {
+        "case": "changed_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      },
+      {
+        "case": "extra_source",
+        "returncode": 70,
+        "blocked_before_tests": true
+      }
+    ],
+    "restored_inventory_identical": true,
+    "repository_files_matched": 102,
+    "source_commit": "178c193fdebef3abdd0ba814c4e7e08eaf51f4a7",
+    "source_tree": "398e51dc4f4a3fef0b73d457db7a6b6df62a0de4",
+    "inventory_sha256": "4d7966c4244451338b2d7010070ec0f21a4ec940394e8ebb647e3fbaccacc4dd",
+    "runtime_reference_files_unchanged_from_command46": 63,
+    "command46_archive_unchanged": true,
+    "network": "denied",
+    "production_access": false
+  },
+  "delivery": {
+    "archive": "/workspace/scratch/78e6acba7246/deliverables/manual_resume_scan_20261024_005233_7b9844.zip",
+    "folder": "manual_resume_scan_20261024_005233_7b9844",
+    "bytes": 310821,
+    "files": 106,
+    "sha256": "a35e11afa74c518998feb181d2da1b3a2f62c58d9ec91d42a2c6f7dcf938b5c0",
+    "inventory_sha256": "4d7966c4244451338b2d7010070ec0f21a4ec940394e8ebb647e3fbaccacc4dd",
+    "repository_files_matched": 102,
+    "source_commit": "178c193fdebef3abdd0ba814c4e7e08eaf51f4a7",
+    "source_tree": "398e51dc4f4a3fef0b73d457db7a6b6df62a0de4",
+    "local_tests": 18,
+    "local_passed": 17,
+    "local_skipped": 1,
+    "local_seconds": 14.58621698099978,
+    "extracted_tests": 18,
+    "extracted_passed": 17,
+    "extracted_skipped": 1,
+    "extracted_seconds": 7.720689573000072,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "command46_windows_result_retained": "FAILED",
+    "runtime_reference_files_unchanged_from_command46": 63,
+    "runtime_source_changed": false,
+    "limits_relaxed": false,
+    "production_access": false,
+    "scope": "Corrective test lifecycle: close the resumed controller before a strict whole-artifact secret scan. Complete lock/binary-file coverage, secret detection, unreadable/disappearing-file failures with relative paths, actual Windows exclusive-lock read behavior, and affected close/horizon/SDK-output redaction paths. Synthetic credentials/SDK and owned processes only; complementary to the retained FAILED command-46 result. Runtime implementation and limits unchanged; not a full runtime/provider/profile qualification rerun."
+  },
+  "runtime_source_changed": false,
+  "runtime_reference_files_unchanged_from_command46": 63,
+  "limits_relaxed": false,
+  "actual_vault_access": false,
+  "real_feed_directory_or_broker_requests": 0,
+  "production_access": false,
+  "production_hot_enabled": false,
+  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "full_runtime_qualification_rerun": false,
+  "outer_controller_profile_harness_qualified": false,
+  "remaining": [
+    "Windows corrective scan/lifecycle result and actual CMD prompt return",
+    "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+    "separately invoked live acquisition and worker recovery profiles",
+    "read-only Overlay adapter",
+    "production adoption and broader capacity"
+  ]
+}

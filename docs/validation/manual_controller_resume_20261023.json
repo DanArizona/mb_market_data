@@ -1,6 +1,6 @@
 {
   "milestone": "Explicit human-started manual controller resume with original bindings and budgets",
-  "status": "LOCAL_AND_EXTRACTED_PASS_WINDOWS_PENDING",
+  "status": "WINDOWS_FAILED",
   "implementation_commit": "4489d27a80a7359888d6471929785bb6b8160fe6",
   "implementation_tree": "2da67f6eacc14c9374d5f0df67134eec1de93eb7",
   "delivery": {
@@ -205,15 +205,131 @@
   "real_feed_directory_or_broker_requests": 0,
   "production_access": false,
   "production_hot_enabled": false,
-  "windows_operator_acceptance": "OPERATOR_RESULT_REQUIRED",
-  "manual_controller_resume_offline_qualified": true,
+  "windows_operator_acceptance": "FAILED",
+  "manual_controller_resume_offline_qualified": false,
   "outer_controller_profile_harness_qualified": false,
   "unattended_controller_bootstrap": false,
   "remaining": [
-    "Windows operator validation and actual CMD prompt return",
+    "Corrective command47 post-close scan/lifecycle Windows result and actual CMD prompt return",
     "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
     "separately invoked live acquisition and worker recovery profiles",
     "read-only Overlay adapter",
     "production adoption and broader capacity"
-  ]
+  ],
+  "windows_qualification": {
+    "result": "FAILED",
+    "tests": 59,
+    "passed": 58,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 1,
+    "skipped_tests": [],
+    "failed_tests": [
+      "test_interruption_after_credentials_keeps_failed_attempt_and_new_nonce_can_reopen (test_controller_resume.ManualResumeTests.test_interruption_after_credentials_keeps_failed_attempt_and_new_nonce_can_reopen)"
+    ],
+    "seconds": 81.00486850005109,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      13
+    ],
+    "executable": "C:\\Users\\danla\\anaconda3\\envs\\sea-green\\python.exe",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "suites": [
+      "test_controller_resume",
+      "test_resume_entry",
+      "test_controller_resume_process",
+      "test_supervised_hot_worker",
+      "test_integrated_runtime.IntegratedRuntimeTests.test_existing_partial_runtime_is_not_a_fresh_reopen",
+      "test_integrated_runtime.IntegratedRuntimeTests.test_an_uninitialized_second_instance_cannot_close_the_owners_client",
+      "test_integrated_runtime_process.RuntimeProcessTests.test_three_second_gate_wins_over_eight_second_credential_budget_independently",
+      "test_integrated_runtime_process.RuntimeProcessTests.test_credential_success_without_native_work_does_not_satisfy_three_second_gate"
+    ],
+    "scope": "Explicit new-human private-handoff reopen of an already initialized catalog-bound runtime, original proposal/dependency/session/window/source/native bindings, cumulative permits and generation history, request/publication/assembled-response recovery, unknown charged dispatches, lease-based orphan fencing and future-only native work. Synthetic credentials/SDK/HTTP and actual process exits/role leases only. Logical 59+1 native-budget workload is distinct from elapsed process drills. Not installed/live authentication, an independently preempting outer/profile harness, live acquisition/recovery, Overlay, production adoption or capacity.",
+    "accepted_runtime_reference_source_files_unchanged": 61,
+    "prior_accepted_runtime_sources_changed": false,
+    "new_runtime_source_paths": [
+      "src/mb_watchlist_coordinator/controller_resume.py",
+      "src/mb_watchlist_coordinator/resume_entry.py"
+    ],
+    "failure_evidence_files": [
+      "001-be6587426b90.json"
+    ],
+    "failure_evidence_write_errors": 0,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "pinned_mb_tools_interfaces_exercised": true,
+    "installed_sdk_or_live_authentication_qualified": false,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "manual_controller_resume_offline_qualified": false,
+    "outer_controller_profile_harness_qualified": false,
+    "unattended_controller_bootstrap": false,
+    "limits": {
+      "worker_startup_seconds": 3,
+      "worker_stale_seconds": 3,
+      "credential_timeout_seconds": 8,
+      "manual_reopen_preparation_seconds": 60,
+      "original_active_window_seconds": 720,
+      "hot_quote_permits": 60,
+      "identity_quote_permits": 3,
+      "worker_starts": 3,
+      "directory_source_permits": 2,
+      "feed_attempts": 10,
+      "feed_completion_spacing_seconds": 60
+    },
+    "original_failed_verdicts_retained": true,
+    "remaining": [
+      "Windows operator validation and actual CMD prompt return",
+      "owned outer-controller hard deadlines/shutdown and live profile goals/coverage/audit harness",
+      "separately invoked live acquisition and worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "windows_failure": {
+    "result": "FAILED",
+    "date": "2026-10-23",
+    "command": "46_verify_manual_controller_resume.cmd",
+    "host": "MasterBot",
+    "environment": "sea-green",
+    "run": "20261024T004121Z-afff6828",
+    "basis": "Complete operator-supplied Windows console, final JSON and actual CMD prompt return. Saved JSON and named failure sidecar were not independently uploaded.",
+    "actual_cmd_prompt_returned": true,
+    "saved_report_independently_uploaded": false,
+    "failure_sidecar_independently_uploaded": false,
+    "reported_saved_report": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\manual_controller_resume_20261024_003115_86e083\\runs\\20261024T004121Z-afff6828\\verification.json",
+    "reported_failure_evidence_files": [
+      "001-be6587426b90.json"
+    ],
+    "tests": 59,
+    "passed": 58,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 1,
+    "runner_seconds": 80.778,
+    "report_seconds": 81.00486850005109,
+    "failed_test": "test_interruption_after_credentials_keeps_failed_attempt_and_new_nonce_can_reopen (test_controller_resume.ManualResumeTests.test_interruption_after_credentials_keeps_failed_attempt_and_new_nonce_can_reopen)",
+    "error": "PermissionError: [Errno 13] Permission denied",
+    "phase": "Whole-artifact secret scan after failed/ready resume-state and native poll_run assertions.",
+    "failed_line": 218,
+    "scan_line": 37,
+    "unreadable_file": "UNKNOWN: the supplied traceback does not name the file.",
+    "code_finding": "The test calls no_secret while the successful resumed controller still owns controller.owner.lock; r.close is deferred to cleanup.",
+    "causal_status": "Active-controller scan lifetime defect is established by source. A Windows exclusive-byte-lock read conflict is consistent with the error and primary documentation; the exact failed file is not proven from the supplied console.",
+    "archive_sha256": "84f43b6535094c860c02a79b78d1c865aa21d508ebd29ed4f467d52cbd2da2a5",
+    "archive_unchanged": true,
+    "implementation_commit": "4489d27a80a7359888d6471929785bb6b8160fe6",
+    "implementation_tree": "2da67f6eacc14c9374d5f0df67134eec1de93eb7",
+    "windows_acceptance": "FAILED",
+    "verifier_windows_acceptance_label_retained": "OPERATOR_RESULT_REQUIRED",
+    "network": "denied",
+    "production_access": false,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "prior_local_and_extracted_pass_records_retained": true,
+    "runtime_changes_for_correction": false
+  },
+  "corrective_followup": "docs/validation/manual_resume_scan_20261023.json"
 }
