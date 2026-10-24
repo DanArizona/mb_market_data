@@ -1,6 +1,6 @@
 {
   "milestone": "Credential-bound fresh live Hot profile entry and separate operator launchers",
-  "status": "LOCAL_EXTRACTED_PASS_WINDOWS_PENDING",
+  "status": "WINDOWS_ACCEPTED",
   "implementation_commit": "1e40cde1daa005304e63f0802c8cbc28e1b18580",
   "implementation_tree": "265ae96fad86b7c67b86f16cb0a1789af495c05a",
   "local_qualification": {
@@ -167,12 +167,109 @@
   "production_access": false,
   "production_hot_enabled": false,
   "live_profiles_run": false,
-  "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+  "windows_acceptance": "ACCEPTED_FROM_OPERATOR_CONSOLE",
   "remaining": [
-    "Windows command50 final JSON and actual CMD prompt return",
-    "separately invoked bounded live ordinary and owned-worker recovery profiles after fresh production health",
+    "Separately invoked bounded live ordinary and owned-worker recovery profiles after fresh production health",
     "read-only Overlay adapter",
     "profiled live controller resume entry if required",
     "longer/mixed-source/provider capacity and controlled production adoption"
-  ]
+  ],
+  "windows_qualification": {
+    "result": "PASS",
+    "tests": 34,
+    "passed": 34,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "failed_tests": [],
+    "seconds": 6.784193900064565,
+    "network": "denied",
+    "production_access": false,
+    "python": [
+      3,
+      12,
+      13
+    ],
+    "executable": "C:\\Users\\danla\\anaconda3\\envs\\sea-green\\python.exe",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "suites": [
+      "test_live_profile",
+      "test_live_profile_launcher",
+      "test_live_profile_process"
+    ],
+    "accepted_runtime_source_files_unchanged": 70,
+    "scope": "New human credential-bound fresh live entry, pinned role/argv dispatch, installed-helper recheck per worker, source/host offline gate, sequential invocation lease, bound stop requests, native bootstrap/runtime ordering, independent pipe deadline, owned synthetic native quote and separate read-only final audit/two replays. Synthetic APIs only. Feed reconciliation in the quote proof is logical; native child/credential/progress/cleanup work is elapsed. One quote is a wiring proof, not a completed 30 or 12+24 profile.",
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "failure_evidence_files": [],
+    "success_evidence_files": [
+      "23a1e0b17ff1.json"
+    ],
+    "unchanged_accepted_suites_repeated": false,
+    "prior_failed_results_retained": true,
+    "windows_acceptance": "OPERATOR_RESULT_REQUIRED",
+    "credential_bound_entry_current_host_offline_qualified": true,
+    "installed_live_integration_or_capacity_qualified": false,
+    "manual_profile_controller_resume_exposed": false,
+    "remaining": [
+      "Windows command50 final result and actual CMD prompt return",
+      "separately invoked bounded live ordinary and owned-worker recovery profiles",
+      "read-only Overlay adapter",
+      "production adoption and broader capacity"
+    ]
+  },
+  "windows_operator_acceptance": {
+    "command": "50_verify_live_profile_entry.cmd",
+    "status": "ACCEPTED",
+    "acceptance_date_utc": "2026-10-24",
+    "basis": "Complete operator-supplied Windows CMD console/final JSON and actual CMD prompt return.",
+    "saved_report_independently_uploaded_or_read": false,
+    "reported_success_sidecar_independently_uploaded_or_read": false,
+    "reported_success_sidecar": "23a1e0b17ff1.json",
+    "exact_windows_native_acquisition_count_and_native_profile_verdict": "NOT_SUPPLIED_IN_CONSOLE; the passed synthetic wiring check requires at least one quote, matching fresh replays and no completed full-profile goal.",
+    "actual_cmd_prompt_return_observed": true,
+    "runner_seconds": 6.562,
+    "report_seconds": 6.784193900064565,
+    "run_id": "20261024T194914Z-34e5a4c9",
+    "reported_saved_file": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\live_profile_entry_20261024_193721_f53abb\\runs\\verification\\20261024T194914Z-34e5a4c9\\verification.json",
+    "environment": "sea-green",
+    "python": [
+      3,
+      12,
+      13
+    ],
+    "platform": "Windows-11-10.0.26300-SP0",
+    "tests": 34,
+    "passed": 34,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "qualified_source_commit": "1e40cde1daa005304e63f0802c8cbc28e1b18580",
+    "qualified_source_tree": "265ae96fad86b7c67b86f16cb0a1789af495c05a",
+    "archive": "live_profile_entry_20261024_193721_f53abb.zip",
+    "archive_sha256": "4f9d623ea0e25cee224a520ee9e658502ae82a7da1c7b770c11bd74c79963ddf",
+    "raw_fixed_windows_acceptance_label_retained": "OPERATOR_RESULT_REQUIRED",
+    "raw_emitted_remaining_list_retained": true,
+    "credential_bound_entry_windows_offline_accepted": true,
+    "accepted_runtime_native_helper_files_unchanged": 70,
+    "runtime_source_changed_for_acceptance": false,
+    "archive_rebuilt_for_acceptance": false,
+    "limits_relaxed": false,
+    "prior_failed_results_retained": true,
+    "unchanged_accepted_suites_repeated": false,
+    "actual_vault_access": false,
+    "real_feed_directory_or_broker_requests": 0,
+    "production_access": false,
+    "installed_live_integration_or_capacity_qualified": false,
+    "manual_profile_controller_resume_exposed": false,
+    "live_profiles_run": false,
+    "scope": "New human credential-bound fresh live entry, pinned role/argv dispatch, installed-helper recheck per worker, source/host offline gate, sequential invocation lease, bound stop requests, native bootstrap/runtime ordering, independent pipe deadline, owned synthetic native quote and separate read-only final audit/two replays. Synthetic APIs only. Feed reconciliation in the quote proof is logical; native child/credential/progress/cleanup work is elapsed. One quote is a wiring proof, not a completed 30 or 12+24 profile.",
+    "remaining": [
+      "Separately invoked bounded live ordinary and owned-worker recovery profiles after fresh production health",
+      "read-only Overlay adapter",
+      "profiled live controller resume entry if required",
+      "longer/mixed-source/provider capacity and controlled production adoption"
+    ]
+  },
+  "credential_bound_entry_windows_offline_qualified": true
 }
