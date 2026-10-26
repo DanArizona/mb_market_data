@@ -1211,6 +1211,14 @@ A future direct Schwab downstream adapter would belong above or beside this acqu
 
 ---
 
+# Saved symbol membership reports
+
+`python probes\report_symbol_membership.py "AZTR CLRO LUCD JAGX NN SAIQ"`
+reports today's effective Uni/Focus/Hot membership intervals through now or
+16:00 ET, whichever is earlier. Date, end time and JSON output are optional.
+The read-only tool needs no credentials or API calls. See
+[usage and no-data semantics](docs/symbol_membership_report.md).
+
 # Disclaimer
 
 This is an independent personal software project.

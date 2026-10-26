@@ -1,0 +1,36 @@
+{
+  "contract": "daily-symbol-membership-report-validation-v1",
+  "date": "2026-10-26",
+  "result": "PASS",
+  "base_market_data_commit": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+  "tests": 17,
+  "passed": 17,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "seconds": 0.223,
+  "command": "PYTHONPATH=src python -m unittest discover -s tests -p test_membership_report.py -q",
+  "fixture_source": "Native QuoteObservationStore schema-v1/v2 journals; synthetic memberships only",
+  "coverage": [
+    "Entry, exit, reentry, same-time revisions and coalescing unchanged membership",
+    "Inclusive cutoff, excluding later changes, unknown period before first revision",
+    "Absent default day and empty day return per-symbol NULL; absent symbol in known rosters returns NO",
+    "Wrong date/schema, missing explicit file, incomplete hierarchy and member-count corruption error",
+    "ET date/time defaults, close cap, explicit time validation and DST ambiguity rejection",
+    "Schema-v1 unknown channels, original publication-before-effective contract",
+    "Concurrent WAL read sees committed state without modifying database/WAL or taking a writer lease",
+    "CLI subprocess text/JSON interface, normalization, duplicates and return to caller"
+  ],
+  "development_fixture_correction": "Initial synthetic fixtures used the wall clock after their effective time, violating the existing native publication gate. Fixture publication clocks were made deterministic before effective time. No native contract was changed.",
+  "production_access": false,
+  "credentials_or_api_requests_by_report": 0,
+  "polling_source_changes": false,
+  "windows_execution": "PENDING_OPERATOR_RUN",
+  "requested_production_report": {
+    "date": "2026-10-26",
+    "end_time_et": "16:00:00",
+    "symbols": ["AZTR", "CLRO", "LUCD", "JAGX", "NN", "SAIQ"],
+    "status": "PENDING_OPERATOR_LOCAL_JOURNAL_READ",
+    "reason": "MasterBot's saved daily journal is not present in this workspace; no per-symbol results are inferred from aggregate audit counts."
+  }
+}
