@@ -168,14 +168,8 @@
   },
   "actual_cmd_prompt_return_observed": true,
   "opening_r0_preparation_complete": true,
-  "morning_startup_complete": false,
-  "morning_pending": [
-    "Fresh Monday credential preflight and refresh-horizon check",
-    "Complete-Uni October26 API OV acquisition after the 09:00 ET decision cutoff, using the [00:00,09:00) decision window",
-    "Fresh Monday Focus selection and r1 publication/audit/replay",
-    "Dated Uni/Focus poller and independent monitor/watchdog startup",
-    "Opening scheduled commits and fresh health verification"
-  ],
+  "morning_startup_complete": true,
+  "morning_pending": [],
   "production_hot_enabled": false,
   "experimental_cadence_adopted": false,
   "standing_checkpoint_publication_approval_applied": true,
@@ -188,5 +182,22 @@
     "covers_planned_october26_through30_sessions_with_current_margin": true,
     "evidence_record": "docs/validation/schwab_reauthorization_20261024.json",
     "fresh_monday_preflight_still_required": true
+  },
+  "morning_completion": {
+    "acceptance": "PRODUCTION_OPENING_VERIFIED",
+    "reported_check_time_et": "09:32:14",
+    "session_date": "2026-10-26",
+    "members": {
+      "uni": 553,
+      "focus": 40,
+      "hot": 0
+    },
+    "uni_focus_acquisitions": [
+      5,
+      9
+    ],
+    "both_channels_missing_slots_after_grace": 0,
+    "record": "docs/validation/production_startup_20261026.json",
+    "full_session_result": "PENDING"
   }
 }
