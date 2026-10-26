@@ -1,0 +1,146 @@
+{
+  "contract": "daily-symbol-membership-report-windows-acceptance-v1",
+  "result": "ACCEPTED_OPERATOR_RESULT",
+  "session_date": "2026-10-26",
+  "cutoff_et": "2026-10-26T16:00:00-04:00",
+  "evidence_source": "Complete operator-supplied Windows CMD transcript; actual source journal not independently read in the development workspace.",
+  "environment": {
+    "host": "MasterBot",
+    "platform": "Windows",
+    "conda_environment": "sea-green"
+  },
+  "delivered_archive": "membership_report_20261026.zip",
+  "source_commit": "6296f7152334a5a2d11edd3c3c01ba1eda36c680",
+  "original_offline_validation": "docs/validation/symbol_membership_report_20261026.json",
+  "original_pending_snapshot_retained": true,
+  "command": "call \"C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\membership_report_20261026\\report_membership.cmd\" \"AZTR CLRO LUCD JAGX NN SAIQ\" --date 2026-10-26 --end-time 16:00",
+  "database": "C:\\Users\\danla\\Documents\\github\\mb_market_data\\output\\quote_observation_journal_v2_api_opening_2026-10-26\\2026-10-26.sqlite3",
+  "actual_cmd_prompt_return_observed": true,
+  "reported_errors": [],
+  "no_data_reports": [],
+  "membership_history_start_et": "2026-10-26T09:30:00-04:00",
+  "membership_before_first_revision": "UNKNOWN",
+  "results": {
+    "AZTR": {
+      "uni": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "focus": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "hot": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      }
+    },
+    "CLRO": {
+      "uni": {
+        "at_cutoff": true,
+        "ever_member_in_recorded_history": true,
+        "member_intervals_et": [
+          {
+            "from": "2026-10-26T09:30:00-04:00",
+            "to": "2026-10-26T16:00:00-04:00"
+          }
+        ]
+      },
+      "focus": {
+        "at_cutoff": true,
+        "ever_member_in_recorded_history": true,
+        "member_intervals_et": [
+          {
+            "from": "2026-10-26T09:30:00-04:00",
+            "to": "2026-10-26T16:00:00-04:00"
+          }
+        ]
+      },
+      "hot": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      }
+    },
+    "LUCD": {
+      "uni": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "focus": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "hot": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      }
+    },
+    "JAGX": {
+      "uni": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "focus": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "hot": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      }
+    },
+    "NN": {
+      "uni": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "focus": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "hot": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      }
+    },
+    "SAIQ": {
+      "uni": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "focus": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      },
+      "hot": {
+        "at_cutoff": false,
+        "ever_member_in_recorded_history": false,
+        "member_intervals_et": []
+      }
+    }
+  },
+  "scope": {
+    "read_only_production_journal_report": true,
+    "production_code_or_polling_changes": false,
+    "credentials_or_api_calls_required": false,
+    "unchanged_test_suites_repeated": false,
+    "symbol_exclusion_reasons_inferred": false,
+    "membership_does_not_itself_prove_quote_collection": true
+  },
+  "conclusion": "First requested six-symbol report completed on Windows and returned to CMD. CLRO is in Uni and Focus for the entire recorded interval; all six are absent from Hot, and the other five are absent from all three channels."
+}
