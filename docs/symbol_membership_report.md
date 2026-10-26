@@ -61,3 +61,6 @@ Tests create native schema-v1/v2 journals, exercise changes/cutoffs/missing
 data/errors and concurrent WAL reads, and execute the CLI in a subprocess.
 Production symbol results still require running against the operator's local
 daily journal; synthetic results are never presented as production evidence.
+
+Membership case studies awaiting review are tracked in the
+[dated investigation register](research/membership_criteria_cases.md).
