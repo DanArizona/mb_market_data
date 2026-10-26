@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-26",
+  "status": "EXPLICIT_OPERATOR_PRIORITY_DIRECTIVE",
+  "operator_directive": "Our top priority is getting live, automatic Nasdaq Halts implemented, followed closely behind by Manual membership promotion/demotion.",
+  "source": "Operator message and attached scheduled week 2026-10-26 review supplied in the current conversation.",
+  "attached_review_sha256": "6c4eb28beabbee503ac84a1fca53b36f4f99ca4dce928ba331c44a4326eb74e9",
+  "attached_review_modified": false,
+  "review_section6_exact_text": "Capture a fresh read-only production-health baseline for October 26 immediately before invoking the isolated command 51 ordinary live profile.",
+  "section6_interpretation": "The named first action already leads into the ordinary Nasdaq live profile. A fresh production-health check is its immediate launch prerequisite, not a separate development milestone. Overall review ranking and omission of manual membership work need correction.",
+  "development_priority_order": [
+    {
+      "priority": 1,
+      "goal": "Deliver running live automatic Nasdaq halt-driven membership and authenticated Hot acquisition through the remaining relevant bounded recovery/operating/deployment gates.",
+      "next": "Fresh production health, command51 ordinary, evidence review, separate command52 recovery; then concrete minimum controlled adoption work and explicit production approval."
+    },
+    {
+      "priority": 2,
+      "goal": "Manual membership promotion/demotion operator workflow, following closely.",
+      "implementation_basis": "Reuse existing shared request/admission/publication mechanisms; distinguish source-owned request withdrawal from authorized restrictions that can override other active demand; show durable request and effective membership outcomes."
+    }
+  ],
+  "overlay": "Agreed read-only membership/halt/resumption/as-known/recovery adapter remains in scope. Essential operational visibility accompanies the delivered function; broader Overlay polish and unrelated candle work are not gates before manual membership.",
+  "routine_production": "Continue healthy Uni/Focus and monitor; perform full-session audit/replay, dated monitor/watchdog shutdown and fresh next-session preparation after close. These duties do not postpone available market-hours Nasdaq development until the closing bell.",
+  "integrity_and_scaling": "Preserve failed records and unresolved findings. Resolve a finding if it materially blocks the current bounded runtime/deployment; do not waive actual integrity/recovery gates or make all unrelated future studies blanket prerequisites.",
+  "cadence": "Separate proposed rollout after the two live profiles at a fresh session boundary while Hot stays disabled, with affected scheduler/monitor/restart/historical/Overlay checks; no cadence change is made here.",
+  "historical_data": "Massive historical-data evaluation remains a separate proposed batch/research track with a small read interface; not a dependency for Nasdaq/manual delivery.",
+  "production_state_unchanged": {
+    "mb_market_data_main": "a082f544112643b4e5f459d15c67f60d0a1ef83d",
+    "schwab_watchlists_main": "e2ef6f62856ba3226c41456b7779951aa8640cbf",
+    "uni_poll_seconds": [
+      0,
+      30
+    ],
+    "focus_poll_seconds": [
+      5,
+      20,
+      35,
+      50
+    ],
+    "hot_enabled": false
+  },
+  "live_profiles_run": false,
+  "main_merges_or_production_activation_authorized_by_priority_directive": false,
+  "existing_standing_checkpoint_publication_approval_applied": true,
+  "new_week_handoff": "Week_2026-10-26_Opening_Prompt.md (separately delivered opening-prompt artifact)",
+  "scope": "Planning priority/handoff only. No runtime change, API request, production process/journal mutation, new qualification verdict or automatic production enablement."
+}
