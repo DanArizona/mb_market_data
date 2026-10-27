@@ -23,6 +23,7 @@ from typing import Iterable, Protocol
 from zoneinfo import ZoneInfo
 
 from mb_market_data.schwab_quotes import normalize_symbols
+from mb_market_data.polling_cadence import LEGACY, cadence_seconds
 
 
 ET = ZoneInfo("America/New_York")
@@ -90,12 +91,13 @@ class PollSlot:
 
     watchlist_kind: WatchlistKind
     scheduled_at: datetime
+    cadence_profile: str = field(default=LEGACY, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         _require_aware(self.scheduled_at, "scheduled_at")
 
         local = self.scheduled_at.astimezone(ET)
-        expected_seconds = POLL_SECONDS[self.watchlist_kind]
+        expected_seconds = cadence_seconds(self.watchlist_kind, self.cadence_profile)
 
         if local.second not in expected_seconds or local.microsecond != 0:
             raise ValueError(
@@ -291,6 +293,7 @@ def next_poll_slot(
     *,
     after: datetime,
     window: PollWindow,
+    cadence_profile: str = LEGACY,
 ) -> PollSlot | None:
     """Return the first eligible slot strictly later than ``after``.
 
@@ -300,6 +303,7 @@ def next_poll_slot(
     """
 
     _require_aware(after, "after")
+    seconds = cadence_seconds(watchlist_kind, cadence_profile)
 
     local_after = after.astimezone(ET)
     local_start = window.start_at.astimezone(ET)
@@ -310,7 +314,7 @@ def next_poll_slot(
     for minute_offset in range(0, 60 * 48):
         candidate_minute = minute + timedelta(minutes=minute_offset)
 
-        for second in POLL_SECONDS[watchlist_kind]:
+        for second in seconds:
             candidate = candidate_minute.replace(second=second)
 
             if candidate <= search_from:
@@ -325,6 +329,7 @@ def next_poll_slot(
             return PollSlot(
                 watchlist_kind=watchlist_kind,
                 scheduled_at=candidate,
+                cadence_profile=cadence_profile,
             )
 
     raise RuntimeError("poll-window search exceeded 48 hours")
@@ -336,6 +341,7 @@ def poll_slots_between(
     through: datetime,
     window: PollWindow,
     watchlist_kinds: Iterable[WatchlistKind] = tuple(WatchlistKind),
+    cadence_profile: str = LEGACY,
 ) -> tuple[PollSlot, ...]:
     """Return all eligible slots in ``(after, through]`` in time order."""
 
@@ -355,6 +361,7 @@ def poll_slots_between(
                 kind,
                 after=cursor,
                 window=window,
+                cadence_profile=cadence_profile,
             )
 
             if slot is None or slot.scheduled_at > through:

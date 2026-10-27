@@ -102,6 +102,7 @@ def main() -> int:
                 cache=overlay_cache,
                 symbol=overlay_cache.symbol,
                 session_date=reader.session_date,
+                poll_seconds_by_run=reader.poll_seconds_by_run(),
                 halt_intervals=(
                     load_overlay_halt_intervals(
                         args.nasdaq_halts_json,

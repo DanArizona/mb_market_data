@@ -272,6 +272,7 @@ class OverlayQuotePoint:
     status: str
     detail: str | None
     values: Mapping[str, Any]
+    poll_seconds: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,6 +319,7 @@ class ObservationOverlayProjector:
         symbol: str,
         session_date: date,
         halt_intervals: tuple[OverlayHaltInterval, ...] = (),
+        poll_seconds_by_run: Mapping[str, tuple[int, ...]] | None = None,
     ) -> None:
         normalized_symbol = _symbol(symbol)
         if cache.symbol != normalized_symbol:
@@ -328,6 +330,7 @@ class ObservationOverlayProjector:
         self.symbol = normalized_symbol
         self.session_date = session_date
         self.halt_intervals = tuple(halt_intervals)
+        self.poll_seconds_by_run = MappingProxyType(dict(poll_seconds_by_run or {}))
         if any(
             interval.start_et.date() != session_date
             or (
@@ -406,6 +409,7 @@ class ObservationOverlayProjector:
                 status=observation.status,
                 detail=observation.detail,
                 values=MappingProxyType(dict(observation.values)),
+                poll_seconds=self.poll_seconds_by_run.get(event.acquisition.run_id),
             )
         )
 
@@ -467,6 +471,7 @@ def prepare_observation_overlay(
     symbol: str,
     session_date: date,
     replay_time_utc: datetime,
+    poll_seconds_by_run: Mapping[str, tuple[int, ...]] | None = None,
 ) -> ObservationOverlayData:
     """Prepare one deterministic overlay without mutating either input.
 
@@ -478,6 +483,7 @@ def prepare_observation_overlay(
         cache=cache,
         symbol=symbol,
         session_date=session_date,
+        poll_seconds_by_run=poll_seconds_by_run,
     )
     for event in events:
         projector.apply(event)

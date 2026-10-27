@@ -14,7 +14,7 @@ import subprocess
 import sys
 import time
 from contextlib import closing, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -23,6 +23,10 @@ from zoneinfo import ZoneInfo
 ET = ZoneInfo("America/New_York")
 UTC = timezone.utc
 CADENCES = {"uni": (0, 30), "focus": (5, 20, 35, 50)}
+try:
+    from polling_cadence import LEGACY, CADENCE_PROFILES, cadence_seconds, journal_profile
+except ModuleNotFoundError:
+    from mb_market_data.polling_cadence import LEGACY, CADENCE_PROFILES, cadence_seconds, journal_profile
 
 
 def timestamp(value: str | datetime) -> datetime:
@@ -41,8 +45,11 @@ class HealthConfig:
     stop_at: datetime
     grace_seconds: float = 90.0
     read_timeout_seconds: float = 0.25
+    cadence_profile: str = "auto"
 
     def __post_init__(self) -> None:
+        if self.cadence_profile != "auto":
+            cadence_seconds("uni", self.cadence_profile)
         start, stop = timestamp(self.start_at), timestamp(self.stop_at)
         if stop <= start or start.astimezone(ET).date() != self.session_date:
             raise ValueError("Invalid polling window or session date")
@@ -58,7 +65,7 @@ def configured_slots(config: HealthConfig, channel: str) -> Iterator[datetime]:
     current = timestamp(config.start_at).replace(second=0, microsecond=0)
     stop = timestamp(config.stop_at)
     while current < stop:
-        for second in CADENCES[channel]:
+        for second in cadence_seconds(channel, LEGACY if config.cadence_profile == "auto" else config.cadence_profile):
             slot = current + timedelta(seconds=second)
             if timestamp(config.start_at) <= slot < stop:
                 yield slot
@@ -260,6 +267,18 @@ def inspect_health(config: HealthConfig, *, now: datetime | None = None,
     began = time.monotonic()
     try:
         data = read_journal(config)
+        recorded_profile = journal_profile(data["runs"])
+        selected_profile = (recorded_profile or LEGACY) if config.cadence_profile == "auto" else config.cadence_profile
+        if recorded_profile is not None and recorded_profile != selected_profile:
+            raise ValueError("Monitor cadence differs from the registered session cadence")
+        config = replace(config, cadence_profile=selected_profile)
+        result["cadence_profile"] = selected_profile
+        if selected_profile != LEGACY:
+            result["restart_commands"] = {channel: subprocess.list2cmdline([
+                sys.executable, str(config.market_data_root/"probes/polling_health.py"),
+                "restart", "--market-data-root", str(config.market_data_root),
+                "--session-date", str(config.session_date), "--channel", channel,
+                "--cadence-profile", selected_profile]) for channel in CADENCES}
         for run in data["runs"]:
             configuration = json.loads(run["configuration_json"])
             if configuration.get("watchlist_kind") in CADENCES:
@@ -373,10 +392,15 @@ def restart_command(config: HealthConfig, channel: str, health: dict[str, Any],
     probe = Path(config.market_data_root).resolve() / "probes/probe_universe_quote_watch.py"
     if not probe.is_file():
         raise ValueError("Production poller script was not found")
-    return [executable, str(probe), "--watchlist-kind", channel,
+    command = [executable, str(probe), "--watchlist-kind", channel,
             "--start-at", config.start_at.astimezone(ET).isoformat(),
             "--stop-at", config.stop_at.astimezone(ET).isoformat(),
             "--journal-root", str(Path(config.journal).resolve().parent), "--journal-schema-version", "2"]
+    profile = health.get("cadence_profile", LEGACY if config.cadence_profile == "auto" else config.cadence_profile)
+    cadence_seconds(channel, profile)
+    if profile != LEGACY:
+        command.extend(("--cadence-profile", profile))
+    return command
 
 
 def check_write_available(config: HealthConfig) -> None:
@@ -527,6 +551,8 @@ def format_health(health: dict[str, Any]) -> str:
     lines = [f"Polling health: {health['session_date']} as of {et(health['observed_at_utc'])}",
              f"Journal: {health['journal']}", f"Journal read: {health['journal_read']} ({health['journal_read_seconds']:.3f}s)",
              f"Slot grace: {health['grace_seconds']:g}s; trade/quote age is not a poller heartbeat."]
+    if health.get("cadence_profile") not in (None, LEGACY):
+        lines.append("Cadence profile: "+health["cadence_profile"])
     if health["journal_error"]:
         lines.append("ALERT: " + health["journal_error"])
     if health.get("status_output_error"):
@@ -542,12 +568,16 @@ def format_health(health: dict[str, Any]) -> str:
             lines.append("Gap range: " + et(info["missing_slots"][0]) + " through " + et(info["missing_slots"][-1]))
         if info["error_tail"]:
             lines.append("Saved error: " + info["error_tail"])
-        if info["state"] in {"FAILED", "STOPPED_EARLY", "PROCESS_MISSING", "OVERDUE", "NOT_STARTED"}:
+        if info["state"] in {"FAILED", "STOPPED_EARLY", "PROCESS_MISSING", "OVERDUE", "NOT_STARTED"} and not health.get("restart_commands"):
             launcher = health.get("restart_launchers", {}).get(channel)
             if launcher:
                 lines.extend([f"After this poller exits, run in prod-poll-{channel}:", f'call "{launcher}"'])
-    lines.extend(["", "If a channel stops: leave healthy channels running. Check its CMD error first.",
-                  "Restart UNI: 03_prod_poll_uni_restart.cmd in prod-poll-uni.",
-                  "Restart FOCUS: 04_prod_poll_focus_restart.cmd in prod-poll-focus.",
-                  "Restart restores future slots. Salvage saved acquisitions after the window closes.", ""])
+    lines.extend(["", "If a channel stops: leave healthy channels running. Check its CMD error first."])
+    if health.get("restart_commands"):
+        for channel, command in health["restart_commands"].items():
+            lines.extend([f"After this poller exits, run in prod-poll-{channel}:", command])
+    else:
+        lines.extend(["Restart UNI: 03_prod_poll_uni_restart.cmd in prod-poll-uni.",
+                      "Restart FOCUS: 04_prod_poll_focus_restart.cmd in prod-poll-focus."])
+    lines.extend(["Restart restores future slots. Salvage saved acquisitions after the window closes.", ""])
     return "\n".join(lines)

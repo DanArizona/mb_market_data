@@ -217,6 +217,9 @@ def parse_args() -> argparse.Namespace:
             "Watch the full candidate universe using batched Schwab quotes."
         )
     )
+    from mb_market_data.polling_cadence import CADENCE_PROFILES, LEGACY
+    parser.add_argument("--cadence-profile", choices=tuple(CADENCE_PROFILES), default=LEGACY,
+                        help="Named session cadence; default legacy-v1. Interleaved requires schema-v2.")
     parser.add_argument(
         "--universe-csv",
         default=str(DEFAULT_UNIVERSE_CSV),
@@ -1156,6 +1159,7 @@ def prepare_polling_client(
 
 def main() -> int:
     args = parse_args()
+    args.cadence_profile = getattr(args, "cadence_profile", "legacy-v1")
 
     if args.interval <= 0:
         raise SystemExit("--interval must be greater than zero.")
@@ -1179,6 +1183,9 @@ def main() -> int:
         )
 
     hierarchy_polling = args.journal_schema_version == 2
+    from mb_market_data.polling_cadence import LEGACY, cadence_seconds, check_before_credentials
+    if args.cadence_profile != LEGACY and (not hierarchy_polling or not args.watchlist_kind):
+        raise SystemExit("Interleaved cadence requires schema-v2 exact-slot polling.")
     if hierarchy_polling and not args.journal_root:
         raise SystemExit(
             "--journal-schema-version 2 requires --journal-root."
@@ -1237,6 +1244,14 @@ def main() -> int:
         max_samples=args.max_samples,
         interval_seconds=args.interval,
     )
+    if hierarchy_polling:
+        import sqlite3
+        try:
+            check_before_credentials(daily_quote_journal_path(
+                Path(args.journal_root).expanduser(), poll_window.session_date), args.cadence_profile)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            print(f"Polling cadence preflight FAILED: {error}", file=sys.stderr)
+            return 2
     print(f"Encrypted config : {ecfg_path}")
     password = getpass.getpass("Encrypted config password: ")
     try:
@@ -1331,13 +1346,15 @@ def main() -> int:
             "symbol_count": len(symbols) if not hierarchy_polling else None,
             "fields": args.fields,
             "batch_size": args.batch_size,
-            "poll_seconds": list(POLL_SECONDS[poll_kind]),
+            "poll_seconds": list(cadence_seconds(poll_kind, args.cadence_profile)),
             "poll_window_start_et": poll_window.start_at.isoformat(),
             "poll_window_end_et": poll_window.end_at.isoformat(),
             "evidence_run_directory": str(run_dir.resolve()),
             "journal_write_recovery": {"budget_seconds": 5, "attempt_seconds": 0.25, "max_attempts": 20,
                                        "retry_error": "SQLITE_BUSY", "diagnostic_file": str(write_diagnostic_path.resolve())},
         }
+        if hierarchy_polling:
+            journal_configuration["cadence_profile"] = args.cadence_profile
         if hierarchy_polling:
             journal_session = (
                 PollingJournalSession.register_hierarchy_polling(
@@ -1387,7 +1404,7 @@ def main() -> int:
             else None
         ),
         "poll_seconds": (
-            list(POLL_SECONDS[poll_kind]) if poll_kind else None
+            list(cadence_seconds(poll_kind, args.cadence_profile)) if poll_kind else None
         ),
         "poll_window_start_et": (
             poll_window.start_at.isoformat() if poll_window else None
@@ -1427,6 +1444,7 @@ def main() -> int:
         ),
         "journal_run_id": journal_run_id,
         "journal_software_version": journal_software_version,
+        "cadence_profile": args.cadence_profile if poll_kind else None,
         "journal_run_record_result": (
             journal_session.run_record_result.value
             if journal_session
@@ -1481,7 +1499,7 @@ def main() -> int:
             "Polling seconds  : "
             + ", ".join(
                 f":{second:02d}"
-                for second in POLL_SECONDS[poll_kind]
+                for second in cadence_seconds(poll_kind, args.cadence_profile)
             )
         )
         print(
@@ -1583,6 +1601,7 @@ def main() -> int:
                         poll_kind,
                         after=now,
                         window=poll_window,
+                        cadence_profile=args.cadence_profile,
                     )
                     if slot is None:
                         print("Reached the end of the polling window.")
