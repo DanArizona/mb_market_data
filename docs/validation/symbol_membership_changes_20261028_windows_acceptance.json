@@ -1,0 +1,40 @@
+{
+  "contract": "membership-changes-windows-operator-acceptance-v1",
+  "result": "ACCEPTED_OPERATOR_RESULT",
+  "observed_on": "2026-10-28",
+  "report_session_date": "2026-10-26",
+  "cutoff_et": "2026-10-26T16:00:00-04:00",
+  "history_start_et": "2026-10-26T09:30:00-04:00",
+  "earlier_membership": "UNKNOWN",
+  "selector_source_session_date": "2026-10-22",
+  "opening_source": "daily-universe-carry-forward-v1",
+  "evidence_basis": "Complete operator-supplied Windows report output and returned CMD prompt, followed by explicit user acceptance. Original journal and ledgers not independently uploaded or read here.",
+  "operator_accepted_requested_information": true,
+  "archive": "membership_report_20261028.zip",
+  "archive_sha256": "9d44d96de1a1c32c75a2765045e0f7d7b5462c986dc3173c1a5ee42050c6bc71",
+  "archive_remains_unchanged_after_publication": true,
+  "database": "output/quote_observation_journal_v2_api_opening_2026-10-26/2026-10-26.sqlite3",
+  "symbols": {
+    "AZTR": {"uni": "NEVER_MEMBER_IN_RECORDED_HISTORY", "focus_hot_text_suppressed": true,
+      "reason_codes": ["regular_trade_not_in_session", "volume_below_min", "close_below_min"],
+      "market_cap": "4333167.5530", "close": "0.0715", "volume": "0"},
+    "CLRO": {"uni": "JOINED_09:30:00_R0; MEMBER_AT_CUTOFF", "focus": "JOINED_09:30:00_R1; MEMBER_AT_CUTOFF",
+      "uni_reason": "included", "market_cap": "5136791.04", "close": "1.92", "volume": "92419",
+      "focus_reason": "UNAVAILABLE; no saved decision ledger matches the published hash",
+      "hot": "NEVER_MEMBER_IN_RECORDED_HISTORY", "hot_reason": "UNAVAILABLE; no symbol-specific exclusion decision recorded"},
+    "LUCD": {"uni": "NEVER_MEMBER_IN_RECORDED_HISTORY", "focus_hot_text_suppressed": true,
+      "reason_codes": ["market_cap_above_max"], "market_cap": "62573898.8210", "close": "0.3277", "volume": "32537916"},
+    "JAGX": {"uni": "NEVER_MEMBER_IN_RECORDED_HISTORY", "focus_hot_text_suppressed": true,
+      "reason_codes": ["market_cap_below_min"], "market_cap": "1118301.00", "close": "2.15", "volume": "198644"},
+    "NN": {"uni": "NEVER_MEMBER_IN_RECORDED_HISTORY", "focus_hot_text_suppressed": true,
+      "reason_codes": ["market_cap_above_max"], "market_cap": "1553521451.22", "close": "9.21", "volume": "1655904"},
+    "SAIQ": {"uni": "NEVER_MEMBER_IN_RECORDED_HISTORY", "focus_hot_text_suppressed": true,
+      "reason_codes": ["market_cap_above_max"], "market_cap": "102366802.56", "close": "5.28", "volume": "25013108"}
+  },
+  "limits": [
+    "Actual Windows report run accepted; the optional 39-test Windows verifier was not reported run",
+    "Reported selector reasons and source date are preserved, with no criteria change or retrospective membership change",
+    "CLRO Focus and Hot reason gaps remain explicit; no inferred ranking or request rejection",
+    "No API, password, production source installation or polling changes required"
+  ]
+}

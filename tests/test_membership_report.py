@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -99,21 +100,21 @@ class MembershipReportTests(unittest.TestCase):
             build_report(self.database, date(2026, 10, 27), at("16:00:00").replace(day=27), ["AZTR"])
 
     def test_unsupported_schema_is_an_error(self):
-        with sqlite3.connect(self.database) as connection:
+        with closing(sqlite3.connect(self.database)) as connection, connection:
             connection.execute("PRAGMA user_version = 99")
         with self.assertRaisesRegex(ReportError, "schema"):
             self.report()
 
     def test_partial_hierarchy_does_not_misreport_nonmembership(self):
         self.revision(0, "09:30:00")
-        with sqlite3.connect(self.database) as connection:
+        with closing(sqlite3.connect(self.database)) as connection, connection:
             connection.execute("DELETE FROM sampling_channel_revision WHERE channel = 'hot'")
         with self.assertRaisesRegex(ReportError, "Incomplete"):
             self.report()
 
     def test_member_count_corruption_is_an_error(self):
         self.revision(0, "09:30:00")
-        with sqlite3.connect(self.database) as connection:
+        with closing(sqlite3.connect(self.database)) as connection, connection:
             connection.execute("DELETE FROM sampling_channel_member WHERE symbol = 'AZTR'")
         with self.assertRaisesRegex(ReportError, "count mismatch"):
             self.report()
@@ -139,7 +140,7 @@ class MembershipReportTests(unittest.TestCase):
 
     def test_live_wal_read_is_committed_consistent_and_read_only(self):
         self.revision(0, "09:30:00")
-        with sqlite3.connect(self.database) as writer:
+        with closing(sqlite3.connect(self.database)) as writer, writer:
             writer.execute("PRAGMA journal_mode = WAL")
             writer.execute("BEGIN IMMEDIATE")
             writer.execute("DELETE FROM sampling_channel_member WHERE symbol = 'AZTR'")

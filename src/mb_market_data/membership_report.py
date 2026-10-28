@@ -7,6 +7,9 @@ It never opens the acquisition writer or scans quote observations.
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
+import io
 import json
 import sqlite3
 import sys
@@ -70,6 +73,16 @@ def _timestamp(value: str) -> datetime:
     return parsed.astimezone(ET)
 
 
+def _metadata(value: str) -> dict:
+    try:
+        result = json.loads(value)
+    except (TypeError, ValueError) as exc:
+        raise ReportError("Invalid membership metadata JSON.") from exc
+    if not isinstance(result, dict):
+        raise ReportError("Membership metadata must be an object.")
+    return result
+
+
 def _history(connection: sqlite3.Connection, day: date, cutoff: datetime) -> tuple[int, dict]:
     version = connection.execute("PRAGMA user_version").fetchone()[0]
     if version not in (1, 2):
@@ -106,6 +119,7 @@ def _history(connection: sqlite3.Connection, day: date, cutoff: datetime) -> tup
         item = {
             "effective": effective, "revision": header["revision"], "symbols": symbols,
             "source": header["source"], "reason": header["reason"], "published_at_et": None,
+            "metadata": _metadata(header["metadata_json"]),
         }
         histories[channel].append(item)
         grouped.setdefault(header["revision"], {})[channel] = item
@@ -124,8 +138,10 @@ def _history(connection: sqlite3.Connection, day: date, cutoff: datetime) -> tup
             if parent["membership_contract"] != CONTRACT:
                 raise ReportError(f"Unsupported membership contract: r{revision}")
             effective = _timestamp(parent["effective_at_utc"])
+            metadata = _metadata(parent["metadata_json"])
             if any(item["effective"] != effective or item["source"] != parent["source"]
-                   or item["reason"] != parent["reason"] for item in channels.values()):
+                   or item["reason"] != parent["reason"] or item["metadata"] != metadata
+                   for item in channels.values()):
                 raise ReportError(f"Hierarchy/channel provenance mismatch: r{revision}")
             if not channels["hot"]["symbols"] <= channels["focus"]["symbols"] <= channels["uni"]["symbols"]:
                 raise ReportError(f"Membership nesting violation: r{revision}")
@@ -148,6 +164,7 @@ def _channel_report(history: list[dict], symbol: str, start: datetime, cutoff: d
     state = None
     cursor = start
     revisions = []
+    changes = []
     for item in history:
         effective = item["effective"]
         member = symbol in item["symbols"]
@@ -155,28 +172,173 @@ def _channel_report(history: list[dict], symbol: str, start: datetime, cutoff: d
             "revision": item["revision"], "effective_at_et": effective.isoformat(),
             "published_at_et": item["published_at_et"], "member": member,
             "source": item["source"], "reason": item["reason"],
+            "metadata": item["metadata"],
         })
         if member != state:
+            changes.append({
+                **revisions[-1],
+                "action": "joined" if member else ("not a member" if state is None else "left"),
+            })
             if cursor < effective:
                 intervals.append({"from_et": cursor.isoformat(), "to_et": effective.isoformat(), "member": state})
             cursor = effective
             state = member
     intervals.append({"from_et": cursor.isoformat(), "to_et": cutoff.isoformat(), "member": state})
     return {
-        "at_cutoff": state, "ever_member": any(item["member"] for item in intervals),
+        "at_cutoff": state, "ever_member": any(item["member"] for item in revisions),
         "known_from_et": history[0]["effective"].isoformat(),
-        "intervals": intervals, "revisions": revisions,
+        "intervals": intervals, "revisions": revisions, "changes": changes,
     }
 
 
-def build_report(database: Path, day: date, cutoff: datetime, symbols: list[str], *, missing_ok: bool = False) -> dict:
+def _decision_metadata(metadata: dict, channel: str) -> dict | None:
+    """Recognize selector metadata, including preserved carry-forward metadata.
+
+    A Focus ledger hash on r1 must never be used to explain Uni membership.
+    Paths and filenames alone are not a binding to the published revision.
+    """
+    pending = [metadata]
+    matches = []
+    while pending:
+        value = pending.pop()
+        if isinstance(value, dict):
+            digest = value.get("decision_ledger_sha256")
+            role = ("uni" if any(key in value for key in (
+                "universe_manifest_sha256", "universe_source_session_date", "selector_version"))
+                else "focus" if any(key in value for key in (
+                    "focus_symbols_sha256", "ranked_focus_symbols")) else None)
+            if role == channel and isinstance(digest, str) and len(digest) == 64 \
+                    and all(char in "0123456789abcdefABCDEF" for char in digest):
+                matches.append(value)
+            pending.extend(value.values())
+        elif isinstance(value, list):
+            pending.extend(value)
+    if len({item["decision_ledger_sha256"].lower() for item in matches}) == 1:
+        return matches[0]
+    return None
+
+
+class DecisionEvidence:
+    """Read only ledger files whose bytes match a published selector hash."""
+
+    def __init__(self, root: Path | None, extra_roots: list[Path] | None = None):
+        extras = list(extra_roots or [])
+        self.roots = {
+            "uni": ([root / "output" / "daily_universe_production"] if root else []) + extras,
+            "focus": ([root.parent / "schwab_watchlists" / "output" / "ov_focus_production",
+                       root / "output" / "ov_focus_production"] if root else []) + extras,
+        }
+        self.paths = {}
+        self.digests = {}
+        self.cache = {}
+
+    def ledger(self, channel: str, metadata: dict, members: frozenset) -> tuple[dict | None, str | None, str | None]:
+        digest = metadata["decision_ledger_sha256"].lower()
+        key = (channel, digest)
+        if key not in self.cache:
+            filename = "decision_ledger.csv" if channel == "uni" else "focus_decision_ledger.csv"
+            if channel not in self.paths:
+                paths = set()
+                for root in self.roots[channel]:
+                    try:
+                        if root.is_dir():
+                            paths.update(path.resolve() for path in root.rglob(filename) if path.is_file())
+                    except OSError:
+                        # Missing reason evidence must not erase valid membership.
+                        continue
+                self.paths[channel] = sorted(paths)
+            found = None
+            for path in self.paths[channel]:
+                try:
+                    if path not in self.digests:
+                        self.digests[path] = hashlib.sha256(path.read_bytes()).hexdigest()
+                    if self.digests[path] != digest:
+                        continue
+                    payload = path.read_bytes()
+                    if hashlib.sha256(payload).hexdigest() != digest:
+                        continue
+                    reader = csv.DictReader(io.StringIO(payload.decode("utf-8-sig"), newline=""))
+                    if not {"symbol", "decision", "primary_reason"} <= set(reader.fieldnames or []):
+                        raise ValueError("decision ledger columns are incomplete")
+                    rows = {}
+                    for row in reader:
+                        symbol = (row.get("symbol") or "").strip().upper()
+                        if not symbol or symbol in rows:
+                            raise ValueError("decision ledger has blank or duplicate symbols")
+                        if row.get("decision") not in ("include", "reject", "exclude"):
+                            raise ValueError("decision ledger has an unsupported decision")
+                        rows[symbol] = row
+                    found = (rows, str(path), None)
+                    break
+                except (OSError, UnicodeError, csv.Error, ValueError) as exc:
+                    if self.digests.get(path) == digest:
+                        found = (None, str(path), f"matching decision ledger is unreadable or invalid: {exc}")
+                        break
+            self.cache[key] = found or (None, None, "no saved decision ledger matches the published hash")
+        rows, path, problem = self.cache[key]
+        if rows is not None and {symbol for symbol, row in rows.items() if row["decision"] == "include"} != members:
+            return None, path, "decision ledger inclusion set differs from the published channel membership"
+        return rows, path, problem
+
+
+def _selector_explanation(symbol: str, channel: str, item: dict, evidence: DecisionEvidence) -> dict | None:
+    metadata = _decision_metadata(item["metadata"], channel)
+    if metadata is None:
+        return None
+    rows, path, problem = evidence.ledger(channel, metadata, item["symbols"])
+    source_date = metadata.get("universe_source_session_date")
+    base = {"kind": "selector", "ledger": path, "ledger_sha256": metadata["decision_ledger_sha256"],
+            "source_session_date": source_date}
+    context = f" (source session={source_date})" if source_date else ""
+    if problem:
+        return {**base, "kind": "unavailable", "message": f"reason unavailable: {problem}{context}"}
+    row = rows.get(symbol)
+    if row is None:
+        return {**base, "kind": "unavailable", "message": "reason unavailable: no decision for this symbol in the verified ledger" + context}
+    codes = [value.strip() for value in (row.get("reason_codes") or row["primary_reason"]).split(";") if value.strip()]
+    details = []
+    for key, label in (("calculated_market_cap", "market cap"), ("close_price", "close"),
+                       ("total_volume", "volume"), ("ov_decision", "OV"),
+                       ("eligible_rank", "eligible rank")):
+        if row.get(key):
+            details.append(f"{label}={row[key]}")
+    if channel == "focus" and metadata.get("requested_limit") is not None:
+        details.append(f"selection limit={metadata['requested_limit']}")
+    if source_date:
+        details.append(f"source session={source_date}")
+    message = "; ".join(code.replace("_", " ") for code in codes) or "reason not recorded"
+    if details:
+        message += " (" + "; ".join(details) + ")"
+    return {**base, "message": message, "codes": codes, "decision": row["decision"], "values": row}
+
+
+def _explain_channel(channel: dict, history: list[dict], symbol: str, name: str, evidence: DecisionEvidence) -> None:
+    by_revision = {item["revision"]: item for item in history}
+    for change in channel["changes"]:
+        item = by_revision[change["revision"]]
+        explanation = _selector_explanation(symbol, name, item, evidence)
+        change["explanation"] = explanation or {
+            "kind": "journal" if item["reason"] else "unavailable",
+            "message": ("revision reason: " + item["reason"]) if item["reason"] else "reason not recorded",
+        }
+    if not channel["ever_member"]:
+        # Later Focus metadata does not supersede the Uni selector's evidence.
+        selected = next((item for item in reversed(history)
+                         if _decision_metadata(item["metadata"], name) is not None), None)
+        channel["never_reason"] = (_selector_explanation(symbol, name, selected, evidence) if selected else None) or {
+            "kind": "unavailable", "message": "reason unavailable: no symbol-specific exclusion decision recorded",
+        }
+
+
+def build_report(database: Path, day: date, cutoff: datetime, symbols: list[str], *, missing_ok: bool = False,
+                 market_data_root: Path | None = None, evidence_roots: list[Path] | None = None) -> dict:
     """Use one read-only SQLite transaction; absent auto-selected days yield NULL."""
     if cutoff.tzinfo is None or cutoff.utcoffset() is None or cutoff.astimezone(ET).date() != day:
         raise ReportError("Cutoff must be timezone-aware and on the requested ET date.")
     cutoff = cutoff.astimezone(ET)
     symbols = normalize_symbols(symbols)
     report = {
-        "contract": "daily-symbol-membership-report-v1", "date": day.isoformat(),
+        "contract": "daily-symbol-membership-report-v2", "date": day.isoformat(),
         "cutoff_et": cutoff.isoformat(), "database": str(database.resolve()),
         "basis": "effective membership in currently saved revisions; not an as-known-then replay",
         "status": "NO_DATA", "reason": None, "schema_version": None,
@@ -204,10 +366,14 @@ def build_report(database: Path, day: date, cutoff: datetime, symbols: list[str]
         return report
     report["status"] = "OK"
     start = datetime.combine(day, time.min, ET)
+    evidence = DecisionEvidence(market_data_root, evidence_roots)
     for symbol in symbols:
         report["symbols"][symbol] = {
             channel: _channel_report(histories[channel], symbol, start, cutoff) for channel in CHANNELS
         }
+        for name, channel in report["symbols"][symbol].items():
+            if channel is not None:
+                _explain_channel(channel, histories[name], symbol, name, evidence)
     return report
 
 
@@ -218,7 +384,7 @@ def _clock(value: str) -> str:
 def format_text(report: dict) -> str:
     lines = [f"Membership report: {report['date']} through {_clock(report['cutoff_et'])} ET",
              f"Journal: {report['database']}",
-             "Effective membership from currently saved history. All times ET."]
+             "Effective membership changes from currently saved history. All times ET."]
     if report["status"] == "NO_DATA":
         lines.append(f"No membership data: {report['reason']}")
         lines.extend(f"{symbol}: NULL" for symbol in report["symbols"])
@@ -227,15 +393,26 @@ def format_text(report: dict) -> str:
         lines.append(f"\n{symbol}")
         for name, channel in channels.items():
             if channel is None:
-                lines.append(f"  {name.upper():5} NULL (no channel history)")
+                lines.append(f"  {name.upper()}: NULL (no channel history)")
+                continue
+            if report["schema_version"] == 2 and name != "uni":
+                parent = channels["uni" if name == "focus" else "focus"]
+                if parent is not None and not parent["ever_member"]:
+                    continue
+                if name == "hot" and channels["uni"] is not None and not channels["uni"]["ever_member"]:
+                    continue
+            if not channel["ever_member"]:
+                message = channel["never_reason"]["message"]
+                lines.append(f"  {name.upper()}: never a member | {' '.join(message.split())}")
                 continue
             state = "YES" if channel["at_cutoff"] else "NO"
-            spans = []
-            for interval in channel["intervals"]:
-                if interval["member"]:
-                    begin, end = _clock(interval["from_et"]), _clock(interval["to_et"])
-                    spans.append(f"{begin} to {end}" if begin != end else f"at {begin}")
-            lines.append(f"  {name.upper():5} at cutoff: {state:3} | member: {', '.join(spans) or 'never in recorded history'}")
+            lines.append(f"  {name.upper()}: at cutoff: {state}")
+            for change in channel["changes"]:
+                if change["action"] == "not a member":
+                    continue
+                message = " ".join(change["explanation"]["message"].split())
+                source = " ".join(change["source"].split())
+                lines.append(f"    {_clock(change['effective_at_et'])} {change['action']} | {message} [r{change['revision']}; {source}]")
         known = sorted({channel["known_from_et"] for channel in channels.values() if channel})
         if len(known) == 1:
             lines.append(f"  History starts {_clock(known[0])}; earlier membership is unknown.")
@@ -243,18 +420,23 @@ def format_text(report: dict) -> str:
             for name, channel in channels.items():
                 if channel:
                     lines.append(f"  {name.upper()} history starts {_clock(channel['known_from_et'])}; earlier membership is unknown.")
-    lines.append("\nMembership intervals end when the next state starts; 'at cutoff' includes that instant.")
+    lines.append("\n'Never a member' covers recorded history through the cutoff; earlier membership is unknown.")
+    lines.append("Unchanged membership is not repeated.")
+    if report["schema_version"] == 2:
+        lines.append("Nested child channels are omitted when their parent was never a member.")
     lines.append("Membership does not prove quote collection or poller health.")
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Report saved Uni/Focus/Hot membership intervals. Read-only; no API or password.")
+    parser = argparse.ArgumentParser(description="Report saved Uni/Focus/Hot membership changes and recorded reasons. Read-only; no API or password.")
     parser.add_argument("symbols", nargs="+", help='Space-delimited symbols, quoted or unquoted')
     parser.add_argument("--date", type=date.fromisoformat, help="Requested ET date YYYY-MM-DD (default: today ET)")
     parser.add_argument("--end-time", help="ET HH:MM[:SS]; default today min(now,16:00), other dates 16:00")
     parser.add_argument("--market-data-root", type=Path, default=Path.cwd(), help="Repository root (default: current directory)")
     parser.add_argument("--database", type=Path, help="Explicit single journal, including legacy or isolated experiments")
+    parser.add_argument("--evidence-root", type=Path, action="append", default=[],
+                        help="Additional folder to search for hash-matching Uni/Focus decision ledgers (repeatable)")
     parser.add_argument("--format", choices=("text", "json"), default="text")
     args = parser.parse_args(argv)
     now = datetime.now(timezone.utc)
@@ -262,7 +444,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         cutoff = report_cutoff(day, args.end_time, now)
         database = args.database or default_database(args.market_data_root, day)
-        report = build_report(database, day, cutoff, args.symbols, missing_ok=args.database is None)
+        report = build_report(database, day, cutoff, args.symbols, missing_ok=args.database is None,
+                              market_data_root=args.market_data_root, evidence_roots=args.evidence_root)
     except (OSError, ReportError) as exc:
         print(f"Membership report ERROR: {exc}", file=sys.stderr)
         return 2

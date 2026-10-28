@@ -1,0 +1,47 @@
+{
+  "contract": "daily-symbol-membership-changes-validation-v1",
+  "result": "PASS_LOCAL_AND_PACKAGED_NATIVE_COMPATIBILITY",
+  "production_operator_result": "ACCEPTED_OPERATOR_RESULT; see symbol_membership_changes_20261028_windows_acceptance.json",
+  "earlier_source_publication": "COMMIT_BLOCKED_BY_AUTOMATIC_APPROVAL_REVIEW; no branch update from that attempt",
+  "earlier_source_publication_reason": "Reviewer treated the external GitHub repository as unverified for source/test/documentation export",
+  "publication_authorization": "Explicit October 22 continuing approval, re-established October 26, covers public source/tests/documentation/validation commits on experiment/* in DanArizona/mb_market_data",
+  "publication_authorization_record": "https://github.com/DanArizona/mb_watchlist_coordinator/blob/953c2bf7e0d9fc7addbda7805661a3ab9394e29e/docs/validation/publication_authorization_20261026.json",
+  "destination_verified": "GitHub API confirms owner DanArizona, public repository DanArizona/mb_market_data, connected-account push permission and existing experiment/symbol-membership-report-20261026 head f2420fd9833f7e26a13e649c69737dd0be8affa3; original API publication is retried only after these checks",
+  "retrieved_approval_retry": "BLOCKED; reviewer did not accept retrieved standing-approval records as user-authored authorization",
+  "direct_publication_authorization": {
+    "date": "2026-10-28",
+    "basis": "Direct user message in the active execution chat",
+    "scope": "Public publication of report source, tests, documentation and Windows validation record",
+    "repository": "DanArizona/mb_market_data",
+    "branch": "experiment/symbol-membership-report-20261026",
+    "main_merge_or_production_change": false
+  },
+  "tests": 39,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "source_checks": "39 native synthetic journal/decision-ledger checks pass in 0.689 seconds",
+  "packet_checks": "39 checks pass in 0.708 seconds from a packet path containing spaces, against native source 6b53ab1d12e4e1fdaf4deb1d70b717e13570358c",
+  "covered": [
+    "Actual per-symbol joins, exits, reentries and unchanged-state coalescing",
+    "Uni-never-member suppression of Focus/Hot; Focus-never-member suppression of Hot",
+    "Schema-v1 channels remain independent; missing history stays NULL",
+    "Exact cutoff and same-effective-time revision ordering",
+    "Journal metadata consistency and explicit missing change reasons",
+    "Published selector ledger SHA-256 and exact inclusion-set binding",
+    "Original carry-forward input dates and separate Uni/Focus ledger identities",
+    "No substitution of newer, altered, unbound, incomplete or contradictory reason evidence",
+    "Optional reason evidence failures preserve valid journal membership",
+    "Read-only journal/evidence bytes, committed WAL reads and standalone CLI JSON"
+  ],
+  "development_results_retained": [
+    "Initial test invocation lacked src on PYTHONPATH; corrected the test environment without changing runtime code",
+    "Initial new legacy fixture used an empty schema-v1 roster, which the native store rejects; fixture corrected to a nonempty independent roster"
+  ],
+  "production_changes": false,
+  "production_journals_opened": false,
+  "api_or_password_required": false,
+  "actual_symbol_exclusion_reasons_inferred": false,
+  "original_monday_archive_unchanged": true,
+  "note": "Local synthetic evidence establishes reporter behavior. Actual historical exclusion reasons require the saved operator-side selector ledgers; unavailable reasons are explicit. No production/main installation is required."
+}
