@@ -17,11 +17,13 @@ import json
 import sqlite3
 import time
 from contextlib import contextmanager
+from collections.abc import Mapping
+from types import MappingProxyType
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Callable, Iterator
 
 from mb_market_data.sqlite_write_recovery import WriteRetryPolicy, write_with_recovery
 
@@ -260,7 +262,7 @@ def _fingerprint(value: Any) -> str:
 def _nested(value: Mapping[str, Any], *path: str) -> Any:
     current: Any = value
     for key in path:
-        if not isinstance(current, Mapping):
+        if type(current) not in (dict, MappingProxyType) and not isinstance(current, Mapping):
             return None
         current = current.get(key)
     return current
