@@ -435,6 +435,39 @@ class IsolatedSamplingPoller:
         with owner_lock(self.lock_path):
             return self._recover(self._read())
 
+    def record_prior_cycle_overruns(self, slots):
+        """Explain slots skipped by future-only scheduling; never issue quotes.
+
+        These remain missing acquisitions in the native coverage audit. Durable
+        missed events only distinguish a prior-cycle overrun from an unobserved
+        coverage gap; they are not empty-membership skips.
+        """
+        if not slots:
+            return ()
+        outcomes = []
+        with owner_lock(self.lock_path):
+            state = self._read()
+            if state["pending"] is not None:
+                raise ValueError("Cannot mark prior-cycle overruns with pending dispatch")
+            for slot in slots:
+                now = aware(self.clock())
+                if (slot.watchlist_kind != self.settings.channel
+                        or slot.seconds != self.settings.seconds
+                        or not self.settings.window.contains(slot.scheduled_at)
+                        or now < slot.scheduled_at):
+                    raise ValueError("Prior-cycle overrun slot differs or is in the future")
+                if slot.slot_id in state["finished"]:
+                    raise ValueError("Prior-cycle overrun already has an outcome")
+                late = (now - slot.scheduled_at).total_seconds()
+                self._append(state, "missed", slot_id=slot.slot_id,
+                    scheduled_at_utc=text(slot.scheduled_at),
+                    reason="prior_cycle_overrun_no_catchup",
+                    gate="prior_cycle_overrun", lateness_seconds=late)
+                outcomes.append({"status":"missed", "slot_id":slot.slot_id,
+                    "gate":"prior_cycle_overrun", "gate_lateness_seconds":late})
+                state = self._read()
+        return tuple(outcomes)
+
     def sample(self, slot, *, fault_hook=None):
         cycle_started = time.perf_counter()
         verification_before = self.verification_seconds
