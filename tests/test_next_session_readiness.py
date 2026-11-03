@@ -55,9 +55,12 @@ class NextSessionReadinessTests(TestCase):
     def save_manifest(self):
         self.manifest_path.write_text(json.dumps(self.manifest),encoding='utf-8')
     def verify(self,*,published=True):
+        recorded=SimpleNamespace(revision=0,content_sha256=self.revision.content_sha256,
+            published_at=self.revision.effective_at-timedelta(minutes=10),
+            effective_at=self.revision.effective_at)
         fake=SimpleNamespace(session_date=self.nxt,schema_version=2,
             store=SimpleNamespace(membership_revisions_in_effective_order=lambda:
-                (self.revision,) if published else ()),events=lambda:iter((1,)))
+                (recorded,) if published else ()),events=lambda:iter((1,)))
         with patch('probes.verify_next_session_readiness.QuoteJournalReplayReader',return_value=fake):
             return inspect_preparation(root=self.root,closed_date=self.closed,
                 next_date=self.nxt,journal_root=self.journal_root)
