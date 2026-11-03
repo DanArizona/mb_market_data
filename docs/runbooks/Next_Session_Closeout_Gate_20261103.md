@@ -22,25 +22,32 @@ must be reported `NEXT-SESSION PREPARATION: INCOMPLETE`.
 
 ## New attended closeout entrypoint (review candidate)
 
-The new `probes/prepare_next_session_closeout.py` runs the existing dated
-post-close Universe workflow (including its **interactive** Schwab password
-prompt), publishes the exact next-session opening proposal, and invokes the
-read-only readiness gate. It prints `INCOMPLETE` and returns nonzero when
-a stage fails. A pre-existing workflow manifest is reused only after its
-artifacts are verified by the gate; source data are never silently reacquired
-or rewritten. It **does not** report that today's journal audit passed.
+The new `probes/prepare_next_session_closeout.py` invokes the **existing**
+production `run_daily_universe_production.py --publish-journal-root` five-stage
+workflow: Nasdaq directory, **one interactive Schwab password prompt** for the
+post-close quote snapshot, deterministic Universe selection, opening r0
+proposal, and r0 publication in the next-session schema-v2 journal.
+It then verifies the saved artifacts, dates, proposal hash, publication and
+replay. The wrapper does not ask for a second password.
 
-After 16:00 ET on the source trading day, the intended attended command is:
+It **refuses to start a new build outside 16:00–24:00 ET on the completed
+session date** and reports `INCOMPLETE` without launching a provider request.
+An existing workflow directory is never overwritten or silently regenerated.
+If it already exists, the wrapper verifies it without invoking the builder; a
+partial or damaged directory requires an explicit review/recovery instead of
+silent retry. It does not declare today's journal audit PASS.
+
+Intended command on the **completed session date**, after 16:00 ET:
 
 ```cmd
 python probes\\prepare_next_session_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
 ```
 
-That command must be **last in a multi-command CMD block**, because its
-builder may ask for a password. This experimental wrapper has not been
-installed or Windows-qualified. A timed reminder/attended scheduled launch
-and an overall two-verdict closeout command are still necessary to make it
-impossible to overlook the end-of-day handoff.
+Put that command **last in a multi-command CMD block**, because the builder
+prompts for a password. This candidate is not installed or Windows-qualified.
+A separately reviewed scheduled after-close reminder and an overall
+two-verdict closeout gate are still required so the handoff cannot be
+overlooked.
 
 ## Guarded usage (review candidate; not installed in production)
 
@@ -66,8 +73,9 @@ previous session.
 ## Remaining deployment work
 
 This is **only the first, non-production gate**. Before production adoption:
-- Add automated offline tests for missing build, corrupt hash, incorrect date,
-  absent r0, hash mismatch and valid complete fixture.
+- Execute and review the committed offline tests for missing build, corrupt hash,
+  incorrect date, absent r0, hash mismatch, valid complete fixture, and attended
+  runner failure/retry behavior.
 - Wire the exit code into a dated closeout command or supervisor which cannot
   print overall COMPLETE while next-session readiness is INCOMPLETE.
 - Implement timely post-close prompting/scheduling with credential handling.
