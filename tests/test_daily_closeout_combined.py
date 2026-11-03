@@ -37,7 +37,7 @@ class CombinedDailyCloseoutTests(TestCase):
         self.assertEqual(len(called), 3)
         self.assertEqual([Path(command[1]).name for command, _ in called],
             ['prepare_next_session_closeout.py',
-             'audit_quote_observation_journal.py',
+             'audit_required_session_channels.py',
              'replay_quote_observation_journal.py'])
         self.assertTrue(all(cwd == self.root for _, cwd in called))
         return result
