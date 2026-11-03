@@ -4,7 +4,7 @@ Provider guards consume the exact immutable state verified immediately before
 this synchronous dispatch. The original standalone experimental path is unchanged.
 """
 import time
-from .sampling_acquisition import owner_lock,aware,text,stamp,encode_result,fetch_quotes_batched
+from .sampling_acquisition import owner_lock,aware,text,stamp,encode_result,fetch_quotes_batched,PreProviderDeadlineExpired
 
 
 def sample_daily(self,slot,*,fault_hook=None):
@@ -53,7 +53,22 @@ def sample_daily(self,slot,*,fault_hook=None):
             started = time.perf_counter()
             self._provider_dispatch_state=s
             try:
-                result = fetch_quotes_batched(self.client, symbols, fields=self.settings.fields, batch_size=self.settings.batch_size)
+                try:
+                    result = fetch_quotes_batched(self.client, symbols, fields=self.settings.fields, batch_size=self.settings.batch_size)
+                except PreProviderDeadlineExpired:
+                    # A locally refused final deadline has no Schwab response.
+                    # Durable dispatch -> abandoned, not assembled/request_error.
+                    expired = aware(self.clock())
+                    lateness = (expired-slot.scheduled_at).total_seconds()
+                    self._append(s, 'abandoned', slot_id=slot.slot_id,
+                        reason='final_pre_provider_deadline_no_api',
+                        gate='final_pre_provider_deadline', lateness_seconds=lateness)
+                    return {'status':'missed', 'slot_id':slot.slot_id,
+                        'gate':'final_pre_provider_deadline',
+                        'gate_lateness_seconds':lateness,
+                        'state_prepare_seconds':state_prepare_seconds,
+                        'spool_and_check_seconds':spool_and_check_seconds,
+                        'provider_called':False}
             finally:
                 self._provider_dispatch_state=None
             if fault_hook:
