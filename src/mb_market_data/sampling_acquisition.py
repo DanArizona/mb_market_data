@@ -395,7 +395,7 @@ class IsolatedSamplingPoller:
                 raise ValueError("Acquisition head changed; expected=" + str((sequence - 1, previous) if sequence > 1 else None) + "; actual=" + str(row))
             c.execute("INSERT INTO acquisition_event VALUES(?,?,?,?)", (sequence, canonical(e), previous, sha))
 
-    def _commit(self, s, *, fault_hook=None, recovered=False):
+    def _commit(self, s, *, fault_hook=None, recovered=False, phase_timings=None):
         pending = s["pending"]; p = pending["dispatch"]
         started = time.perf_counter()
         try:
@@ -414,7 +414,8 @@ class IsolatedSamplingPoller:
         if receipt is None:
             raise ValueError("Journal did not retain acquisition outcome")
         self._append(s, "acknowledged", slot_id=p["slot_id"], journal_receipt=receipt,
-                     journal_seconds=journal_seconds, recovered=recovered)
+                     journal_seconds=journal_seconds, recovered=recovered,
+                     **({"phase_timings":phase_timings} if phase_timings is not None else {}))
         if fault_hook:
             fault_hook("after_ack")
         return {"status": "acquired" if p["symbols"] else "empty_membership", "slot_id": p["slot_id"],
