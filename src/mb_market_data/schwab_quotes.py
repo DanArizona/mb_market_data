@@ -227,6 +227,15 @@ def _http_error_detail(
     return detail
 
 
+class PreProviderDeadlineExpired(Exception):
+    """Local slot deadline elapsed before the authenticated provider call.
+
+    Unlike provider/transport exceptions this outcome has no HTTP request,
+    must not create request_error observations and is handled by the native
+    acquisition ledger as an abandoned slot.
+    """
+
+
 def fetch_quotes_batched(
     client: Any,
     symbols: Iterable[str] | str,
@@ -332,6 +341,9 @@ def fetch_quotes_batched(
             response_received_at_utc = datetime.now(
                 timezone.utc
             )
+
+        except PreProviderDeadlineExpired:
+            raise
 
         except Exception as exc:
             detail = (
