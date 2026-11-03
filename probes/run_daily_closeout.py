@@ -66,7 +66,6 @@ def run_daily_closeout(root: Path, closed_date: date, next_date: date, *,
         "closed_session": closed_date.isoformat(),
         "next_session": next_date.isoformat(),
         "recorded_at_utc": clock().astimezone(timezone.utc).isoformat(),
-        "next_session": next_date.isoformat(),
         "next_session_preparation": (
             "READY" if codes["next_session"] == 0 else "INCOMPLETE"),
         "current_session_audit": (
