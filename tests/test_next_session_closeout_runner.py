@@ -69,6 +69,14 @@ class NextSessionCloseoutRunnerTests(TestCase):
             self.assertFalse(self.go())
         self.executor.assert_not_called()
 
+    def test_existing_complete_workflow_can_be_verified_next_morning(self):
+        self.workflow.mkdir(parents=True)
+        self.now=self.now+timedelta(days=1)
+        with patch('probes.prepare_next_session_closeout.inspect_preparation',
+                   return_value=self.readiness):
+            self.assertTrue(self.go())
+        self.executor.assert_not_called()
+
     def test_next_session_must_be_later(self):
         with self.assertRaisesRegex(ValueError,'follow'):
             run_closeout_preparation(self.root,self.closed,self.closed,
