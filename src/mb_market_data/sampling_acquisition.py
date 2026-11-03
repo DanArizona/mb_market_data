@@ -25,7 +25,7 @@ from threading import Event
 
 from mb_market_data.quote_observation_store import OBSERVATION_COLUMNS, PollRunProvenance
 from mb_market_data.sampling_membership import SamplingChannel
-from mb_market_data.schwab_quotes import QuoteBatchResult, QuoteResult, QuoteStatus, fetch_quotes_batched
+from mb_market_data.schwab_quotes import QuoteBatchResult, QuoteResult, QuoteStatus, fetch_quotes_batched, PreProviderDeadlineExpired
 from mb_market_data.watchlist_polling import ET, PollRequest, PollSlot, PollWindow, SkippedPollSlot
 
 MARKER = "isolated_hot_acquisition_v1"
@@ -476,7 +476,23 @@ class IsolatedSamplingPoller:
                 return {"status": "missed", "slot_id": slot.slot_id, "gate": reason, "gate_lateness_seconds": gate2, "state_prepare_seconds": state_prepare_seconds, "spool_and_check_seconds": spool_and_check_seconds}
             if symbols:
                 started = time.perf_counter()
-                result = fetch_quotes_batched(self.client, symbols, fields=self.settings.fields, batch_size=self.settings.batch_size)
+                try:
+                    result = fetch_quotes_batched(self.client, symbols, fields=self.settings.fields, batch_size=self.settings.batch_size)
+                except PreProviderDeadlineExpired:
+                    # The callback refused locally *before* a provider call. The
+                    # durable dispatch exists, but there is no quote result to
+                    # assemble, acknowledge or fabricate as request_error.
+                    expired = aware(self.clock())
+                    lateness = (expired - slot.scheduled_at).total_seconds()
+                    self._append(s, "abandoned", slot_id=slot.slot_id,
+                        reason="final_pre_provider_deadline_no_api",
+                        gate="final_pre_provider_deadline", lateness_seconds=lateness)
+                    return {"status": "missed", "slot_id":slot.slot_id,
+                        "gate":"final_pre_provider_deadline",
+                        "gate_lateness_seconds":lateness,
+                        "state_prepare_seconds":state_prepare_seconds,
+                        "spool_and_check_seconds":spool_and_check_seconds,
+                        "provider_called":False}
                 if fault_hook:
                     fault_hook("after_response")
                 completed = aware(self.clock())
