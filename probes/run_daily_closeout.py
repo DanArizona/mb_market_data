@@ -42,8 +42,8 @@ def run_daily_closeout(root: Path, closed_date: date, next_date: date, *,
             "--next-session", next_date.isoformat(),
             "--market-data-root", str(root)]),
         ("current_audit", [
-            sys.executable, str(root / "probes" / "audit_quote_observation_journal.py"),
-            str(today_journal), "--show-missing", "20"]),
+            sys.executable, str(root / "probes" / "audit_required_session_channels.py"),
+            str(today_journal), "--session-date", closed_date.isoformat()]),
         ("current_replay", [
             sys.executable, str(root / "probes" / "replay_quote_observation_journal.py"),
             str(today_journal), "--progress-every", "0"]),
