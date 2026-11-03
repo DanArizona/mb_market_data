@@ -6,9 +6,24 @@ from datetime import timezone
 from mb_market_data.schwab_quotes import (
     DEFAULT_QUOTE_BATCH_SIZE,
     QuoteStatus,
+    PreProviderDeadlineExpired,
     fetch_quotes_batched,
     normalize_symbols,
 )
+
+
+class PreProviderDeadlineTests(unittest.TestCase):
+    def test_typed_local_deadline_bypasses_normalizer_request_errors(self):
+        class LocalRefusal:
+            def quotes(self, symbols, *, fields="all"):
+                raise PreProviderDeadlineExpired("750ms final local deadline")
+
+        with self.assertRaisesRegex(PreProviderDeadlineExpired, "750ms"):
+            fetch_quotes_batched(LocalRefusal(), ["ABC", "DEF"], fields="all")
+
+    def test_regular_provider_exception_remains_request_error(self):
+        result = fetch_quotes_batched(RaisingClient(), ["ABC"], fields="all")
+        self.assertEqual([r.status for r in result.results], [QuoteStatus.REQUEST_ERROR])
 
 
 class FakeResponse:
