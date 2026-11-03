@@ -14,7 +14,7 @@ set "PYTHONPATH=%ROOT%\src;%ROOT%"
 echo Offline-only closeout readiness and one-password orchestration tests.
 python -B -m unittest discover -s "%ROOT%\tests" -p "test_next_session_*.py" -v
 if errorlevel 1 exit /b 1
-python -B -m unittest discover -s "%ROOT%\\tests" -p "test_daily_closeout_*.py" -v
+python -B -m unittest discover -s "%ROOT%\tests" -p "test_daily_closeout_*.py" -v
 if errorlevel 1 exit /b 1
 echo CLOSEOUT GATE OFFLINE TESTS: PASS
 exit /b 0
