@@ -62,7 +62,11 @@ def sample_daily(self,slot,*,fault_hook=None):
                     lateness = (expired-slot.scheduled_at).total_seconds()
                     self._append(s, 'abandoned', slot_id=slot.slot_id,
                         reason='final_pre_provider_deadline_no_api',
-                        gate='final_pre_provider_deadline', lateness_seconds=lateness)
+                        gate='final_pre_provider_deadline', lateness_seconds=lateness,
+                        phase_timings={'state_prepare_seconds':state_prepare_seconds,
+                            'spool_and_check_seconds':spool_and_check_seconds,
+                            'callback_seconds':time.perf_counter()-started,
+                            'verification_seconds':self.verification_seconds-verification_before})
                     return {'status':'missed', 'slot_id':slot.slot_id,
                         'gate':'final_pre_provider_deadline',
                         'gate_lateness_seconds':lateness,
@@ -80,7 +84,12 @@ def sample_daily(self,slot,*,fault_hook=None):
             if fault_hook:
                 fault_hook("after_assembled")
             s = self._read()
-        outcome = self._commit(s, fault_hook=fault_hook)
+        phase_timings={'state_prepare_seconds':state_prepare_seconds,
+            'spool_and_check_seconds':spool_and_check_seconds,
+            'verification_seconds':self.verification_seconds-verification_before,
+            'before_dispatch_gate_seconds':gate1,
+            'before_api_gate_seconds':gate2}
+        outcome = self._commit(s, fault_hook=fault_hook, phase_timings=phase_timings)
         outcome["cycle_seconds"] = time.perf_counter() - cycle_started
         outcome["verification_seconds"] = self.verification_seconds - verification_before
         outcome.update(state_prepare_seconds=state_prepare_seconds, spool_and_check_seconds=spool_and_check_seconds,
