@@ -32,7 +32,7 @@ For an illustrative November 3-to-November 4 closeout, run it in an
 **isolated test checkout only until production installation is approved**:
 
 ```cmd
-python probes\\run_daily_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
+python probes\run_daily_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
 ```
 
 That command produces separate, explicit outcomes and a fresh, immutable
@@ -76,14 +76,14 @@ silent retry. It does not declare today's journal audit PASS.
 Intended command on the **completed session date**, after 16:00 ET:
 
 ```cmd
-python probes\\prepare_next_session_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
+python probes\prepare_next_session_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
 ```
 
 Put that command **last in a multi-command CMD block**, because the builder
 prompts for a password. This candidate is not installed or Windows-qualified.
-A separately reviewed scheduled after-close reminder and an overall
-two-verdict closeout gate are still required so the handoff cannot be
-overlooked.
+The combined two-verdict runner is now committed in the experiment.
+A separately reviewed scheduled after-close reminder or attended launcher
+is still required so the operator cannot overlook the handoff.
 
 ## Guarded usage (review candidate; not installed in production)
 
@@ -108,12 +108,13 @@ previous session.
 
 ## Remaining deployment work
 
-This is **only the first, non-production gate**. Before production adoption:
+This is an **experimental closeout candidate, not a production installation**.
+Before adoption:
 - Execute and review the committed offline tests for missing build, corrupt hash,
   incorrect date, absent r0, hash mismatch, valid complete fixture, and attended
   runner failure/retry behavior.
-- Wire the exit code into a dated closeout command or supervisor which cannot
-  print overall COMPLETE while next-session readiness is INCOMPLETE.
+- Verify the committed dated two-verdict runner against real retained
+  November 3/4 evidence in read-only mode, with the original Focus FAIL retained.
 - Implement timely post-close prompting/scheduling with credential handling.
   The interactive Schwab password makes silent unattended execution unsafe:
   an alarm or attended runner may be necessary, not an implicit vault bypass.
