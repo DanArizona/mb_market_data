@@ -20,6 +20,42 @@ their distinct results reported.** A current-session FAIL may remain a finalized
 closeout with findings; it must not become PASS. A missing next-session build
 must be reported `NEXT-SESSION PREPARATION: INCOMPLETE`.
 
+## Unified attended closeout (review candidate; one password)
+
+The top-level `probes/run_daily_closeout.py` is the intended single
+operator command after the close. It performs **next-session preparation
+first** so the time-sensitive same-day Schwab snapshot is not delayed by
+current-session analysis. It then verifies today's production run coverage
+and replays today's journal. No second password prompt is introduced.
+
+For an illustrative November 3-to-November 4 closeout, run it in an
+**isolated test checkout only until production installation is approved**:
+
+```cmd
+python probes\\run_daily_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
+```
+
+That command produces separate, explicit outcomes and a fresh, immutable
+dated JSON receipt:
+
+- `NEXT SESSION PREPARATION: READY / INCOMPLETE`.
+- `CURRENT SESSION AUDIT: PASS / FAIL / ERROR`. Uni and Focus must both
+  have actual production polling runs and the expected 780/1,560 slots.
+  An empty opening journal cannot qualify as completed polling.
+- `CURRENT SESSION REPLAY: COMPLETE / ERROR`.
+- `CLOSEOUT: VERIFIED_COMPLETE` (exit 0), `RECORDED_WITH_FINDINGS`
+  (exit 1, for a *real* coverage FAIL), or `INCOMPLETE` (exit 2).
+
+The audit preserves all missing slots and request errors. A replay success
+cannot change a failed audit verdict. The independent Health monitor must
+still be stopped with **Q**, with its shutdown receipt checked separately.
+
+**This wrapper is not a timer or scheduler.** To prevent another missed
+closeout, deployment must also supply an attended after-close launch/reminder,
+with explicit owner acknowledgement while the previous session's volume
+remains valid. Silent credential storage and unattended password bypass are
+out of scope. No scheduled action is installed by this experiment.
+
 ## New attended closeout entrypoint (review candidate)
 
 The new `probes/prepare_next_session_closeout.py` invokes the **existing**
