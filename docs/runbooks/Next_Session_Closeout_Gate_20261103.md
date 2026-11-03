@@ -20,6 +20,28 @@ their distinct results reported.** A current-session FAIL may remain a finalized
 closeout with findings; it must not become PASS. A missing next-session build
 must be reported `NEXT-SESSION PREPARATION: INCOMPLETE`.
 
+## New attended closeout entrypoint (review candidate)
+
+The new `probes/prepare_next_session_closeout.py` runs the existing dated
+post-close Universe workflow (including its **interactive** Schwab password
+prompt), publishes the exact next-session opening proposal, and invokes the
+read-only readiness gate. It prints `INCOMPLETE` and returns nonzero when
+a stage fails. A pre-existing workflow manifest is reused only after its
+artifacts are verified by the gate; source data are never silently reacquired
+or rewritten. It **does not** report that today's journal audit passed.
+
+After 16:00 ET on the source trading day, the intended attended command is:
+
+```cmd
+python probes\\prepare_next_session_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
+```
+
+That command must be **last in a multi-command CMD block**, because its
+builder may ask for a password. This experimental wrapper has not been
+installed or Windows-qualified. A timed reminder/attended scheduled launch
+and an overall two-verdict closeout command are still necessary to make it
+impossible to overlook the end-of-day handoff.
+
 ## Guarded usage (review candidate; not installed in production)
 
 After the mandatory, interactive post-close workflow and r0 publication, run:
