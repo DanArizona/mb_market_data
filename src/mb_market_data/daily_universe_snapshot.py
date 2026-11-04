@@ -320,6 +320,11 @@ def write_snapshot_manifest(
         "snapshot_version": SNAPSHOT_VERSION,
         "created_at_utc": utc_text(created_at),
         "session_date": session_date.isoformat(),
+        "exchange_session": {
+            "kind": exchange_session.kind,
+            "close_at_et": exchange_session.closes_at.isoformat(),
+            "calendar_contract": exchange_session.calendar_contract,
+        },
         "sources": {
             "close": "Schwab regular.regularMarketLastPrice",
             "volume": VOLUME_SOURCE,
