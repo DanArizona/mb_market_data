@@ -1,60 +1,65 @@
-"""Reviewed U.S. equity trading schedule for closeout (2026-2028).
+"""NYSE/Nasdaq U.S.-equity closeout schedule via exchange_calendars.
 
-The reviewed official calendars are *locally frozen* to make closeout gates
-deterministic and available offline. Unsupported years fail closed. Emergency
-unscheduled closures/changes require an explicit operational correction;
-this module does not pretend to observe live exchange status.
+A single local, offline exchange calendar controls closeout reminder timing,
+post-close acquisition admissibility and the next trading session. XNAS is
+an alias of XNYS in exchange_calendars (both U.S. equity core sessions).
 
-Sources (verified 2026-11-04):
-NYSE https://www.nyse.com/trade/hours-calendars
-Nasdaq 2026 https://www.nasdaqtrader.com/trader.aspx?id=calendar
-
-Regular U.S. equity core hours: 09:30-16:00 ET.
-Published early-close sessions: 09:30-13:00 ET.
+This is scheduled exchange time, NOT live open/closed status. Unexpected
+exchange closures require explicit human handling; no speculative recovery.
+Missing package, unsupported calendar, and API/calendar errors fail closed.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta, time
+from functools import lru_cache
+from importlib.metadata import version as package_version, PackageNotFoundError
 from zoneinfo import ZoneInfo
 
 
-ET=ZoneInfo("America/New_York")
-SUPPORTED_YEARS=frozenset({2026,2027,2028})
+ET = ZoneInfo("America/New_York")
+EXCHANGE_CALENDAR = "XNYS"
+CALENDAR_CONTRACT = "exchange-calendars-xnys-core-equities-v1"
 
-CLOSED_BY_YEAR={
-    2026: frozenset({
-        "2026-01-01","2026-01-19","2026-02-16","2026-04-03",
-        "2026-05-25","2026-06-19","2026-07-03","2026-09-07",
-        "2026-11-26","2026-12-25",
-    }),
-    2027: frozenset({
-        "2027-01-01","2027-01-18","2027-02-15","2027-03-26",
-        "2027-05-31","2027-06-18","2027-07-05","2027-09-06",
-        "2027-11-25","2027-12-24",
-    }),
-    2028: frozenset({
-        "2028-01-17","2028-02-21","2028-04-14","2028-05-29",
-        "2028-06-19","2028-07-04","2028-09-04","2028-11-23",
-        "2028-12-25",
-    }),
-}
-EARLY_CLOSES={
-    "2026-11-27":"13:00",
-    "2026-12-24":"13:00",
-    "2027-11-26":"13:00",
-    "2028-07-03":"13:00",
-    "2028-11-24":"13:00",
-}
+
+@lru_cache(maxsize=16)
+def _calendar_for_year(year: int):
+    try:
+        import exchange_calendars as xcals
+    except ImportError as error:
+        raise RuntimeError(
+            "exchange_calendars is required for closeout. Install and "
+            "qualify the reviewed dependency before enabling production."
+        ) from error
+    # Explicit start/end avoid get_calendar's default rolling one-year range.
+    # Include the preceding December and following January for year boundaries.
+    try:
+        return xcals.get_calendar(
+            EXCHANGE_CALENDAR,
+            start=f"{year - 1}-12-01",
+            end=f"{year + 1}-01-31",
+        )
+    except Exception as error:
+        raise RuntimeError(
+            f"Unable to resolve reviewed exchange calendar for {year}"
+        ) from error
+
+
+def _package_revision() -> str:
+    try:
+        return package_version("exchange_calendars")
+    except PackageNotFoundError as error:
+        raise RuntimeError("exchange_calendars distribution is not installed") from error
 
 
 @dataclass(frozen=True, slots=True)
 class EquitySession:
     session_date: date
-    kind: str   # REGULAR / EARLY_CLOSE / CLOSED
+    kind: str
     close_time: time | None
     reason: str
-    calendar_contract: str = "us-equities-reviewed-2026-2028-v1"
+    calendar_contract: str = CALENDAR_CONTRACT
+    calendar_revision: str = "unknown"
 
     @property
     def is_open(self) -> bool:
@@ -64,60 +69,77 @@ class EquitySession:
     def closes_at(self) -> datetime:
         if self.close_time is None:
             raise ValueError(f"No exchange close for {self.session_date}: {self.reason}")
-        return datetime.combine(self.session_date,self.close_time,tzinfo=ET)
+        return datetime.combine(self.session_date, self.close_time, tzinfo=ET)
 
 
 def equity_session(day: date) -> EquitySession:
-    """Use reviewed calendar only, fail closed outside its supported years."""
-    if day.year not in SUPPORTED_YEARS:
-        raise ValueError(f"Unreviewed exchange-calendar year {day.year}: cannot assume session")
-    if day.weekday() >= 5:
-        return EquitySession(day,"CLOSED",None,"weekend")
-    if day.isoformat() in CLOSED_BY_YEAR[day.year]:
-        return EquitySession(day,"CLOSED",None,"published exchange holiday")
-    if day.isoformat() in EARLY_CLOSES:
-        return EquitySession(day,"EARLY_CLOSE",time.fromisoformat(EARLY_CLOSES[day.isoformat()]),
-                             "published early equity close")
-    return EquitySession(day,"REGULAR",time(16,0),"scheduled regular equity close")
+    """Resolve the actual locally scheduled NYSE/Nasdaq core close."""
+    calendar = _calendar_for_year(day.year)
+    revision = _package_revision()
+    if not calendar.is_session(day.isoformat()):
+        return EquitySession(day, "CLOSED", None,
+                             "exchange calendar: holiday or weekend",
+                             calendar_revision=revision)
+    close_utc = calendar.session_close(day.isoformat())
+    close_et = close_utc.to_pydatetime().astimezone(ET)
+    if close_et.date() != day:
+        raise RuntimeError(f"Calendar close date differs from session {day}")
+    if not (time(12, 0) <= close_et.time() <= time(16, 0)):
+        raise RuntimeError(f"Unexpected equity core-session close {close_et.isoformat()}")
+    early = close_et.time() < time(16, 0)
+    return EquitySession(day, "EARLY_CLOSE" if early else "REGULAR",
+                         close_et.time(), "scheduled early close" if early
+                         else "scheduled regular close", calendar_revision=revision)
 
 
-def require_exchange_session(day:date) -> EquitySession:
-    session=equity_session(day)
+def require_exchange_session(day: date) -> EquitySession:
+    session = equity_session(day)
     if not session.is_open:
         raise ValueError(f"{day} is not an exchange trading session ({session.reason})")
     return session
 
 
-def next_exchange_session(source:date) -> date:
+def next_exchange_session(source: date) -> date:
     require_exchange_session(source)
-    candidate=source+timedelta(days=1)
-    for _ in range(12):
-        if equity_session(candidate).is_open:
-            return candidate
-        candidate+=timedelta(days=1)
-    raise ValueError(f"No next reviewed exchange trading session after {source}")
+    cal = _calendar_for_year(source.year)
+    try:
+        result = cal.next_session(source.isoformat())
+    except Exception as error:
+        raise RuntimeError(f"Cannot resolve next exchange session after {source}") from error
+    target = result.date()
+    require_exchange_session(target)
+    return target
 
 
-def validate_next_exchange_session(source:date,target:date) -> None:
-    expected=next_exchange_session(source)
-    if target!=expected:
-        raise ValueError(f"Expected next exchange session {expected} after {source}, got {target}")
+def validate_next_exchange_session(source: date, target: date) -> None:
+    expected = next_exchange_session(source)
+    if target != expected:
+        raise ValueError(
+            f"Expected next exchange session {expected} after {source}, got {target}"
+        )
 
 
-def require_postclose_source_time(source:date, observed:datetime) -> EquitySession:
+def require_postclose_source_time(source: date, observed: datetime) -> EquitySession:
     if observed.tzinfo is None or observed.utcoffset() is None:
         raise ValueError("Post-close time must be timezone-aware")
-    session=require_exchange_session(source)
-    now=observed.astimezone(ET)
-    if now.date()>source:
-        raise ValueError("Snapshot must be acquired on source ET calendar date; next-day snapshots are not valid completed-session volume evidence")
-    if now.date()<source:
+    session = require_exchange_session(source)
+    now = observed.astimezone(ET)
+    if now.date() > source:
+        raise ValueError(
+            "Snapshot must be acquired on source ET calendar date; "
+            "next-day snapshots are not valid completed-session volume evidence"
+        )
+    if now.date() < source:
         raise ValueError("Snapshot source session must not be in the future")
-    if now<session.closes_at:
-        raise ValueError(f"Post-close snapshot requires {session.close_time:%H:%M} ET or later")
+    if now < session.closes_at:
+        raise ValueError(
+            f"Post-close snapshot requires {session.close_time:%H:%M} ET or later"
+        )
     return session
 
 
-def reminder_due_at(source:date, *, minutes_after_close:int=10) -> datetime:
-    session=require_exchange_session(source)
-    return session.closes_at+timedelta(minutes=minutes_after_close)
+def reminder_due_at(source: date, *, minutes_after_close: int = 10) -> datetime:
+    if minutes_after_close < 0 or minutes_after_close > 60:
+        raise ValueError("Invalid reminder delay")
+    session = require_exchange_session(source)
+    return session.closes_at + timedelta(minutes=minutes_after_close)
