@@ -123,3 +123,26 @@ class CloseoutReminderTests(TestCase):
                 with patch("probes.closeout_readiness_reminder.display_notification") as popup:
                     self.assertEqual(main(),0)
         popup.assert_not_called()
+
+    def test_due_desktop_reminder_calls_only_disabled_pushover_stub(self):
+        from mb_market_data.closeout_notifications import DeliveryResult
+        with patch("sys.argv",["closeout_readiness_reminder.py","--notify"]):
+            with patch("probes.closeout_readiness_reminder.inspect_due",
+                return_value=ReminderDecision("DUE",self.nov3.date(),"not ready")):
+                with patch("probes.closeout_readiness_reminder.PushoverStub") as adapter:
+                    adapter.return_value.dispatch.return_value=DeliveryResult(
+                        "pushover","DISABLED","No push sent")
+                    with patch("probes.closeout_readiness_reminder.display_notification"):
+                        self.assertEqual(main(),0)
+        adapter.assert_called_once_with()
+        notice=adapter.return_value.dispatch.call_args.args[0]
+        self.assertIn("2026-11-03",notice.source_session)
+
+    def test_ready_does_not_invoke_pushover_stub(self):
+        with patch("sys.argv",["closeout_readiness_reminder.py","--notify"]):
+            with patch("probes.closeout_readiness_reminder.inspect_due",
+                return_value=ReminderDecision("READY",self.nov3.date(),"ready")):
+                with patch("probes.closeout_readiness_reminder.PushoverStub") as adapter:
+                    with patch("probes.closeout_readiness_reminder.display_notification"):
+                        self.assertEqual(main(),0)
+        adapter.assert_not_called()
