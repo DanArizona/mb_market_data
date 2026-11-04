@@ -19,16 +19,21 @@ from mb_market_data.daily_universe import (
     parse_decimal,
     sha256_file,
 )
+from mb_market_data.equity_closeout_calendar import (
+    require_postclose_source_time,
+    require_exchange_session,
+)
 from mb_market_data.schwab_quotes import QuoteBatchResult
 
 
 ET = ZoneInfo("America/New_York")
 SNAPSHOT_VERSION = "daily-universe-snapshot-v2"
-ACQUISITION_TIMING_POLICY = "same-et-date-post-close-v1"
+ACQUISITION_TIMING_POLICY = "same-et-date-exchange-close-v2"
 VOLUME_SOURCE = "Schwab quote.totalVolume"
 VOLUME_SEMANTICS = (
     "Current-session cumulative volume accepted as completed-session "
-    "evidence only when acquired on session_date at or after 16:00 ET"
+    "evidence only when acquired on session_date at or after its reviewed " 
+    "U.S. equity regular-session close (16:00 ET normal, 13:00 ET early)"
 )
 
 SOURCE_FIELDS = [
@@ -96,24 +101,8 @@ def validate_acquisition_time(
     session_date: date,
     observed_at: datetime,
 ) -> None:
-    """Require quote.totalVolume acquisition in the same-day close window."""
-
-    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
-        raise ValueError("observed_at must be timezone-aware")
-    observed_et = observed_at.astimezone(ET)
-    if session_date > observed_et.date():
-        raise ValueError("session_date must not be in the future")
-    if session_date < observed_et.date():
-        raise ValueError(
-            "daily-universe quote.totalVolume acquisition must run on "
-            "session_date; next-day snapshots are not valid "
-            "completed-session volume evidence"
-        )
-    if observed_et.time().replace(tzinfo=None) < time(16, 0):
-        raise ValueError(
-            "same-day daily-universe acquisition must run at or after "
-            "16:00 ET"
-        )
+    """Reject pre-close, wrong-day and unreviewed-session acquisitions."""
+    require_postclose_source_time(session_date, observed_at)
 
 
 def validate_batch_acquisition_time(
@@ -318,6 +307,7 @@ def write_snapshot_manifest(
 ) -> None:
     validate_acquisition_time(session_date, validated_at)
     validate_batch_acquisition_time(session_date, acquisition)
+    exchange_session = require_exchange_session(session_date)
     created_at = created_at_utc or datetime.now(timezone.utc)
     first_request, last_response = acquisition_time_bounds(acquisition)
     row_values = tuple(rows)
