@@ -7,7 +7,7 @@ from unittest import TestCase
 
 from mb_market_data.equity_closeout_calendar import (
     CALENDAR_CONTRACT, ET, equity_session, next_exchange_session,
-    reminder_due_at, require_postclose_source_time,
+    reminder_due_at, previous_exchange_session, require_postclose_source_time,
     require_exchange_session, validate_next_exchange_session,
 )
 
@@ -56,6 +56,14 @@ class EquityCloseoutCalendarTests(TestCase):
         self.assertEqual(next_exchange_session(date(2026,11,4)),date(2026,11,5))
         with self.assertRaisesRegex(ValueError,"Expected next exchange session"):
             validate_next_exchange_session(date(2026,11,25),date(2026,11,26))
+
+    def test_previous_exchange_session_across_holiday_and_weekend(self):
+        self.assertEqual(previous_exchange_session(date(2026, 11, 30)),
+                         date(2026, 11, 27))
+        self.assertEqual(previous_exchange_session(date(2026, 11, 27)),
+                         date(2026, 11, 25))
+        self.assertEqual(previous_exchange_session(date(2026, 11, 4)),
+                         date(2026, 11, 3))
 
     def test_early_close_admits_source_volume_at_1300(self):
         d=date(2026,11,27)
