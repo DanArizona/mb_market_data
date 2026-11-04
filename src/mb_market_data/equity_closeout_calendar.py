@@ -126,7 +126,7 @@ def require_postclose_source_time(source: date, observed: datetime) -> EquitySes
     now = observed.astimezone(ET)
     if now.date() > source:
         raise ValueError(
-            "Snapshot must be acquired on source ET calendar date; "
+            "Snapshot must be acquired on source session ET calendar date; "
             "next-day snapshots are not valid completed-session volume evidence"
         )
     if now.date() < source:
