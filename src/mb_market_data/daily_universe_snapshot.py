@@ -324,6 +324,7 @@ def write_snapshot_manifest(
             "kind": exchange_session.kind,
             "close_at_et": exchange_session.closes_at.isoformat(),
             "calendar_contract": exchange_session.calendar_contract,
+            "calendar_revision": exchange_session.calendar_revision,
         },
         "sources": {
             "close": "Schwab regular.regularMarketLastPrice",
