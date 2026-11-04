@@ -23,7 +23,7 @@ Write-Host "Pythonw          : $PythonwExe"
 Write-Host "Script           : $probe"
 Write-Host "Market-data root : $root"
 Write-Host "Logon            : only when $principalName is logged on"
-Write-Host "Schedule         : hourly; reminder probe checks America/New_York 16:10+"
+Write-Host "Schedule         : hourly; probe checks XNYS actual close + 10 min in America/New_York"
 Write-Host "Effect           : read-only readiness check + topmost reminder ONLY if DUE"
 Write-Host "No unattended Schwab call or password handling."
 if (-not $Install) {
