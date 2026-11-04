@@ -19,6 +19,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 from probes.verify_next_session_readiness import inspect_preparation
+from mb_market_data.equity_closeout_calendar import (
+    require_postclose_source_time,
+    validate_next_exchange_session,
+)
 
 
 ET = ZoneInfo("America/New_York")
@@ -31,6 +35,7 @@ def run_closeout_preparation(root: Path, closed: date, next_day: date, *,
     now = clock().astimezone(ET)
     if next_day <= closed:
         raise ValueError("Next session must follow completed session")
+    validate_next_exchange_session(closed, next_day)
     workflow_dir = root / "output" / "daily_universe_production" / (
         f"{next_day.isoformat()}-from-{closed.isoformat()}")
     journal_root = root / "output" / (
@@ -41,9 +46,7 @@ def run_closeout_preparation(root: Path, closed: date, next_day: date, *,
     # A fully completed run is read-only on retries. An incomplete existing
     # directory requires explicit recovery; never quietly overwrite evidence.
     if not workflow_dir.exists():
-        if now.date() != closed or now.hour < 16:
-            raise ValueError(
-                "New post-close snapshot requires 16:00 ET through midnight on source session")
+        require_postclose_source_time(closed, now)
         cmd = [
             sys.executable, str(root / "probes" / "run_daily_universe_production.py"),
             "--session-date", closed.isoformat(),
