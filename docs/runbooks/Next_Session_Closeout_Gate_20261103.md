@@ -135,6 +135,43 @@ or claim that it acquired a snapshot. Do not prefill or relabel missing previous
 session evidence. Do not run the normal builder after ET midnight for the
 previous session.
 
+## Post-close operator reminder (experimental; not scheduled)
+
+A read-only reminder probe now exists at
+`probes/closeout_readiness_reminder.py`. It uses **Eastern time** to avoid
+hard-coding MasterBot's local timezone or DST shifts. A completed-session
+journal dated today is required; it does not infer a live trading session
+from a weekday alone. After 16:10 ET, if no successfully verified next-session
+build/r0 is found, it reports `CLOSEOUT REMINDER: DUE`. Once all accepted
+artifacts and the next-session r0 agree, it reports `READY` and stops
+requesting attention. The probe does not infer the next session by simply
+adding one weekday: the operator must check the exchange holiday calendar
+and supply `--next-session` to the attended command.
+
+For an isolated checkout, read-only status is checked with:
+
+```cmd
+python -B probes\closeout_readiness_reminder.py
+```
+
+The optional `--notify` uses a **topmost Windows reminder window** only when
+`DUE`, performs no API call, and is guarded against redirecting an
+experimental checkout's notifier to production. It does **not** run the
+closeout automatically: the operator remains responsible for authenticating
+once and confirming the target trading date. It also does not install a
+Task Scheduler job.
+
+Proposed scheduled use **after separate approval**: an interactive,
+hourly Windows Task Scheduler invocation of the installed production
+checkout's reminder. The script's ET date/time and journal checks determine
+whether to pop up; task scheduling must not depend on Central/Arizona local
+DST. Only use "Run only when user is logged on" so warnings appear on the
+operator desktop. A dismissed reminder may recur hourly until readiness
+is proven. If the machine is shut down, signed out or the task does not
+run, the reminder cannot guarantee delivery. Manual closeout remains
+mandatory. Task creation, operational interruption testing and approval
+are still pending.
+
 ## Remaining deployment work
 
 This is an **experimental closeout candidate, not a production installation**.
