@@ -195,12 +195,27 @@ synthetic historical timestamp from creating a desktop warning.
 
 The **plan-only** Task Scheduler helper is
 `probes/install_closeout_reminder_task.ps1`. Without `-Install`, it
-prints a plan and changes no Windows tasks. On explicit later approval,
-`-Install` requires an installed **main** checkout, rejects an existing
-task, and requires the operator to type a full confirmation before registering
-an hourly, logged-on-user-only interactive task. The scheduled action
-runs `pythonw.exe` to invoke the read-only reminder only: it never
-starts Schwab or handles credentials.
+prints a plan and changes no Windows tasks. It intentionally shows the
+experimental checkout path when run from the isolated experiment; **that
+plan is NOT a production installation specification**.
+
+After separate production authorization and main deployment,
+`-Install` requires an explicit `-ExpectedInstalledRoot` equal to its
+actual installed checkout, a **main** branch, an absent task name,
+and `exchange-calendars 4.13.2` in the selected Python interpreter.
+It also requires the operator to type a full confirmation. It will
+not silently switch from the tested `closeout-qa` interpreter to
+production `sea-green`: the installed interpreter must independently
+pass the preflight after authorized qualification.
+
+The scheduler check is anchored at **HH:10 each hour in Windows local
+time**, not an arbitrary offset from the installation time. The Python
+calendar determines the actual Eastern-time due window. The task can
+execute hourly all day while logged on, but normally displays no UI
+until **16:10 ET** on regular sessions or **13:10 ET** on scheduled
+early-close sessions. It suppresses due warnings after Eastern midnight.
+The scheduled action runs `pythonw.exe` to invoke the read-only reminder:
+it never starts Schwab or handles credentials.
 
 Proposed scheduled use **after separate approval**: an interactive,
 hourly Windows Task Scheduler invocation of the installed production
@@ -208,10 +223,23 @@ checkout's reminder. The script's ET date/time and journal checks determine
 whether to pop up; task scheduling must not depend on Central/Arizona local
 DST. Only use "Run only when user is logged on" so warnings appear on the
 operator desktop. A dismissed reminder may recur hourly until readiness
-is proven. If the machine is shut down, signed out or the task does not
-run, the reminder cannot guarantee delivery. Manual closeout remains
-mandatory. Task creation, operational interruption testing and approval
-are still pending.
+is proven.
+
+**Missed-deadline recovery reminder:** If the source trading date has
+ended and the next trading date has begun, the same hourly check can
+show `RECOVERY_REQUIRED` starting at **07:00 ET** on the next actual
+trading session (no weekend or holiday alert), provided the previous
+source-session journal exists but verified preparation is absent or
+inconsistent. That message points to the read-only recovery assessment
+and explicitly prohibits using new quote volume as prior-day evidence.
+This is a missed-deadline escalation, not an automatic carry-forward.
+It does not assert an alert was delivered when Windows was powered off,
+logged out, or unable to run the task.
+
+If the machine is shut down, signed out or the task does not run,
+the reminder cannot guarantee delivery. Manual closeout remains
+mandatory. Task creation, desktop notification interruption testing,
+and approval are still pending.
 
 ## Missed-window recovery and optional phone alerts
 
