@@ -95,14 +95,13 @@ proposal, and r0 publication in the next-session schema-v2 journal.
 It then verifies the saved artifacts, dates, proposal hash, publication and
 replay. The wrapper does not ask for a second password.
 
-It **refuses to start a new build outside 16:00–24:00 ET on the completed
-session date** (but can verify an already existing complete build later) and reports `INCOMPLETE` without launching a provider request.
+It **refuses to start a new snapshot before the exchange's scheduled core close, or after midnight ET on the source trading date** (but can verify an already existing complete build later) and reports `INCOMPLETE` without launching a provider request.
 An existing workflow directory is never overwritten or silently regenerated.
 If it already exists, the wrapper verifies it without invoking the builder; a
 partial or damaged directory requires an explicit review/recovery instead of
 silent retry. It does not declare today's journal audit PASS.
 
-Intended command on the **completed session date**, after 16:00 ET:
+Intended command on the **completed exchange trading date**, after its scheduled close (16:00 ET normal / 13:00 ET early):
 
 ```cmd
 python probes\prepare_next_session_closeout.py --closed-session 2026-11-03 --next-session 2026-11-04
@@ -145,7 +144,8 @@ python probes\attended_closeout_today.py
 ```
 
 It detects today's **Eastern trading date**, requires an existing dated
-session journal and a time after 16:00 ET, asks for the **actual next trading
+session journal and a time after that day's actual scheduled exchange close,
+asks for the **actual next trading
 date** (for example Monday after Friday, or Tuesday after a holiday),
 and asks for explicit `YES` approval. It then invokes the combined
 closeout. The accepted dated workflow prompts for the encrypted Schwab
@@ -153,9 +153,10 @@ password **once**. Audit and replay occur afterward without another
 authentication. The user still stops the independent monitor/watchdog
 with Q after validating the evidence.
 
-**This is not yet deployed.** There is no exchange calendar in the current
-production workflow; the operator must choose the real next session date
-and must not rely on weekday arithmetic alone.
+**This is not yet deployed.** The experimental candidate uses the maintained
+`exchange_calendars` XNYS schedule (XNAS alias) to suggest and strictly
+validate the next trading date, but still asks the operator to confirm.
+The installed production workflow has not been changed.
 
 ## Post-close operator reminder (experimental; not scheduled)
 
@@ -163,7 +164,8 @@ A read-only reminder probe now exists at
 `probes/closeout_readiness_reminder.py`. It uses **Eastern time** to avoid
 hard-coding MasterBot's local timezone or DST shifts. A completed-session
 journal dated today is required; it does not infer a live trading session
-from a weekday alone. After 16:10 ET, if no successfully verified next-session
+from a weekday alone. Starting ten minutes after the exchange's scheduled
+close (16:10 ET normal / 13:10 ET early), if no verified next-session
 build/r0 is found, it reports `CLOSEOUT REMINDER: DUE`. Once all accepted
 artifacts and the next-session r0 agree, it reports `READY` and stops
 requesting attention. The probe does not infer the next session by simply
@@ -229,12 +231,36 @@ is present in this candidate. Earlier scanner work used an encrypted
 `pushover.ecfg` with separate app and user keys; that design can be
 reviewed when the user reinstates the account.
 
-An official exchange-calendar schedule is **still pending**. In the
-current experimental reminder, the hourly Windows Task Scheduler job
-could execute all day while logged on, but only the fixed 16:10-to-midnight
-Eastern gate can raise a warning; it does not yet support 13:00-close
-sessions. The snapshot validator also still uses 16:00 ET. Do not
-install the reminder as if early-close support were qualified.
+The experimental source code now uses the maintained `exchange_calendars`
+calendar for session days, actual market close, reminder eligibility, next
+trading date and the Schwab same-day snapshot timing gate. An hourly Windows
+Task Scheduler task could still execute all day while logged on, but the
+Python gate warns only during the scheduled close+10-minutes-to-midnight
+Eastern window. **Early-close production is not yet qualified**: MasterBot
+needs the package installed and version recorded, offline Windows tests,
+review of live poller stop/cadence on shortened days, and a planned dry run
+before installation. Extraordinary unscheduled exchange closures need a
+separate exception; a packaged calendar is not a live exchange-status feed.
+
+## Maintained exchange calendar dependency (experimental)
+
+Phase 1 now uses `exchange_calendars` rather than a handwritten fixed holiday
+table. The code asks for the XNYS calendar (also used for XNAS core-session
+times) and explicitly supplies a date range when loading it; this avoids
+the library's rolling one-year default range. It records the installed
+`exchange_calendars` revision in the snapshot manifest alongside the
+scheduled close and the calendar contract.
+
+The package is declared as the optional `closeout` dependency in
+`pyproject.toml`, with a bounded 4.13 release. **It has not been installed
+on MasterBot by this experimental development.** After explicit approval,
+confirm the version in the target environment and qualify against published
+NYSE/Nasdaq calendars, notably the 2026-11-27 and 2026-12-24 13:00 ET closes.
+
+The holiday/shortened-session schedule comes from locally installed package
+data, not a live web service. Exchange emergency changes still require a
+reviewed manual exception; do not treat a calendar query as proof the market
+is open right now.
 
 ## Remaining deployment work
 
