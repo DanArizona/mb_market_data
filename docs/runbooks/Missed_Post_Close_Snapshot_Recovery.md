@@ -8,12 +8,14 @@ provenance. This is an operator decision, not an automatic fallback.
 
 ## Time and evidence contract
 
-For the currently qualified regular-day snapshot implementation, the
-snapshot must be acquired on the completed session date, after 16:00 ET,
-before midnight ET. (An actual exchange early close is a separate
-qualification item: the 16:00 hardcoded validator and reminder must both
-be made exchange-calendar aware before shortening this window.) The
-following day's `totalVolume` is **not a substitute**.
+For the currently installed production snapshot, the qualified ordinary
+session window is 16:00 ET through that date's Eastern midnight. The
+**experimental Phase 1 candidate** now obtains the scheduled close from
+`exchange_calendars` so that a published early-close session (such as
+13:00 ET on 2026-11-27) may be acquired after that close, always before
+midnight ET. Full live early-close operation remains unqualified pending
+Windows regression, package install review and poller stop-window checks.
+The following day's `totalVolume` is **not a substitute**.
 
 `NEXT SESSION PREPARATION: READY` requires the same-day source workflow,
 all immutable artifact hashes, the opening roster/r0 and matching
@@ -122,10 +124,13 @@ The read-only `probes/assess_closeout_recovery.py` provides classification.
 The carry-forward path is an **operator-approved recovery procedure**, not a
 new automatic code path in this experimental branch.
 
-The current reminder and post-close snapshot validator have NOT yet been
-qualified for early closes. The current scheduler checks hourly all day,
-while the Python reminder suppresses warnings until the fixed 16:10 ET
-threshold and after midnight. An official calendar-aware gate and observed
-reminder delivery/acknowledgment still need design and offline Windows tests.
+The Phase 1 candidate now uses `exchange_calendars` to obtain the exact
+scheduled early-close time and next session. The optional Scheduler trigger
+would still check hourly while logged on; its Python eligibility test starts
+at scheduled close plus 10 minutes, and stops at Eastern midnight.
+The new calendar logic has NOT yet been Windows-qualified or installed.
+Unexpected exchange closures, desktop reminder delivery and actual
+shortened-session poller windows still require qualification and an
+explicit operator exception process.
 No Windows task, notification account or production runner has been activated
 by this document.
