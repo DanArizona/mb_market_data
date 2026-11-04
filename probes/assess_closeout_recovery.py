@@ -20,6 +20,9 @@ for candidate in (str(PROJECT_ROOT),str(SRC_ROOT)):
     if candidate not in sys.path:
         sys.path.insert(0,candidate)
 from probes.verify_next_session_readiness import inspect_preparation
+from mb_market_data.equity_closeout_calendar import (
+    require_exchange_session, validate_next_exchange_session,
+)
 
 ET=ZoneInfo("America/New_York")
 
@@ -38,6 +41,8 @@ def assess(root: Path, source: date, target: date,
            *, now: datetime | None = None) -> RecoveryAssessment:
     if target<=source:
         raise ValueError("Target must be later than source date")
+    validate_next_exchange_session(source, target)
+    session=require_exchange_session(source)
     root=Path(root)
     now=(now or datetime.now(ET)).astimezone(ET)
     directory=(root/"output"/"daily_universe_production"/
@@ -71,7 +76,7 @@ def assess(root: Path, source: date, target: date,
         )
         return RecoveryAssessment("RECOVERY_REQUIRED",source.isoformat(),
             target.isoformat(),snapshot,workflow,reason+" Original check: "+detail)
-    if now.date()==source and now.time()>=time(16,0):
+    if now.date()==source and now>=session.closes_at:
         return RecoveryAssessment("DUE_BEFORE_ET_MIDNIGHT",
             source.isoformat(),target.isoformat(),snapshot,workflow,
             "The source calendar date has not ended. Acquire valid post-close "
@@ -79,8 +84,7 @@ def assess(root: Path, source: date, target: date,
             "Do not delete/overwrite a partial immutable workflow. "+detail)
     return RecoveryAssessment("NOT_YET_DUE",source.isoformat(),
         target.isoformat(),snapshot,workflow,
-        "No standard 16:00 ET closeout is currently due; inspect the actual "
-        "exchange schedule on shortened sessions. "+detail)
+        "The reviewed scheduled exchange close has not yet occurred. "+detail)
 
 
 def main():
