@@ -79,8 +79,10 @@ def display_notification(decision: ReminderDecision):
     message=(
         f"Post-close preparation is INCOMPLETE for {decision.source_date}.\n\n"
         f"{decision.explanation}\n\n"
-        "In your production sea-green CMD, run the dated unified closeout command "
-        "with the CORRECT NEXT TRADING DATE (check the exchange holiday calendar).\n\n"
+        "In your production sea-green CMD, run:\n"
+        "python probes\\attended_closeout_today.py\n\n"
+        "Enter the actual NEXT TRADING DATE when prompted "
+        "(check exchange market holidays).\n\n"
         "The workflow will prompt once for your encrypted Schwab configuration. "
         "Do not wait until after Eastern midnight to acquire today's snapshot."
     )
