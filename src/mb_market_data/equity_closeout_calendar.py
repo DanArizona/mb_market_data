@@ -133,7 +133,8 @@ def require_postclose_source_time(source: date, observed: datetime) -> EquitySes
         raise ValueError("Snapshot source session must not be in the future")
     if now < session.closes_at:
         raise ValueError(
-            f"Post-close snapshot requires {session.close_time:%H:%M} ET or later"
+            f"same-day daily-universe acquisition must run at or after "
+            f"{session.close_time:%H:%M} ET"
         )
     return session
 
