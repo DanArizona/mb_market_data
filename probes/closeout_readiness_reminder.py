@@ -115,24 +115,24 @@ def display_notification(decision: ReminderDecision):
     if decision.status == "RECOVERY_REQUIRED":
         target = next_exchange_session(decision.source_date)
         message = (
-            f"MISSED POST-CLOSE PREPARATION for {decision.source_date}.\\n\\n"
-            f"{decision.explanation}\\n\\n"
+            f"MISSED POST-CLOSE PREPARATION for {decision.source_date}.\n\n"
+            f"{decision.explanation}\n\n"
             "The original source-date snapshot can no longer be acquired. "
-            "Do not relabel today's quote volume as yesterday's.\\n\\n"
-            "Review the recovery runbook. In production CMD, inspect with:\\n"
+            "Do not relabel today's quote volume as yesterday's.\n\n"
+            "Review the recovery runbook. In production CMD, inspect with:\n"
             "python probes\\\\assess_closeout_recovery.py "
             f"--closed-session {decision.source_date} "
-            f"--next-session {target}\\n\\n"
+            f"--next-session {target}\n\n"
             "An older verified Uni roster may be considered only through "
             "the explicitly approved, provenance-labeled recovery process."
         )
         title = "mb_package — MISSED CLOSEOUT: RECOVERY REQUIRED"
     else:
         message = (
-            f"Post-close preparation is INCOMPLETE for {decision.source_date}.\\n\\n"
-            f"{decision.explanation}\\n\\n"
-            "In your production sea-green CMD, run:\\n"
-            "python probes\\\\attended_closeout_today.py\\n\\n"
+            f"Post-close preparation is INCOMPLETE for {decision.source_date}.\n\n"
+            f"{decision.explanation}\n\n"
+            "In your production sea-green CMD, run:\n"
+            "python probes\\\\attended_closeout_today.py\n\n"
             "Confirm the next exchange trading date. The snapshot stage "
             "will request your encrypted Schwab password once. Complete "
             "the same-day snapshot before Eastern midnight."
