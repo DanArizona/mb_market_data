@@ -146,3 +146,68 @@ class CloseoutReminderTests(TestCase):
                     with patch("probes.closeout_readiness_reminder.display_notification"):
                         self.assertEqual(main(),0)
         adapter.assert_not_called()
+
+    def test_next_morning_recovers_prior_missed_closeout(self):
+        self.journal_present()  # November 3 actually traded
+        morning = self.nov3 + timedelta(days=1)
+        morning = morning.replace(hour=8, minute=10)
+        result = inspect_due(self.root, now=morning)
+        self.assertEqual(result.status, "RECOVERY_REQUIRED")
+        self.assertEqual(result.source_date.isoformat(), "2026-11-03")
+        self.assertIn("2026-11-04", result.explanation)
+
+    def test_next_morning_no_alert_before_seven_eastern(self):
+        self.journal_present()
+        morning = (self.nov3 + timedelta(days=1)).replace(hour=6, minute=59)
+        result = inspect_due(self.root, now=morning)
+        self.assertEqual(result.status, "NOT_DUE")
+
+    def test_verified_prior_closeout_suppresses_morning_recovery(self):
+        self.journal_present()
+        self.workflow.mkdir(parents=True)
+        morning = (self.nov3 + timedelta(days=1)).replace(hour=8, minute=10)
+        with patch("probes.closeout_readiness_reminder.inspect_preparation",
+                   return_value={"status": "READY"}) as verify:
+            result = inspect_due(self.root, now=morning)
+        self.assertEqual(result.status, "NOT_DUE")
+        verify.assert_called_once()
+
+    def test_no_previous_session_journal_no_morning_recovery(self):
+        morning = (self.nov3 + timedelta(days=1)).replace(hour=8, minute=10)
+        result = inspect_due(self.root, now=morning)
+        self.assertEqual(result.status, "NOT_DUE")
+
+    def test_monday_morning_checks_previous_friday_over_weekend(self):
+        # Nov 27 is the Friday after Thanksgiving, with 13:00 close.
+        # Monday Nov 30 is the next U.S. equity session.
+        friday = self.root / "output" / (
+            "quote_observation_journal_v2_api_opening_2026-11-27"
+        ) / "2026-11-27.sqlite3"
+        friday.parent.mkdir(parents=True, exist_ok=True)
+        friday.write_bytes(b"prior real journal")
+        monday = datetime(2026, 11, 30, 8, 10,
+                          tzinfo=timezone(timedelta(hours=-5)))
+        result = inspect_due(self.root, now=monday)
+        self.assertEqual(result.status, "RECOVERY_REQUIRED")
+        self.assertEqual(result.source_date.isoformat(), "2026-11-27")
+
+    def test_morning_recovery_desktop_notification_distinct_from_due(self):
+        with patch("sys.argv", ["closeout_readiness_reminder.py", "--notify"]):
+            with patch("probes.closeout_readiness_reminder.inspect_due",
+                return_value=ReminderDecision("RECOVERY_REQUIRED",
+                    self.nov3.date(), "original session missed")):
+                with patch("probes.closeout_readiness_reminder.display_notification") as popup:
+                    with patch("probes.closeout_readiness_reminder.PushoverStub") as stub:
+                        self.assertEqual(main(), 0)
+        popup.assert_called_once()
+        stub.assert_not_called()  # Phase 2 remains deferred.
+
+    def test_no_recovery_reminder_on_weekend_even_if_friday_missing(self):
+        friday = self.root / "output" / (
+            "quote_observation_journal_v2_api_opening_2026-11-27"
+        ) / "2026-11-27.sqlite3"
+        friday.parent.mkdir(parents=True, exist_ok=True)
+        friday.write_bytes(b"prior real journal")
+        saturday = datetime(2026, 11, 28, 8, 10,
+                            tzinfo=timezone(timedelta(hours=-5)))
+        self.assertEqual(inspect_due(self.root, now=saturday).status, "NOT_DUE")
