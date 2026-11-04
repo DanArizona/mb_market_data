@@ -1,0 +1,117 @@
+"""Read-only, Eastern-time post-close readiness reminder (experimental).
+
+Intended for an opt-in *interactive* Windows Task Scheduler task. No API,
+password, poller control, journal writes or automatic closeout launch.
+When the dated next-session evidence is not READY after 16:10 ET, show an
+operator reminder. A reminder never declares closeout success.
+"""
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from datetime import date, datetime, time
+from pathlib import Path
+import sys
+from zoneinfo import ZoneInfo
+
+PROJECT_ROOT=Path(__file__).resolve().parents[1]
+SRC_ROOT=PROJECT_ROOT/"src"
+for path in (str(PROJECT_ROOT),str(SRC_ROOT)):
+    if path not in sys.path:
+        sys.path.insert(0,path)
+
+from probes.verify_next_session_readiness import inspect_preparation
+
+ET=ZoneInfo("America/New_York")
+
+
+@dataclass(frozen=True)
+class ReminderDecision:
+    status: str
+    source_date: date
+    explanation: str
+
+
+def inspect_due(root: Path, *, now: datetime | None = None) -> ReminderDecision:
+    """Check due/ready/no-session; no side effects or calendar guesses."""
+    now=(now or datetime.now(ET)).astimezone(ET)
+    source=now.date()
+    if now.weekday()>4 or now.time()<time(16,10):
+        return ReminderDecision("NOT_DUE",source,
+            "Outside weekday 16:10 ET to midnight closeout reminder window")
+    journal=root/"output"/(
+        f"quote_observation_journal_v2_api_opening_{source.isoformat()}")/(
+        f"{source.isoformat()}.sqlite3")
+    if not journal.is_file():
+        return ReminderDecision("NO_SESSION",source,
+            "No dated production journal found; no live session inferred")
+    directory=root/"output"/"daily_universe_production"
+    ending=f"-from-{source.isoformat()}"
+    candidates=(sorted(
+        p for p in directory.glob(f"*{ending}") if p.is_dir())
+        if directory.exists() else [])
+    if not candidates:
+        return ReminderDecision("DUE",source,
+            "Today's production journal exists, but no dated next-session workflow exists")
+    failures=[]
+    for candidate in candidates:
+        target_text=candidate.name[:-len(ending)]
+        try:
+            target=date.fromisoformat(target_text)
+            if target<=source:
+                raise ValueError("Target is not after source session")
+            journal_root=root/"output"/(
+                f"quote_observation_journal_v2_api_opening_{target.isoformat()}")
+            inspect_preparation(root=root,closed_date=source,next_date=target,
+                journal_root=journal_root,workflow_dir=candidate)
+            return ReminderDecision("READY",source,
+                f"Next-session preparation READY for {target.isoformat()}")
+        except (OSError, ValueError, RuntimeError, KeyError) as exc:
+            failures.append(f"{candidate.name}: {type(exc).__name__}")
+    return ReminderDecision("DUE",source,
+        "Existing next-session workflow has not verified READY: "+", ".join(failures))
+
+
+def display_notification(decision: ReminderDecision):
+    if sys.platform!="win32":
+        raise RuntimeError("Windows interactive desktop required")
+    from ctypes import windll
+    message=(
+        f"Post-close preparation is INCOMPLETE for {decision.source_date}.\n\n"
+        f"{decision.explanation}\n\n"
+        "In your production sea-green CMD, run the dated unified closeout command "
+        "with the CORRECT NEXT TRADING DATE (check the exchange holiday calendar).\n\n"
+        "The workflow will prompt once for your encrypted Schwab configuration. "
+        "Do not wait until after Eastern midnight to acquire today's snapshot."
+    )
+    windll.user32.MessageBoxW(
+        None,message,"mb_package — POST-CLOSE ACTION REQUIRED",
+        0x00000030 | 0x00040000)  # warning, topmost, acknowledgment only
+
+
+def main() -> int:
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--market-data-root",type=Path,default=PROJECT_ROOT)
+    parser.add_argument("--notify",action="store_true",
+                        help="Show Windows desktop warning only when preparation is DUE")
+    args=parser.parse_args()
+    root=args.market_data_root.resolve()
+    # A reminder in an isolated experiment must not be redirected to a
+    # production checkout before approved installation.
+    if args.notify and root != PROJECT_ROOT.resolve():
+        print("REMINDER BLOCKED: notify requires the installed repository checkout")
+        return 2
+    try:
+        decision=inspect_due(root)
+    except Exception as exc:
+        print(f"REMINDER CHECK ERROR: {type(exc).__name__}: {exc}")
+        return 2
+    print(f"CLOSEOUT REMINDER: {decision.status} ({decision.source_date})")
+    print(decision.explanation)
+    if args.notify and decision.status=="DUE":
+        display_notification(decision)
+    return 1 if decision.status=="DUE" else 0
+
+
+if __name__=="__main__":
+    raise SystemExit(main())
