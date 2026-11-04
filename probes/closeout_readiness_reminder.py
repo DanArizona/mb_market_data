@@ -66,7 +66,7 @@ def inspect_due(root: Path, *, now: datetime | None = None) -> ReminderDecision:
                 journal_root=journal_root,workflow_dir=candidate)
             return ReminderDecision("READY",source,
                 f"Next-session preparation READY for {target.isoformat()}")
-        except (OSError, ValueError, RuntimeError, KeyError) as exc:
+        except Exception as exc:
             failures.append(f"{candidate.name}: {type(exc).__name__}")
     return ReminderDecision("DUE",source,
         "Existing next-session workflow has not verified READY: "+", ".join(failures))
