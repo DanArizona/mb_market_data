@@ -56,6 +56,35 @@ with explicit owner acknowledgement while the previous session's volume
 remains valid. Silent credential storage and unattended password bypass are
 out of scope. No scheduled action is installed by this experiment.
 
+## Safely qualify the unified command against retained production evidence
+
+The combined runner now supports `--verify-only`. This mode uses the
+**experimental** scripts to inspect the explicitly selected *production* data
+root. It does **not** invoke the live post-close builder, does not request
+credentials, does not publish an r0 and does not change production journals.
+Its dated JSON receipt is stored in the experimental checkout by default.
+
+Example from the isolated MasterBot checkout (run on any later date):
+
+```cmd
+python -B "C:\\Users\\danla\\closeout_reliability_20261103\\mb_market_data\\probes\\run_daily_closeout.py" --verify-only --closed-session 2026-11-03 --next-session 2026-11-04 --market-data-root "C:\\Users\\danla\\Documents\\github\\mb_market_data"
+```
+
+**Expected qualified result for November 3:**
+`CURRENT SESSION AUDIT: FAIL` (one real Focus gap),
+`CURRENT SESSION REPLAY: COMPLETE`,
+`NEXT SESSION PREPARATION: READY`,
+`CLOSEOUT: RECORDED_WITH_FINDINGS`; exit code **1** is intentional, not
+an execution error.
+
+In **attended** mode, the program checkout and data root must be the same,
+preventing accidental experimental code execution *against* production.
+Only after explicit installation approval would a single command in the
+installed checkout execute the dated snapshot/build/publish plus audit/replay.
+
+The existing Windows test harness (`probes/verify_closeout_offline.cmd`)
+must pass after every candidate change. It never calls a provider.
+
 ## New attended closeout entrypoint (review candidate)
 
 The new `probes/prepare_next_session_closeout.py` invokes the **existing**
@@ -67,7 +96,7 @@ It then verifies the saved artifacts, dates, proposal hash, publication and
 replay. The wrapper does not ask for a second password.
 
 It **refuses to start a new build outside 16:00–24:00 ET on the completed
-session date** and reports `INCOMPLETE` without launching a provider request.
+session date** (but can verify an already existing complete build later) and reports `INCOMPLETE` without launching a provider request.
 An existing workflow directory is never overwritten or silently regenerated.
 If it already exists, the wrapper verifies it without invoking the builder; a
 partial or damaged directory requires an explicit review/recovery instead of
