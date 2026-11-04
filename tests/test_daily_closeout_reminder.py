@@ -5,6 +5,8 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
+from probes.closeout_readiness_reminder import main
+
 from probes.closeout_readiness_reminder import inspect_due, ReminderDecision
 
 
@@ -82,3 +84,26 @@ class CloseoutReminderTests(TestCase):
                          tzinfo=timezone(timedelta(hours=-6)))
         result=inspect_due(self.root,now=central)
         self.assertEqual(result.status,"DUE")
+
+    def test_historical_as_of_is_read_only_and_accepts_offset(self):
+        from unittest.mock import patch
+        with patch("sys.argv",[
+            "closeout_readiness_reminder.py","--as-of",
+            "2026-11-03T17:15:00-05:00"]):
+            with patch("probes.closeout_readiness_reminder.inspect_due",
+                return_value=ReminderDecision("READY",self.nov3.date(),"verified")) as check:
+                with patch("probes.closeout_readiness_reminder.display_notification") as popup:
+                    self.assertEqual(main(),0)
+        check.assert_called_once()
+        self.assertEqual(
+            check.call_args.kwargs["now"].isoformat(),
+            "2026-11-03T17:15:00-05:00")
+        popup.assert_not_called()
+
+    def test_historical_as_of_refuses_notification(self):
+        with patch("sys.argv",[
+            "closeout_readiness_reminder.py","--notify","--as-of",
+            "2026-11-03T17:15:00-05:00"]):
+            with self.assertRaises(SystemExit) as failure:
+                main()
+        self.assertEqual(failure.exception.code,2)
