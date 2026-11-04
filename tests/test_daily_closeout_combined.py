@@ -28,7 +28,7 @@ class CombinedDailyCloseoutTests(TestCase):
             called.append((command, cwd))
             return SimpleNamespace(returncode=codes[len(called)-1])
         result = run_daily_closeout(self.root, self.closed, self.target,
-            runner=run, clock=lambda: self.now)
+            runner=run, clock=lambda: self.now, program_root=self.root)
         path = Path(result['receipt_path'])
         self.assertTrue(path.is_file())
         stored = json.loads(path.read_text(encoding='utf-8'))
@@ -84,3 +84,57 @@ class CombinedDailyCloseoutTests(TestCase):
         self.assertEqual(combine_verdicts(0, 0, 0), ('VERIFIED_COMPLETE', 0))
         for codes in ((0, 2, 0), (0, 0, 2), (2, 0, 0), (1, 1, 0)):
             self.assertEqual(combine_verdicts(*codes), ('INCOMPLETE', 2))
+
+    def test_verify_only_uses_candidate_scripts_and_separate_receipt(self):
+        experimental = self.root / 'candidate'
+        data_root = self.root / 'production_evidence'
+        experimental.mkdir()
+        data_root.mkdir()
+        external_receipts = self.root / 'isolated_receipts'
+        called = []
+        def run(command, *, cwd):
+            called.append((command, cwd))
+            return SimpleNamespace(returncode=(0, 1, 0)[len(called)-1])
+        result = run_daily_closeout(
+            data_root, self.closed, self.target,
+            program_root=experimental, verify_only=True,
+            receipt_root=external_receipts, runner=run,
+            clock=lambda: self.now)
+        self.assertEqual(result['verdict'], 'RECORDED_WITH_FINDINGS')
+        self.assertEqual(result['mode'], 'VERIFY_ONLY')
+        self.assertEqual(result['production_writes'], 'NONE__READ_ONLY_EVIDENCE')
+        self.assertEqual([Path(c[0][1]).name for c in called],
+            ['verify_next_session_readiness.py',
+             'audit_required_session_channels.py',
+             'replay_quote_observation_journal.py'])
+        self.assertTrue(all(cwd == experimental for _, cwd in called))
+        self.assertEqual(Path(result['receipt_path']).parent, external_receipts)
+        self.assertFalse((data_root / 'output' / 'production_closeout').exists())
+
+    def test_attended_mode_denies_cross_checkout_production_root(self):
+        experimental = self.root / 'candidate'
+        external = self.root / 'production_evidence'
+        executor = mock.Mock()
+        with self.assertRaisesRegex(ValueError, 'requires installed program root'):
+            run_daily_closeout(
+                external, self.closed, self.target,
+                program_root=experimental, runner=executor,
+                clock=lambda: self.now)
+        executor.assert_not_called()
+
+    def test_verify_only_default_receipt_is_under_candidate_not_production(self):
+        experimental = self.root / 'candidate'
+        data_root = self.root / 'production_evidence'
+        experimental.mkdir()
+        data_root.mkdir()
+        called = []
+        def run(command, *, cwd):
+            called.append(command)
+            return SimpleNamespace(returncode=0)
+        result = run_daily_closeout(
+            data_root, self.closed, self.target,
+            program_root=experimental, verify_only=True,
+            runner=run, clock=lambda: self.now)
+        self.assertEqual(result['verdict'], 'VERIFIED_COMPLETE')
+        self.assertTrue(str(result['receipt_path']).startswith(str(experimental)))
+        self.assertFalse((data_root / 'output').exists())
