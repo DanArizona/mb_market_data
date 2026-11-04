@@ -111,6 +111,19 @@ def next_exchange_session(source: date) -> date:
     return target
 
 
+def previous_exchange_session(target: date) -> date:
+    """Return the preceding actual equity trading session, including holidays."""
+    require_exchange_session(target)
+    cal = _calendar_for_year(target.year)
+    try:
+        result = cal.previous_session(target.isoformat())
+    except Exception as error:
+        raise RuntimeError(f"Cannot resolve previous exchange session before {target}") from error
+    source = result.date()
+    require_exchange_session(source)
+    return source
+
+
 def validate_next_exchange_session(source: date, target: date) -> None:
     expected = next_exchange_session(source)
     if target != expected:
