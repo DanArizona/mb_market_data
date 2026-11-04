@@ -119,6 +119,7 @@ def main() -> int:
     print(decision.explanation)
     if args.notify and decision.status=="DUE":
         display_notification(decision)
+        return 0  # Successful notification; a DUE audit finding is not a task failure.
     return 1 if decision.status=="DUE" else 0
 
 
