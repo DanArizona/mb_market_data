@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from mb_market_data.daily_universe import UniverseFilterConfig, sha256_file
+from mb_market_data.equity_closeout_calendar import validate_next_exchange_session
 
 
 WORKFLOW_VERSION = "daily-universe-production-v2"
@@ -47,6 +48,7 @@ def workflow_paths(root: str | Path) -> WorkflowPaths:
 def validate_workflow_dates(session_date: date, target_date: date) -> None:
     if target_date <= session_date:
         raise ValueError("target_date must be after session_date")
+    validate_next_exchange_session(session_date, target_date)
 
 
 def build_stage_commands(
