@@ -21,6 +21,7 @@ for path in (str(PROJECT_ROOT),str(SRC_ROOT)):
         sys.path.insert(0,path)
 
 from probes.verify_next_session_readiness import inspect_preparation
+from mb_market_data.closeout_notifications import PushoverStub, due_notice
 
 ET=ZoneInfo("America/New_York")
 
@@ -118,8 +119,12 @@ def main() -> int:
     print(f"CLOSEOUT REMINDER: {decision.status} ({decision.source_date})")
     print(decision.explanation)
     if args.notify and decision.status=="DUE":
+        # Future Pushover integration point; never send in this candidate.
+        delivery=PushoverStub().dispatch(
+            due_notice(decision.source_date.isoformat(), decision.explanation))
+        print(f"PUSHOVER: {delivery.outcome} (no push sent)", flush=True)
         display_notification(decision)
-        return 0  # Successful notification; a DUE audit finding is not a task failure.
+        return 0  # Desktop notification succeeded; readiness remains DUE.
     return 1 if decision.status=="DUE" else 0
 
 
