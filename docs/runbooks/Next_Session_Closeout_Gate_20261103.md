@@ -211,6 +211,31 @@ run, the reminder cannot guarantee delivery. Manual closeout remains
 mandatory. Task creation, operational interruption testing and approval
 are still pending.
 
+## Missed-window recovery and optional phone alerts
+
+A missed source-date snapshot is not recreated using the following day's
+volume. See `docs/runbooks/Missed_Post_Close_Snapshot_Recovery.md` for
+triage, retained-snapshot continuation, and the explicit, separately
+authorized prior-roster carry-forward procedure. The experiment now has
+read-only `probes/assess_closeout_recovery.py`, which reports
+`RECOVERY_REQUIRED` after the source date when readiness cannot be proven.
+
+The proposed optional Pushover interface is described in
+`docs/runbooks/Optional_Pushover_Closeout_Notifications.md`.
+The `PushoverStub` is integrated with the desktop reminder but is
+**disabled and incapable of delivery**, even if an enabled flag is set.
+No Pushover account, encrypted credential loader or network transport
+is present in this candidate. Earlier scanner work used an encrypted
+`pushover.ecfg` with separate app and user keys; that design can be
+reviewed when the user reinstates the account.
+
+An official exchange-calendar schedule is **still pending**. In the
+current experimental reminder, the hourly Windows Task Scheduler job
+could execute all day while logged on, but only the fixed 16:10-to-midnight
+Eastern gate can raise a warning; it does not yet support 13:00-close
+sessions. The snapshot validator also still uses 16:00 ET. Do not
+install the reminder as if early-close support were qualified.
+
 ## Remaining deployment work
 
 This is an **experimental closeout candidate, not a production installation**.
