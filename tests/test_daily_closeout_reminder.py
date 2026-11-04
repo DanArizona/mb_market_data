@@ -107,3 +107,19 @@ class CloseoutReminderTests(TestCase):
             with self.assertRaises(SystemExit) as failure:
                 main()
         self.assertEqual(failure.exception.code,2)
+
+    def test_due_notification_is_task_success_not_task_error(self):
+        with patch("sys.argv",["closeout_readiness_reminder.py","--notify"]):
+            with patch("probes.closeout_readiness_reminder.inspect_due",
+                return_value=ReminderDecision("DUE",self.nov3.date(),"incomplete")):
+                with patch("probes.closeout_readiness_reminder.display_notification") as popup:
+                    self.assertEqual(main(),0)
+        popup.assert_called_once()
+
+    def test_no_session_suppresses_desktop_popup(self):
+        with patch("sys.argv",["closeout_readiness_reminder.py","--notify"]):
+            with patch("probes.closeout_readiness_reminder.inspect_due",
+                return_value=ReminderDecision("NO_SESSION",self.nov3.date(),"none")):
+                with patch("probes.closeout_readiness_reminder.display_notification") as popup:
+                    self.assertEqual(main(),0)
+        popup.assert_not_called()
