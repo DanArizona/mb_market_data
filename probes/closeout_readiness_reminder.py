@@ -94,7 +94,14 @@ def main() -> int:
     parser.add_argument("--market-data-root",type=Path,default=PROJECT_ROOT)
     parser.add_argument("--notify",action="store_true",
                         help="Show Windows desktop warning only when preparation is DUE")
+    parser.add_argument("--as-of",type=datetime.fromisoformat,
+                        help="Read-only historical check with explicit timezone-aware timestamp")
     args=parser.parse_args()
+    if args.as_of is not None:
+        if args.as_of.tzinfo is None or args.as_of.utcoffset() is None:
+            parser.error("--as-of requires an explicit UTC offset")
+        if args.notify:
+            parser.error("--as-of cannot be combined with --notify")
     root=args.market_data_root.resolve()
     # A reminder in an isolated experiment must not be redirected to a
     # production checkout before approved installation.
@@ -102,7 +109,7 @@ def main() -> int:
         print("REMINDER BLOCKED: notify requires the installed repository checkout")
         return 2
     try:
-        decision=inspect_due(root)
+        decision=inspect_due(root,now=args.as_of)
     except Exception as exc:
         print(f"REMINDER CHECK ERROR: {type(exc).__name__}: {exc}")
         return 2
