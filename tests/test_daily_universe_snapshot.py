@@ -249,8 +249,15 @@ class TestBuildMarketDataSnapshot(unittest.TestCase):
         self.assertEqual(manifest["snapshot_version"], SNAPSHOT_VERSION)
         self.assertEqual(
             manifest["acquisition"]["timing_policy"],
-            "same-et-date-post-close-v1",
+            "same-et-date-exchange-close-v2",
         )
+        self.assertEqual(manifest["exchange_session"]["kind"], "REGULAR")
+        self.assertEqual(
+            manifest["exchange_session"]["close_at_et"],
+            "2026-09-18T16:00:00-04:00",
+        )
+        self.assertIn("exchange-calendars", manifest["exchange_session"]["calendar_contract"])
+        self.assertNotEqual(manifest["exchange_session"].get("calendar_revision"), None)
         self.assertEqual(
             manifest["acquisition"]["validated_at_et"],
             "2026-09-18T19:51:00-04:00",
