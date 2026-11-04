@@ -2,7 +2,7 @@
 
 Intended for an opt-in *interactive* Windows Task Scheduler task. No API,
 password, poller control, journal writes or automatic closeout launch.
-When the dated next-session evidence is not READY after 16:10 ET, show an
+When the dated next-session evidence is not READY after actual close + 10 min, show an
 operator reminder. A reminder never declares closeout success.
 """
 from __future__ import annotations
@@ -22,6 +22,9 @@ for path in (str(PROJECT_ROOT),str(SRC_ROOT)):
 
 from probes.verify_next_session_readiness import inspect_preparation
 from mb_market_data.closeout_notifications import PushoverStub, due_notice
+from mb_market_data.equity_closeout_calendar import (
+    equity_session, next_exchange_session, reminder_due_at,
+)
 
 ET=ZoneInfo("America/New_York")
 
@@ -34,43 +37,44 @@ class ReminderDecision:
 
 
 def inspect_due(root: Path, *, now: datetime | None = None) -> ReminderDecision:
-    """Check due/ready/no-session; no side effects or calendar guesses."""
-    now=(now or datetime.now(ET)).astimezone(ET)
-    source=now.date()
-    if now.weekday()>4 or now.time()<time(16,10):
-        return ReminderDecision("NOT_DUE",source,
-            "Outside weekday 16:10 ET to midnight closeout reminder window")
-    journal=root/"output"/(
-        f"quote_observation_journal_v2_api_opening_{source.isoformat()}")/(
-        f"{source.isoformat()}.sqlite3")
+    """Only remind for the exchange's actual session after close + ten minutes."""
+    now = (now or datetime.now(ET)).astimezone(ET)
+    source = now.date()
+    session = equity_session(source)
+    if not session.is_open:
+        return ReminderDecision("NOT_DUE", source,
+            f"No U.S. equity trading session on {source}: {session.reason}")
+    due_at = reminder_due_at(source)
+    if now < due_at:
+        return ReminderDecision("NOT_DUE", source,
+            f"Exchange closes at {session.close_time:%H:%M} ET; "
+            f"first reminder eligibility {due_at:%H:%M} ET")
+    journal = root / "output" / (
+        f"quote_observation_journal_v2_api_opening_{source.isoformat()}"
+    ) / f"{source.isoformat()}.sqlite3"
     if not journal.is_file():
-        return ReminderDecision("NO_SESSION",source,
+        return ReminderDecision("NO_SESSION", source,
             "No dated production journal found; no live session inferred")
-    directory=root/"output"/"daily_universe_production"
-    ending=f"-from-{source.isoformat()}"
-    candidates=(sorted(
-        p for p in directory.glob(f"*{ending}") if p.is_dir())
-        if directory.exists() else [])
-    if not candidates:
-        return ReminderDecision("DUE",source,
-            "Today's production journal exists, but no dated next-session workflow exists")
-    failures=[]
-    for candidate in candidates:
-        target_text=candidate.name[:-len(ending)]
-        try:
-            target=date.fromisoformat(target_text)
-            if target<=source:
-                raise ValueError("Target is not after source session")
-            journal_root=root/"output"/(
-                f"quote_observation_journal_v2_api_opening_{target.isoformat()}")
-            inspect_preparation(root=root,closed_date=source,next_date=target,
-                journal_root=journal_root,workflow_dir=candidate)
-            return ReminderDecision("READY",source,
-                f"Next-session preparation READY for {target.isoformat()}")
-        except Exception as exc:
-            failures.append(f"{candidate.name}: {type(exc).__name__}")
-    return ReminderDecision("DUE",source,
-        "Existing next-session workflow has not verified READY: "+", ".join(failures))
+    target = next_exchange_session(source)
+    directory = root / "output" / "daily_universe_production" / (
+        f"{target.isoformat()}-from-{source.isoformat()}"
+    )
+    if not directory.is_dir():
+        return ReminderDecision("DUE", source,
+            f"Today's production journal exists, but no dated next-session "
+            f"workflow exists for {target.isoformat()}")
+    journal_root = root / "output" / (
+        f"quote_observation_journal_v2_api_opening_{target.isoformat()}"
+    )
+    try:
+        inspect_preparation(root=root, closed_date=source, next_date=target,
+            journal_root=journal_root, workflow_dir=directory)
+    except Exception as exc:
+        return ReminderDecision("DUE", source,
+            f"Next-session workflow for {target.isoformat()} is not verified: "
+            f"{type(exc).__name__}: {exc}")
+    return ReminderDecision("READY", source,
+        f"Next-session preparation READY for {target.isoformat()}")
 
 
 def display_notification(decision: ReminderDecision):
