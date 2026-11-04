@@ -135,6 +135,28 @@ or claim that it acquired a snapshot. Do not prefill or relabel missing previous
 session evidence. Do not run the normal builder after ET midnight for the
 previous session.
 
+## Simplified operator command: one date confirmation, one authentication
+
+The experimental `probes/attended_closeout_today.py` reduces daily
+operator entry to one command in the approved production checkout:
+
+```cmd
+python probes\attended_closeout_today.py
+```
+
+It detects today's **Eastern trading date**, requires an existing dated
+session journal and a time after 16:00 ET, asks for the **actual next trading
+date** (for example Monday after Friday, or Tuesday after a holiday),
+and asks for explicit `YES` approval. It then invokes the combined
+closeout. The accepted dated workflow prompts for the encrypted Schwab
+password **once**. Audit and replay occur afterward without another
+authentication. The user still stops the independent monitor/watchdog
+with Q after validating the evidence.
+
+**This is not yet deployed.** There is no exchange calendar in the current
+production workflow; the operator must choose the real next session date
+and must not rely on weekday arithmetic alone.
+
 ## Post-close operator reminder (experimental; not scheduled)
 
 A read-only reminder probe now exists at
@@ -159,7 +181,24 @@ The optional `--notify` uses a **topmost Windows reminder window** only when
 experimental checkout's notifier to production. It does **not** run the
 closeout automatically: the operator remains responsible for authenticating
 once and confirming the target trading date. It also does not install a
-Task Scheduler job.
+Task Scheduler job. A safe read-only historical check uses an offset-aware
+`--as-of` value, for example:
+
+```cmd
+python probes\closeout_readiness_reminder.py --as-of 2026-11-03T17:30:00-05:00 --market-data-root C:\Users\danla\Documents\github\mb_market_data
+```
+
+The `--as-of` option cannot be combined with `--notify`, preventing a
+synthetic historical timestamp from creating a desktop warning.
+
+The **plan-only** Task Scheduler helper is
+`probes/install_closeout_reminder_task.ps1`. Without `-Install`, it
+prints a plan and changes no Windows tasks. On explicit later approval,
+`-Install` requires an installed **main** checkout, rejects an existing
+task, and requires the operator to type a full confirmation before registering
+an hourly, logged-on-user-only interactive task. The scheduled action
+runs `pythonw.exe` to invoke the read-only reminder only: it never
+starts Schwab or handles credentials.
 
 Proposed scheduled use **after separate approval**: an interactive,
 hourly Windows Task Scheduler invocation of the installed production
