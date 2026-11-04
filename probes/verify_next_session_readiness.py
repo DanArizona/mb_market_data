@@ -20,6 +20,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from mb_market_data.opening_hierarchy import load_opening_proposal
 from mb_market_data.quote_journal_replay import QuoteJournalReplayReader
+from mb_market_data.equity_closeout_calendar import validate_next_exchange_session
 
 
 def _json(path: Path):
@@ -34,6 +35,7 @@ def inspect_preparation(*, root: Path, closed_date: date, next_date: date,
     """Return explicit readiness evidence or raise an actionable exception."""
     if next_date <= closed_date:
         raise ValueError("Next session must follow completed session")
+    validate_next_exchange_session(closed_date, next_date)
     directory = workflow_dir or root / "output" / "daily_universe_production" / (
         f"{next_date.isoformat()}-from-{closed_date.isoformat()}")
     directory = Path(directory)
