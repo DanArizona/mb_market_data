@@ -1,0 +1,2 @@
+# The installer checks the exact tested source bytes, including line endings.
+*.py text eol=lf
