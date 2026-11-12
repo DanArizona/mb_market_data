@@ -1,0 +1,407 @@
+"""Deterministic event replay for a daily quote-observation journal.
+
+Replay events use availability time rather than sampling time.  A legacy
+channel revision or atomic hierarchy revision becomes available at its
+effective time; a quote acquisition becomes available when the complete
+Schwab response has been durably assembled.  Each quote event still retains
+its scheduled, dispatched, and completed timestamps.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+import time
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass
+from datetime import date, datetime
+from enum import StrEnum
+from pathlib import Path
+from typing import TypeAlias
+
+from mb_market_data.quote_observation_store import (
+    HIERARCHY_SCHEMA_VERSION,
+    SCHEMA_VERSION,
+    SUPPORTED_STORE_SCHEMA_VERSIONS,
+    QuoteObservationStore,
+    QuoteObservationStoreError,
+    SamplingChannelRevision,
+    StoredAcquisition,
+    StoredQuoteObservation,
+    UnsupportedSchemaVersionError,
+)
+from mb_market_data.sampling_membership import (
+    SAMPLING_HIERARCHY_CONTRACT,
+    SamplingHierarchyRevision,
+)
+
+
+class ReplayIntegrityError(RuntimeError):
+    """The journal cannot produce a complete, internally consistent event."""
+
+
+class ReplayEventKind(StrEnum):
+    """Stable event types shared by replay and future live publication."""
+
+    CHANNEL_REVISION = "channel_revision"
+    MEMBERSHIP_REVISION = "membership_revision"
+    QUOTE_ACQUISITION = "quote_acquisition"
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelRevisionEvent:
+    """A sampling-channel membership revision becoming effective."""
+
+    revision: SamplingChannelRevision
+
+    @property
+    def kind(self) -> ReplayEventKind:
+        return ReplayEventKind.CHANNEL_REVISION
+
+    @property
+    def available_at_utc(self) -> datetime:
+        return self.revision.effective_at
+
+    @property
+    def channel(self) -> str:
+        return self.revision.channel
+
+    @property
+    def event_id(self) -> str:
+        return (
+            f"channel_revision:{self.revision.channel}:"
+            f"{self.revision.session_date.isoformat()}:"
+            f"r{self.revision.revision}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipRevisionEvent:
+    """A complete Uni/Focus/Hot hierarchy revision becoming effective."""
+
+    revision: SamplingHierarchyRevision
+
+    @property
+    def kind(self) -> ReplayEventKind:
+        return ReplayEventKind.MEMBERSHIP_REVISION
+
+    @property
+    def available_at_utc(self) -> datetime:
+        return self.revision.effective_at
+
+    @property
+    def channel(self) -> str:
+        """Return a stable label for generic replay diagnostics."""
+
+        return "hierarchy"
+
+    @property
+    def event_id(self) -> str:
+        return (
+            "membership_revision:"
+            f"{self.revision.session_date.isoformat()}:"
+            f"r{self.revision.revision}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class QuoteAcquisitionEvent:
+    """One completed acquisition and all requested-symbol outcomes."""
+
+    acquisition: StoredAcquisition
+    observations: tuple[StoredQuoteObservation, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.observations) != self.acquisition.requested_symbol_count:
+            raise ReplayIntegrityError(
+                f"{self.acquisition.acquisition_id} declares "
+                f"{self.acquisition.requested_symbol_count} observations "
+                f"but contains {len(self.observations)}"
+            )
+        if any(
+            item.acquisition_id != self.acquisition.acquisition_id
+            for item in self.observations
+        ):
+            raise ReplayIntegrityError(
+                "Quote observation belongs to another acquisition: "
+                f"{self.acquisition.acquisition_id}"
+            )
+
+    @property
+    def kind(self) -> ReplayEventKind:
+        return ReplayEventKind.QUOTE_ACQUISITION
+
+    @property
+    def available_at_utc(self) -> datetime:
+        return self.acquisition.completed_at_utc
+
+    @property
+    def channel(self) -> str:
+        return self.acquisition.channel
+
+    @property
+    def event_id(self) -> str:
+        return f"quote_acquisition:{self.acquisition.acquisition_id}"
+
+
+RevisionReplayEvent: TypeAlias = (
+    ChannelRevisionEvent | MembershipRevisionEvent
+)
+ReplayEvent: TypeAlias = RevisionReplayEvent | QuoteAcquisitionEvent
+
+
+@dataclass(frozen=True, slots=True)
+class ReplayTimeline:
+    """Bounded metadata for one journal's replayable event stream."""
+
+    session_date: date
+    event_count: int
+    first_available_at_utc: datetime | None
+    last_available_at_utc: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class _JournalIdentity:
+    schema_version: int
+    session_date: date
+    membership_contract: str | None
+
+
+def _journal_identity(database_path: Path) -> _JournalIdentity:
+    if not database_path.is_file():
+        raise FileNotFoundError(database_path)
+    uri = database_path.resolve().as_uri() + "?mode=ro"
+    connection = sqlite3.connect(uri, uri=True)
+    try:
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        if version not in SUPPORTED_STORE_SCHEMA_VERSIONS:
+            raise UnsupportedSchemaVersionError(
+                f"Unsupported quote-observation schema version: {version}"
+            )
+        try:
+            row = connection.execute(
+                "SELECT schema_version, session_date FROM store_identity "
+                "WHERE singleton = 1"
+            ).fetchone()
+        except sqlite3.Error as exc:
+            raise ReplayIntegrityError(
+                "Journal has no readable store_identity table"
+            ) from exc
+        if row is None:
+            raise ReplayIntegrityError("Journal has no store_identity row")
+        if row[0] != version:
+            raise ReplayIntegrityError(
+                "store_identity schema version differs from PRAGMA "
+                "user_version"
+            )
+        membership_contract = None
+        if version == HIERARCHY_SCHEMA_VERSION:
+            try:
+                membership_contract = connection.execute(
+                    "SELECT membership_contract FROM store_identity "
+                    "WHERE singleton = 1"
+                ).fetchone()[0]
+            except sqlite3.Error as exc:
+                raise ReplayIntegrityError(
+                    "Hierarchy journal has no readable membership contract"
+                ) from exc
+            if membership_contract != SAMPLING_HIERARCHY_CONTRACT:
+                raise UnsupportedSchemaVersionError(
+                    "Unsupported sampling hierarchy contract: "
+                    f"{membership_contract!r}"
+                )
+        return _JournalIdentity(
+            schema_version=version,
+            session_date=date.fromisoformat(row[1]),
+            membership_contract=membership_contract,
+        )
+    finally:
+        connection.close()
+
+
+def _event_sort_key(
+    event: ReplayEvent,
+) -> tuple[datetime, int, str, int, str]:
+    # Membership must win a same-timestamp tie so consumers know the active
+    # channel state before receiving an acquisition.
+    is_revision = isinstance(
+        event, (ChannelRevisionEvent, MembershipRevisionEvent)
+    )
+    kind_order = 0 if is_revision else 1
+    return (
+        event.available_at_utc,
+        kind_order,
+        event.channel,
+        event.revision.revision if is_revision else 0,
+        event.event_id,
+    )
+
+
+class QuoteJournalReplayReader:
+    """Read complete events from one daily journal in causal order."""
+
+    def __init__(self, database_path: str | Path) -> None:
+        self.database_path = Path(database_path)
+        identity = _journal_identity(self.database_path)
+        self.schema_version = identity.schema_version
+        self.session_date = identity.session_date
+        self.membership_contract = identity.membership_contract
+        self.store = QuoteObservationStore(
+            self.database_path,
+            session_date=self.session_date,
+            schema_version=self.schema_version,
+        )
+
+    def _ordered_headers(
+        self,
+    ) -> tuple[ReplayEvent | StoredAcquisition, ...]:
+        header_payloads: list[ReplayEvent | StoredAcquisition] = []
+        try:
+            if self.schema_version == SCHEMA_VERSION:
+                for revision in (
+                    self.store.channel_revisions_in_effective_order()
+                ):
+                    header_payloads.append(ChannelRevisionEvent(revision))
+            else:
+                for revision in (
+                    self.store.membership_revisions_in_effective_order()
+                ):
+                    header_payloads.append(
+                        MembershipRevisionEvent(revision)
+                    )
+        except QuoteObservationStoreError as exc:
+            raise ReplayIntegrityError(
+                "Journal membership revisions are inconsistent"
+            ) from exc
+        header_payloads.extend(self.store.acquisitions_in_replay_order())
+
+        def payload_sort_key(
+            payload: ReplayEvent | StoredAcquisition,
+        ) -> tuple[datetime, int, str, int, str]:
+            if isinstance(
+                payload, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
+                return _event_sort_key(payload)
+            return (
+                payload.completed_at_utc,
+                1,
+                payload.channel,
+                0,
+                payload.acquisition_id,
+            )
+
+        header_payloads.sort(key=payload_sort_key)
+        return tuple(header_payloads)
+
+    def poll_seconds_by_run(self) -> dict[str, tuple[int, ...]]:
+        """Read immutable per-run cadence metadata without changing replay events."""
+        import json
+        from contextlib import closing
+        result = {}
+        with closing(sqlite3.connect(self.database_path.resolve().as_uri()+"?mode=ro", uri=True)) as connection:
+            for run_id, raw in connection.execute("SELECT run_id, configuration_json FROM poll_run"):
+                configuration = json.loads(raw)
+                if not isinstance(configuration, dict):
+                    raise ReplayIntegrityError("Invalid recorded run configuration")
+                seconds = configuration.get("poll_seconds")
+                if seconds is None:
+                    continue  # Legacy/manual runs may not have a declared cadence.
+                if (not isinstance(seconds, list) or not seconds
+                        or any(type(s) is not int or not 0 <= s < 60 for s in seconds)
+                        or seconds != sorted(set(seconds))):
+                    raise ReplayIntegrityError("Invalid recorded polling cadence")
+                result[run_id] = tuple(seconds)
+        return result
+
+    def timeline(self) -> ReplayTimeline:
+        """Return event counts and bounds without loading observations."""
+
+        headers = self._ordered_headers()
+        if not headers:
+            return ReplayTimeline(self.session_date, 0, None, None)
+
+        def available_at(
+            payload: ReplayEvent | StoredAcquisition,
+        ) -> datetime:
+            if isinstance(
+                payload, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
+                return payload.available_at_utc
+            return payload.completed_at_utc
+
+        return ReplayTimeline(
+            session_date=self.session_date,
+            event_count=len(headers),
+            first_available_at_utc=available_at(headers[0]),
+            last_available_at_utc=available_at(headers[-1]),
+        )
+
+    def events(self) -> Iterator[ReplayEvent]:
+        """Yield immutable events ordered by when they became available."""
+
+        for payload in self._ordered_headers():
+            if isinstance(
+                payload, (ChannelRevisionEvent, MembershipRevisionEvent)
+            ):
+                yield payload
+                continue
+
+            observations = self.store.get_observations(
+                payload.acquisition_id
+            )
+            yield QuoteAcquisitionEvent(
+                acquisition=payload,
+                observations=observations,
+            )
+
+
+def paced_replay(
+    events: Iterable[ReplayEvent],
+    *,
+    speed: float | None = None,
+    step_waiter: Callable[[ReplayEvent], None] | None = None,
+    sleeper: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> Iterator[ReplayEvent]:
+    """Yield events immediately, at scaled historical time, or stepwise.
+
+    ``speed=None`` performs immediate replay.  A speed of 1.0 is real time;
+    60.0 maps one historical minute to one wall-clock second.  ``step_waiter``
+    is called before every event and is mutually exclusive with a speed.
+    Absolute deadlines avoid accumulating consumer and sleep overhead.
+    """
+
+    if speed is not None:
+        if isinstance(speed, bool) or not isinstance(speed, (int, float)):
+            raise TypeError("speed must be a number or None")
+        if speed <= 0:
+            raise ValueError("speed must be greater than zero")
+    if speed is not None and step_waiter is not None:
+        raise ValueError("speed and step_waiter are mutually exclusive")
+
+    first_event_time: datetime | None = None
+    replay_started_at: float | None = None
+    previous_event_time: datetime | None = None
+
+    for event in events:
+        if (
+            previous_event_time is not None
+            and event.available_at_utc < previous_event_time
+        ):
+            raise ValueError("Replay events are not in availability order")
+
+        if step_waiter is not None:
+            step_waiter(event)
+        elif speed is not None:
+            if first_event_time is None:
+                first_event_time = event.available_at_utc
+                replay_started_at = monotonic()
+            assert replay_started_at is not None
+            target_elapsed = (
+                event.available_at_utc - first_event_time
+            ).total_seconds() / speed
+            remaining = replay_started_at + target_elapsed - monotonic()
+            if remaining > 0:
+                sleeper(remaining)
+
+        yield event
+        previous_event_time = event.available_at_utc

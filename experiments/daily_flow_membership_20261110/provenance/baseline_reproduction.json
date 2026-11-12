@@ -1,0 +1,12 @@
+{
+  "base_archive_sha256": "a9f459b037d6d62d8fb1c5e2b5af024fffbb3a27c3b4265b514264ade69614ef",
+  "reproduction": "one simulated PermissionError between two fresh owner reads",
+  "old_owner_available_sequence": [
+    true,
+    false,
+    true
+  ],
+  "original_live_stop_cause_proven": false,
+  "provider_used": false,
+  "production_changes": false
+}

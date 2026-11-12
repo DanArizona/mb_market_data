@@ -1,0 +1,285 @@
+test_authorization_failure_latches_without_second_provider_call (test_daily_flow.BackoffTests.test_authorization_failure_latches_without_second_provider_call) ... ok
+test_old_owner_heartbeat_cannot_authorize_new_invocation (test_daily_flow.BackoffTests.test_old_owner_heartbeat_cannot_authorize_new_invocation) ... ok
+test_rate_limit_wait_is_bounded_then_recovers (test_daily_flow.BackoffTests.test_rate_limit_wait_is_bounded_then_recovers) ... ok
+test_status_shows_actual_progress_and_gaps (test_daily_flow.BackoffTests.test_status_shows_actual_progress_and_gaps) ... ok
+test_555_symbols_two_calls_top40_top100_full555_no_candles (test_daily_flow.DailyFlowTests.test_555_symbols_two_calls_top40_top100_full555_no_candles) ... ok
+test_all_missing_keeps_r0_and_creates_no_fake_r1 (test_daily_flow.DailyFlowTests.test_all_missing_keeps_r0_and_creates_no_fake_r1) ... ERROR
+test_batch_returned_after_deadline_not_ranked (test_daily_flow.DailyFlowTests.test_batch_returned_after_deadline_not_ranked) ... ok
+test_carried_roster_requires_explicit_acknowledgment (test_daily_flow.DailyFlowTests.test_carried_roster_requires_explicit_acknowledgment) ... ok
+test_early_close_snapshot_gate_matches_calendar (test_daily_flow.DailyFlowTests.test_early_close_snapshot_gate_matches_calendar) ... ok
+test_exact_calendar_normal_early_holiday_next_session (test_daily_flow.DailyFlowTests.test_exact_calendar_normal_early_holiday_next_session) ... ok
+test_existing_output_not_overwritten (test_daily_flow.DailyFlowTests.test_existing_output_not_overwritten) ... ok
+test_fewer_than40_valid_symbols_gives_smaller_roster (test_daily_flow.DailyFlowTests.test_fewer_than40_valid_symbols_gives_smaller_roster) ... ok
+test_fresh_launcher_refuses_existing_poll_runs (test_daily_flow.DailyFlowTests.test_fresh_launcher_refuses_existing_poll_runs) ... ERROR
+test_late_preopen_start_is_reported (test_daily_flow.DailyFlowTests.test_late_preopen_start_is_reported) ... ok
+test_legacy_profile_refused_without_changing_journal (test_daily_flow.DailyFlowTests.test_legacy_profile_refused_without_changing_journal) ... ERROR
+test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection (test_daily_flow.DailyFlowTests.test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection) ... ok
+test_modified_roster_refused_before_market_request (test_daily_flow.DailyFlowTests.test_modified_roster_refused_before_market_request) ... ok
+test_no_new_snapshot_at_or_after_0929 (test_daily_flow.DailyFlowTests.test_no_new_snapshot_at_or_after_0929) ... ok
+test_no_publication_after_open (test_daily_flow.DailyFlowTests.test_no_publication_after_open) ... ERROR
+test_plan_and_workers_force_same_interleaved_profile (test_daily_flow.DailyFlowTests.test_plan_and_workers_force_same_interleaved_profile) ... ok
+test_postclose_before_close_makes_no_calls (test_daily_flow.DailyFlowTests.test_postclose_before_close_makes_no_calls) ... ok
+test_postclose_build_and_publication_uses_supplied_client (test_daily_flow.DailyFlowTests.test_postclose_build_and_publication_uses_supplied_client) ... ok
+test_postclose_provider_failure_retains_raw_but_never_publishes (test_daily_flow.DailyFlowTests.test_postclose_provider_failure_retains_raw_but_never_publishes) ... ok
+test_publish_real_r0_and_current_volume_r1 (test_daily_flow.DailyFlowTests.test_publish_real_r0_and_current_volume_r1) ... ERROR
+test_repeated_exact_publication_is_idempotent (test_daily_flow.DailyFlowTests.test_repeated_exact_publication_is_idempotent) ... ERROR
+test_resume_saved_ranking_does_not_call_provider_or_rerank (test_daily_flow.DailyFlowTests.test_resume_saved_ranking_does_not_call_provider_or_rerank) ... ERROR
+test_waits_to_0925_before_any_request (test_daily_flow.DailyFlowTests.test_waits_to_0925_before_any_request) ... ok
+test_zero_volumes_remain_eligible_with_symbol_tie_break (test_daily_flow.DailyFlowTests.test_zero_volumes_remain_eligible_with_symbol_tie_break) ... ok
+
+======================================================================
+ERROR: test_all_missing_keeps_r0_and_creates_no_fake_r1 (test_daily_flow.DailyFlowTests.test_all_missing_keeps_r0_and_creates_no_fake_r1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 54, in test_all_missing_keeps_r0_and_creates_no_fake_r1
+    ensure_opening(self.plan)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+======================================================================
+ERROR: test_fresh_launcher_refuses_existing_poll_runs (test_daily_flow.DailyFlowTests.test_fresh_launcher_refuses_existing_poll_runs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 99, in test_fresh_launcher_refuses_existing_poll_runs
+    ensure_opening(self.plan)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+======================================================================
+ERROR: test_legacy_profile_refused_without_changing_journal (test_daily_flow.DailyFlowTests.test_legacy_profile_refused_without_changing_journal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 105, in test_legacy_profile_refused_without_changing_journal
+    ensure_opening(self.plan)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+======================================================================
+ERROR: test_no_publication_after_open (test_daily_flow.DailyFlowTests.test_no_publication_after_open)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 81, in test_no_publication_after_open
+    ensure_opening(self.plan);r=self.acquire()
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+======================================================================
+ERROR: test_publish_real_r0_and_current_volume_r1 (test_daily_flow.DailyFlowTests.test_publish_real_r0_and_current_volume_r1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 43, in test_publish_real_r0_and_current_volume_r1
+    ensure_opening(self.plan);r=self.acquire()
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+======================================================================
+ERROR: test_repeated_exact_publication_is_idempotent (test_daily_flow.DailyFlowTests.test_repeated_exact_publication_is_idempotent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 85, in test_repeated_exact_publication_is_idempotent
+    ensure_opening(self.plan);r=self.acquire()
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+======================================================================
+ERROR: test_resume_saved_ranking_does_not_call_provider_or_rerank (test_daily_flow.DailyFlowTests.test_resume_saved_ranking_does_not_call_provider_or_rerank)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_flow.py", line 156, in test_resume_saved_ranking_does_not_call_provider_or_rerank
+    ensure_opening(self.plan);r=self.acquire();publish_selection(self.plan,r,now=self.clock())
+    ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_flow.py", line 123, in ensure_opening
+    store.record_membership_revision(r0)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 800, in record_membership_revision
+    return self._write("record_membership_revision", {"revision": revision.revision}, write)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 406, in _write
+    return write_with_recovery(
+        attempt, policy=self.write_retry_policy, database=self.database_path,
+        operation=operation, identity=identity, notify=self.write_event_handler,
+    )
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sqlite_write_recovery.py", line 92, in write_with_recovery
+    result = attempt(min(policy.attempt_seconds, max(0, remaining)))
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 402, in attempt
+    result = body(connection)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/quote_observation_store.py", line 704, in write
+    committed = replace(revision, published_at=_utc_now())
+  File "/usr/lib/python3.13/dataclasses.py", line 1596, in replace
+    return _replace(obj, **changes)
+  File "/usr/lib/python3.13/dataclasses.py", line 1630, in _replace
+    return self.__class__(**changes)
+           ~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "<string>", line 14, in __init__
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/sampling_membership.py", line 169, in __post_init__
+    raise MembershipRevisionError(
+        "effective_at cannot precede published_at"
+    )
+mb_market_data.sampling_membership.MembershipRevisionError: effective_at cannot precede published_at
+
+----------------------------------------------------------------------
+Ran 28 tests in 0.623s
+
+FAILED (errors=7)

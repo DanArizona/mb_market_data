@@ -1,0 +1,935 @@
+--- a/DEVELOPMENT_NOTES.md
++++ b/DEVELOPMENT_NOTES.md
+@@ -0,0 +1,18 @@
++# Uptime development notes
++
++- The original code reproduced a one-read shutdown decision: fresh read true,
++  injected PermissionError false, next fresh read true. Historical live shutdown
++  causes remain unproved because original stop reasons were not retained.
++- The first local regression run after the correction failed the old child-process
++  fixture: it supplied one frozen heartbeat and bypassed only the old boolean
++  helper. The corrected persistent guard correctly expired that receipt. The
++  test fixture now supplies synthetic progressing heartbeat timestamps and runs
++  the actual guard; test acquisition assertions were not reduced.
++- An intermediate test-module import exposed the original RuntimeTests class to
++  unittest a second time. That duplicate discovery was removed. The final
++  counted suite has 177 distinct test IDs: 40 uptime tests and 137 regressions.
++- Intermediate logs are retained. The final result has zero failures/errors/skips.
++- No Windows runtime, actual Schwab credentials/provider calls, installation or
++  production journal access is claimed by these local results. The test report
++  records Python 3.13.5 and exchange_calendars 4.13.1 on Linux; the operator's
++  closeout-qa environment remains unchanged and will report its own versions.
+--- a/market_data/probes/probe_universe_quote_watch.py
++++ b/market_data/probes/probe_universe_quote_watch.py
+@@ -1166,7 +1166,12 @@
+     return client, status
+ 
+ 
+-def main(*, supplied_password=None, stop_requested=lambda: False, client_transform=lambda c: c) -> int:
++class DailyControllerStop(Exception):
++    """Cooperative stop, distinct from a console KeyboardInterrupt."""
++
++
++def main(*, supplied_password=None, stop_requested=lambda: False,
++         client_transform=lambda c: c, on_finished=lambda result: None) -> int:
+     args = parse_args()
+     args.cadence_profile = getattr(args, "cadence_profile", "legacy-v1")
+ 
+@@ -1579,6 +1584,7 @@
+     journal_write_durations: list[float] = []
+     end_to_end_durations: list[float] = []
+     previous: dict[str, tuple[Any, Any]] = {}
++    stop_reason = None
+ 
+     try:
+         with (
+@@ -1615,8 +1621,7 @@
+ 
+             while True:
+                 if stop_requested():
+-                    print("Stopped by daily controller; post-close is independently managed.")
+-                    break
++                    raise DailyControllerStop
+                 now = datetime.now(ET)
+ 
+                 if stop_at is not None and now >= stop_at:
+@@ -1649,7 +1654,7 @@
+ 
+                     while True:
+                         if stop_requested():
+-                            raise KeyboardInterrupt
++                            raise DailyControllerStop
+                         delay = (
+                             slot.scheduled_at - datetime.now(ET)
+                         ).total_seconds()
+@@ -1929,9 +1934,13 @@
+                     else:
+                         next_sample_monotonic = time_module.monotonic()
+ 
++    except DailyControllerStop:
++        stop_reason = getattr(stop_requested, 'reason', None) or 'controller_stop_requested'
++        print("Stopped by daily control:", stop_reason, flush=True)
+     except KeyboardInterrupt:
++        stop_reason = 'console_interrupt'
+         print()
+-        print("Stopped by user.")
++        print("Interrupted by console signal.")
+ 
+     finally:
+         # Normal completion only; never run a post-close snapshot after an early
+@@ -1962,6 +1971,9 @@
+ 
+         completed_at = datetime.now(ET)
+         manifest["completed_at_et"] = completed_at.isoformat()
++        manifest["stop_reason"] = (stop_reason or ('schedule_complete' if scheduled_completion
++            else 'journal_error' if journal_error_count else 'probe_ended_before_window'))
++        manifest["scheduled_completion"] = scheduled_completion
+         manifest["samples_attempted"] = sample_number
+         manifest["samples_completed"] = completed_count
+         manifest["journal_acquisitions_inserted"] = (
+@@ -2017,6 +2029,14 @@
+                     f"{journal_skip_already_present_count} already present"
+                 )
+ 
++    # The owner records a separate public exit receipt. This callback contains
++    # no credentials or response payloads and cannot invalidate saved quotes.
++    try:
++        on_finished({'stop_reason':manifest['stop_reason'],
++            'scheduled_completion':scheduled_completion,
++            'journal_errors':journal_error_count,'samples_completed':completed_count})
++    except Exception as error:
++        print('Completion observer unavailable:',type(error).__name__,flush=True)
+     return 1 if journal_error_count or postclose_failed else 0
+ 
+ 
+--- a/market_data/src/mb_market_data/daily_runtime.py
++++ b/market_data/src/mb_market_data/daily_runtime.py
+@@ -28,8 +28,10 @@
+ from .daily_flow import (ET, make_plan, validate_start, ensure_opening, acquire_selection,
+                          publish_selection, build_next_opening, read_revision)
+ from .acquisition_health import HealthConfig, inspect_health, operation_lock, atomic_json, atomic_text
++from .daily_worker_liveness import OwnerHeartbeatGuard, WorkerControl
+ 
+ ROOT = Path(__file__).resolve().parents[2]
++IMPLEMENTATION = 'daily-flow-uptime-20261106'
+ ENTRY = ROOT / 'probes' / 'run_daily_session.py'
+ PROBE = ROOT / 'probes' / 'probe_universe_quote_watch.py'
+ 
+@@ -107,7 +109,12 @@
+         self.client=client;self.state_path=state_path;self.clock=clock
+         self.authorization_required=False;self.retry_at=0.0;self.stop_requested=stop_requested
+     def report(self,state):
+-        if self.state_path:atomic_json(self.state_path,{'state':state,'at':now().isoformat()})
++        if self.state_path:
++            try:atomic_json(self.state_path,{'state':state,'at':now().isoformat(),'pid':os.getpid()})
++            except OSError as error:
++                # A status-file conflict must not turn a valid API response into
++                # a request error, nor affect credential or rate-limit handling.
++                print('API STATUS WRITE UNAVAILABLE:',type(error).__name__,flush=True)
+     def quotes(self,*args,**kwargs):
+         if self.stop_requested():raise InterruptedError('Owning session stopped')
+         if self.authorization_required:
+@@ -153,12 +160,9 @@
+ 
+ 
+ def owner_available(root, *, pid=None):
+-    """A worker checks a progressing owner heartbeat; do not collect orphaned."""
+-    try:
+-        heartbeat=read_json(root/'owner.json')
+-        if pid is not None and heartbeat['pid']!=pid:return False
+-        return (now()-datetime.fromisoformat(heartbeat['at'])).total_seconds()<30 and heartbeat['active']
+-    except (OSError,ValueError,KeyError):return False
++    """One bounded owner check for startup/commands. Workers keep a guard."""
++    return OwnerHeartbeatGuard(root, pid=pid, reader=read_json,
++        clock=now, monotonic=time.monotonic, sleep=time.sleep).available()
+ 
+ 
+ @contextmanager
+@@ -180,22 +184,44 @@
+ def run_worker(plan,password,channel,generation,owner_pid=None):
+     root=Path(plan['state_root'])
+     owner_pid=owner_pid if owner_pid is not None else read_json(root/'owner.json')['pid']
+-    stop=lambda: (root/'exit.request').exists() or (root/'stop.request').exists() or not owner_available(root,pid=owner_pid)
+-    # Child startup must complete before the process begins polling. Uses same
+-    # private unlock, not getpass. Existing credential horizon checks remain.
++    control=WorkerControl(root, owner_pid=owner_pid, channel=channel,
++        generation=generation, reader=read_json, clock=now)
++    # The persistent guard retains only the remaining ORIGINAL heartbeat age.
++    # It does not add another 30 seconds each time the file becomes unreadable.
++    completion={};code=2;error_type=None
+     probe=load_probe()
+     argv=worker_argv(plan,channel,generation)
+     old=sys.argv;sys.argv=argv
+     try:
+-        with channel_lock('daily-channel:'+str(Path(plan['journal']).resolve()).casefold()+':'+channel,stop):
+-            # Existing probe's factory is called exactly once at startup.
++        with channel_lock('daily-channel:'+str(Path(plan['journal']).resolve()).casefold()+':'+channel,control):
+             original=probe.prepare_polling_client
+             def guarded(ecfg,pw,**kwargs):
+                 with auth_lock(ecfg):return original(ecfg,pw,**kwargs)
+             probe.prepare_polling_client=guarded
+-            return probe.main(supplied_password=password, stop_requested=stop,
+-                client_transform=lambda c: BackoffClient(c,state_path=root/f'{channel}-api.json',stop_requested=stop))
+-    finally:sys.argv=old
++            code=probe.main(supplied_password=password, stop_requested=control,
++                client_transform=lambda c: BackoffClient(c,state_path=root/f'{channel}-api.json',stop_requested=control),
++                on_finished=completion.update)
++            if control.reason and control.reason.startswith('owner_'):
++                code=3  # explicit ownership/heartbeat stop, not a user interrupt
++            return code
++    except Exception as error:
++        error_type=type(error).__name__
++        raise
++    finally:
++        sys.argv=old
++        receipt={'contract':'daily-worker-exit-v1','implementation':IMPLEMENTATION,'at':now().isoformat(),
++            'pid':os.getpid(),'channel':channel,'generation':generation,
++            'owner_pid':owner_pid,'exit_code':code,
++            'reason':control.reason or completion.get('stop_reason') or
++                ('worker_exception' if error_type else 'probe_exit_without_completion_report'),
++            'error_type':error_type,'heartbeat_read_errors':control.guard.read_errors,
++            'scheduled_completion':completion.get('scheduled_completion',False),
++            'probe_completion':completion}
++        path=root/'workers'/f'{channel}-{generation}'/'exit.json'
++        try:atomic_json(path,receipt)
++        except OSError as error:
++            print('WORKER EXIT RECEIPT UNAVAILABLE:',type(error).__name__,flush=True)
++        print('DAILY WORKER EXIT:',json.dumps(receipt,sort_keys=True),flush=True)
+ 
+ 
+ def verified_resume(plan,root):
+@@ -225,8 +251,61 @@
+     return inspect_health(config,inventory=inventory)
+ 
+ 
++TERMINAL_PHASES = {'FINISHED', 'FINISHED_WITH_FINDINGS', 'FAILED',
++                   'AUTHORIZATION_UNAVAILABLE', 'EXIT_REQUESTED'}
++
++
++def collection_phase(value):
++    """Collection status follows observed workers and journal progress, not time."""
++    phase=value.get('phase','UNKNOWN')
++    if phase not in {'COLLECTING','COLLECTING_DEGRADED','COLLECTION_STOPPED','COLLECTION_UNVERIFIED'}:
++        return phase
++    workers=value.get('workers',{})
++    alive=[v for v in workers.values() if v.get('exit_code') is None]
++    health=value.get('health',{})
++    channels=health.get('channels',{})
++    expected={'uni'}
++    if value.get('selection_status','').startswith(('READY','DEGRADED')):expected.add('focus')
++    completed={c for c in expected if workers.get(c,{}).get('exit_code')==0 and
++               channels.get(c,{}).get('state') in {'SCHEDULE_COMPLETE','WINDOW_ENDED'}}
++    if workers and not alive:
++        if completed==expected:
++            return ('COLLECTION_COMPLETE_WITH_GAPS' if any(channels[c].get('missing_slot_count',0)
++                    for c in expected) else 'COLLECTION_COMPLETE')
++        return 'COLLECTION_STOPPED'
++    if health.get('journal_read')=='UNAVAILABLE' or health.get('error_type'):
++        return 'COLLECTION_UNVERIFIED'
++    if any(v.get('exit_code') is not None and c not in completed for c,v in workers.items()):
++        return 'COLLECTING_DEGRADED'
++    if workers and any(c not in workers for c in expected):return 'COLLECTING_DEGRADED'
++    if not channels:return 'COLLECTION_UNVERIFIED'
++    for c in expected:
++        info=channels.get(c,{})
++        if (info.get('state') not in {'RUNNING','AWAITING_COMMIT','SCHEDULE_COMPLETE','WINDOW_ENDED'} or
++                info.get('missing_slot_count',0)>0 or info.get('latest_outcomes',{}).get('request_error',0)>0 or
++                workers.get(c,{}).get('api_state') in {'AUTHORIZATION_REQUIRED','RATE_LIMIT_BACKOFF','TRANSIENT_ERROR'}):
++            return 'COLLECTING_DEGRADED'
++    return 'COLLECTING'
++
++
++def is_final_report(value):
++    if (value.get('final_status') is True and value.get('phase') in TERMINAL_PHASES
++            and all(v.get('exit_code') is not None for v in value.get('workers',{}).values())):return True
++    # Old saved FINISHED reports predate the explicit completion marker. Do not
++    # infer running processes from a historical PID in such a completed record.
++    return (value.get('phase') in TERMINAL_PHASES and
++            all(v.get('exit_code') is not None for v in value.get('workers',{}).values()))
++
++
++def status_age_message(value, age):
++    if is_final_report(value):
++        return 'FINAL REPORT: session ended; saved PIDs and API results are historical, not live heartbeats.'
++    if age>15:return f'WARNING: saved status is {age:.0f}s old; do not infer live progress.'
++    return ''
++
++
+ def readable_status(value):
+-    lines=[f"DAILY SESSION {value['session_date']} | {value['phase']}",
++    lines=[f"DAILY SESSION {value['session_date']} | {collection_phase(value)}",
+            f"Updated: {value['at']} | controller PID {value['pid']}",
+            'Cadence: interleaved-v1 | Hot: not activated by this launcher',
+            'Selection: '+str(value.get('selection_status','WAITING FOR 09:25 ET')),
+@@ -242,7 +321,11 @@
+         if h:lines.append('  '+json.dumps({k:v for k,v in h.items() if k in
+             ('committed_acquisitions','missing_slot_count','last_committed_slot_utc','current_members','latest_outcomes')},default=str))
+     for k,v in value.get('workers',{}).items():
+-        lines.append(f"{k}: PID {v['pid']} | exit {v['exit_code']} | API {v.get('api_state','unknown')}")
++        api=v.get('api_state','unknown')
++        label=('last saved API status (not live): '+api if v['exit_code'] is not None else 'API '+api)
++        lines.append(f"{k}: PID {v['pid']} | exit {v['exit_code']} | {label}")
++        if v.get('exit_reason'):lines.append('  EXIT REASON: '+v['exit_reason'])
++        if v.get('api_at'):lines.append('  API status observed: '+v['api_at'])
+     if value.get('error'):lines.append('ERROR: '+value['error'])
+     lines.append('Viewer is read-only. Stop collection and Exit session are separate commands.')
+     return '\n'.join(lines)+'\n'
+@@ -254,28 +337,54 @@
+     deadline=datetime.fromisoformat(plan['selection_deadline'])
+     post_due=schedule_close+timedelta(seconds=plan['postclose_delay_seconds'])
+     post_stop=schedule_close+timedelta(seconds=plan['postclose_window_seconds'])
+-    value={'session_date':plan['session_date'],'pid':os.getpid(),'phase':'STARTING',
++    value={'session_date':plan['session_date'],'pid':os.getpid(),'phase':'STARTING','implementation':IMPLEMENTATION,
+            'selection_status':'WAITING FOR 09:25 ET','next_session_status':'NOT DUE'}
+     channel_generations={'uni':0,'focus':0}
+     post_started=False;selection_finished=False;stop_collection=False
++    def status_write(path,payload,*,text=False):
++        try:
++            (atomic_text if text else atomic_json)(path,payload)
++        except OSError as error:
++            value['status_write_errors']=value.get('status_write_errors',0)+1
++            print('STATUS WRITE UNAVAILABLE:',path.name,type(error).__name__,flush=True)
++            # No claim that a failed heartbeat write succeeded. Workers retain
++            # their independent 30s expiry if the owner cannot publish again.
+     def publish():
+         at=now().isoformat();value['at']=at
+-        atomic_json(root/'owner.json',{'pid':os.getpid(),'at':at,'active':True})
++        status_write(root/'owner.json',{'pid':os.getpid(),'at':at,'active':True})
+         try:value['health']=health_snapshot(plan,workers)
+         except Exception as err:value['health']={'error_type':type(err).__name__}
+         value['workers']={}
+         for c,item in workers.items():
+-            api='unknown'
+-            try:api=read_json(root/f'{c}-api.json')['state']
+-            except (OSError,ValueError,KeyError):pass
+-            value['workers'][c]={'pid':item['proc'].pid,'exit_code':item['proc'].poll(),'api_state':api}
+-        atomic_json(root/'status.json',value);atomic_text(root/'STATUS.txt',readable_status(value))
++            api='unknown';api_at=None
++            try:
++                record=read_json(root/f'{c}-api.json')
++                if record.get('pid')==item['proc'].pid:
++                    api=record['state'];api_at=record.get('at')
++            except (OSError,ValueError,KeyError,TypeError):pass
++            row={'pid':item['proc'].pid,'exit_code':item['proc'].poll(),
++                 'generation':item['generation'],'api_state':api,'api_at':api_at}
++            if row['exit_code'] is not None:
++                try:
++                    exit_record=read_json(root/'workers'/f"{c}-{item['generation']}"/'exit.json')
++                    if exit_record.get('pid')==row['pid']:
++                        row['exit_reason']=exit_record['reason']
++                        row['heartbeat_read_errors']=exit_record.get('heartbeat_read_errors',0)
++                except (OSError,ValueError,KeyError,TypeError):pass
++            value['workers'][c]=row
++        value['phase']=collection_phase(value)
++        status_write(root/'status.json',value)
++        status_write(root/'STATUS.txt',readable_status(value),text=True)
+     def launch_channel(channel):
+         old=workers.get(channel)
+         if old and old['proc'].poll() is None:return
+-        generation=channel_generations[channel];channel_generations[channel]+=1
++        generation=channel_generations[channel]
++        # Resume must not reuse a prior generation's diagnostics or exit record.
++        while (root/'workers'/f'{channel}-{generation}').exists():generation+=1
++        channel_generations[channel]=generation+1
++        (root/'workers'/f'{channel}-{generation}').mkdir(parents=True,exist_ok=False)
+         proc=spawn(channel,plan_file,password,root/f'{channel}.log',extra=['--generation',str(generation)])
+-        workers[channel]={'proc':proc,'argv':worker_argv(plan,channel,generation)}
++        workers[channel]={'proc':proc,'argv':worker_argv(plan,channel,generation),'generation':generation}
+     with operation_lock('daily-session:'+str(Path(plan['journal']).resolve()).casefold()):
+         validate_start(plan,now=now(),resume=resume)
+         if not resume:
+@@ -382,8 +491,9 @@
+                 value['workers'][channel].update(pid=item['proc'].pid,exit_code=item['proc'].poll())
+             try:value['health']=health_snapshot(plan,workers)
+             except Exception:pass
+-            atomic_json(root/'owner.json',{'pid':os.getpid(),'at':value['at'],'active':False})
+-            atomic_json(root/'status.json',value);atomic_text(root/'STATUS.txt',readable_status(value))
++            value['final_status']=True
++            status_write(root/'owner.json',{'pid':os.getpid(),'at':value['at'],'active':False})
++            status_write(root/'status.json',value);status_write(root/'STATUS.txt',readable_status(value),text=True)
+             password=None  # best effort only; Python does not guarantee RAM erasure
+     return 0
+ 
+@@ -393,7 +503,8 @@
+     try:
+         if args.role=='controller':return run_controller(plan,password,resume=args.resume)
+         if args.role in ('uni','focus'):return run_worker(plan,password,args.role,args.generation,args.owner_pid)
+-        stop=lambda:(root/'exit.request').exists() or not owner_available(root,pid=args.owner_pid)
++        stop=WorkerControl(root,owner_pid=args.owner_pid,channel=args.role,generation=args.generation,
++            reader=read_json,clock=now,honor_collection_stop=False)
+         client=BackoffClient(prepared_client(plan,password),stop_requested=stop)
+         try:
+             if args.role=='selection':
+@@ -425,7 +536,8 @@
+                 if os.name=='nt':os.system('cls')
+                 else:print('\033[2J\033[H',end='')
+             print(readable_status(status))
+-            if age>15:print(f'WARNING: saved status is {age:.0f}s old; do not infer live progress.')
++            message=status_age_message(status,age)
++            if message:print(message)
+         except (OSError,ValueError,KeyError):print('No readable status yet:',root)
+         if once:return 0
+         try:time.sleep(2)
+--- a/market_data/src/mb_market_data/daily_worker_liveness.py
++++ b/market_data/src/mb_market_data/daily_worker_liveness.py
+@@ -0,0 +1,175 @@
++"""Bounded, observable heartbeat checks for the daily session's own workers.
++
++An I/O failure is not an operator stop. A previously verified heartbeat remains
++usable only until its ORIGINAL 30-second freshness limit. Retrying/reading the
++same timestamp does not renew it. Wrong ownership or explicit stop wins at once.
++No credentials, provider operations, or journal mutation occur in this module.
++"""
++from __future__ import annotations
++
++from datetime import datetime
++import json
++import os
++from pathlib import Path
++import time
++from typing import Callable
++
++MAX_HEARTBEAT_AGE = 30.0
++READ_DELAYS = (0.01, 0.02, 0.04)  # four attempts, at most 70 ms explicit sleep
++FUTURE_CLOCK_TOLERANCE = 1.0
++
++
++def safe_error(error: BaseException) -> dict:
++    """Never log exception messages or file contents; both can contain secrets."""
++    return {"error_type": type(error).__name__,
++            "errno": getattr(error, "errno", None),
++            "winerror": getattr(error, "winerror", None)}
++
++
++def append_control_event(path: Path, value: dict) -> None:
++    """One child owns this generation's diagnostic file. Failures don't stop it."""
++    try:
++        path.parent.mkdir(parents=True, exist_ok=True)
++        with path.open("a", encoding="utf-8") as stream:
++            stream.write(json.dumps(value, sort_keys=True) + "\n")
++    except OSError as error:
++        try:
++            print("WORKER DIAGNOSTIC WRITE UNAVAILABLE:", type(error).__name__, flush=True)
++        except (OSError, ValueError):
++            pass
++
++
++class OwnerHeartbeatGuard:
++    """Remember a validated receipt, never an indefinitely cached boolean."""
++
++    def __init__(self, root: Path, *, pid: int | None, reader: Callable,
++                 clock: Callable[[], datetime], monotonic: Callable = time.monotonic,
++                 sleep: Callable = time.sleep, emit: Callable | None = None):
++        self.path = Path(root) / "owner.json"
++        self.pid, self.reader, self.clock = pid, reader, clock
++        self.monotonic, self.sleep, self.emit = monotonic, sleep, emit
++        self.reason = None
++        self.last_at = None
++        self.last_mono = None
++        self.age_at_last = 0.0
++        self.read_errors = 0
++        self.failure_since = None
++
++    def _event(self, event: str, **fields) -> None:
++        if self.emit is not None:
++            try:
++                self.emit({"event": event, "at": self.clock().isoformat(),
++                           "expected_owner_pid": self.pid, **fields})
++            except (OSError, ValueError):
++                pass  # diagnostics must not change the ownership verdict
++
++
++    def _expired(self) -> bool:
++        if self.last_at is None:
++            return True
++        # Monotonic elapsed prevents a backwards wall-clock change or repeated
++        # reading of the same file from renewing permission indefinitely.
++        wall_age = (self.clock() - self.last_at).total_seconds()
++        elapsed_age = self.age_at_last + max(0.0, self.monotonic() - self.last_mono)
++        return max(wall_age, elapsed_age) >= MAX_HEARTBEAT_AGE
++
++    def _stop(self, reason: str, **details) -> bool:
++        if self.reason is None:
++            self.reason = reason
++            self._event("owner_check_stopped", reason=reason,
++                        last_verified_heartbeat=(self.last_at.isoformat() if self.last_at else None),
++                        read_error_count=self.read_errors, **details)
++        return False
++
++    def available(self) -> bool:
++        if self.reason is not None:
++            return False
++        receipt = None
++        for attempt in range(len(READ_DELAYS) + 1):
++            try:
++                receipt = self.reader(self.path)
++                break
++            except (OSError, ValueError, UnicodeError) as error:
++                self.read_errors += 1
++                if self.failure_since is None:
++                    self.failure_since = self.monotonic()
++                    self._event("heartbeat_read_retry", **safe_error(error))
++                if attempt < len(READ_DELAYS):
++                    self.sleep(READ_DELAYS[attempt])
++                else:
++                    if self.last_at is not None and not self._expired():
++                        # Do not update last_at/last_mono from a failed read.
++                        return True
++                    return self._stop(
++                        "owner_heartbeat_unreadable" if self.last_at is None else "owner_heartbeat_expired",
++                        **safe_error(error))
++        try:
++            if not isinstance(receipt, dict):
++                raise ValueError("Invalid heartbeat shape")
++            owner_pid, active = receipt["pid"], receipt["active"]
++            if type(owner_pid) is not int or owner_pid <= 0 or type(active) is not bool:
++                raise ValueError("Invalid owner fields")
++            at = datetime.fromisoformat(receipt["at"])
++            if at.tzinfo is None or at.utcoffset() is None:
++                raise ValueError("Naive heartbeat")
++        except (KeyError, TypeError, ValueError, OverflowError):
++            return self._stop("owner_heartbeat_invalid")
++        if self.pid is not None and owner_pid != self.pid:
++            return self._stop("owner_replaced", observed_owner_pid=owner_pid)
++        if not active:
++            return self._stop("owner_inactive")
++        current = self.clock()
++        age = (current - at).total_seconds()
++        if age < -FUTURE_CLOCK_TOLERANCE:
++            return self._stop("owner_heartbeat_in_future")
++        if self.last_at is not None and at < self.last_at:
++            return self._stop("owner_heartbeat_regressed")
++        if self.last_at is None or at > self.last_at:
++            self.last_at, self.last_mono = at, self.monotonic()
++            self.age_at_last = max(0.0, age)
++        if self._expired():
++            return self._stop("owner_heartbeat_expired")
++        if self.failure_since is not None:
++            self._event("heartbeat_read_recovered", read_error_count=self.read_errors,
++                        interruption_seconds=max(0.0, self.monotonic()-self.failure_since),
++                        verified_heartbeat_at=at.isoformat())
++            self.failure_since = None
++        return True
++
++
++class WorkerControl:
++    """Latched, named stop condition shared by scheduler and pre-call checks."""
++
++    def __init__(self, root: Path, *, owner_pid: int | None, channel: str,
++                 generation: int, reader: Callable, clock: Callable[[], datetime],
++                 monotonic: Callable = time.monotonic, sleep: Callable = time.sleep,
++                 honor_collection_stop: bool = True):
++        self.root, self.clock = Path(root), clock
++        self.channel, self.generation = channel, generation
++        self.honor_collection_stop = honor_collection_stop
++        self.reason = None
++        self.events_path = self.root / "workers" / f"{channel}-{generation}" / "control-events.jsonl"
++        self.guard = OwnerHeartbeatGuard(root, pid=owner_pid, reader=reader,
++            clock=clock, monotonic=monotonic, sleep=sleep, emit=self._event)
++
++    def _event(self, value: dict) -> None:
++        value = {"at": self.clock().isoformat(), "worker_pid": os.getpid(),
++                 "channel": self.channel, "generation": self.generation, **value}
++        append_control_event(self.events_path, value)
++        try:
++            print("DAILY WORKER CONTROL:", value["event"], value.get("reason", ""), flush=True)
++        except (OSError, ValueError):
++            pass
++
++    def __call__(self) -> bool:
++        if self.reason is not None:
++            return True
++        if (self.root / "exit.request").exists():
++            self.reason = "operator_exit_session"
++        elif self.honor_collection_stop and (self.root / "stop.request").exists():
++            self.reason = "collection_stop_requested"
++        elif not self.guard.available():
++            self.reason = self.guard.reason
++        if self.reason is not None:
++            self._event({"event": "worker_stop_requested", "reason": self.reason})
++        return self.reason is not None
+--- a/market_data/tests/daily_flow_process_fixture.py
++++ b/market_data/tests/daily_flow_process_fixture.py
+@@ -17,6 +17,7 @@
+ import mb_tools.schwab_secure as auth
+ from test_volume_proxy_experiment import Response
+ plan=json.loads(Path(sys.argv[1]).read_text());channel=sys.argv[2]
++mode=sys.argv[3] if len(sys.argv)>3 else 'healthy'
+ private=rt.secret_receive()
+ assert private=='OFFLINE-CANARY-NOT-A-REAL-PASSWORD'
+ clock=[datetime.fromisoformat(plan['opens_at'])-timedelta(milliseconds=100)]
+@@ -40,9 +41,27 @@
+ probe.time_module=SimpleNamespace(monotonic=time.monotonic,
+     sleep=lambda seconds:clock.__setitem__(0,clock[0]+timedelta(seconds=seconds)))
+ rt.now=lambda:clock[0];rt.load_probe=lambda:probe
+-rt.owner_available=lambda root,pid=None:True  # logical-clock fixture; fencing has separate tests
+-# parent status freshness is based on this same logical clock.
+-code=rt.run_worker(plan,private,channel,0)
++# Exercise the REAL liveness guard. Only the source heartbeat timestamps and
++# selected I/O failures are synthetic; no always-True liveness substitution.
++read_json=rt.read_json;owner_reads=[0]
++root=Path(plan['state_root'])
++owner_pid=read_json(root/'owner.json')['pid']
++initial_at=read_json(root/'owner.json')['at']
++def owner_reader(path):
++    if Path(path).name!='owner.json':return read_json(path)
++    owner_reads[0]+=1
++    if mode=='read-glitch' and owner_reads[0] in range(8,12):
++        raise PermissionError(13,'synthetic Windows-style sharing read')
++    value=read_json(path)
++    value['at']=initial_at if mode=='expired' else clock[0].isoformat()
++    if clock[0]>=datetime.fromisoformat(plan['opens_at'])+timedelta(seconds=1):
++        if mode=='operator-stop':(root/'stop.request').write_text('synthetic explicit stop')
++        if mode=='replaced':value['pid']=owner_pid+1
++        if mode=='inactive':value['active']=False
++    return value
++rt.read_json=owner_reader
++code=rt.run_worker(plan,private,channel,0,owner_pid)
++
+ print(json.dumps({'result':'PROCESS_COMPLETE','channel':channel,'code':code,
+                   'synthetic_api':True,'password_written':False}))
+ raise SystemExit(code)
+--- a/market_data/tests/test_daily_worker_uptime.py
++++ b/market_data/tests/test_daily_worker_uptime.py
+@@ -0,0 +1,303 @@
++"""Uptime correction: source-matched fault injection; no SDK, real vault or network."""
++from contextlib import closing, redirect_stdout
++from datetime import datetime, timedelta, timezone
++import io
++import json
++import os
++from pathlib import Path
++import sqlite3
++import subprocess
++import sys
++import tempfile
++import threading
++import time
++import unittest
++from unittest.mock import Mock, patch
++
++from mb_market_data import daily_runtime as rt
++from mb_market_data.acquisition_health import atomic_json
++from mb_market_data.daily_worker_liveness import OwnerHeartbeatGuard, WorkerControl, MAX_HEARTBEAT_AGE
++from mb_market_data.daily_flow import ensure_opening
++from mb_market_data.quote_observation_store import QuoteObservationStore
++from mb_market_data.sampling_membership import SamplingHierarchyRevision
++from mb_market_data.opening_hierarchy import load_opening_proposal
++import test_daily_runtime as runtime_fixture
++
++
++class HeartbeatTests(unittest.TestCase):
++    def setUp(self):
++        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
++        self.root=Path(self.temp.name)
++        self.origin=datetime(2026,11,6,15,0,tzinfo=timezone.utc)
++        self.seconds=0.0;self.record={'pid':123,'at':self.origin.isoformat(),'active':True}
++        self.events=[];self.mode='healthy';self.failures_left=0;self.reads=0
++        def reader(path):
++            self.reads+=1
++            if self.mode=='unreadable' or self.failures_left>0:
++                self.failures_left=max(0,self.failures_left-1)
++                raise PermissionError(13,'PRIVATE-CANARY-DO-NOT-LOG')
++            if self.mode=='bad-json':raise json.JSONDecodeError('synthetic','',0)
++            return dict(self.record)
++        self.reader=reader
++        self.guard=OwnerHeartbeatGuard(self.root,pid=123,reader=reader,
++            clock=lambda:self.origin+timedelta(seconds=self.seconds),
++            monotonic=lambda:self.seconds,sleep=self.advance,emit=self.events.append)
++    def advance(self,seconds):self.seconds+=seconds
++    def test_single_read_failure_retries_without_stopping(self):
++        self.assertTrue(self.guard.available());self.failures_left=1
++        self.assertTrue(self.guard.available());self.assertIsNone(self.guard.reason)
++        self.assertEqual(self.guard.read_errors,1)
++        self.assertEqual([e['event']for e in self.events],['heartbeat_read_retry','heartbeat_read_recovered'])
++    def test_short_read_burst_uses_only_last_verified_freshness(self):
++        self.assertTrue(self.guard.available());self.advance(1);self.mode='unreadable'
++        self.assertTrue(self.guard.available());self.assertEqual(self.guard.read_errors,4)
++        self.assertEqual(self.guard.last_at,self.origin)
++        self.mode='healthy';self.record['at']=(self.origin+timedelta(seconds=2)).isoformat();self.seconds=2
++        self.assertTrue(self.guard.available());self.assertIsNone(self.guard.failure_since)
++    def test_continuously_unreadable_expires_at_original_30_seconds(self):
++        self.assertTrue(self.guard.available());self.mode='unreadable';self.seconds=29
++        self.assertTrue(self.guard.available());self.seconds=30
++        self.assertFalse(self.guard.available());self.assertEqual(self.guard.reason,'owner_heartbeat_expired')
++        self.assertEqual(self.guard.last_at,self.origin)
++    def test_read_error_near_expiry_cannot_extend_last_heartbeat(self):
++        self.assertTrue(self.guard.available());self.mode='unreadable';self.seconds=29.98
++        self.assertFalse(self.guard.available());self.assertLess(self.seconds,30.1)
++    def test_no_prior_verified_heartbeat_does_not_authorize_collection(self):
++        self.mode='unreadable'
++        self.assertFalse(self.guard.available());self.assertEqual(self.reads,4)
++        self.assertEqual(self.guard.reason,'owner_heartbeat_unreadable')
++    def test_initial_transient_error_can_recover_within_bounded_read(self):
++        self.failures_left=2
++        self.assertTrue(self.guard.available());self.assertEqual(self.reads,3)
++        self.assertLess(self.seconds,.08)
++    def test_repeated_unchanged_timestamp_does_not_renew_freshness(self):
++        for t in (0,10,20,29):self.seconds=t;self.assertTrue(self.guard.available())
++        self.seconds=30;self.assertFalse(self.guard.available())
++    def test_forward_progress_refreshes_owner_receipt(self):
++        self.assertTrue(self.guard.available());self.seconds=25
++        self.record['at']=(self.origin+timedelta(seconds=25)).isoformat()
++        self.assertTrue(self.guard.available());self.seconds=45
++        self.assertTrue(self.guard.available());self.seconds=55
++        self.assertFalse(self.guard.available())
++    def test_backwards_wall_clock_does_not_extend_old_heartbeat(self):
++        self.assertTrue(self.guard.available());self.seconds=31
++        self.guard.clock=lambda:self.origin
++        self.assertFalse(self.guard.available())
++    def test_owner_replacement_stops_even_while_previous_heartbeat_fresh(self):
++        self.assertTrue(self.guard.available());self.record['pid']=124
++        self.assertFalse(self.guard.available());self.assertEqual(self.guard.reason,'owner_replaced')
++    def test_explicit_inactive_owner_stops_without_grace(self):
++        self.assertTrue(self.guard.available());self.record['active']=False
++        self.assertFalse(self.guard.available());self.assertEqual(self.guard.reason,'owner_inactive')
++    def test_future_heartbeat_is_not_indefinite_authority(self):
++        self.record['at']=(self.origin+timedelta(hours=1)).isoformat()
++        self.assertFalse(self.guard.available());self.assertEqual(self.guard.reason,'owner_heartbeat_in_future')
++    def test_invalid_heartbeat_fields_are_named_not_uncaught(self):
++        for changes in ({'pid':True},{'active':'yes'},{'at':'bad'}, {'at':'2026-11-06T15:00:00'}):
++            with self.subTest(changes=changes):
++                self.guard.reason=None;self.record={'pid':123,'at':self.origin.isoformat(),'active':True,**changes}
++                self.assertFalse(self.guard.available());self.assertEqual(self.guard.reason,'owner_heartbeat_invalid')
++    def test_unreadable_json_uses_bounded_prior_receipt_but_never_indefinitely(self):
++        self.assertTrue(self.guard.available());self.mode='bad-json'
++        self.assertTrue(self.guard.available());self.seconds=30
++        self.assertFalse(self.guard.available())
++    def test_shutdown_is_latched_not_undone_by_later_read(self):
++        self.record['active']=False;self.assertFalse(self.guard.available())
++        count=self.reads;self.record['active']=True
++        self.assertFalse(self.guard.available());self.assertEqual(self.reads,count)
++    def test_failed_diagnostic_sink_does_not_turn_read_recovery_into_stop(self):
++        self.guard.emit=Mock(side_effect=PermissionError('diagnostic unavailable'))
++        self.failures_left=1;self.assertTrue(self.guard.available())
++        self.assertIsNone(self.guard.reason)
++    def test_diagnostics_exclude_exception_message(self):
++        self.failures_left=1;self.assertTrue(self.guard.available())
++        self.assertNotIn('PRIVATE-CANARY',json.dumps(self.events))
++    def test_explicit_stop_is_immediate_without_heartbeat_read(self):
++        (self.root/'stop.request').write_text('stop')
++        control=WorkerControl(self.root,owner_pid=123,channel='uni',generation=0,
++            reader=Mock(side_effect=AssertionError('must not read')),clock=lambda:self.origin,sleep=self.advance)
++        with redirect_stdout(io.StringIO()):self.assertTrue(control())
++        self.assertEqual(control.reason,'collection_stop_requested')
++        event=json.loads(control.events_path.read_text().splitlines()[-1])
++        self.assertEqual(event['reason'],'collection_stop_requested')
++    def test_exit_wins_and_postclose_ignores_collection_stop(self):
++        atomic_json(self.root/'owner.json',self.record)
++        (self.root/'stop.request').write_text('stop collection')
++        control=WorkerControl(self.root,owner_pid=123,channel='postclose',generation=0,
++            reader=rt.read_json,clock=lambda:self.origin,honor_collection_stop=False)
++        self.assertFalse(control());(self.root/'exit.request').write_text('exit')
++        with redirect_stdout(io.StringIO()):self.assertTrue(control())
++        self.assertEqual(control.reason,'operator_exit_session')
++    def test_real_concurrent_heartbeat_writes_and_reads_do_not_stop_worker(self):
++        # Both actual file operations run here. Windows sharing conflicts, if
++        # encountered, are handled by the real bounded reader and atomic writer.
++        atomic_json(self.root/'owner.json',{'pid':123,'at':datetime.now(timezone.utc).isoformat(),'active':True})
++        done=threading.Event();errors=[];counts=[0]
++        def writer():
++            while not done.wait(.005):
++                try:
++                    atomic_json(self.root/'owner.json',{'pid':123,'at':datetime.now(timezone.utc).isoformat(),'active':True})
++                    counts[0]+=1
++                except OSError as error:errors.append(type(error).__name__)
++        thread=threading.Thread(target=writer);thread.start()
++        guard=OwnerHeartbeatGuard(self.root,pid=123,reader=rt.read_json,
++            clock=lambda:datetime.now(timezone.utc))
++        try:
++            until=time.monotonic()+1.0;reads=0
++            while time.monotonic()<until:
++                self.assertTrue(guard.available(),guard.reason);reads+=1;time.sleep(.001)
++        finally:done.set();thread.join(timeout=3)
++        self.assertFalse(thread.is_alive());self.assertGreater(counts[0],0);self.assertGreater(reads,0)
++
++
++class StatusTests(unittest.TestCase):
++    def status(self):
++        return {'session_date':'2026-11-06','phase':'COLLECTING','at':'2026-11-06T14:00:00-05:00','pid':100,
++            'selection_status':'READY; r1 PUBLISHED','health':{'journal_read':'OK','channels':{
++                c:{'state':'RUNNING','reason':'recent progress','missing_slot_count':0}for c in ('uni','focus')}},
++            'workers':{c:{'pid':101+i,'exit_code':None,'api_state':'AVAILABLE'}for i,c in enumerate(('uni','focus'))}}
++    def test_stopped_workers_do_not_claim_collecting_or_live_api(self):
++        v=self.status()
++        for row in v['workers'].values():row['exit_code']=0
++        text=rt.readable_status(v)
++        self.assertIn('| COLLECTION_STOPPED',text);self.assertNotIn('| API AVAILABLE',text)
++        self.assertIn('last saved API status (not live): AVAILABLE',text)
++    def test_normal_final_slots_are_not_reported_as_unexpected_early_stops(self):
++        v=self.status()
++        for c,row in v['workers'].items():
++            row['exit_code']=0;v['health']['channels'][c]['state']='SCHEDULE_COMPLETE'
++        self.assertEqual(rt.collection_phase(v),'COLLECTION_COMPLETE')
++        v['health']['channels']['uni']['missing_slot_count']=217
++        self.assertEqual(rt.collection_phase(v),'COLLECTION_COMPLETE_WITH_GAPS')
++    def test_one_stopped_worker_labels_whole_session_degraded(self):
++        v=self.status();v['workers']['uni'].update(exit_code=3,exit_reason='owner_heartbeat_expired')
++        self.assertEqual(rt.collection_phase(v),'COLLECTING_DEGRADED')
++        self.assertIn('EXIT REASON: owner_heartbeat_expired',rt.readable_status(v))
++    def test_recorded_gaps_remain_visible_while_collection_continues(self):
++        v=self.status();v['health']['channels']['uni']['missing_slot_count']=217
++        self.assertEqual(rt.collection_phase(v),'COLLECTING_DEGRADED')
++    def test_good_worker_and_journal_progress_is_collecting(self):
++        self.assertEqual(rt.collection_phase(self.status()),'COLLECTING')
++    def test_unavailable_journal_is_not_a_collecting_claim(self):
++        v=self.status();v['health']['journal_read']='UNAVAILABLE'
++        self.assertEqual(rt.collection_phase(v),'COLLECTION_UNVERIFIED')
++    def test_authorization_pause_is_degraded_not_healthy(self):
++        v=self.status();v['workers']['uni']['api_state']='AUTHORIZATION_REQUIRED'
++        self.assertEqual(rt.collection_phase(v),'COLLECTING_DEGRADED')
++    def test_completed_session_age_is_historical_not_stale_running(self):
++        v=self.status();v['phase']='FINISHED';v['final_status']=True
++        for row in v['workers'].values():row['exit_code']=0
++        message=rt.status_age_message(v,2884)
++        self.assertIn('FINAL REPORT',message);self.assertNotIn('WARNING',message)
++    def test_old_completed_report_with_exited_workers_is_final(self):
++        v=self.status();v['phase']='FINISHED'
++        for row in v['workers'].values():row['exit_code']=0
++        self.assertIn('FINAL REPORT',rt.status_age_message(v,2884))
++    def test_unfinished_cleanup_still_has_stale_warning(self):
++        v=self.status();v['phase']='FINISHED';v['final_status']=True
++        self.assertIn('WARNING',rt.status_age_message(v,31))
++    def test_live_status_staleness_still_warns(self):
++        self.assertIn('WARNING',rt.status_age_message(self.status(),31))
++    def test_status_write_failure_does_not_mask_valid_api_response(self):
++        c=Mock();response=Mock(status_code=200);c.quotes.return_value=response
++        wrapper=rt.BackoffClient(c,state_path=Path('/unused/status.json'))
++        with patch.object(rt,'atomic_json',side_effect=PermissionError('synthetic')),redirect_stdout(io.StringIO()):
++            self.assertIs(wrapper.quotes(['ABC'],fields='all'),response)
++        self.assertEqual(c.quotes.call_count,1)
++    def test_failed_api_status_write_does_not_remove_auth_latch(self):
++        c=Mock();c.quotes.return_value=Mock(status_code=401)
++        w=rt.BackoffClient(c,state_path=Path('/unused/status.json'))
++        with patch.object(rt,'atomic_json',side_effect=PermissionError('synthetic')),redirect_stdout(io.StringIO()):
++            w.quotes(['ABC'],fields='all')
++            with self.assertRaises(RuntimeError):w.quotes(['ABC'],fields='all')
++        self.assertEqual(c.quotes.call_count,1)
++
++
++class OwnedWorkerTests(unittest.TestCase):
++    def setUp(self):
++        self.f=runtime_fixture.RuntimeTests('test_real_child_probes_private_handoff_and_interleaved_native_writes')
++        self.f.setUp();self.addCleanup(self.f.doCleanups)
++        f=self.f;ensure_opening(f.plan);f.state.mkdir(parents=True)
++        f.plan['closes_at']=f.clock().replace(hour=9,minute=30,second=31).isoformat()
++        (f.root/'unused.ecfg').write_text('SYNTHETIC; NOT A VAULT')
++        atomic_json(f.state/'owner.json',{'pid':os.getpid(),'at':f.plan['opens_at'],'active':True})
++        r0=load_opening_proposal(f.r0)
++        store=QuoteObservationStore(f.plan['journal'],session_date=f.day,schema_version=2)
++        store.record_membership_revision(SamplingHierarchyRevision(session_date=f.day,revision=1,
++            effective_at=r0.effective_at,uni_symbols=r0.uni_symbols,focus_symbols=('ABC',),hot_symbols=(),source='synthetic-uptime'))
++        self.plan_path=f.root/'process-plan.json';atomic_json(self.plan_path,f.plan)
++    def launch(self,mode,channel='uni'):
++        f=self.f
++        entry=Path(__file__).with_name('daily_flow_process_fixture.py')
++        proc=subprocess.Popen([sys.executable,'-B',str(entry),str(self.plan_path),channel,mode],
++            stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
++        try:
++            rt.secret_send(proc,'OFFLINE-CANARY-NOT-A-REAL-PASSWORD');proc.stdin=None
++            out,err=proc.communicate(timeout=25)
++        except BaseException:
++            proc.kill();proc.communicate();raise
++        text=(out+err).decode()
++        self.assertNotIn('OFFLINE-CANARY-NOT-A-REAL-PASSWORD',text)
++        receipt=rt.read_json(f.state/'workers'/f'{channel}-0'/'exit.json')
++        with closing(sqlite3.connect(f.plan['journal'])) as c:
++            acquisitions=c.execute('SELECT count(*) FROM quote_acquisition WHERE channel=?',(channel,)).fetchone()[0]
++        for file in f.root.rglob('*'):
++            if file.is_file():self.assertNotIn(b'OFFLINE-CANARY-NOT-A-REAL-PASSWORD',file.read_bytes())
++        return proc.returncode,text,receipt,acquisitions
++    def test_actual_child_uni_survives_read_failure_burst_then_saves_final_slot(self):
++        code,text,receipt,count=self.launch('read-glitch')
++        self.assertEqual(code,0,text);self.assertEqual(count,2,text)
++        self.assertEqual(receipt['reason'],'schedule_complete');self.assertTrue(receipt['scheduled_completion'])
++        self.assertEqual(receipt['heartbeat_read_errors'],4)
++        self.assertIn('heartbeat_read_retry',text);self.assertIn('heartbeat_read_recovered',text)
++        self.assertNotIn('Stopped by user',text)
++    def test_actual_child_focus_survives_read_failure_burst(self):
++        code,text,receipt,count=self.launch('read-glitch','focus')
++        self.assertEqual(code,0,text);self.assertEqual(count,2)
++        self.assertEqual(receipt['heartbeat_read_errors'],4);self.assertEqual(receipt['reason'],'schedule_complete')
++    def test_actual_child_expired_owner_stops_with_nonzero_code_and_specific_receipt(self):
++        code,text,receipt,count=self.launch('expired')
++        self.assertEqual(code,3,text);self.assertEqual(count,1)
++        self.assertEqual(receipt['reason'],'owner_heartbeat_expired')
++        self.assertIn('Stopped by daily control: owner_heartbeat_expired',text)
++        self.assertNotIn('Stopped by user',text)
++    def test_actual_child_replaced_owner_stops_before_next_acquisition(self):
++        code,text,receipt,count=self.launch('replaced')
++        self.assertEqual(code,3,text);self.assertEqual(count,1)
++        self.assertEqual(receipt['reason'],'owner_replaced')
++    def test_actual_child_explicit_stop_while_waiting_is_not_keyboard_interrupt(self):
++        code,text,receipt,count=self.launch('operator-stop')
++        self.assertEqual(code,0,text);self.assertEqual(count,1)
++        self.assertEqual(receipt['reason'],'collection_stop_requested')
++        self.assertNotIn('Interrupted by console',text);self.assertNotIn('Stopped by user',text)
++
++
++class ControllerUptimeTests(unittest.TestCase):
++    def setUp(self):
++        self.f=runtime_fixture.RuntimeTests('test_controller_publishes_r1_before_focus_worker_launch')
++        self.f.setUp();self.addCleanup(self.f.doCleanups)
++    def test_temporary_controller_status_file_conflict_does_not_stop_workers_or_handoff(self):
++        original=rt.atomic_json;failures=[]
++        def write(path,value):
++            if Path(path).name=='status.json' and not failures:
++                failures.append('injected');raise PermissionError(13,'synthetic cosmetic failure')
++            return original(path,value)
++        with patch.object(rt,'atomic_json',side_effect=write),redirect_stdout(io.StringIO()):
++            launched,post,result=self.f.exercise_controller()
++        self.assertEqual(launched,['uni','selection','focus','postclose'])
++        self.assertTrue(post);self.assertTrue(result['final_status'])
++        self.assertEqual(result['next_session_status']['status'],'READY')
++        self.assertEqual(result['status_write_errors'],1)
++    def test_temporary_owner_write_failure_is_visible_but_does_not_cancel_handoff(self):
++        original=rt.atomic_json;failures=[]
++        def write(path,value):
++            if Path(path).name=='owner.json' and not failures:
++                failures.append('injected');raise PermissionError(13,'synthetic owner file conflict')
++            return original(path,value)
++        with patch.object(rt,'atomic_json',side_effect=write),redirect_stdout(io.StringIO()):
++            launched,post,result=self.f.exercise_controller()
++        self.assertTrue(post);self.assertEqual(result['status_write_errors'],1)
++        self.assertEqual(rt.read_json(self.f.state/'owner.json')['active'],False)
++
++
++if __name__=='__main__':unittest.main()
+--- a/verify_offline.py
++++ b/verify_offline.py
+@@ -5,11 +5,11 @@
+ from contextlib import redirect_stdout,redirect_stderr
+ ROOT=Path(__file__).resolve().parent
+ NATIVE=ROOT/'market_data'
+-TESTS=['test_daily_flow','test_daily_runtime',
++TESTS=['test_daily_worker_uptime','test_daily_flow','test_daily_runtime',
+        'test_volume_proxy_experiment','test_universe_quote_watch_credentials',
+        'test_daily_universe_snapshot','test_daily_universe','test_opening_hierarchy',
+        'test_daily_universe_workflow','test_api_overnight_volume','test_schwab_quotes','test_polling_cadence']
+-EXPECTED_TESTS=137
++EXPECTED_TESTS=177
+ class Tee:
+     def __init__(self,*streams):self.streams=streams
+     def write(self,value):
+@@ -24,7 +24,7 @@
+     args=p.parse_args()
+     sys.path[:0]=[str(NATIVE/'src'),str(NATIVE/'tests')]
+     os.environ['PYTHONPATH']=os.pathsep.join([str(NATIVE/'src'),str(NATIVE/'tests')])
+-    output=ROOT/'output'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
++    output=ROOT/'output'/datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+     output.mkdir(parents=True,exist_ok=False)
+     try:
+         inventory=json.loads((ROOT/'SOURCE_INVENTORY.json').read_text())
+@@ -53,6 +53,12 @@
+                 'platform':sys.platform,'python':sys.version,'exchange_calendars':xcals.__version__,
+                 'test_only_auth_import_stub':stub_used,
+                 'actual_child_probe_process_test':True,'controller_clock':'synthetic',
++                'uptime_targeted_tests':40, 'baseline_regressions':137,
++                'heartbeat_freshness_seconds':30, 'heartbeat_retry_attempts':4,
++                'original_live_shutdown_cause_proven':False,
++                'live_uptime_qualified':False,
++                'real_concurrent_heartbeat_io_test':True,
++                'real_child_heartbeat_fault_injection':True,
+                 'real_provider_calls':False,'production_changes':False,
+                 'source_inventory_verified':True,'windows_acceptance':sys.platform=='win32' and passed}
+     except Exception as err:

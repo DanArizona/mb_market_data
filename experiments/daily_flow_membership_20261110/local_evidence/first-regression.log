@@ -1,0 +1,131 @@
+test_controller_publishes_r1_before_focus_worker_launch (test_daily_runtime.RuntimeTests.test_controller_publishes_r1_before_focus_worker_launch) ... ok
+test_duplicate_owner_lock_refuses_second_controller (test_daily_runtime.RuntimeTests.test_duplicate_owner_lock_refuses_second_controller) ... ok
+test_exit_session_cancels_preparation_and_closes_only_owned (test_daily_runtime.RuntimeTests.test_exit_session_cancels_preparation_and_closes_only_owned) ... ok
+test_plan_does_not_prompt_write_or_contact_provider (test_daily_runtime.RuntimeTests.test_plan_does_not_prompt_write_or_contact_provider) ... ok
+test_postclose_failure_not_reported_as_ready (test_daily_runtime.RuntimeTests.test_postclose_failure_not_reported_as_ready) ... ok
+test_private_handoff_rejects_malformed_frame (test_daily_runtime.RuntimeTests.test_private_handoff_rejects_malformed_frame) ... ok
+test_real_child_probes_private_handoff_and_interleaved_native_writes (test_daily_runtime.RuntimeTests.test_real_child_probes_private_handoff_and_interleaved_native_writes) ... FAIL
+test_selection_failure_keeps_uni_and_postclose (test_daily_runtime.RuntimeTests.test_selection_failure_keeps_uni_and_postclose) ... ok
+test_spawn_uses_private_pipe_with_no_secret_in_command_or_log (test_daily_runtime.RuntimeTests.test_spawn_uses_private_pipe_with_no_secret_in_command_or_log) ... ok
+test_start_requests_one_unlock_and_does_not_save_password (test_daily_runtime.RuntimeTests.test_start_requests_one_unlock_and_does_not_save_password) ... ok
+test_stop_collection_preserves_automatic_preparation (test_daily_runtime.RuntimeTests.test_stop_collection_preserves_automatic_preparation) ... ok
+test_uni_crash_does_not_cancel_postclose_handoff (test_daily_runtime.RuntimeTests.test_uni_crash_does_not_cancel_postclose_handoff) ... ok
+test_viewer_interrupt_has_no_stop_side_effect (test_daily_runtime.RuntimeTests.test_viewer_interrupt_has_no_stop_side_effect) ... ok
+test_authorization_failure_latches_without_second_provider_call (test_daily_flow.BackoffTests.test_authorization_failure_latches_without_second_provider_call) ... ok
+test_old_owner_heartbeat_cannot_authorize_new_invocation (test_daily_flow.BackoffTests.test_old_owner_heartbeat_cannot_authorize_new_invocation) ... ok
+test_rate_limit_wait_is_bounded_then_recovers (test_daily_flow.BackoffTests.test_rate_limit_wait_is_bounded_then_recovers) ... ok
+test_status_shows_actual_progress_and_gaps (test_daily_flow.BackoffTests.test_status_shows_actual_progress_and_gaps) ... ok
+test_555_symbols_two_calls_top40_top100_full555_no_candles (test_daily_flow.DailyFlowTests.test_555_symbols_two_calls_top40_top100_full555_no_candles) ... ok
+test_all_missing_keeps_r0_and_creates_no_fake_r1 (test_daily_flow.DailyFlowTests.test_all_missing_keeps_r0_and_creates_no_fake_r1) ... ok
+test_batch_returned_after_deadline_not_ranked (test_daily_flow.DailyFlowTests.test_batch_returned_after_deadline_not_ranked) ... ok
+test_build_success_publication_failure_remains_pending (test_daily_flow.DailyFlowTests.test_build_success_publication_failure_remains_pending) ... ok
+test_carried_roster_requires_explicit_acknowledgment (test_daily_flow.DailyFlowTests.test_carried_roster_requires_explicit_acknowledgment) ... ok
+test_early_close_build_publishes_actual_next_trading_date (test_daily_flow.DailyFlowTests.test_early_close_build_publishes_actual_next_trading_date) ... ok
+test_early_close_snapshot_gate_matches_calendar (test_daily_flow.DailyFlowTests.test_early_close_snapshot_gate_matches_calendar) ... ok
+test_exact_calendar_normal_early_holiday_next_session (test_daily_flow.DailyFlowTests.test_exact_calendar_normal_early_holiday_next_session) ... ok
+test_existing_output_not_overwritten (test_daily_flow.DailyFlowTests.test_existing_output_not_overwritten) ... ok
+test_fewer_than40_valid_symbols_gives_smaller_roster (test_daily_flow.DailyFlowTests.test_fewer_than40_valid_symbols_gives_smaller_roster) ... ok
+test_fresh_launcher_refuses_existing_poll_runs (test_daily_flow.DailyFlowTests.test_fresh_launcher_refuses_existing_poll_runs) ... ok
+test_late_preopen_start_is_reported (test_daily_flow.DailyFlowTests.test_late_preopen_start_is_reported) ... ok
+test_legacy_profile_refused_without_changing_journal (test_daily_flow.DailyFlowTests.test_legacy_profile_refused_without_changing_journal) ... ok
+test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection (test_daily_flow.DailyFlowTests.test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection) ... ok
+test_modified_roster_refused_before_market_request (test_daily_flow.DailyFlowTests.test_modified_roster_refused_before_market_request) ... ok
+test_no_new_snapshot_at_or_after_0929 (test_daily_flow.DailyFlowTests.test_no_new_snapshot_at_or_after_0929) ... ok
+test_no_publication_after_open (test_daily_flow.DailyFlowTests.test_no_publication_after_open) ... ok
+test_plan_and_workers_force_same_interleaved_profile (test_daily_flow.DailyFlowTests.test_plan_and_workers_force_same_interleaved_profile) ... ok
+test_postclose_before_close_makes_no_calls (test_daily_flow.DailyFlowTests.test_postclose_before_close_makes_no_calls) ... ok
+test_postclose_build_and_publication_uses_supplied_client (test_daily_flow.DailyFlowTests.test_postclose_build_and_publication_uses_supplied_client) ... ok
+test_postclose_provider_failure_retains_raw_but_never_publishes (test_daily_flow.DailyFlowTests.test_postclose_provider_failure_retains_raw_but_never_publishes) ... ok
+test_publish_real_r0_and_current_volume_r1 (test_daily_flow.DailyFlowTests.test_publish_real_r0_and_current_volume_r1) ... ok
+test_repeated_exact_publication_is_idempotent (test_daily_flow.DailyFlowTests.test_repeated_exact_publication_is_idempotent) ... ok
+test_repeated_postclose_reuses_complete_build_without_provider_calls (test_daily_flow.DailyFlowTests.test_repeated_postclose_reuses_complete_build_without_provider_calls) ... ok
+test_resume_saved_ranking_does_not_call_provider_or_rerank (test_daily_flow.DailyFlowTests.test_resume_saved_ranking_does_not_call_provider_or_rerank) ... ok
+test_waits_to_0925_before_any_request (test_daily_flow.DailyFlowTests.test_waits_to_0925_before_any_request) ... ok
+test_zero_volumes_remain_eligible_with_symbol_tie_break (test_daily_flow.DailyFlowTests.test_zero_volumes_remain_eligible_with_symbol_tie_break) ... ok
+test_before_close_refuses_without_provider_calls (test_volume_proxy_experiment.PostcloseTests.test_before_close_refuses_without_provider_calls) ... ok
+test_broad_build_uses_supplied_client_and_existing_filters (test_volume_proxy_experiment.PostcloseTests.test_broad_build_uses_supplied_client_and_existing_filters) ... ok
+test_existing_partial_build_is_preserved (test_volume_proxy_experiment.PostcloseTests.test_existing_partial_build_is_preserved) ... ok
+test_focus_does_not_build_r0 (test_volume_proxy_experiment.PostcloseTests.test_focus_does_not_build_r0) ... ok
+test_hook_is_opt_in_and_executes_before_client_close (test_volume_proxy_experiment.PostcloseTests.test_hook_is_opt_in_and_executes_before_client_close) ... ok
+test_keyboard_interrupt_while_waiting_never_builds (test_volume_proxy_experiment.PostcloseTests.test_keyboard_interrupt_while_waiting_never_builds) ... ok
+test_manual_stop_does_not_wait_or_build (test_volume_proxy_experiment.PostcloseTests.test_manual_stop_does_not_wait_or_build) ... ok
+test_midnight_cannot_relabel_new_volume_as_yesterday (test_volume_proxy_experiment.PostcloseTests.test_midnight_cannot_relabel_new_volume_as_yesterday) ... ok
+test_normal_finish_waits_for_close_plus_delay (test_volume_proxy_experiment.PostcloseTests.test_normal_finish_waits_for_close_plus_delay) ... ok
+test_0900_candle_is_excluded_by_actual_reference_acquisition (test_volume_proxy_experiment.VolumeProxyTests.test_0900_candle_is_excluded_by_actual_reference_acquisition) ... ok
+test_38_common_reports_two_swaps_not_volume_error (test_volume_proxy_experiment.VolumeProxyTests.test_38_common_reports_two_swaps_not_volume_error) ... ok
+test_555_symbols_two_quote_calls_then_555_history_calls_same_client (test_volume_proxy_experiment.VolumeProxyTests.test_555_symbols_two_quote_calls_then_555_history_calls_same_client) ... ok
+test_cli_unlocks_once_closes_once (test_volume_proxy_experiment.VolumeProxyTests.test_cli_unlocks_once_closes_once) ... ok
+test_existing_output_refuses_without_overwrite (test_volume_proxy_experiment.VolumeProxyTests.test_existing_output_refuses_without_overwrite) ... ok
+test_failed_reference_saves_proxy_and_does_not_make_fake_r1 (test_volume_proxy_experiment.VolumeProxyTests.test_failed_reference_saves_proxy_and_does_not_make_fake_r1) ... ok
+test_invalid_volume_values_are_missing_zero_is_valid (test_volume_proxy_experiment.VolumeProxyTests.test_invalid_volume_values_are_missing_zero_is_valid) ... ok
+test_late_start_is_recorded_not_disguised_as_0900 (test_volume_proxy_experiment.VolumeProxyTests.test_late_start_is_recorded_not_disguised_as_0900) ... ok
+test_missing_quote_does_not_stop_reference_or_become_zero (test_volume_proxy_experiment.VolumeProxyTests.test_missing_quote_does_not_stop_reference_or_become_zero) ... ok
+test_quote_timeout_still_attempts_reference (test_volume_proxy_experiment.VolumeProxyTests.test_quote_timeout_still_attempts_reference) ... ok
+test_reference_builder_failure_keeps_acquisition_evidence (test_volume_proxy_experiment.VolumeProxyTests.test_reference_builder_failure_keeps_acquisition_evidence) ... ok
+test_wrong_day_refuses_before_calls_or_output (test_volume_proxy_experiment.VolumeProxyTests.test_wrong_day_refuses_before_calls_or_output) ... ok
+test_custom_exact_poll_window_is_preserved_for_audit (test_universe_quote_watch_credentials.TestUniverseQuoteWatchCredentials.test_custom_exact_poll_window_is_preserved_for_audit) ... ok
+test_exact_slot_run_requires_end_plus_refresh_margin (test_universe_quote_watch_credentials.TestUniverseQuoteWatchCredentials.test_exact_slot_run_requires_end_plus_refresh_margin) ... ok
+test_failed_preflight_creates_no_output_directory (test_universe_quote_watch_credentials.TestUniverseQuoteWatchCredentials.test_failed_preflight_creates_no_output_directory) ... ok
+test_fixed_interval_run_accounts_for_last_sample_start (test_universe_quote_watch_credentials.TestUniverseQuoteWatchCredentials.test_fixed_interval_run_accounts_for_last_sample_start) ... ok
+test_past_planned_end_still_requires_margin_from_startup (test_universe_quote_watch_credentials.TestUniverseQuoteWatchCredentials.test_past_planned_end_still_requires_margin_from_startup) ... ok
+test_unexpected_interactive_auth_is_rejected_and_closed (test_universe_quote_watch_credentials.TestUniverseQuoteWatchCredentials.test_unexpected_interactive_auth_is_rejected_and_closed) ... ok
+
+======================================================================
+FAIL: test_real_child_probes_private_handoff_and_interleaved_native_writes (test_daily_runtime.RuntimeTests.test_real_child_probes_private_handoff_and_interleaved_native_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/worker_uptime_dev/daily_flow_uptime_20261106/market_data/tests/test_daily_runtime.py", line 49, in test_real_child_probes_private_handoff_and_interleaved_native_writes
+    self.assertEqual(proc.returncode,0,(out+err).decode())
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 3 != 0 : Encrypted config : /tmp/tmpvaj8591m/unused.ecfg
+Credential status : refresh valid through 2026-11-08T09:29:59.900000-05:00
+Required through  : 2026-11-05T10:46:01-05:00
+
+Schwab full-universe quote watch
+===============================================================================
+Symbol source    : schema-v2 journal hierarchy
+Symbols          : resolved per slot
+Fields           : all
+Batch size       : 400
+Watchlist kind   : uni
+Watchlist rev    : resolved per slot
+Polling seconds  : :00, :30
+Polling window   : 2026-11-05 09:30:00 EST through 09:30:31 EST (end excluded)
+Started          : 2026-11-05 09:29:59 EST
+Automatic stop   : 2026-11-05 09:30:31 EST
+Maximum samples  : none
+Encrypted config : /tmp/tmpvaj8591m/unused.ecfg
+Output directory : /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni
+Daily journal    : /tmp/tmpvaj8591m/output/quote_observation_journal_v2_api_opening_2026-11-05/2026-11-05.sqlite3
+Journal schema   : 2
+Write recovery   : SQLITE_BUSY only; 5s budget, up to 20 attempts
+Write diagnostics: /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni/journal_write_diagnostics.jsonl
+
+Sample   1  2026-11-05T09:30:00-05:00  elapsed=0.001s  req=1  quote=2  invalid=0  missing=0  reqerr=0  vol+=0  trade+=0  uni:2026-11-05T09:30:00-05:00  journal=0.007s  total=0.009s
+  freshness quote: n=0  med=n/a  p95=n/a  max=n/a  >60s=0
+  freshness trade: n=0  med=n/a  p95=n/a  max=n/a  >60s=0
+  batch 1: symbols=2  duration=0.000s
+DAILY WORKER CONTROL: owner_check_stopped owner_heartbeat_expired
+DAILY WORKER CONTROL: worker_stop_requested owner_heartbeat_expired
+Stopped by daily control: owner_heartbeat_expired
+
+Universe quote watch finished
+===============================================================================
+Completed         : 2026-11-05 09:30:30 EST
+Samples attempted : 1
+Samples completed : 1
+Acquisitions      : /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni/acquisition_samples.jsonl
+Quote CSV         : /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni/quote_samples.csv
+Summary CSV       : /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni/sample_summary.csv
+Errors            : /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni/errors.log
+Manifest          : /tmp/tmpvaj8591m/output/daily_session/2026-11-05/workers/uni-0/2026-11-05-09-29-59-uni/manifest.json
+Daily journal     : /tmp/tmpvaj8591m/output/quote_observation_journal_v2_api_opening_2026-11-05/2026-11-05.sqlite3
+Journal records   : 1 inserted, 0 already present, 0 errors
+DAILY WORKER EXIT: {"at": "2026-11-05T09:30:30-05:00", "channel": "uni", "contract": "daily-worker-exit-v1", "error_type": null, "exit_code": 3, "generation": 0, "heartbeat_read_errors": 0, "owner_pid": 604, "pid": 624, "probe_completion": {"journal_errors": 0, "samples_completed": 1, "scheduled_completion": false, "stop_reason": "owner_heartbeat_expired"}, "reason": "owner_heartbeat_expired", "scheduled_completion": false}
+{"result": "PROCESS_COMPLETE", "channel": "uni", "code": 3, "synthetic_api": true, "password_written": false}
+
+
+----------------------------------------------------------------------
+Ran 71 tests in 4.652s
+
+FAILED (failures=1)

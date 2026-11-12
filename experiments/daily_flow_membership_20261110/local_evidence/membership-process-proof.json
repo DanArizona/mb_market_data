@@ -1,0 +1,33 @@
+{
+  "INTC_hot_observations": 19,
+  "acquisitions": {
+    "focus": 4,
+    "hot": 24,
+    "uni": 3
+  },
+  "actual_child_pids": {
+    "focus": 2439,
+    "hot": 2440,
+    "uni": 2438
+  },
+  "clock": "parent-gated synthetic",
+  "live_nasdaq_verified": false,
+  "live_uptime_qualified": false,
+  "nasdaq_symbol": "ZZZ",
+  "nasdaq_symbol_collected_in": [
+    "uni",
+    "focus",
+    "hot"
+  ],
+  "native_audit": true,
+  "overlay_membership_bands": [
+    "hot",
+    "focus",
+    "hot"
+  ],
+  "overlay_quote_points": 26,
+  "provider": "synthetic",
+  "replays_equal": true,
+  "result": "PASS",
+  "worker_restarts": 0
+}

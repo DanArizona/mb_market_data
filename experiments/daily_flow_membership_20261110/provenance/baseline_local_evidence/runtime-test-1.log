@@ -1,0 +1,64 @@
+test_555_symbols_two_calls_top40_top100_full555_no_candles (test_daily_flow.DailyFlowTests.test_555_symbols_two_calls_top40_top100_full555_no_candles) ... ok
+test_all_missing_keeps_r0_and_creates_no_fake_r1 (test_daily_flow.DailyFlowTests.test_all_missing_keeps_r0_and_creates_no_fake_r1) ... ok
+test_batch_returned_after_deadline_not_ranked (test_daily_flow.DailyFlowTests.test_batch_returned_after_deadline_not_ranked) ... ok
+test_carried_roster_requires_explicit_acknowledgment (test_daily_flow.DailyFlowTests.test_carried_roster_requires_explicit_acknowledgment) ... ok
+test_early_close_snapshot_gate_matches_calendar (test_daily_flow.DailyFlowTests.test_early_close_snapshot_gate_matches_calendar) ... ok
+test_exact_calendar_normal_early_holiday_next_session (test_daily_flow.DailyFlowTests.test_exact_calendar_normal_early_holiday_next_session) ... ok
+test_existing_output_not_overwritten (test_daily_flow.DailyFlowTests.test_existing_output_not_overwritten) ... ok
+test_fewer_than40_valid_symbols_gives_smaller_roster (test_daily_flow.DailyFlowTests.test_fewer_than40_valid_symbols_gives_smaller_roster) ... ok
+test_fresh_launcher_refuses_existing_poll_runs (test_daily_flow.DailyFlowTests.test_fresh_launcher_refuses_existing_poll_runs) ... ok
+test_late_preopen_start_is_reported (test_daily_flow.DailyFlowTests.test_late_preopen_start_is_reported) ... ok
+test_legacy_profile_refused_without_changing_journal (test_daily_flow.DailyFlowTests.test_legacy_profile_refused_without_changing_journal) ... ok
+test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection (test_daily_flow.DailyFlowTests.test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection) ... ok
+test_modified_roster_refused_before_market_request (test_daily_flow.DailyFlowTests.test_modified_roster_refused_before_market_request) ... ok
+test_no_new_snapshot_at_or_after_0929 (test_daily_flow.DailyFlowTests.test_no_new_snapshot_at_or_after_0929) ... ok
+test_no_publication_after_open (test_daily_flow.DailyFlowTests.test_no_publication_after_open) ... ok
+test_plan_and_workers_force_same_interleaved_profile (test_daily_flow.DailyFlowTests.test_plan_and_workers_force_same_interleaved_profile) ... ok
+test_postclose_before_close_makes_no_calls (test_daily_flow.DailyFlowTests.test_postclose_before_close_makes_no_calls) ... ok
+test_postclose_build_and_publication_uses_supplied_client (test_daily_flow.DailyFlowTests.test_postclose_build_and_publication_uses_supplied_client) ... ok
+test_postclose_provider_failure_retains_raw_but_never_publishes (test_daily_flow.DailyFlowTests.test_postclose_provider_failure_retains_raw_but_never_publishes) ... ok
+test_publish_real_r0_and_current_volume_r1 (test_daily_flow.DailyFlowTests.test_publish_real_r0_and_current_volume_r1) ... ok
+test_repeated_exact_publication_is_idempotent (test_daily_flow.DailyFlowTests.test_repeated_exact_publication_is_idempotent) ... ok
+test_resume_saved_ranking_does_not_call_provider_or_rerank (test_daily_flow.DailyFlowTests.test_resume_saved_ranking_does_not_call_provider_or_rerank) ... ok
+test_waits_to_0925_before_any_request (test_daily_flow.DailyFlowTests.test_waits_to_0925_before_any_request) ... ok
+test_zero_volumes_remain_eligible_with_symbol_tie_break (test_daily_flow.DailyFlowTests.test_zero_volumes_remain_eligible_with_symbol_tie_break) ... ok
+test_controller_publishes_r1_before_focus_worker_launch (test_daily_runtime.RuntimeTests.test_controller_publishes_r1_before_focus_worker_launch) ... ok
+test_duplicate_owner_lock_refuses_second_controller (test_daily_runtime.RuntimeTests.test_duplicate_owner_lock_refuses_second_controller) ... ok
+test_exit_session_cancels_preparation_and_closes_only_owned (test_daily_runtime.RuntimeTests.test_exit_session_cancels_preparation_and_closes_only_owned) ... ok
+test_plan_does_not_prompt_write_or_contact_provider (test_daily_runtime.RuntimeTests.test_plan_does_not_prompt_write_or_contact_provider) ... ok
+test_postclose_failure_not_reported_as_ready (test_daily_runtime.RuntimeTests.test_postclose_failure_not_reported_as_ready) ... ok
+test_private_handoff_rejects_malformed_frame (test_daily_runtime.RuntimeTests.test_private_handoff_rejects_malformed_frame) ... ok
+test_real_child_probes_private_handoff_and_interleaved_native_writes (test_daily_runtime.RuntimeTests.test_real_child_probes_private_handoff_and_interleaved_native_writes) ... FAIL
+test_selection_failure_keeps_uni_and_postclose (test_daily_runtime.RuntimeTests.test_selection_failure_keeps_uni_and_postclose) ... ok
+test_stop_collection_preserves_automatic_preparation (test_daily_runtime.RuntimeTests.test_stop_collection_preserves_automatic_preparation) ... ok
+test_uni_crash_does_not_cancel_postclose_handoff (test_daily_runtime.RuntimeTests.test_uni_crash_does_not_cancel_postclose_handoff) ... ok
+test_viewer_interrupt_has_no_stop_side_effect (test_daily_runtime.RuntimeTests.test_viewer_interrupt_has_no_stop_side_effect) ... ok
+
+======================================================================
+FAIL: test_real_child_probes_private_handoff_and_interleaved_native_writes (test_daily_runtime.RuntimeTests.test_real_child_probes_private_handoff_and_interleaved_native_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/test_daily_runtime.py", line 50, in test_real_child_probes_private_handoff_and_interleaved_native_writes
+    self.assertEqual(proc.returncode,0,(out+err).decode())
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0 : Encrypted config : /tmp/tmp4lhpmce8/unused.ecfg
+Credential status : refresh valid through 2026-11-08T09:29:59.900000-05:00
+Required through  : 2026-11-05T10:46:01-05:00
+Traceback (most recent call last):
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/tests/daily_flow_process_fixture.py", line 44, in <module>
+    code=rt.run_worker(plan,private,channel,0)
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/src/mb_market_data/daily_runtime.py", line 180, in run_worker
+    return probe.main(supplied_password=password, stop_requested=stop,
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        client_transform=lambda c: BackoffClient(c,state_path=root/f'{channel}-api.json',stop_requested=stop))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/data/daily_flow_dev/daily_flow_candidate_20261106/market_data/probes/probe_universe_quote_watch.py", line 1454, in main
+    token_status.observed_at.astimezone(timezone.utc).isoformat()
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'types.SimpleNamespace' object has no attribute 'observed_at'
+
+
+----------------------------------------------------------------------
+Ran 35 tests in 2.268s
+
+FAILED (failures=1)

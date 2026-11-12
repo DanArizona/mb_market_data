@@ -1,0 +1,1469 @@
+--- a/market_data/probes/probe_universe_quote_watch.py
++++ b/market_data/probes/probe_universe_quote_watch.py
+@@ -1166,7 +1166,7 @@
+     return client, status
+ 
+ 
+-def main() -> int:
++def main(*, supplied_password=None, stop_requested=lambda: False, client_transform=lambda c: c) -> int:
+     args = parse_args()
+     args.cadence_profile = getattr(args, "cadence_profile", "legacy-v1")
+ 
+@@ -1282,7 +1282,7 @@
+             print(f"Polling cadence preflight FAILED: {error}", file=sys.stderr)
+             return 2
+     print(f"Encrypted config : {ecfg_path}")
+-    password = getpass.getpass("Encrypted config password: ")
++    password = supplied_password if supplied_password is not None else getpass.getpass("Encrypted config password: ")
+     try:
+         client, token_status = prepare_polling_client(
+             ecfg_path,
+@@ -1297,6 +1297,8 @@
+             file=sys.stderr,
+         )
+         return 2
++
++    client = client_transform(client)
+ 
+     print(
+         "Credential status : refresh valid through "
+@@ -1612,6 +1614,9 @@
+             next_sample_monotonic = time_module.monotonic()
+ 
+             while True:
++                if stop_requested():
++                    print("Stopped by daily controller; post-close is independently managed.")
++                    break
+                 now = datetime.now(ET)
+ 
+                 if stop_at is not None and now >= stop_at:
+@@ -1643,12 +1648,14 @@
+                         break
+ 
+                     while True:
++                        if stop_requested():
++                            raise KeyboardInterrupt
+                         delay = (
+                             slot.scheduled_at - datetime.now(ET)
+                         ).total_seconds()
+                         if delay <= 0:
+                             break
+-                        time_module.sleep(delay)
++                        time_module.sleep(min(delay, 0.25))
+ 
+                     dispatched_at = datetime.now(ET)
+                     if dispatched_at >= poll_window.end_at:
+--- a/market_data/probes/run_daily_session.py
++++ b/market_data/probes/run_daily_session.py
+@@ -0,0 +1,10 @@
++"""Explicit daily session entry. Default plan is non-mutating; start needs --live."""
++from pathlib import Path
++import sys
++sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
++from mb_market_data.daily_runtime import main
++if __name__=='__main__':
++    try:raise SystemExit(main())
++    except Exception as error:
++        print(f'DAILY SESSION: {type(error).__name__}: {error}',file=sys.stderr)
++        raise SystemExit(2)
+--- a/market_data/src/mb_market_data/daily_flow.py
++++ b/market_data/src/mb_market_data/daily_flow.py
+@@ -0,0 +1,298 @@
++"""Daily 09:25 current-volume selection and calendar-bound post-close handoff.
++
++No credentials, process launching or secret persistence in this module. The
++caller supplies one authenticated client. Runtime data never changes r0 inputs.
++"""
++from __future__ import annotations
++
++import csv
++from functools import lru_cache
++from dataclasses import dataclass, replace
++from datetime import date, datetime, time, timedelta, timezone
++from importlib.metadata import version
++import json
++from pathlib import Path
++import sqlite3
++from contextlib import closing
++from typing import Callable
++from zoneinfo import ZoneInfo
++
++from .opening_hierarchy import load_opening_proposal, write_opening_proposal
++from .polling_cadence import INTERLEAVED, check_before_credentials
++from .quote_observation_store import QuoteObservationStore
++from .sampling_membership import SamplingHierarchyRevision
++from .schwab_quotes import fetch_quotes_batched
++from .volume_proxy_experiment import rank_values, volume_value, write_json, utc_text
++
++ET = ZoneInfo('America/New_York')
++METHOD = 'current-volume-0925-v1'
++CONTRACT = 'one-unlock-daily-flow-v1'
++
++
++@dataclass(frozen=True)
++class SessionSchedule:
++    day: date
++    opens_at: datetime
++    closes_at: datetime
++    next_day: date
++    calendar_version: str
++
++    def payload(self):
++        return {'session_date': str(self.day), 'opens_at': self.opens_at.isoformat(),
++                'closes_at': self.closes_at.isoformat(), 'next_session': str(self.next_day),
++                'calendar': 'XNYS', 'calendar_version': self.calendar_version}
++
++
++@lru_cache(maxsize=32)
++def schedule_for(day: date) -> SessionSchedule:
++    """Read installed exchange calendar, not a live exchange-status feed."""
++    import exchange_calendars as xcals
++    cal = xcals.get_calendar('XNYS', start=f'{day.year-1}-12-01', end=f'{day.year+1}-02-01')
++    if not cal.is_session(str(day)):
++        raise ValueError(f'{day} is not a scheduled exchange session')
++    start = cal.session_open(str(day)).to_pydatetime().astimezone(ET)
++    stop = cal.session_close(str(day)).to_pydatetime().astimezone(ET)
++    if start.date() != day or stop.date() != day or start.time() != time(9, 30):
++        raise ValueError('Unexpected exchange session; review before launching')
++    return SessionSchedule(day, start, stop, cal.next_session(str(day)).date(),
++                           version('exchange-calendars'))
++
++
++def journal_path(data_root: Path, day: date) -> Path:
++    return data_root / 'output' / f'quote_observation_journal_v2_api_opening_{day}' / f'{day}.sqlite3'
++
++
++def make_plan(opening_path: Path, data_root: Path, ecfg: Path, *, allow_carried=False,
++              schedule_resolver=schedule_for) -> dict:
++    opening_path, data_root, ecfg = map(lambda p: Path(p).expanduser().resolve(),
++                                      (opening_path, data_root, ecfg))
++    r0 = load_opening_proposal(opening_path)
++    if not r0.uni_symbols:
++        raise ValueError('Opening Uni is empty')
++    if (r0.metadata.get('test_only') or r0.metadata.get('carry_forward') or
++            'carried' in r0.source or 'carry-forward' in r0.source) and not allow_carried:
++        raise ValueError('Carried/test roster requires explicit --allow-carried-roster; origin is preserved')
++    schedule = schedule_resolver(r0.session_date)
++    if r0.effective_at != schedule.opens_at:
++        raise ValueError('Opening r0 effective time differs from exchange open')
++    if not data_root.is_dir():
++        raise ValueError('Explicit existing market-data root required')
++    database = journal_path(data_root, r0.session_date)
++    check_before_credentials(database, INTERLEAVED)
++    return {'contract': CONTRACT, 'method': METHOD, 'opening_path': str(opening_path),
++            'opening_content_sha256': r0.content_sha256,
++            'opening_metadata': json.loads(json.dumps(dict(r0.metadata), default=dict)),
++            'data_root': str(data_root), 'ecfg': str(ecfg),
++            'journal': str(database), 'state_root': str(data_root/'output'/'daily_session'/str(r0.session_date)),
++            **schedule.payload(), 'snapshot_at': datetime.combine(r0.session_date,time(9,25),ET).isoformat(),
++            'selection_deadline': datetime.combine(r0.session_date,time(9,29),ET).isoformat(),
++            'focus_limit': 40, 'history_top_n': 100, 'batch_size': 400,
++            'cadence_profile': INTERLEAVED, 'hot_activated': False,
++            'postclose_delay_seconds': 60, 'postclose_window_seconds': 900,
++            'allow_carried_roster': bool(allow_carried)}
++
++
++def validate_start(plan: dict, *, now: datetime, resume=False) -> None:
++    if plan.get('contract') != CONTRACT or plan.get('cadence_profile') != INTERLEAVED:
++        raise ValueError('An explicit interleaved daily-flow plan is required')
++    r0 = load_opening_proposal(plan['opening_path'])
++    if r0.content_sha256 != plan['opening_content_sha256']:
++        raise ValueError('Opening r0 changed since plan creation')
++    if now.astimezone(ET).date() != r0.session_date:
++        raise ValueError('Run on the opening r0 Eastern trading date')
++    if not resume and now >= datetime.fromisoformat(plan['selection_deadline']):
++        raise ValueError('Fresh selection cannot start at/after 09:29 ET; resume only uses a saved ranking')
++    if now >= datetime.fromisoformat(plan['closes_at']) + timedelta(seconds=plan['postclose_window_seconds']):
++        raise ValueError('The daily operating window has ended')
++    check_before_credentials(Path(plan['journal']), INTERLEAVED)
++
++
++def ensure_opening(plan: dict, *, resume=False) -> None:
++    """Never replace an existing roster, cadence, or independently running session."""
++    database = Path(plan['journal'])
++    check_before_credentials(database, INTERLEAVED)
++    if database.exists() and not resume:
++        with closing(sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)) as con:
++            if con.execute('SELECT count(*) FROM poll_run').fetchone()[0]:
++                raise ValueError('This journal already has polling runs; do not attach a fresh launcher')
++            if con.execute('SELECT count(*) FROM sampling_membership_revision WHERE revision>0').fetchone()[0]:
++                raise ValueError('This journal already has r1/later membership; do not rerank it')
++    r0 = load_opening_proposal(plan['opening_path'])
++    store = QuoteObservationStore(database, session_date=r0.session_date, schema_version=2)
++    store.initialize()
++    store.record_membership_revision(r0)
++
++
++def revision_payload(r):
++    from .opening_hierarchy import _plain_json
++    return {'session_date': str(r.session_date), 'revision': r.revision,
++            'effective_at': r.effective_at.isoformat(), 'uni_symbols': list(r.uni_symbols),
++            'focus_symbols': list(r.focus_symbols), 'hot_symbols': list(r.hot_symbols),
++            'source': r.source, 'reason': r.reason, 'metadata': _plain_json(r.metadata)}
++
++
++def read_revision(path: Path):
++    value=json.loads(Path(path).read_text(encoding='utf-8'))
++    return SamplingHierarchyRevision(**dict(value,session_date=date.fromisoformat(value['session_date']),
++                       effective_at=datetime.fromisoformat(value['effective_at'])))
++
++
++def acquire_selection(client, plan: dict, *, output: Path, clock=lambda: datetime.now(ET),
++                      sleep: Callable[[float],None], stop_requested=lambda:False) -> dict:
++    """All valid results retained. Retry missing symbols once; never zero-fill.
++
++    Each attempt has its own raw timestamps. A recovered value remains visibly
++    later, not silently relabelled as an exact 09:25 observation. No candles.
++    """
++    opening=load_opening_proposal(plan['opening_path'])
++    if opening.content_sha256 != plan['opening_content_sha256']:
++        raise ValueError('Opening roster changed')
++    output=Path(output)
++    output.mkdir(parents=True,exist_ok=False)
++    scheduled=datetime.fromisoformat(plan['snapshot_at'])
++    deadline=datetime.fromisoformat(plan['selection_deadline'])
++    while clock()<scheduled:
++        if stop_requested(): raise InterruptedError('Selection cancelled')
++        sleep(min(0.25,(scheduled-clock()).total_seconds()))
++    if clock()>=deadline:
++        raise ValueError('No pre-open snapshot acquired before selection deadline')
++    started=clock()
++    values={s:None for s in opening.uni_symbols}
++    accepted_rows={}; attempts=[]; request_count=0
++    for attempt in (1,2):
++        todo=[s for s in opening.uni_symbols if values[s] is None]
++        if not todo or stop_requested() or clock()>=deadline: break
++        # Bound starting each batch separately, not just the first request.
++        for index in range(0,len(todo),400):
++            if stop_requested() or clock()>=deadline: break
++            names=todo[index:index+400]
++            batch=fetch_quotes_batched(client,names,fields='all',batch_size=400)
++            request_count+=batch.request_count
++            for row in batch.results:
++                q=row.quote or {}; field=q.get('quote') or {}
++                value=volume_value(field.get('totalVolume')) if row.usable else None
++                received=row.response_received_at_utc
++                in_time=received is not None and received < deadline
++                saved={'symbol':row.symbol,'attempt':attempt,'batch_index':request_count,
++                       'status':row.status.value,'current_volume':value,
++                       'eligible_for_selection':bool(value is not None and in_time),
++                       'request_started_at_utc':utc_text(row.request_started_at_utc),
++                       'response_received_at_utc':utc_text(received),'quote':q}
++                attempts.append(saved)
++                if value is not None and in_time:
++                    values[row.symbol]=value; accepted_rows[row.symbol]=saved
++            # Preserve each completed batch even if a later request hangs and
++            # the controller terminates the selection child at its deadline.
++            write_json(output/f'batch-{request_count:03d}.json',
++                {'attempt':attempt,'requested_symbols':names,
++                 'rows':[r for r in attempts if r['batch_index']==request_count]})
++        if any(v is None for v in values.values()) and attempt==1 and clock()<deadline:
++            sleep(min(1.0,(deadline-clock()).total_seconds()))
++    ranking=rank_values(values)
++    missing=sorted(s for s,v in values.items() if v is None)
++    selected=list(ranking[:plan['focus_limit']])
++    finished=clock()
++    report={'contract':METHOD,'session_date':str(opening.session_date),
++            'opening_content_sha256':opening.content_sha256,
++            'opening_metadata':plan['opening_metadata'], 'scheduled_at':scheduled.isoformat(),
++            'started_at':started.isoformat(),'completed_at':finished.isoformat(),
++            'start_lateness_seconds':max(0,(started-scheduled).total_seconds()),
++            'quote_requests':request_count,'history_requests':0,'elapsed_seconds':(finished-started).total_seconds(),
++            'requested_symbols':len(values),'valid_symbols':len(ranking),'missing_symbols':missing,
++            'selected_focus':selected,'top_100':list(ranking[:100]),
++            'selection_policy':'CURRENT_VOLUME_DESC_SYMBOL_ASC',
++            'status':'READY' if not missing else 'DEGRADED' if selected else 'FOCUS_UNAVAILABLE',
++            'membership_published':False, 'rows':attempts}
++    write_json(output/'snapshot.json',report)
++    fields=['rank','symbol','current_volume','in_focus','in_top_100','status',
++            'attempt','response_received_at_utc']
++    order=list(ranking)+missing
++    for filename, symbols in [('ranking.csv',order),('top100.csv',list(ranking[:100]))]:
++        with (output/filename).open('x',encoding='utf-8',newline='') as f:
++            writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
++            ranks={s:n for n,s in enumerate(ranking,1)}
++            for s in symbols:
++                row=accepted_rows.get(s,{})
++                writer.writerow({'rank':ranks.get(s),'symbol':s,'current_volume':values[s],
++                    'in_focus':s in selected,'in_top_100':s in ranking[:100],
++                    'status':'available' if s in ranks else 'missing',
++                    'attempt':row.get('attempt'),'response_received_at_utc':row.get('response_received_at_utc')})
++    # Do not claim a proposed r1 if no value exists or selection crossed the open.
++    if selected and not stop_requested() and finished < opening.effective_at:
++        r1=SamplingHierarchyRevision(session_date=opening.session_date,revision=1,
++            effective_at=opening.effective_at,uni_symbols=opening.uni_symbols,
++            focus_symbols=tuple(selected),hot_symbols=(),source=METHOD,
++            reason='opening Focus from current-volume ranking at 09:25 ET',
++            metadata={'selection_method':METHOD,'ranked_focus_symbols':selected,
++                      'ranking_snapshot':str(output/'snapshot.json'),
++                      'opening_content_sha256':opening.content_sha256,
++                      'missing_symbols':missing,'requested_top_n':40,
++                      'started_at':started.isoformat(),'completed_at':finished.isoformat()})
++        write_json(output/'r1.json',revision_payload(r1))
++        report['proposal']=str(output/'r1.json')
++    write_json(output/'result.json',{k:v for k,v in report.items() if k!='rows'})
++    return report
++
++
++def publish_selection(plan, result, *, now):
++    """Publish exactly the saved ranked selection. No later-time reranking."""
++    if not result.get('proposal'): return False
++    if now >= datetime.fromisoformat(plan['opens_at']):
++        raise ValueError('Opening already passed; preserve snapshot but do not backdate r1')
++    r1=read_revision(Path(result['proposal']))
++    r0=load_opening_proposal(plan['opening_path'])
++    if (r1.session_date!=r0.session_date or r1.revision!=1 or r1.uni_symbols!=r0.uni_symbols
++            or r1.metadata.get('opening_content_sha256')!=r0.content_sha256
++            or set(r1.focus_symbols)!=set(result['selected_focus']) or r1.source!=METHOD):
++        raise ValueError('Selection proposal does not match the original roster and result')
++    store=QuoteObservationStore(plan['journal'],session_date=r0.session_date,schema_version=2)
++    store.record_membership_revision(r1)
++    from .acquisition_health import atomic_json
++    atomic_json(Path(result['proposal']).parent/'publication.json', {
++        'status':'PUBLISHED','journal':plan['journal'],'revision':1,
++        'content_sha256':r1.content_sha256,'effective_at':r1.effective_at.isoformat(),
++        'confirmed_at':now.isoformat(),'selection_method':METHOD})
++    return True
++
++
++def build_next_opening(client, plan, *, clock=lambda:datetime.now(ET), builder=None):
++    """Independent of Uni health. A failed publication never reports READY."""
++    from .postclose_universe import build_with_client
++    builder=builder or build_with_client
++    day=date.fromisoformat(plan['session_date']); target=date.fromisoformat(plan['next_session'])
++    closes=datetime.fromisoformat(plan['closes_at'])
++    if clock().astimezone(ET).date()!=day or clock()<closes:
++        raise ValueError('Post-close snapshot requires same source date after the scheduled close')
++    output=Path(plan['data_root'])/'output'/'daily_universe_production'/f'{target}-from-{day}'
++    if output.exists():
++        # A complete prior build can be published/reconfirmed without another
++        # snapshot. Partial evidence is not overwritten or silently adopted.
++        from .daily_universe import sha256_file
++        manifest=json.loads((output/'workflow_manifest.json').read_text(encoding='utf-8'))
++        if manifest['session_date']!=str(day) or manifest['target_date']!=str(target):
++            raise ValueError('Existing build dates differ')
++        for artifact in manifest['artifacts'].values():
++            path=(output/artifact['path']).resolve()
++            if not path.is_relative_to(output.resolve()) or sha256_file(path)!=artifact['sha256']:
++                raise ValueError('Existing build artifact differs')
++        snapshot=json.loads((output/'market_snapshot'/'manifest.json').read_text(encoding='utf-8'))
++        if any(k not in ('quote','invalid') and n for k,n in snapshot['acquisition']['status_counts'].items()):
++            raise ValueError('Existing broad snapshot has unavailable transport results')
++        result=json.loads((output/'postclose_result.json').read_text(encoding='utf-8'))
++        if Path(result['opening_proposal']).resolve()!=output/'opening_hierarchy_r0.json':
++            raise ValueError('Existing build points outside its own r0')
++        result['reused_complete_build']=True
++    else:
++        result=builder(client,session_date=day,target_date=target,output_dir=output,clock=clock,
++                       exchange_close=closes,require_complete_transport=True,
++                       opening_focus_policy='empty-awaiting-current-volume-0925')
++    r0=load_opening_proposal(result['opening_proposal'])
++    if r0.session_date!=target:raise ValueError('Built r0 has wrong target date')
++    result=dict(result,status='BUILT_PUBLICATION_PENDING',membership_published=False)
++    from .acquisition_health import atomic_json
++    atomic_json(output/'daily_handoff.json',result)
++    store=QuoteObservationStore(journal_path(Path(plan['data_root']),target),session_date=target,schema_version=2)
++    store.initialize();store.record_membership_revision(r0)
++    result.update(status='READY',membership_published=True)
++    atomic_json(output/'daily_handoff.json',result)
++    return result
+--- a/market_data/src/mb_market_data/daily_runtime.py
++++ b/market_data/src/mb_market_data/daily_runtime.py
+@@ -0,0 +1,489 @@
++"""Small daily owner for existing Uni/Focus probes; no credential files.
++
++One interactive start owns a hidden controller; it owns independent probe
++children. Public plan/status/log files never include the password. Closing the
++status viewer does not stop collection. Process restart is explicit and bounded
++by the original session, using the retained ranking, never a reranking.
++"""
++from __future__ import annotations
++
++import argparse
++from contextlib import contextmanager, redirect_stdout, redirect_stderr
++from datetime import date, datetime, timedelta, timezone
++import getpass
++import importlib.util
++import io
++import json
++import os
++from pathlib import Path
++import signal
++import sqlite3
++from contextlib import closing
++import subprocess
++import sys
++import time
++from uuid import uuid4
++import warnings
++
++from .daily_flow import (ET, make_plan, validate_start, ensure_opening, acquire_selection,
++                         publish_selection, build_next_opening, read_revision)
++from .acquisition_health import HealthConfig, inspect_health, operation_lock, atomic_json, atomic_text
++
++ROOT = Path(__file__).resolve().parents[2]
++ENTRY = ROOT / 'probes' / 'run_daily_session.py'
++PROBE = ROOT / 'probes' / 'probe_universe_quote_watch.py'
++
++
++def now(): return datetime.now(ET)
++
++
++def read_json(path):
++    return json.loads(Path(path).read_text(encoding='utf-8'))
++
++
++def secret_send(process, password):
++    # Anonymous stdin pipe, not argv/env/file. Controller/child closes stdin.
++    encoded = json.dumps({'password': password}).encode('utf-8')
++    if not 1 <= len(encoded) <= 4096: raise ValueError('Invalid private handoff length')
++    process.stdin.write(encoded); process.stdin.close()
++
++
++def secret_receive():
++    value = sys.stdin.buffer.read(4097)
++    obj=json.loads(value)
++    if len(value)>4096 or set(obj)!={'password'} or not isinstance(obj['password'],str) or not obj['password']:
++        raise ValueError('Invalid private credential handoff')
++    return obj['password']
++
++
++def load_probe():
++    spec=importlib.util.spec_from_file_location('_daily_owned_quote_probe',PROBE)
++    module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
++    return module
++
++
++@contextmanager
++def auth_lock(ecfg):
++    """Serialize client construction across owned workers (token store unchanged)."""
++    deadline=time.monotonic()+40
++    while True:
++        manager=operation_lock('daily-auth:'+str(Path(ecfg).resolve()).casefold())
++        try: manager.__enter__();break
++        except ValueError:
++            if time.monotonic()>=deadline: raise RuntimeError('Authentication coordination timed out')
++            time.sleep(.1)
++    try:yield
++    finally:manager.__exit__(None,None,None)
++
++
++def prepared_client(plan, password):
++    from mb_tools.schwab_secure import (load_secure_schwab_config, read_schwab_token_status,
++        make_client_from_config, DEFAULT_POLLING_REFRESH_MARGIN)
++    required=datetime.fromisoformat(plan['closes_at'])+timedelta(seconds=plan['postclose_window_seconds'])+DEFAULT_POLLING_REFRESH_MARGIN
++    class NoBrowser:
++        requested=False
++        def __call__(self,url):self.requested=True;return ''
++    rejection=NoBrowser();client=None
++    try:
++        # Suppress third-party startup output containing URLs or sensitive errors.
++        with auth_lock(plan['ecfg']), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
++            config=load_secure_schwab_config(Path(plan['ecfg']),password)
++            status=read_schwab_token_status(config)
++            status.require_refresh_valid_through(required)
++            client=make_client_from_config(config,timeout=10,call_on_auth=rejection)
++            if rejection.requested: raise RuntimeError('Browser authorization required')
++        return client
++    except Exception as error:
++        if client:
++            try: client.close()
++            except Exception:pass
++        # Never serialize an SDK exception that may include secrets/response bodies.
++        raise RuntimeError('Credential preflight unavailable ('+type(error).__name__+'); renew authorization in the attended auth tool') from None
++
++
++class BackoffClient:
++    """Normal network errors remain per-acquisition outcomes; 401/403 pause calls."""
++    def __init__(self,client,*,state_path=None,clock=time.monotonic,stop_requested=lambda:False):
++        self.client=client;self.state_path=state_path;self.clock=clock
++        self.authorization_required=False;self.retry_at=0.0;self.stop_requested=stop_requested
++    def report(self,state):
++        if self.state_path:atomic_json(self.state_path,{'state':state,'at':now().isoformat()})
++    def quotes(self,*args,**kwargs):
++        if self.stop_requested():raise InterruptedError('Owning session stopped')
++        if self.authorization_required:
++            raise RuntimeError('API paused: authorization required')
++        if self.clock()<self.retry_at:
++            raise RuntimeError('API paused: provider backoff')
++        try:response=self.client.quotes(*args,**kwargs)
++        except Exception:
++            self.retry_at=self.clock()+2;self.report('TRANSIENT_ERROR')
++            raise RuntimeError('Transient provider request failure') from None
++        code=getattr(response,'status_code',None)
++        if code in (401,403):
++            self.authorization_required=True;self.report('AUTHORIZATION_REQUIRED')
++        elif code==429:
++            try:delay=float(getattr(response,'headers',{}).get('Retry-After',30))
++            except (TypeError,ValueError):delay=30
++            self.retry_at=self.clock()+min(300,max(30,delay));self.report('RATE_LIMIT_BACKOFF')
++        else:self.report('AVAILABLE')
++        return response
++    def close(self):self.client.close()
++
++
++def spawn(role, plan_path, password, log_path, *, extra=()):
++    args=[sys.executable,'-u','-B',str(ENTRY),'_child','--role',role,'--plan-file',str(plan_path),'--owner-pid',str(os.getpid()),*extra]
++    options={'stdin':subprocess.PIPE,'close_fds':True,'cwd':str(ROOT)}
++    if os.name=='nt':options['creationflags']=subprocess.CREATE_NO_WINDOW
++    else: options['start_new_session']=True
++    with Path(log_path).open('ab',buffering=0) as log:
++        proc=subprocess.Popen(args,stdout=log,stderr=log,**options)
++    try:secret_send(proc,password)
++    except BaseException:
++        proc.terminate();proc.wait(timeout=10);raise
++    return proc
++
++
++def worker_argv(plan,channel,generation=0):
++    output=Path(plan['state_root'])/'workers'/f'{channel}-{generation}'
++    return [str(PROBE),'--watchlist-kind',channel,
++        '--start-at',plan['opens_at'],'--stop-at',plan['closes_at'],
++        '--journal-root',str(Path(plan['journal']).parent),'--journal-schema-version','2',
++        '--cadence-profile','interleaved-v1','--ecfg',plan['ecfg'],
++        '--timeout','10','--output-root',str(output)]
++
++
++def owner_available(root, *, pid=None):
++    """A worker checks a progressing owner heartbeat; do not collect orphaned."""
++    try:
++        heartbeat=read_json(root/'owner.json')
++        if pid is not None and heartbeat['pid']!=pid:return False
++        return (now()-datetime.fromisoformat(heartbeat['at'])).total_seconds()<30 and heartbeat['active']
++    except (OSError,ValueError,KeyError):return False
++
++
++@contextmanager
++def channel_lock(key, stop_requested):
++    # An explicitly resumed owner may briefly overlap an old child finishing
++    # its last request. Never adopt it or launch parallel channel writers.
++    deadline=time.monotonic()+30
++    while True:
++        if stop_requested():raise InterruptedError('Owner stopped before channel lease')
++        manager=operation_lock(key)
++        try:manager.__enter__();break
++        except ValueError:
++            if time.monotonic()>=deadline:raise RuntimeError('Previous channel worker has not exited')
++            time.sleep(.25)
++    try:yield
++    finally:manager.__exit__(None,None,None)
++
++
++def run_worker(plan,password,channel,generation,owner_pid=None):
++    root=Path(plan['state_root'])
++    owner_pid=owner_pid if owner_pid is not None else read_json(root/'owner.json')['pid']
++    stop=lambda: (root/'exit.request').exists() or (root/'stop.request').exists() or not owner_available(root,pid=owner_pid)
++    # Child startup must complete before the process begins polling. Uses same
++    # private unlock, not getpass. Existing credential horizon checks remain.
++    probe=load_probe()
++    argv=worker_argv(plan,channel,generation)
++    old=sys.argv;sys.argv=argv
++    try:
++        with channel_lock('daily-channel:'+str(Path(plan['journal']).resolve()).casefold()+':'+channel,stop):
++            # Existing probe's factory is called exactly once at startup.
++            original=probe.prepare_polling_client
++            def guarded(ecfg,pw,**kwargs):
++                with auth_lock(ecfg):return original(ecfg,pw,**kwargs)
++            probe.prepare_polling_client=guarded
++            return probe.main(supplied_password=password, stop_requested=stop,
++                client_transform=lambda c: BackoffClient(c,state_path=root/f'{channel}-api.json',stop_requested=stop))
++    finally:sys.argv=old
++
++
++def verified_resume(plan,root):
++    previous=read_json(root/'plan.json')
++    if previous!=plan:raise ValueError('Resume must use the original plan and opening roster')
++    result_path=root/'selection'/'result.json'
++    if not result_path.is_file():
++        return {'status':'FOCUS_UNAVAILABLE; no saved selection','retry_selection':now()<datetime.fromisoformat(plan['selection_deadline'])}
++    result=read_json(result_path)
++    if result.get('proposal'):
++        r1=read_revision(Path(result['proposal']))
++        store=__import__('mb_market_data.quote_observation_store',fromlist=['QuoteObservationStore']).QuoteObservationStore(
++            plan['journal'],session_date=date.fromisoformat(plan['session_date']),schema_version=2)
++        # Identical publication is idempotent; different r1 cannot be adopted.
++        store.record_membership_revision(r1)
++    return result
++
++
++def health_snapshot(plan,workers):
++    # Owned handles, not broad process-name killing/discovery. argv describes
++    # the actual delegated probe configuration; presence alone isn't progress.
++    inventory={'known':True,'error':None,'processes':[
++        {'pid':item['proc'].pid,'argv':item['argv']} for item in workers.values()
++        if item['proc'].poll() is None]}
++    config=HealthConfig(Path(plan['data_root']),Path(plan['journal']),date.fromisoformat(plan['session_date']),
++        datetime.fromisoformat(plan['opens_at']),datetime.fromisoformat(plan['closes_at']),cadence_profile='interleaved-v1')
++    return inspect_health(config,inventory=inventory)
++
++
++def readable_status(value):
++    lines=[f"DAILY SESSION {value['session_date']} | {value['phase']}",
++           f"Updated: {value['at']} | controller PID {value['pid']}",
++           'Cadence: interleaved-v1 | Hot: not activated by this launcher',
++           'Selection: '+str(value.get('selection_status','WAITING FOR 09:25 ET')),
++           'Next r0: '+str(value.get('next_session_status','NOT DUE'))]
++    health=value.get('health',{})
++    if health.get('journal_read')=='UNAVAILABLE' or health.get('error_type'):
++        lines.append('HEALTH READ UNAVAILABLE: '+str(health.get('journal_error') or health.get('error_type')))
++    for name in ('uni','focus'):
++        h=health.get('channels',{}).get(name,{})
++        # Full canonical health stays in status.json; summary uses existing fields.
++        lines.append(f"{name.upper()}: {h.get('state','NOT STARTED')} | "+str(h.get('reason','')))
++        if h.get('missing_slot_count',0)>0 and h.get('state')=='RUNNING':lines.append('  DEGRADED: gaps recorded; collection is continuing.')
++        if h:lines.append('  '+json.dumps({k:v for k,v in h.items() if k in
++            ('committed_acquisitions','missing_slot_count','last_committed_slot_utc','current_members','latest_outcomes')},default=str))
++    for k,v in value.get('workers',{}).items():
++        lines.append(f"{k}: PID {v['pid']} | exit {v['exit_code']} | API {v.get('api_state','unknown')}")
++    if value.get('error'):lines.append('ERROR: '+value['error'])
++    lines.append('Viewer is read-only. Stop collection and Exit session are separate commands.')
++    return '\n'.join(lines)+'\n'
++
++
++def run_controller(plan,password,*,resume=False):
++    root=Path(plan['state_root']);plan_file=root/'plan.json';workers={};tasks={}
++    schedule_close=datetime.fromisoformat(plan['closes_at'])
++    deadline=datetime.fromisoformat(plan['selection_deadline'])
++    post_due=schedule_close+timedelta(seconds=plan['postclose_delay_seconds'])
++    post_stop=schedule_close+timedelta(seconds=plan['postclose_window_seconds'])
++    value={'session_date':plan['session_date'],'pid':os.getpid(),'phase':'STARTING',
++           'selection_status':'WAITING FOR 09:25 ET','next_session_status':'NOT DUE'}
++    channel_generations={'uni':0,'focus':0}
++    post_started=False;selection_finished=False;stop_collection=False
++    def publish():
++        at=now().isoformat();value['at']=at
++        atomic_json(root/'owner.json',{'pid':os.getpid(),'at':at,'active':True})
++        try:value['health']=health_snapshot(plan,workers)
++        except Exception as err:value['health']={'error_type':type(err).__name__}
++        value['workers']={}
++        for c,item in workers.items():
++            api='unknown'
++            try:api=read_json(root/f'{c}-api.json')['state']
++            except (OSError,ValueError,KeyError):pass
++            value['workers'][c]={'pid':item['proc'].pid,'exit_code':item['proc'].poll(),'api_state':api}
++        atomic_json(root/'status.json',value);atomic_text(root/'STATUS.txt',readable_status(value))
++    def launch_channel(channel):
++        old=workers.get(channel)
++        if old and old['proc'].poll() is None:return
++        generation=channel_generations[channel];channel_generations[channel]+=1
++        proc=spawn(channel,plan_file,password,root/f'{channel}.log',extra=['--generation',str(generation)])
++        workers[channel]={'proc':proc,'argv':worker_argv(plan,channel,generation)}
++    with operation_lock('daily-session:'+str(Path(plan['journal']).resolve()).casefold()):
++        validate_start(plan,now=now(),resume=resume)
++        if not resume:
++            if root.exists():raise ValueError('Existing daily state retained. Use explicit resume, not reset.')
++            root.mkdir(parents=True,exist_ok=False);atomic_json(plan_file,plan)
++        else:
++            result=verified_resume(plan,root)
++            value['selection_status']=result['status'];selection_finished=not result.get('retry_selection',False)
++            if not selection_finished and (root/'selection').exists():
++                (root/'selection').rename(root/('selection-partial-'+uuid4().hex[:8]))
++            for name in ('exit.request','stop.request'):(root/name).unlink(missing_ok=True)
++        ensure_opening(plan,resume=resume)
++        # Preflight credentials once in the controller before child roles start.
++        try:
++            client=prepared_client(plan,password);client.close()
++        except Exception as err:
++            value.update(phase='AUTHORIZATION_UNAVAILABLE',error=type(err).__name__,at=now().isoformat())
++            atomic_json(root/'status.json',value);atomic_text(root/'STATUS.txt',readable_status(value))
++            raise
++        value['phase']='WAITING_FOR_SELECTION';publish()
++        if resume:time.sleep(.5)
++        try:
++            # Uni can be authenticated/registered before selection. Focus is
++            # launched only after successful publication, so no empty first slot.
++            if now()<schedule_close:launch_channel('uni')
++            if resume and selection_finished:
++                if result.get('proposal') and now()<schedule_close:launch_channel('focus')
++            else:
++                tasks['selection']=spawn('selection',plan_file,password,root/'selection.log')
++            while True:
++                current=now()
++                if (root/'exit.request').exists():
++                    value['phase']='EXIT_REQUESTED';value['next_session_status']='CANCELLED BY OPERATOR';break
++                if (root/'resume-collection.request').exists():
++                    (root/'resume-collection.request').unlink()
++                    if current<schedule_close:
++                        (root/'stop.request').unlink(missing_ok=True);stop_collection=False
++                        launch_channel('uni')
++                        if selection_finished and (root/'selection'/'r1.json').exists():launch_channel('focus')
++                if (root/'stop.request').exists():stop_collection=True
++                if not selection_finished:
++                    proc=tasks['selection']
++                    if proc.poll() is not None:
++                        selection_finished=True
++                        result_path=root/'selection'/'result.json'
++                        if proc.returncode==0 and result_path.is_file():
++                            result=read_json(result_path)
++                            value['selection_status']=result['status']
++                            try:
++                                if publish_selection(plan,result,now=current):
++                                    value['selection_status']+='; r1 PUBLISHED'
++                                    if not stop_collection:launch_channel('focus')
++                            except Exception as err:
++                                value['selection_status']='FOCUS UNAVAILABLE; publication '+type(err).__name__
++                                atomic_json(root/'selection-publication-error.json',{'error_type':type(err).__name__,
++                                    'at':current.isoformat(),'proposal_preserved':result.get('proposal')})
++                        else:value['selection_status']='FOCUS UNAVAILABLE; inspect selection.log'
++                    elif current>=deadline:
++                        # Stop acquisition before opening; partial responses remain
++                        # on disk when available. Do not start a late reranking.
++                        proc.terminate();proc.wait(timeout=10)
++                        selection_finished=True;value['selection_status']='FOCUS UNAVAILABLE; 09:29 deadline'
++                for channel in ('uni','focus'):
++                    request=root/f'restart-{channel}.request'
++                    if request.exists():
++                        request.unlink()
++                        if not stop_collection and selection_finished and current<schedule_close:
++                            if channel=='uni' or value['selection_status'].startswith(('READY','DEGRADED')):
++                                launch_channel(channel)
++                # Post-close is independent of worker success and missing slots.
++                if current>=post_due and not post_started:
++                    post_started=True;value['next_session_status']='BUILDING'
++                    tasks['postclose']=spawn('postclose',plan_file,password,root/'postclose.log')
++                if post_started:
++                    proc=tasks['postclose']
++                    if proc.poll() is not None:
++                        receipt=root/'postclose-status.json'
++                        value['next_session_status']=read_json(receipt) if receipt.is_file() else 'INCOMPLETE; inspect postclose.log'
++                        value['phase']='FINISHED' if isinstance(value['next_session_status'],dict) and value['next_session_status'].get('status')=='READY' else 'FINISHED_WITH_FINDINGS'
++                        publish();break
++                    if current>=post_stop:
++                        proc.terminate();proc.wait(timeout=10)
++                        value['next_session_status']='INCOMPLETE; preparation timeout; files preserved'
++                        value['phase']='FINISHED_WITH_FINDINGS';publish();break
++                value['phase']=('POST_CLOSE' if current>=schedule_close else
++                    'COLLECTION_STOPPED; PREPARATION STILL ARMED' if stop_collection else
++                    'COLLECTING' if current>=datetime.fromisoformat(plan['opens_at']) else 'WAITING_FOR_OPEN')
++                publish();time.sleep(2)
++        except BaseException as err:
++            value['phase']='FAILED';value['error']=type(err).__name__
++            raise
++        finally:
++            # Stop only exact owned child handles, never process-name matching.
++            atomic_text(root/'stop.request','controller cleanup\n')
++            children=[w['proc'] for w in workers.values()]+list(tasks.values())
++            until=time.monotonic()+12
++            for proc in children:
++                try:proc.wait(timeout=max(.01,until-time.monotonic()))
++                except subprocess.TimeoutExpired:
++                    proc.terminate();proc.wait(timeout=10)
++            value['at']=now().isoformat()
++            for channel,item in workers.items():
++                value.setdefault('workers',{}).setdefault(channel,{})
++                value['workers'][channel].update(pid=item['proc'].pid,exit_code=item['proc'].poll())
++            try:value['health']=health_snapshot(plan,workers)
++            except Exception:pass
++            atomic_json(root/'owner.json',{'pid':os.getpid(),'at':value['at'],'active':False})
++            atomic_json(root/'status.json',value);atomic_text(root/'STATUS.txt',readable_status(value))
++            password=None  # best effort only; Python does not guarantee RAM erasure
++    return 0
++
++
++def child_main(args):
++    plan=read_json(args.plan_file);password=secret_receive();root=Path(plan['state_root'])
++    try:
++        if args.role=='controller':return run_controller(plan,password,resume=args.resume)
++        if args.role in ('uni','focus'):return run_worker(plan,password,args.role,args.generation,args.owner_pid)
++        stop=lambda:(root/'exit.request').exists() or not owner_available(root,pid=args.owner_pid)
++        client=BackoffClient(prepared_client(plan,password),stop_requested=stop)
++        try:
++            if args.role=='selection':
++                acquire_selection(client,plan,output=root/'selection',sleep=time.sleep,
++                    stop_requested=stop)
++            elif args.role=='postclose':
++                try:
++                    result=build_next_opening(client,plan)
++                    atomic_json(root/'postclose-status.json',result)
++                except Exception as err:
++                    atomic_json(root/'postclose-status.json',{'status':'INCOMPLETE','error_type':type(err).__name__,
++                        'detail':'Review postclose output; old roster and partial evidence retained'})
++                    raise
++            else:raise ValueError('Unknown role')
++        finally:client.close()
++        return 0
++    except Exception as err:
++        print('ROLE FAILED:',args.role,type(err).__name__,flush=True)
++        return 2
++    finally:password=None
++
++
++def watch(root,once=False):
++    while True:
++        try:
++            status=read_json(root/'status.json')
++            age=(now()-datetime.fromisoformat(status['at'])).total_seconds()
++            if not once:
++                if os.name=='nt':os.system('cls')
++                else:print('\033[2J\033[H',end='')
++            print(readable_status(status))
++            if age>15:print(f'WARNING: saved status is {age:.0f}s old; do not infer live progress.')
++        except (OSError,ValueError,KeyError):print('No readable status yet:',root)
++        if once:return 0
++        try:time.sleep(2)
++        except KeyboardInterrupt:
++            print('Viewer closed. Controller and collection unchanged.');return 0
++
++
++def main(argv=None):
++    parser=argparse.ArgumentParser(description=__doc__)
++    sub=parser.add_subparsers(dest='action',required=True)
++    for name in ('plan','start'):
++        p=sub.add_parser(name);p.add_argument('--opening-proposal',type=Path,required=True)
++        p.add_argument('--market-data-root',type=Path,required=True);p.add_argument('--ecfg',type=Path,required=True)
++        p.add_argument('--allow-carried-roster',action='store_true')
++        if name=='start':p.add_argument('--live',action='store_true');p.add_argument('--resume',action='store_true')
++    for name in ('status','watch','stop','exit','restart-uni','restart-focus','resume-collection'):
++        p=sub.add_parser(name);p.add_argument('--state-root',type=Path,required=True)
++    p=sub.add_parser('_child');p.add_argument('--role',required=True);p.add_argument('--plan-file',type=Path,required=True)
++    p.add_argument('--generation',type=int,default=0);p.add_argument('--resume',action='store_true');p.add_argument('--owner-pid',type=int)
++    args=parser.parse_args(argv)
++    if args.action=='_child':return child_main(args)
++    if args.action in ('status','watch'):return watch(args.state_root.resolve(),once=args.action=='status')
++    if args.action in ('stop','exit','restart-uni','restart-focus','resume-collection'):
++        root=args.state_root.resolve()
++        if not owner_available(root):raise ValueError('No fresh active controller; no control request written')
++        if args.action.startswith('restart-') and (root/'stop.request').exists():
++            raise ValueError('Collection was stopped; use resume-collection to re-enable it')
++        atomic_text(root/(args.action+'.request'),now().isoformat())
++        print('Request saved. Confirm status; the request itself is not proof of completion.')
++        return 0
++    plan=make_plan(args.opening_proposal,args.market_data_root,args.ecfg,allow_carried=args.allow_carried_roster)
++    if args.action=='plan' or not args.live:
++        print(json.dumps(plan,indent=2));print('PLAN ONLY: no credential prompt, provider, or production writes.');return 0
++    validate_start(plan,now=now(),resume=args.resume)
++    root=Path(plan['state_root'])
++    # Fast duplicate check before asking for any credentials. The controller
++    # repeats the OS-owned lock check to handle simultaneous starts.
++    with operation_lock('daily-session:'+str(Path(plan['journal']).resolve()).casefold()):
++        if root.exists() and not args.resume:raise ValueError('Existing session. Use status or explicit resume; do not overwrite.')
++    if not Path(plan['ecfg']).is_file():raise FileNotFoundError('Encrypted config not found')
++    with warnings.catch_warnings():
++        warnings.simplefilter('error',getpass.GetPassWarning)
++        password=getpass.getpass('Encrypted config password (once for daily session): ')
++    # Public launch ticket is in a short sibling path; no password stored.
++    tickets=root.parent/'launch';tickets.mkdir(parents=True,exist_ok=True)
++    ticket=tickets/(uuid4().hex[:12]+'.json');atomic_json(ticket,plan)
++    log=ticket.with_suffix('.log')
++    proc=spawn('controller',ticket,password,log,extra=['--resume'] if args.resume else ())
++    password=None
++    print('Daily controller starting; log:',log)
++    deadline=time.monotonic()+50
++    while time.monotonic()<deadline:
++        if proc.poll() is not None:
++            print('Controller exited:',proc.returncode,'Review',log);return 2
++        if owner_available(root,pid=proc.pid):
++            print('Daily session active. State:',root)
++            print('Use watch/status in any window; closing the viewer does not stop collection.')
++            return watch(root)
++        time.sleep(.25)
++    print('Startup not confirmed. Inspect log and process status before retrying:',log)
++    return 2
+--- a/market_data/src/mb_market_data/daily_universe_snapshot.py
++++ b/market_data/src/mb_market_data/daily_universe_snapshot.py
+@@ -95,6 +95,7 @@
+ def validate_acquisition_time(
+     session_date: date,
+     observed_at: datetime,
++    *, exchange_close: datetime | None = None,
+ ) -> None:
+     """Require quote.totalVolume acquisition in the same-day close window."""
+ 
+@@ -109,6 +110,15 @@
+             "session_date; next-day snapshots are not valid "
+             "completed-session volume evidence"
+         )
++    if exchange_close is not None:
++        if (exchange_close.tzinfo is None or exchange_close.astimezone(ET).date() != session_date):
++            raise ValueError('Wrong scheduled exchange close')
++        from .daily_flow import schedule_for
++        if exchange_close != schedule_for(session_date).closes_at:
++            raise ValueError('Supplied close differs from exchange calendar')
++        if observed_et < exchange_close:
++            raise ValueError('Snapshot precedes scheduled exchange close')
++        return
+     if observed_et.time().replace(tzinfo=None) < time(16, 0):
+         raise ValueError(
+             "same-day daily-universe acquisition must run at or after "
+@@ -119,6 +129,7 @@
+ def validate_batch_acquisition_time(
+     session_date: date,
+     acquisition: QuoteBatchResult,
++    *, exchange_close: datetime | None = None,
+ ) -> None:
+     """Validate every actual request boundary before writing artifacts."""
+ 
+@@ -134,7 +145,7 @@
+         if result.response_received_at_utc is not None
+     )
+     for observed_at in sorted(observed_times):
+-        validate_acquisition_time(session_date, observed_at)
++        validate_acquisition_time(session_date, observed_at, exchange_close=exchange_close)
+ 
+ 
+ def acquisition_time_bounds(
+@@ -315,9 +326,10 @@
+     rows: Iterable[Mapping[str, str]],
+     validated_at: datetime,
+     created_at_utc: datetime | None = None,
+-) -> None:
+-    validate_acquisition_time(session_date, validated_at)
+-    validate_batch_acquisition_time(session_date, acquisition)
++    exchange_close: datetime | None = None,
++) -> None:
++    validate_acquisition_time(session_date, validated_at, exchange_close=exchange_close)
++    validate_batch_acquisition_time(session_date, acquisition, exchange_close=exchange_close)
+     created_at = created_at_utc or datetime.now(timezone.utc)
+     first_request, last_response = acquisition_time_bounds(acquisition)
+     row_values = tuple(rows)
+@@ -337,14 +349,15 @@
+             "market_cap": "completed close * sharesOutstanding",
+         },
+         "source_semantics": {
+-            "volume": VOLUME_SEMANTICS,
++            "volume": VOLUME_SEMANTICS if exchange_close is None else "current-session totalVolume acquired after scheduled exchange close on source ET date",
+         },
+         "input": {
+             "path": str(candidate_path),
+             "sha256": sha256_file(candidate_path),
+         },
+         "acquisition": {
+-            "timing_policy": ACQUISITION_TIMING_POLICY,
++            "timing_policy": ACQUISITION_TIMING_POLICY if exchange_close is None else "same-et-date-calendar-close-v1",
++            "exchange_close": exchange_close.isoformat() if exchange_close else None,
+             "validated_at_utc": utc_text(validated_at),
+             "validated_at_et": validated_at.astimezone(ET).isoformat(),
+             "first_request_started_at_utc": utc_text(first_request),
+--- a/market_data/src/mb_market_data/postclose_universe.py
++++ b/market_data/src/mb_market_data/postclose_universe.py
+@@ -6,6 +6,7 @@
+ from __future__ import annotations
+ 
+ from datetime import date, datetime, time, timedelta, timezone
++from dataclasses import replace
+ from pathlib import Path
+ import time as time_module
+ from zoneinfo import ZoneInfo
+@@ -29,12 +30,13 @@
+ 
+ def build_with_client(client, *, session_date: date, target_date: date,
+                       output_dir: Path, clock=lambda: datetime.now(ET),
+-                      directory_fetch=fetch_directory) -> dict:
++                      directory_fetch=fetch_directory, exchange_close=None,
++                      require_complete_transport=False, opening_focus_policy=None) -> dict:
+     """Regular-session baseline: preserve the existing same-day >=16:00 gate."""
+     if target_date <= session_date or target_date.weekday() >= 5:
+         raise ValueError('Supply the actual next trading date, later than the source date')
+     validated_at = clock()
+-    validate_acquisition_time(session_date, validated_at)
++    validate_acquisition_time(session_date, validated_at, exchange_close=exchange_close)
+     paths = workflow_paths(Path(output_dir).resolve())
+     if paths.root.exists():
+         raise FileExistsError(f'Existing build is retained, not overwritten: {paths.root}')
+@@ -48,14 +50,16 @@
+     candidates = directory.candidate_rows
+     if not candidates:
+         raise ValueError('Directory returned no eligible candidates')
+-    validate_acquisition_time(session_date, clock())
++    validate_acquisition_time(session_date, clock(), exchange_close=exchange_close)
+     batch = fetch_quotes_batched(client, [r['symbol'] for r in candidates],
+                                  fields='all', batch_size=400)
+     paths.market_snapshot.mkdir()
+     acquisition = paths.market_snapshot / 'quote_acquisition.json'
+     # Preserve the returned snapshot even if a later date/validity check fails.
+     write_acquisition_json(acquisition, batch, session_date=session_date)
+-    validate_batch_acquisition_time(session_date, batch)
++    validate_batch_acquisition_time(session_date, batch, exchange_close=exchange_close)
++    if require_complete_transport and any(r.status.value not in ('quote','invalid') for r in batch.results):
++        raise ValueError('Incomplete broad snapshot transport; retained raw data, no reduced roster published')
+     rows = build_market_data_snapshot(candidates, batch, session_date=session_date)
+     snapshot_csv = paths.market_snapshot / 'market_data_snapshot.csv'
+     write_snapshot_csv(snapshot_csv, rows)
+@@ -63,7 +67,7 @@
+         paths.market_snapshot / 'manifest.json', session_date=session_date,
+         candidate_path=directory_paths['candidates'], snapshot_path=snapshot_csv,
+         acquisition_path=acquisition, acquisition=batch, rows=rows,
+-        validated_at=validated_at, created_at_utc=clock())
++        validated_at=validated_at, created_at_utc=clock(), exchange_close=exchange_close)
+     config = UniverseFilterConfig()
+     decisions = decide_daily_universe(directory.normalized_rows, rows, config)
+     write_daily_universe_artifacts(
+@@ -74,6 +78,8 @@
+     opening = build_opening_hierarchy(paths.universe)
+     if not opening.uni_symbols:
+         raise ValueError('No symbols qualified; no usable r0 will be claimed')
++    if opening_focus_policy is not None:
++        opening=replace(opening,metadata={**dict(opening.metadata),'opening_focus_policy':opening_focus_policy})
+     write_opening_proposal(paths.opening_hierarchy, opening)
+     stages = tuple(WorkflowStage(name, ('in-process', function)) for name, function in (
+         ('Nasdaq symbol directory', 'build_symbol_directory_snapshot'),
+--- a/market_data/tests/daily_flow_auth_stub.py
++++ b/market_data/tests/daily_flow_auth_stub.py
+@@ -0,0 +1,21 @@
++"""OFFLINE TEST ONLY: import surface when mb_tools is absent on Linux.
++No decryption, client, tokens or provider are implemented. Tests must inject them.
++Never installed or imported by run_daily_session.py.
++"""
++import sys, types
++from datetime import timedelta
++
++def install():
++    if 'mb_tools.schwab_secure' in sys.modules:return
++    try:import mb_tools.schwab_secure;return
++    except ImportError:pass
++    parent=types.ModuleType('mb_tools');parent.__path__=[]
++    module=types.ModuleType('mb_tools.schwab_secure')
++    def denied(*a,**k):raise AssertionError('Synthetic authentication boundary was not substituted')
++    for key in ('load_secure_schwab_config','make_client_from_config','read_schwab_token_status',
++                'make_secure_schwab_client','console_auth_callback'):
++        setattr(module,key,denied)
++    module.DEFAULT_POLLING_REFRESH_MARGIN=timedelta(minutes=75,seconds=30)
++    module.SchwabTokenStatus=object
++    parent.schwab_secure=module
++    sys.modules['mb_tools']=parent;sys.modules['mb_tools.schwab_secure']=module
+--- a/market_data/tests/daily_flow_process_fixture.py
++++ b/market_data/tests/daily_flow_process_fixture.py
+@@ -0,0 +1,48 @@
++"""Actual probe process with a synthetic clock/client. Network is denied.
++
++Invoked ONLY by offline tests. It is not an alternative live launcher.
++"""
++from pathlib import Path
++import sys,json,socket,getpass,os
++from datetime import datetime,timedelta,timezone
++from types import SimpleNamespace
++sys.path[:0]=[str(Path(__file__).resolve().parents[1]/'src'),str(Path(__file__).resolve().parent)]
++from daily_flow_auth_stub import install
++install()
++def deny(*a,**k):raise AssertionError('Offline process network/password denied')
++socket.socket.connect=socket.socket.connect_ex=socket.create_connection=socket.getaddrinfo=deny
++getpass.getpass=deny
++from mb_market_data import daily_runtime as rt
++from mb_market_data import schwab_quotes as sq
++import mb_tools.schwab_secure as auth
++from test_volume_proxy_experiment import Response
++plan=json.loads(Path(sys.argv[1]).read_text());channel=sys.argv[2]
++private=rt.secret_receive()
++assert private=='OFFLINE-CANARY-NOT-A-REAL-PASSWORD'
++clock=[datetime.fromisoformat(plan['opens_at'])-timedelta(milliseconds=100)]
++class Clock(datetime):
++    @classmethod
++    def now(cls,tz=None):return clock[0].astimezone(tz or timezone.utc)
++class Client:
++    def quotes(self,symbols,*,fields):
++        return Response({s:{'symbol':s,'assetMainType':'EQUITY','quote':{'lastPrice':2,'totalVolume':100}}
++                         for s in symbols})
++    def close(self):pass
++status=SimpleNamespace(observed_at=clock[0],refresh_token_expires_at=clock[0]+timedelta(days=3),
++                       require_refresh_valid_through=lambda end:None)
++auth.load_secure_schwab_config=lambda path,pw:{}
++auth.read_schwab_token_status=lambda *a,**k:status
++auth.make_client_from_config=lambda *a,**k:Client()
++probe=rt.load_probe();probe.datetime=Clock;sq.datetime=Clock
++# The real poller scheduler advances synthetic time; journal publication was
++# already done by the parent. Actual subprocess and SQLite writes are used.
++import time
++probe.time_module=SimpleNamespace(monotonic=time.monotonic,
++    sleep=lambda seconds:clock.__setitem__(0,clock[0]+timedelta(seconds=seconds)))
++rt.now=lambda:clock[0];rt.load_probe=lambda:probe
++rt.owner_available=lambda root,pid=None:True  # logical-clock fixture; fencing has separate tests
++# parent status freshness is based on this same logical clock.
++code=rt.run_worker(plan,private,channel,0)
++print(json.dumps({'result':'PROCESS_COMPLETE','channel':channel,'code':code,
++                  'synthetic_api':True,'password_written':False}))
++raise SystemExit(code)
+--- a/market_data/tests/test_daily_flow.py
++++ b/market_data/tests/test_daily_flow.py
+@@ -0,0 +1,222 @@
++"""Daily flow: synthetic API responses, real artifacts/journals; no credentials."""
++from contextlib import closing, redirect_stdout
++from dataclasses import replace
++from datetime import date, datetime, time, timedelta
++import csv, io, json, os, sqlite3, sys, tempfile, unittest
++from pathlib import Path
++from unittest.mock import Mock, patch
++
++from mb_market_data.daily_flow import *
++from mb_market_data.daily_runtime import BackoffClient, worker_argv, owner_available, readable_status, verified_resume
++from mb_market_data.quote_observation_store import PollRunProvenance
++from test_volume_proxy_experiment import Client,Clock,Response
++from test_nasdaq_symbol_directory import NASDAQ_RAW,OTHER_RAW
++from mb_market_data.postclose_universe import build_with_client
++from mb_market_data.daily_universe_snapshot import validate_acquisition_time
++
++class DailyFlowTests(unittest.TestCase):
++    def setUp(self):
++        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
++        self.root=Path(self.tmp.name);self.day=date(2026,11,5);self.clock=Clock(hour=9,minute=25)
++        self.r0=self.root/'r0.json';self.opening(555)
++        self.plan=make_plan(self.r0,self.root,self.root/'synthetic-unused.ecfg')
++        self.output=self.root/'selection'
++        patcher=patch('mb_market_data.quote_observation_store._utc_now',side_effect=lambda:self.clock().astimezone(timezone.utc))
++        patcher.start();self.addCleanup(patcher.stop)
++    def opening(self,count):
++        self.r0.unlink(missing_ok=True)
++        r=SamplingHierarchyRevision(session_date=self.day,revision=0,
++            effective_at=datetime.combine(self.day,time(9,30),ET),
++            uni_symbols=tuple(f'X{i:03}' for i in range(count)),focus_symbols=(),hot_symbols=(),source='offline-fixture')
++        write_opening_proposal(self.r0,r)
++    def acquire(self,client=None):
++        client=client or Client(self.clock)
++        with patch('mb_market_data.schwab_quotes.datetime',self.clock.datetime_type()),redirect_stdout(io.StringIO()):
++            return acquire_selection(client,self.plan,output=self.output,clock=self.clock,sleep=self.clock.sleep)
++    def test_555_symbols_two_calls_top40_top100_full555_no_candles(self):
++        c=Client(self.clock);r=self.acquire(c)
++        self.assertEqual(r['quote_requests'],2);self.assertEqual(r['history_requests'],0)
++        self.assertEqual([len(x[1]) for x in c.calls],[400,155])
++        self.assertEqual(len(r['selected_focus']),40);self.assertEqual(len(r['top_100']),100)
++        with (self.output/'ranking.csv').open() as f:self.assertEqual(len(list(csv.DictReader(f))),555)
++        with (self.output/'top100.csv').open() as f:self.assertEqual(len(list(csv.DictReader(f))),100)
++        self.assertEqual(r['selected_focus'],[f'X{i:03}' for i in range(40)])
++    def test_publish_real_r0_and_current_volume_r1(self):
++        ensure_opening(self.plan);r=self.acquire()
++        self.assertTrue(publish_selection(self.plan,r,now=self.clock()))
++        con=sqlite3.connect(self.plan['journal']);self.addCleanup(con.close)
++        self.assertEqual(con.execute('SELECT count(*) FROM sampling_membership_revision').fetchone()[0],2)
++        self.assertEqual(read_revision(Path(r['proposal'])).source,METHOD)
++        self.assertEqual(read_revision(Path(r['proposal'])).hot_symbols,())
++    def test_missing_volume_is_not_zero_and_does_not_prevent_remaining_selection(self):
++        r=self.acquire(Client(self.clock,missing=['X000']))
++        self.assertEqual(r['status'],'DEGRADED');self.assertEqual(r['missing_symbols'],['X000'])
++        self.assertNotIn('X000',r['selected_focus']);self.assertEqual(r['quote_requests'],3)
++    def test_all_missing_keeps_r0_and_creates_no_fake_r1(self):
++        ensure_opening(self.plan)
++        r=self.acquire(Client(self.clock,missing=[f'X{i:03}' for i in range(555)]))
++        self.assertEqual(r['status'],'FOCUS_UNAVAILABLE');self.assertNotIn('proposal',r)
++        self.assertFalse(publish_selection(self.plan,r,now=self.clock()))
++    def test_zero_volumes_remain_eligible_with_symbol_tie_break(self):
++        r=self.acquire(Client(self.clock,values={f'X{i:03}':0 for i in range(555)}))
++        self.assertEqual(r['valid_symbols'],555);self.assertEqual(r['selected_focus'][0],'X000')
++    def test_waits_to_0925_before_any_request(self):
++        self.clock.now=self.clock.now.replace(minute=24,second=59)
++        r=self.acquire();self.assertEqual(r['started_at'],datetime.combine(self.day,time(9,25),ET).isoformat())
++    def test_late_preopen_start_is_reported(self):
++        self.clock.now=self.clock.now.replace(minute=26)
++        self.assertEqual(self.acquire()['start_lateness_seconds'],60)
++    def test_no_new_snapshot_at_or_after_0929(self):
++        self.clock.now=self.clock.now.replace(minute=29);c=Client(self.clock)
++        with self.assertRaises(ValueError):self.acquire(c)
++        self.assertFalse(c.calls)
++    def test_batch_returned_after_deadline_not_ranked(self):
++        self.clock.now=self.clock.now.replace(minute=28,second=59)
++        c=Client(self.clock);old=c.quotes
++        def late(*a,**k):self.clock.sleep(11);return old(*a,**k)
++        c.quotes=late;r=self.acquire(c)
++        self.assertEqual(r['valid_symbols'],0);self.assertNotIn('proposal',r)
++    def test_fewer_than40_valid_symbols_gives_smaller_roster(self):
++        r=self.acquire(Client(self.clock,missing=[f'X{i:03}' for i in range(10,555)]))
++        self.assertEqual(len(r['selected_focus']),10);self.assertEqual(r['status'],'DEGRADED')
++    def test_no_publication_after_open(self):
++        ensure_opening(self.plan);r=self.acquire()
++        with self.assertRaisesRegex(ValueError,'backdate'):
++            publish_selection(self.plan,r,now=self.clock().replace(hour=9,minute=30))
++    def test_repeated_exact_publication_is_idempotent(self):
++        ensure_opening(self.plan);r=self.acquire()
++        publish_selection(self.plan,r,now=self.clock());publish_selection(self.plan,r,now=self.clock())
++        con=sqlite3.connect(self.plan['journal']);self.addCleanup(con.close)
++        self.assertEqual(con.execute('SELECT count(*) FROM sampling_membership_revision').fetchone()[0],2)
++    def test_modified_roster_refused_before_market_request(self):
++        self.opening(100);c=Client(self.clock)
++        with self.assertRaisesRegex(ValueError,'changed'):self.acquire(c)
++        self.assertFalse(c.calls)
++    def test_existing_output_not_overwritten(self):
++        self.acquire()
++        before=(self.output/'result.json').read_bytes()
++        with self.assertRaises(FileExistsError):self.acquire()
++        self.assertEqual((self.output/'result.json').read_bytes(),before)
++    def test_fresh_launcher_refuses_existing_poll_runs(self):
++        ensure_opening(self.plan)
++        store=QuoteObservationStore(self.plan['journal'],session_date=self.day,schema_version=2)
++        store.record_run(PollRunProvenance('existing',self.clock(),'test',
++           {'watchlist_kind':'uni','poll_seconds':[0,30],'cadence_profile':'interleaved-v1'}))
++        with self.assertRaisesRegex(ValueError,'already has polling'):ensure_opening(self.plan)
++    def test_legacy_profile_refused_without_changing_journal(self):
++        ensure_opening(self.plan)
++        store=QuoteObservationStore(self.plan['journal'],session_date=self.day,schema_version=2)
++        store.record_run(PollRunProvenance('legacy',self.clock(),'test',
++           {'watchlist_kind':'focus','poll_seconds':[5,20,35,50],'cadence_profile':'legacy-v1'}))
++        with self.assertRaises(ValueError):make_plan(self.r0,self.root,self.root/'unused')
++    def test_carried_roster_requires_explicit_acknowledgment(self):
++        r=replace(load_opening_proposal(self.r0),metadata={'test_only':True,'roster_origin_session':'2026-11-04'})
++        self.r0.unlink();write_opening_proposal(self.r0,r)
++        with self.assertRaisesRegex(ValueError,'allow-carried'):make_plan(self.r0,self.root,self.root/'unused')
++        p=make_plan(self.r0,self.root,self.root/'unused',allow_carried=True)
++        self.assertEqual(p['opening_metadata']['roster_origin_session'],'2026-11-04')
++    def test_exact_calendar_normal_early_holiday_next_session(self):
++        self.assertEqual(schedule_for(date(2026,11,6)).closes_at.hour,16)
++        early=schedule_for(date(2026,11,27));self.assertEqual(early.closes_at.hour,13)
++        self.assertEqual(early.next_day,date(2026,11,30))
++        with self.assertRaises(ValueError):schedule_for(date(2026,11,26))
++    def test_early_close_snapshot_gate_matches_calendar(self):
++        d=date(2026,11,27);close=schedule_for(d).closes_at
++        validate_acquisition_time(d,close,exchange_close=close)
++        with self.assertRaises(ValueError):validate_acquisition_time(d,close-timedelta(seconds=1),exchange_close=close)
++        with self.assertRaises(ValueError):validate_acquisition_time(d,close,exchange_close=close-timedelta(hours=1))
++    def test_plan_and_workers_force_same_interleaved_profile(self):
++        for c in ('uni','focus'):
++            a=worker_argv(self.plan,c)
++            self.assertEqual(a[a.index('--cadence-profile')+1],'interleaved-v1')
++            self.assertEqual(a[a.index('--stop-at')+1],self.plan['closes_at'])
++            self.assertNotIn('password',' '.join(a).lower())
++    def test_postclose_build_and_publication_uses_supplied_client(self):
++        self.clock.now=self.clock.now.replace(hour=16,minute=1)
++        c=Client(self.clock)
++        def builder(*a,**kw):
++            return build_with_client(*a,**kw,directory_fetch=lambda u,**k:NASDAQ_RAW if 'nasdaqlisted' in u else OTHER_RAW)
++        with patch('mb_market_data.schwab_quotes.datetime',self.clock.datetime_type()),redirect_stdout(io.StringIO()):
++            result=build_next_opening(c,self.plan,clock=self.clock,builder=builder)
++        self.assertEqual(result['status'],'READY');self.assertTrue(result['membership_published'])
++        self.assertEqual(c.closed,0);self.assertEqual([x[0] for x in c.calls],['quotes'])
++        self.assertTrue(journal_path(self.root,date(2026,11,6)).is_file())
++    def test_early_close_build_publishes_actual_next_trading_date(self):
++        day=date(2026,11,27);r=load_opening_proposal(self.r0)
++        self.r0.unlink();write_opening_proposal(self.r0,replace(r,session_date=day,effective_at=datetime.combine(day,time(9,30),ET)))
++        self.plan=make_plan(self.r0,self.root,self.root/'unused')
++        self.clock.now=datetime.combine(day,time(13,1),ET)
++        c=Client(self.clock)
++        def builder(*a,**kw):
++            return build_with_client(*a,**kw,directory_fetch=lambda u,**k:NASDAQ_RAW if 'nasdaqlisted' in u else OTHER_RAW)
++        with patch('mb_market_data.schwab_quotes.datetime',self.clock.datetime_type()),redirect_stdout(io.StringIO()):
++            result=build_next_opening(c,self.plan,clock=self.clock,builder=builder)
++        self.assertEqual(result['status'],'READY');self.assertEqual(result['target_session'],'2026-11-30')
++        self.assertTrue(journal_path(self.root,date(2026,11,30)).exists())
++    def test_build_success_publication_failure_remains_pending(self):
++        self.clock.now=self.clock.now.replace(hour=16,minute=1)
++        def builder(*a,**kw):
++            return build_with_client(*a,**kw,directory_fetch=lambda u,**k:NASDAQ_RAW if 'nasdaqlisted' in u else OTHER_RAW)
++        with patch('mb_market_data.schwab_quotes.datetime',self.clock.datetime_type()),redirect_stdout(io.StringIO()), \
++             patch.object(QuoteObservationStore,'record_membership_revision',side_effect=OSError('synthetic publication failure')):
++            with self.assertRaises(OSError):build_next_opening(Client(self.clock),self.plan,clock=self.clock,builder=builder)
++        receipt=next(self.root.rglob('daily_handoff.json'))
++        self.assertEqual(json.loads(receipt.read_text())['status'],'BUILT_PUBLICATION_PENDING')
++    def test_repeated_postclose_reuses_complete_build_without_provider_calls(self):
++        self.clock.now=self.clock.now.replace(hour=16,minute=1)
++        def builder(*a,**kw):
++            return build_with_client(*a,**kw,directory_fetch=lambda u,**k:NASDAQ_RAW if 'nasdaqlisted' in u else OTHER_RAW)
++        c=Client(self.clock)
++        with patch('mb_market_data.schwab_quotes.datetime',self.clock.datetime_type()),redirect_stdout(io.StringIO()):
++            first=build_next_opening(c,self.plan,clock=self.clock,builder=builder)
++            calls=len(c.calls)
++            second=build_next_opening(c,self.plan,clock=self.clock,builder=builder)
++        self.assertEqual(second['status'],'READY');self.assertTrue(second['reused_complete_build'])
++        self.assertEqual(len(c.calls),calls)
++    def test_postclose_provider_failure_retains_raw_but_never_publishes(self):
++        self.clock.now=self.clock.now.replace(hour=16,minute=1)
++        c=Client(self.clock);c.quotes=Mock(side_effect=TimeoutError())
++        def builder(*a,**kw):return build_with_client(*a,**kw,directory_fetch=lambda u,**k:NASDAQ_RAW if 'nasdaqlisted' in u else OTHER_RAW)
++        with patch('mb_market_data.schwab_quotes.datetime',self.clock.datetime_type()),redirect_stdout(io.StringIO()):
++            with self.assertRaisesRegex(ValueError,'Incomplete'):build_next_opening(c,self.plan,clock=self.clock,builder=builder)
++        self.assertFalse(journal_path(self.root,date(2026,11,6)).exists())
++        self.assertTrue(list(self.root.rglob('quote_acquisition.json')))
++    def test_postclose_before_close_makes_no_calls(self):
++        builder=Mock()
++        with self.assertRaises(ValueError):build_next_opening(object(),self.plan,clock=self.clock,builder=builder)
++        builder.assert_not_called()
++    def test_resume_saved_ranking_does_not_call_provider_or_rerank(self):
++        from mb_market_data.acquisition_health import atomic_json
++        ensure_opening(self.plan);r=self.acquire();publish_selection(self.plan,r,now=self.clock())
++        state=Path(self.plan['state_root']);state.mkdir(parents=True)
++        atomic_json(state/'plan.json',self.plan)
++        import shutil;shutil.copytree(self.output,state/'selection')
++        result=verified_resume(self.plan,state)
++        self.assertEqual(result['selected_focus'],r['selected_focus'])
++
++class BackoffTests(unittest.TestCase):
++    def test_authorization_failure_latches_without_second_provider_call(self):
++        c=Mock();response=Response({});response.status_code=401;c.quotes.return_value=response
++        w=BackoffClient(c);w.quotes(['A'],fields='all')
++        with self.assertRaisesRegex(RuntimeError,'authorization'):w.quotes(['A'],fields='all')
++        self.assertEqual(c.quotes.call_count,1)
++    def test_rate_limit_wait_is_bounded_then_recovers(self):
++        tick=[0.];c=Mock();response=Response({});response.status_code=429;response.headers={'Retry-After':'90'}
++        c.quotes.return_value=response;w=BackoffClient(c,clock=lambda:tick[0])
++        w.quotes(['A'],fields='all')
++        tick[0]=89
++        with self.assertRaises(RuntimeError):w.quotes(['A'],fields='all')
++        tick[0]=91;w.quotes(['A'],fields='all');self.assertEqual(c.quotes.call_count,2)
++    def test_old_owner_heartbeat_cannot_authorize_new_invocation(self):
++        from mb_market_data.acquisition_health import atomic_json
++        with tempfile.TemporaryDirectory() as d:
++            p=Path(d);atomic_json(p/'owner.json',{'pid':12,'at':datetime.now(ET).isoformat(),'active':True})
++            self.assertTrue(owner_available(p,pid=12));self.assertFalse(owner_available(p,pid=13))
++    def test_status_shows_actual_progress_and_gaps(self):
++        value={'session_date':'2026-11-05','phase':'COLLECTING','at':'09:31','pid':1,
++               'health':{'channels':{'uni':{'state':'RUNNING','reason':'recent work','committed_acquisitions':3,
++               'missing_slot_count':1,'last_committed_slot_utc':'time','current_members':555}}}}
++        text=readable_status(value)
++        self.assertIn('DEGRADED',text);self.assertIn('committed_acquisitions',text);self.assertIn('555',text)
++
++if __name__=='__main__':unittest.main()
+--- a/market_data/tests/test_daily_runtime.py
++++ b/market_data/tests/test_daily_runtime.py
+@@ -0,0 +1,167 @@
++"""Owned-process and controller ordering tests. All SDK responses are synthetic."""
++from contextlib import ExitStack,closing,redirect_stdout
++from datetime import date,datetime,time,timedelta,timezone
++import io,json,os,socket,sqlite3,subprocess,sys,tempfile,unittest
++from pathlib import Path
++from unittest.mock import Mock,patch
++from mb_market_data import daily_runtime as rt
++from mb_market_data.daily_flow import *
++from mb_market_data.acquisition_health import atomic_json,operation_lock
++from test_volume_proxy_experiment import Clock,Client
++
++class RuntimeTests(unittest.TestCase):
++    def setUp(self):
++        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
++        self.root=Path(self.temp.name);self.day=date(2026,11,5)
++        self.clock=Clock(hour=9,minute=24,second=59)
++        self.r0=self.root/'r0.json'
++        write_opening_proposal(self.r0,SamplingHierarchyRevision(session_date=self.day,revision=0,
++            effective_at=datetime.combine(self.day,time(9,30),ET),uni_symbols=('ABC','DEF'),
++            focus_symbols=(),hot_symbols=(),source='offline-runtime-fixture'))
++        self.plan=make_plan(self.r0,self.root,self.root/'unused.ecfg')
++        self.state=Path(self.plan['state_root'])
++        self.patch=patch('mb_market_data.quote_observation_store._utc_now',side_effect=lambda:self.clock().astimezone(timezone.utc))
++        self.patch.start();self.addCleanup(self.patch.stop)
++    def test_real_child_probes_private_handoff_and_interleaved_native_writes(self):
++        # Actual two OS children, delegated existing probes, temporary native DB.
++        ensure_opening(self.plan)
++        self.plan['closes_at']=self.clock().replace(hour=9,minute=30,second=31).isoformat()
++        self.state.mkdir(parents=True)
++        (self.root/'unused.ecfg').write_text('THIS IS NOT AN ENCRYPTED CREDENTIAL FILE')
++        atomic_json(self.state/'owner.json',{'pid':os.getpid(),
++            'at':datetime.fromisoformat(self.plan['opens_at']).isoformat(),'active':True})
++        from mb_market_data.daily_flow import revision_payload
++        r0=load_opening_proposal(self.r0)
++        r1=SamplingHierarchyRevision(session_date=self.day,revision=1,effective_at=r0.effective_at,
++            uni_symbols=r0.uni_symbols,focus_symbols=('ABC',),hot_symbols=(),source=METHOD)
++        store=QuoteObservationStore(self.plan['journal'],session_date=self.day,schema_version=2)
++        store.record_membership_revision(r1)
++        p=self.root/'plan.json';atomic_json(p,self.plan)
++        entry=Path(__file__).with_name('daily_flow_process_fixture.py')
++        canary='OFFLINE-CANARY-NOT-A-REAL-PASSWORD';procs=[]
++        for c in ('uni','focus'):
++            args=[sys.executable,'-B',str(entry),str(p),c]
++            proc=subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
++            procs.append((c,proc,args))
++            rt.secret_send(proc,canary);proc.stdin=None
++        for c,proc,args in procs:
++            out,err=proc.communicate(timeout=25)
++            self.assertEqual(proc.returncode,0,(out+err).decode())
++            self.assertNotIn(canary,' '.join(args));self.assertNotIn(canary,(out+err).decode())
++        with closing(sqlite3.connect(self.plan['journal']))as con:
++            counts=dict(con.execute('SELECT channel,count(*) FROM quote_acquisition GROUP BY channel'))
++            self.assertEqual(counts,{'uni':2,'focus':2})
++            configs=[json.loads(r[0])for r in con.execute('SELECT configuration_json FROM poll_run')]
++            self.assertTrue(all(c['cadence_profile']=='interleaved-v1' for c in configs))
++        for f in self.root.rglob('*'):
++            if f.is_file():self.assertNotIn(canary.encode(),f.read_bytes(),str(f))
++    def exercise_controller(self,selection_fails=False,uni_crashes=False,stop_collection=False,post_fails=False):
++        # Shortened logical scenario; process launching is substituted here.
++        # Actual child probe process boundary is independently tested above.
++        self.plan['closes_at']=self.clock().replace(minute=31,second=0).isoformat()
++        self.plan['postclose_delay_seconds']=1;self.plan['postclose_window_seconds']=60
++        launched=[];post_called=[];controller=self
++        class Proc:
++            pid=100
++            returncode=None
++            def __init__(self,role):self.role=role;self.pid=100+len(launched)
++            def poll(self):
++                if self.returncode is not None:return self.returncode
++                if self.role=='selection' and controller.clock()>=datetime.fromisoformat(controller.plan['snapshot_at']):
++                    if selection_fails:self.returncode=2
++                    else:
++                        with patch('mb_market_data.schwab_quotes.datetime',controller.clock.datetime_type()):
++                            acquire_selection(Client(controller.clock),controller.plan,output=controller.state/'selection',
++                                              clock=controller.clock,sleep=controller.clock.sleep)
++                        self.returncode=0
++                if self.role=='uni' and uni_crashes:self.returncode=2
++                if self.role=='postclose':
++                    post_called.append(controller.clock())
++                    atomic_json(controller.state/'postclose-status.json',{'status':'INCOMPLETE' if post_fails else 'READY'})
++                    self.returncode=2 if post_fails else 0
++                return self.returncode
++            def wait(self,timeout=None):self.returncode=self.returncode or 0;return self.returncode
++            def terminate(self):self.returncode=-1
++        def spawn(role,*a,**k):
++            launched.append(role)
++            if stop_collection and role=='uni':(self.state/'stop.request').write_text('test stop collection')
++            return Proc(role)
++        with patch.object(rt,'now',self.clock),patch.object(rt,'prepared_client',return_value=Mock()),\
++             patch.object(rt,'spawn',side_effect=spawn),patch.object(rt,'health_snapshot',return_value={}),\
++             patch.object(rt.time,'sleep',side_effect=self.clock.sleep):
++            rt.run_controller(self.plan,'OFFLINE-CANARY')
++        return launched,post_called,rt.read_json(self.state/'status.json')
++    def test_controller_publishes_r1_before_focus_worker_launch(self):
++        launched,post,result=self.exercise_controller()
++        self.assertEqual(launched,['uni','selection','focus','postclose']);self.assertTrue(post)
++        self.assertIn('r1 PUBLISHED',result['selection_status']);self.assertEqual(result['next_session_status']['status'],'READY')
++    def test_uni_crash_does_not_cancel_postclose_handoff(self):
++        launched,post,result=self.exercise_controller(uni_crashes=True)
++        self.assertTrue(post);self.assertEqual(result['next_session_status']['status'],'READY')
++    def test_selection_failure_keeps_uni_and_postclose(self):
++        launched,post,result=self.exercise_controller(selection_fails=True)
++        self.assertEqual(launched,['uni','selection','postclose']);self.assertTrue(post)
++        self.assertIn('UNAVAILABLE',result['selection_status'])
++    def test_stop_collection_preserves_automatic_preparation(self):
++        launched,post,result=self.exercise_controller(stop_collection=True)
++        self.assertNotIn('focus',launched);self.assertTrue(post)
++    def test_postclose_failure_not_reported_as_ready(self):
++        launched,post,result=self.exercise_controller(post_fails=True)
++        self.assertEqual(result['next_session_status']['status'],'INCOMPLETE')
++    def test_exit_session_cancels_preparation_and_closes_only_owned(self):
++        self.state.mkdir(parents=True);atomic_json(self.state/'plan.json',self.plan)
++        (self.state/'exit.request').write_text('exit')
++        # Exercise control request itself: it cannot act without a fresh owner.
++        with self.assertRaises(ValueError):rt.main(['exit','--state-root',str(self.state)])
++    def test_plan_does_not_prompt_write_or_contact_provider(self):
++        before=set(self.root.rglob('*'))
++        with patch('getpass.getpass',side_effect=AssertionError('prompt')),redirect_stdout(io.StringIO()):
++            self.assertEqual(rt.main(['plan','--opening-proposal',str(self.r0),'--market-data-root',str(self.root),
++                                     '--ecfg',str(self.root/'unused')]),0)
++        self.assertEqual(before,set(self.root.rglob('*')))
++    def test_duplicate_owner_lock_refuses_second_controller(self):
++        key='daily-session:'+str(Path(self.plan['journal']).resolve()).casefold()
++        code=('from mb_market_data.acquisition_health import operation_lock; import sys; '
++              'm=operation_lock(sys.argv[1]); m.__enter__(); print("LOCKED",flush=True); '
++              'sys.stdin.read(); m.__exit__(None,None,None)')
++        env=dict(os.environ,PYTHONPATH=str(Path(__file__).resolve().parents[1]/'src'))
++        p=subprocess.Popen([sys.executable,'-B','-c',code,key],stdin=subprocess.PIPE,
++                           stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env)
++        try:
++            self.assertEqual(p.stdout.readline().strip(),'LOCKED')
++            with self.assertRaises(ValueError):
++                with operation_lock(key):pass
++        finally:
++            p.communicate('',timeout=10)
++        self.assertEqual(p.returncode,0)
++    def test_viewer_interrupt_has_no_stop_side_effect(self):
++        self.state.mkdir(parents=True);before=set(self.state.iterdir())
++        with patch.object(rt.time,'sleep',side_effect=KeyboardInterrupt),redirect_stdout(io.StringIO()):
++            self.assertEqual(rt.watch(self.state),0)
++        self.assertEqual(before,set(self.state.iterdir()))
++    def test_start_requests_one_unlock_and_does_not_save_password(self):
++        (self.root/'unused.ecfg').write_text('synthetic placeholder')
++        child=Mock(pid=123);child.poll.return_value=None
++        with patch.object(rt,'now',self.clock),patch('getpass.getpass',return_value='PRIVATE-OFFLINE-CANARY') as prompt, \
++             patch.object(rt,'spawn',return_value=child) as spawn,patch.object(rt,'owner_available',return_value=True), \
++             patch.object(rt,'watch',return_value=0),redirect_stdout(io.StringIO()):
++            code=rt.main(['start','--live','--opening-proposal',str(self.r0),
++                '--market-data-root',str(self.root),'--ecfg',str(self.root/'unused.ecfg')])
++        self.assertEqual(code,0);prompt.assert_called_once();spawn.assert_called_once()
++        for f in self.root.rglob('*'):
++            if f.is_file():self.assertNotIn(b'PRIVATE-OFFLINE-CANARY',f.read_bytes())
++    def test_spawn_uses_private_pipe_with_no_secret_in_command_or_log(self):
++        entry=self.root/'pipe_child.py'
++        entry.write_text('import sys,json; d=json.load(sys.stdin); assert d["password"]=="SYNTHETIC-PIPE-CANARY"; print("PRIVATE FRAME RECEIVED",flush=True)')
++        plan=self.root/'public-plan.json';atomic_json(plan,{'public':True})
++        log=self.root/'child.log'
++        with patch.object(rt,'ENTRY',entry):
++            proc=rt.spawn('uni',plan,'SYNTHETIC-PIPE-CANARY',log)
++        self.assertEqual(proc.wait(timeout=10),0)
++        self.assertNotIn('SYNTHETIC-PIPE-CANARY',' '.join(proc.args))
++        self.assertEqual(log.read_text().strip(),'PRIVATE FRAME RECEIVED')
++    def test_private_handoff_rejects_malformed_frame(self):
++        with patch.object(rt.sys,'stdin',io.TextIOWrapper(io.BytesIO(b'{"secret":"wrong"}'))):
++            with self.assertRaises(ValueError):rt.secret_receive()
++
++if __name__=='__main__':unittest.main()

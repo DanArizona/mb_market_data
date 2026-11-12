@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "tests_run": 137,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "platform": "linux",
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "exchange_calendars": "4.13.1",
+  "test_only_auth_import_stub": true,
+  "actual_child_probe_process_test": true,
+  "controller_clock": "synthetic",
+  "real_provider_calls": false,
+  "production_changes": false,
+  "source_inventory_verified": true,
+  "windows_acceptance": false
+}

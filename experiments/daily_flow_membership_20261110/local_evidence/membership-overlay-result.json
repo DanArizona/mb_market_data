@@ -1,0 +1,12 @@
+{
+  "result": "PASS",
+  "tests_run": 41,
+  "errors": 0,
+  "failures": 0,
+  "skipped": 0,
+  "plotly": "6.5.2",
+  "real_provider_calls": false,
+  "synthetic_preview": "/mnt/data/daily_flow_membership_20261110/output/overlay-20261110T054830067174Z/synthetic-overlay-preview.html",
+  "desktop_visual_verified": false,
+  "environment": "/opt/pyvenv/bin/python"
+}
