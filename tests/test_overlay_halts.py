@@ -11,7 +11,7 @@ from mb_market_data.overlay_halts import (
     OverlayHaltInterval,
     load_overlay_halt_intervals,
 )
-from tests.test_observation_overlay import cache
+from test_observation_overlay import cache
 
 
 class TestOverlayHalts(unittest.TestCase):

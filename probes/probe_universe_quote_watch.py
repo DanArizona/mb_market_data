@@ -39,11 +39,14 @@ import subprocess
 import sys
 import time as time_module
 from collections.abc import Mapping
-from datetime import datetime, time as datetime_time, timedelta, timezone
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
+
+# Use this checkout's implementation, including its optional post-close module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
 from mb_market_data.polling_journal import (
     PollingJournalSession,
@@ -217,6 +220,15 @@ def parse_args() -> argparse.Namespace:
             "Watch the full candidate universe using batched Schwab quotes."
         )
     )
+    parser.add_argument('--postclose-target-date', type=date.fromisoformat,
+                        help='Opt in: build this next-session r0 after normal Uni completion, using its client')
+    parser.add_argument('--postclose-output-dir', type=Path,
+                        help='New output directory for automatic r0; default dated daily_universe_production')
+    parser.add_argument('--postclose-delay-seconds', type=float, default=60.0,
+                        help='Delay after regular 16:00 ET close before snapshot (default 60)')
+    from mb_market_data.polling_cadence import CADENCE_PROFILES, LEGACY
+    parser.add_argument("--cadence-profile", choices=tuple(CADENCE_PROFILES), default=LEGACY,
+                        help="Named session cadence; default legacy-v1. Interleaved requires schema-v2.")
     parser.add_argument(
         "--universe-csv",
         default=str(DEFAULT_UNIVERSE_CSV),
@@ -1154,8 +1166,14 @@ def prepare_polling_client(
     return client, status
 
 
-def main() -> int:
+class DailyControllerStop(Exception):
+    """Cooperative stop, distinct from a console KeyboardInterrupt."""
+
+
+def main(*, supplied_password=None, stop_requested=lambda: False,
+         client_transform=lambda c: c, on_finished=lambda result: None) -> int:
     args = parse_args()
+    args.cadence_profile = getattr(args, "cadence_profile", "legacy-v1")
 
     if args.interval <= 0:
         raise SystemExit("--interval must be greater than zero.")
@@ -1179,6 +1197,9 @@ def main() -> int:
         )
 
     hierarchy_polling = args.journal_schema_version == 2
+    from mb_market_data.polling_cadence import LEGACY, cadence_seconds, check_before_credentials
+    if args.cadence_profile != LEGACY and (not hierarchy_polling or not args.watchlist_kind):
+        raise SystemExit("Interleaved cadence requires schema-v2 exact-slot polling.")
     if hierarchy_polling and not args.journal_root:
         raise SystemExit(
             "--journal-schema-version 2 requires --journal-root."
@@ -1230,6 +1251,26 @@ def main() -> int:
                 symbols=symbols,
             )
 
+    postclose_target = getattr(args, 'postclose_target_date', None)
+    postclose_delay = getattr(args, 'postclose_delay_seconds', 60.0)
+    postclose_output = getattr(args, 'postclose_output_dir', None)
+    if postclose_target is not None:
+        if (not hierarchy_polling or poll_kind != WatchlistKind.UNI
+                or poll_window is None or poll_window.end_at.timetz().replace(tzinfo=None) != datetime_time(16)
+                or args.max_samples is not None):
+            raise SystemExit('Automatic r0 requires a schema-v2 Uni run through 16:00 ET without max-samples.')
+        if postclose_target <= poll_window.session_date or postclose_target.weekday() >= 5:
+            raise SystemExit('Supply the actual next trading date at startup, not a weekend/past date.')
+        if not 0 <= postclose_delay <= 3600:
+            raise SystemExit('Post-close delay must be between 0 and 3600 seconds.')
+        postclose_output = Path(postclose_output) if postclose_output is not None else (
+            Path('output/daily_universe_production') /
+            f'{postclose_target}-from-{poll_window.session_date}')
+        if postclose_output.exists():
+            raise SystemExit('Post-close output already exists; retain it and review rather than overwrite.')
+    elif postclose_output is not None:
+        raise SystemExit('--postclose-output-dir requires --postclose-target-date.')
+
     required_refresh_through = polling_credential_required_through(
         started_at=started_at,
         poll_window=poll_window,
@@ -1237,8 +1278,16 @@ def main() -> int:
         max_samples=args.max_samples,
         interval_seconds=args.interval,
     )
+    if hierarchy_polling:
+        import sqlite3
+        try:
+            check_before_credentials(daily_quote_journal_path(
+                Path(args.journal_root).expanduser(), poll_window.session_date), args.cadence_profile)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            print(f"Polling cadence preflight FAILED: {error}", file=sys.stderr)
+            return 2
     print(f"Encrypted config : {ecfg_path}")
-    password = getpass.getpass("Encrypted config password: ")
+    password = supplied_password if supplied_password is not None else getpass.getpass("Encrypted config password: ")
     try:
         client, token_status = prepare_polling_client(
             ecfg_path,
@@ -1253,6 +1302,8 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+
+    client = client_transform(client)
 
     print(
         "Credential status : refresh valid through "
@@ -1331,13 +1382,15 @@ def main() -> int:
             "symbol_count": len(symbols) if not hierarchy_polling else None,
             "fields": args.fields,
             "batch_size": args.batch_size,
-            "poll_seconds": list(POLL_SECONDS[poll_kind]),
+            "poll_seconds": list(cadence_seconds(poll_kind, args.cadence_profile)),
             "poll_window_start_et": poll_window.start_at.isoformat(),
             "poll_window_end_et": poll_window.end_at.isoformat(),
             "evidence_run_directory": str(run_dir.resolve()),
             "journal_write_recovery": {"budget_seconds": 5, "attempt_seconds": 0.25, "max_attempts": 20,
                                        "retry_error": "SQLITE_BUSY", "diagnostic_file": str(write_diagnostic_path.resolve())},
         }
+        if hierarchy_polling:
+            journal_configuration["cadence_profile"] = args.cadence_profile
         if hierarchy_polling:
             journal_session = (
                 PollingJournalSession.register_hierarchy_polling(
@@ -1387,7 +1440,7 @@ def main() -> int:
             else None
         ),
         "poll_seconds": (
-            list(POLL_SECONDS[poll_kind]) if poll_kind else None
+            list(cadence_seconds(poll_kind, args.cadence_profile)) if poll_kind else None
         ),
         "poll_window_start_et": (
             poll_window.start_at.isoformat() if poll_window else None
@@ -1427,6 +1480,7 @@ def main() -> int:
         ),
         "journal_run_id": journal_run_id,
         "journal_software_version": journal_software_version,
+        "cadence_profile": args.cadence_profile if poll_kind else None,
         "journal_run_record_result": (
             journal_session.run_record_result.value
             if journal_session
@@ -1481,7 +1535,7 @@ def main() -> int:
             "Polling seconds  : "
             + ", ".join(
                 f":{second:02d}"
-                for second in POLL_SECONDS[poll_kind]
+                for second in cadence_seconds(poll_kind, args.cadence_profile)
             )
         )
         print(
@@ -1514,6 +1568,10 @@ def main() -> int:
         print(f"Write diagnostics: {write_diagnostic_path}")
     print()
 
+    scheduled_completion = False
+    postclose_failed = False
+    if postclose_target is not None:
+        print(f'Automatic r0     : {postclose_target}; {postclose_output}; same client, no extra password', flush=True)
     sample_number = 0
     completed_count = 0
     journal_inserted_count = 0
@@ -1526,6 +1584,7 @@ def main() -> int:
     journal_write_durations: list[float] = []
     end_to_end_durations: list[float] = []
     previous: dict[str, tuple[Any, Any]] = {}
+    stop_reason = None
 
     try:
         with (
@@ -1561,10 +1620,13 @@ def main() -> int:
             next_sample_monotonic = time_module.monotonic()
 
             while True:
+                if stop_requested():
+                    raise DailyControllerStop
                 now = datetime.now(ET)
 
                 if stop_at is not None and now >= stop_at:
                     print("Reached automatic stop time.")
+                    scheduled_completion = bool(poll_window is not None and now >= poll_window.end_at)
                     break
 
                 if (
@@ -1583,22 +1645,27 @@ def main() -> int:
                         poll_kind,
                         after=now,
                         window=poll_window,
+                        cadence_profile=args.cadence_profile,
                     )
                     if slot is None:
                         print("Reached the end of the polling window.")
+                        scheduled_completion = True
                         break
 
                     while True:
+                        if stop_requested():
+                            raise DailyControllerStop
                         delay = (
                             slot.scheduled_at - datetime.now(ET)
                         ).total_seconds()
                         if delay <= 0:
                             break
-                        time_module.sleep(delay)
+                        time_module.sleep(min(delay, 0.25))
 
                     dispatched_at = datetime.now(ET)
                     if dispatched_at >= poll_window.end_at:
                         print("Reached the end of the polling window.")
+                        scheduled_completion = True
                         break
 
                     if hierarchy_polling:
@@ -1867,11 +1934,35 @@ def main() -> int:
                     else:
                         next_sample_monotonic = time_module.monotonic()
 
+    except DailyControllerStop:
+        stop_reason = getattr(stop_requested, 'reason', None) or 'controller_stop_requested'
+        print("Stopped by daily control:", stop_reason, flush=True)
     except KeyboardInterrupt:
+        stop_reason = 'console_interrupt'
         print()
-        print("Stopped by user.")
+        print("Interrupted by console signal.")
 
     finally:
+        # Normal completion only; never run a post-close snapshot after an early
+        # Ctrl+C, sample-count limit, or an error that stopped polling.
+        if postclose_target is not None and scheduled_completion and client is not None:
+            try:
+                from mb_market_data.postclose_universe import handoff
+                manifest['postclose_r0'] = handoff(
+                    client, scheduled_completion=True, channel=poll_kind.value,
+                    window_end=poll_window.end_at, target_date=postclose_target,
+                    output_dir=postclose_output, delay_seconds=postclose_delay)
+            except KeyboardInterrupt:
+                postclose_failed = True
+                manifest['postclose_r0'] = {'status': 'CANCELLED', 'membership_published': False}
+                print('POST-CLOSE r0 cancelled; prior polling evidence retained.', flush=True)
+            except Exception as error:
+                postclose_failed = True
+                manifest['postclose_r0'] = {'status': 'ERROR', 'error_type': type(error).__name__,
+                                            'membership_published': False}
+                print(f'POST-CLOSE r0 ERROR: {type(error).__name__}; partial output retained.', flush=True)
+        elif postclose_target is not None:
+            manifest['postclose_r0'] = {'status': 'NOT_RUN', 'reason': 'polling_did_not_finish_normally'}
         if client is not None:
             try:
                 client.close()
@@ -1880,6 +1971,9 @@ def main() -> int:
 
         completed_at = datetime.now(ET)
         manifest["completed_at_et"] = completed_at.isoformat()
+        manifest["stop_reason"] = (stop_reason or ('schedule_complete' if scheduled_completion
+            else 'journal_error' if journal_error_count else 'probe_ended_before_window'))
+        manifest["scheduled_completion"] = scheduled_completion
         manifest["samples_attempted"] = sample_number
         manifest["samples_completed"] = completed_count
         manifest["journal_acquisitions_inserted"] = (
@@ -1935,7 +2029,15 @@ def main() -> int:
                     f"{journal_skip_already_present_count} already present"
                 )
 
-    return 1 if journal_error_count else 0
+    # The owner records a separate public exit receipt. This callback contains
+    # no credentials or response payloads and cannot invalidate saved quotes.
+    try:
+        on_finished({'stop_reason':manifest['stop_reason'],
+            'scheduled_completion':scheduled_completion,
+            'journal_errors':journal_error_count,'samples_completed':completed_count})
+    except Exception as error:
+        print('Completion observer unavailable:',type(error).__name__,flush=True)
+    return 1 if journal_error_count or postclose_failed else 0
 
 
 if __name__ == "__main__":

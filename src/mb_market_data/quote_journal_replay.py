@@ -292,6 +292,26 @@ class QuoteJournalReplayReader:
         header_payloads.sort(key=payload_sort_key)
         return tuple(header_payloads)
 
+    def poll_seconds_by_run(self) -> dict[str, tuple[int, ...]]:
+        """Read immutable per-run cadence metadata without changing replay events."""
+        import json
+        from contextlib import closing
+        result = {}
+        with closing(sqlite3.connect(self.database_path.resolve().as_uri()+"?mode=ro", uri=True)) as connection:
+            for run_id, raw in connection.execute("SELECT run_id, configuration_json FROM poll_run"):
+                configuration = json.loads(raw)
+                if not isinstance(configuration, dict):
+                    raise ReplayIntegrityError("Invalid recorded run configuration")
+                seconds = configuration.get("poll_seconds")
+                if seconds is None:
+                    continue  # Legacy/manual runs may not have a declared cadence.
+                if (not isinstance(seconds, list) or not seconds
+                        or any(type(s) is not int or not 0 <= s < 60 for s in seconds)
+                        or seconds != sorted(set(seconds))):
+                    raise ReplayIntegrityError("Invalid recorded polling cadence")
+                result[run_id] = tuple(seconds)
+        return result
+
     def timeline(self) -> ReplayTimeline:
         """Return event counts and bounds without loading observations."""
 
