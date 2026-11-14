@@ -22,6 +22,7 @@ Do not run the legacy standalone Hot coordinator against the same journal as thi
 
 - Original accepted ZIP: offline 304 core tests PASS, Overlay 41 tests PASS, no provider calls.
 - Relocated source in Linux/Python 3.13.5: offline 304 core tests PASS with disclosed **non-Windows test-only authentication stub**; Plotly 6.5.2 Overlay 41 tests PASS; all 117 accepted source hashes verify. No provider calls, credentials, or production changes.
+- On Windows, `core.autocrlf` may materialize CRLF working-copy lines while accepted Git source blobs remain LF. Both offline verifiers accept **only** the exact recorded SHA-256, or (on Windows) the same SHA-256 after CRLF-to-LF normalization. Other content changes still block verification; the accepted 117 files and their manifest remain unchanged.
 - Windows live sessions Nov 11–13 demonstrated normal collector exit, journal integrity, identical pairs of deterministic replay, matched Nasdaq admission identities, and Nov 12 INTC/PLBL manual transitions. These runs used the separately installed accepted package, **not** this integrated checkout.
 
 ## Limitations and safety gates

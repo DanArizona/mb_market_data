@@ -3,6 +3,7 @@ from pathlib import Path
 import argparse,builtins,getpass,hashlib,importlib.util,json,os,socket,sys,unittest
 from datetime import datetime,timezone
 from contextlib import redirect_stdout,redirect_stderr
+from integration_source_integrity import verify_integrated_sources
 ROOT=Path(__file__).resolve().parent
 NATIVE=ROOT
 TESTS=['test_daily_membership','test_daily_live_connection','test_daily_three','test_daily_authorization_reporting','test_daily_worker_uptime','test_daily_flow','test_daily_runtime',
@@ -28,11 +29,7 @@ def main():
     output.mkdir(parents=True,exist_ok=False)
     os.environ['MB_MEMBERSHIP_PROOF']=str(output/'membership-proof.json')
     try:
-        inventory=json.loads((ROOT/'INTEGRATION_SOURCE_INVENTORY.json').read_text())
-        for name,sha in inventory['files'].items():
-            path=ROOT/name
-            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=sha:
-                raise ValueError('Integrated source differs: '+name)
+        source_check=verify_integrated_sources(ROOT)
         import exchange_calendars as xcals
         stub_used=False
         try:import mb_tools.schwab_secure as secure
@@ -63,7 +60,8 @@ def main():
                 'real_concurrent_heartbeat_io_test':True,
                 'real_child_heartbeat_fault_injection':True,
                 'real_provider_calls':False,'production_changes':False,
-                'source_inventory_verified':True,'windows_acceptance':sys.platform=='win32' and passed}
+                'source_inventory_verified':True,'source_file_count':source_check['file_count'],
+                'source_crlf_normalized':source_check['crlf_normalized'],'windows_acceptance':sys.platform=='win32' and passed}
     except Exception as err:
         report={'result':'BLOCKED','error_type':type(err).__name__,'detail':str(err),
                 'production_changes':False,'real_provider_calls':False}
