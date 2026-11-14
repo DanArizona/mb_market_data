@@ -32,12 +32,14 @@ except ModuleNotFoundError:
     from mb_market_data import polling_alarm as alarm
 
 
-def config_for(root: Path, session: date, journal: Path | None = None, *, grace: float = 90) -> health.HealthConfig:
+def config_for(root: Path, session: date, journal: Path | None = None, *, grace: float = 90,
+               cadence_profile: str = "auto") -> health.HealthConfig:
     root = root.resolve()
     journal = journal or root / f"output/quote_observation_journal_v2_api_opening_{session}/{session}.sqlite3"
     return health.HealthConfig(root, journal.resolve(), session,
                               datetime.combine(session, clock_time(9, 30), tzinfo=health.ET),
-                              datetime.combine(session, clock_time(16), tzinfo=health.ET), grace)
+                              datetime.combine(session, clock_time(16), tzinfo=health.ET), grace,
+                              cadence_profile=cadence_profile)
 
 
 def wait_for_stop(interval: float, stop_file: Path | None = None, *, keyboard: bool = True) -> str | None:
@@ -183,6 +185,7 @@ def supervise_monitor(config: health.HealthConfig, *, interval: float = 5, popup
             history = MonitorIncidentHistory(directory / "monitor_incidents.jsonl")
             command = [sys.executable, str(Path(__file__).resolve()), "monitor", "--market-data-root", str(config.market_data_root),
                        "--session-date", str(config.session_date), "--journal", str(config.journal),
+                       "--cadence-profile", config.cadence_profile,
                        "--grace-seconds", str(config.grace_seconds), "--interval", str(interval),
                        "--stop-file", str(child_stop), "--monitor-token", token, "--no-popup"]
             child = subprocess.Popen(command, stdin=subprocess.DEVNULL)
@@ -369,6 +372,7 @@ def main() -> int:
     parser.add_argument("operation", choices=("monitor", "restart", "windows-check", "stop-monitor", "alarm-demo"))
     parser.add_argument("--market-data-root", type=Path, required=True)
     parser.add_argument("--session-date", type=date.fromisoformat)
+    parser.add_argument("--cadence-profile", choices=("auto",)+tuple(health.CADENCE_PROFILES), default="auto")
     parser.add_argument("--supervise", action="store_true", help="Run the health inspector under an independent watchdog")
     parser.add_argument("--monitor-token", help=argparse.SUPPRESS)
     parser.add_argument("--journal", type=Path)
@@ -397,7 +401,8 @@ def main() -> int:
             default = datetime.now(health.ET).date()
             value = input(f"Session date (YYYY-MM-DD) [{default}]: ").strip()
             session = date.fromisoformat(value) if value else default
-        config = config_for(args.market_data_root, session, args.journal, grace=args.grace_seconds)
+        config = config_for(args.market_data_root, session, args.journal, grace=args.grace_seconds,
+                            cadence_profile=args.cadence_profile)
         if args.operation == "stop-monitor":
             stop_file = args.stop_file or config.market_data_root / "output/polling_health" / str(session) / "stop.request"
             health.atomic_json(stop_file, {"requested_at_utc": datetime.now(health.UTC).isoformat()})

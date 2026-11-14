@@ -95,6 +95,7 @@ def epoch_ms_to_et(value: Any) -> datetime | None:
 def validate_acquisition_time(
     session_date: date,
     observed_at: datetime,
+    *, exchange_close: datetime | None = None,
 ) -> None:
     """Require quote.totalVolume acquisition in the same-day close window."""
 
@@ -109,6 +110,15 @@ def validate_acquisition_time(
             "session_date; next-day snapshots are not valid "
             "completed-session volume evidence"
         )
+    if exchange_close is not None:
+        if (exchange_close.tzinfo is None or exchange_close.astimezone(ET).date() != session_date):
+            raise ValueError('Wrong scheduled exchange close')
+        from .daily_flow import schedule_for
+        if exchange_close != schedule_for(session_date).closes_at:
+            raise ValueError('Supplied close differs from exchange calendar')
+        if observed_et < exchange_close:
+            raise ValueError('Snapshot precedes scheduled exchange close')
+        return
     if observed_et.time().replace(tzinfo=None) < time(16, 0):
         raise ValueError(
             "same-day daily-universe acquisition must run at or after "
@@ -119,6 +129,7 @@ def validate_acquisition_time(
 def validate_batch_acquisition_time(
     session_date: date,
     acquisition: QuoteBatchResult,
+    *, exchange_close: datetime | None = None,
 ) -> None:
     """Validate every actual request boundary before writing artifacts."""
 
@@ -134,7 +145,7 @@ def validate_batch_acquisition_time(
         if result.response_received_at_utc is not None
     )
     for observed_at in sorted(observed_times):
-        validate_acquisition_time(session_date, observed_at)
+        validate_acquisition_time(session_date, observed_at, exchange_close=exchange_close)
 
 
 def acquisition_time_bounds(
@@ -315,9 +326,10 @@ def write_snapshot_manifest(
     rows: Iterable[Mapping[str, str]],
     validated_at: datetime,
     created_at_utc: datetime | None = None,
+    exchange_close: datetime | None = None,
 ) -> None:
-    validate_acquisition_time(session_date, validated_at)
-    validate_batch_acquisition_time(session_date, acquisition)
+    validate_acquisition_time(session_date, validated_at, exchange_close=exchange_close)
+    validate_batch_acquisition_time(session_date, acquisition, exchange_close=exchange_close)
     created_at = created_at_utc or datetime.now(timezone.utc)
     first_request, last_response = acquisition_time_bounds(acquisition)
     row_values = tuple(rows)
@@ -337,14 +349,15 @@ def write_snapshot_manifest(
             "market_cap": "completed close * sharesOutstanding",
         },
         "source_semantics": {
-            "volume": VOLUME_SEMANTICS,
+            "volume": VOLUME_SEMANTICS if exchange_close is None else "current-session totalVolume acquired after scheduled exchange close on source ET date",
         },
         "input": {
             "path": str(candidate_path),
             "sha256": sha256_file(candidate_path),
         },
         "acquisition": {
-            "timing_policy": ACQUISITION_TIMING_POLICY,
+            "timing_policy": ACQUISITION_TIMING_POLICY if exchange_close is None else "same-et-date-calendar-close-v1",
+            "exchange_close": exchange_close.isoformat() if exchange_close else None,
             "validated_at_utc": utc_text(validated_at),
             "validated_at_et": validated_at.astimezone(ET).isoformat(),
             "first_request_started_at_utc": utc_text(first_request),

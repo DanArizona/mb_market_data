@@ -283,14 +283,26 @@ def resolve_request_error_segments(
                 count = 0
                 detail = ""
         if start_et is not None:
-            cadence = timedelta(seconds=15 if channel == "focus" else 30)
+            last = points[-1]
+            scheduled = last.scheduled_at_utc.astimezone(ET)
+            seconds = last.poll_seconds
+            if seconds:
+                if (any(type(s) is not int or not 0 <= s < 60 for s in seconds)
+                        or tuple(sorted(set(seconds))) != seconds):
+                    raise ValueError("Invalid Overlay polling cadence")
+                minute = scheduled.replace(second=0, microsecond=0)
+                following = next((minute.replace(second=s) for s in seconds
+                                  if minute.replace(second=s) > scheduled),
+                                 minute+timedelta(minutes=1, seconds=seconds[0]))
+            else:
+                following = scheduled+timedelta(seconds=15 if channel == "focus" else 30)
             _append_request_error_segment(
                 segments,
                 channel=channel,
                 start_et=start_et,
                 end_et=min(
                     replay_time_et,
-                    points[-1].scheduled_at_utc.astimezone(ET) + cadence,
+                    following,
                 ),
                 count=count,
                 detail=detail,
@@ -600,7 +612,8 @@ def _panel_membership_shape(
 
 
 def _membership_shapes(overlay: ObservationOverlayData) -> list[dict[str, Any]]:
-    start = overlay.cache.request_start_et
+    start = (overlay.cache.request_start_et if overlay.cache is not None
+             else datetime.combine(overlay.session_date, REGULAR_OPEN, tzinfo=ET))
     end = overlay.replay_time_utc.astimezone(ET)
     if end <= start:
         return []

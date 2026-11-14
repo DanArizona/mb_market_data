@@ -540,6 +540,8 @@ class QuoteObservationStore:
             )
             if duplicate is not None:
                 return duplicate
+            from mb_market_data.polling_cadence import check_registration
+            check_registration(connection, dict(run.configuration))
             connection.execute(
                 """
                 INSERT INTO poll_run (
