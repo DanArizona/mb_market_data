@@ -287,6 +287,51 @@ h1 {
   border-color: var(--line);
 }
 
+/* Dash 2.x uses React Select's legacy classes; Dash 4 uses .dash-dropdown.
+   Keep both generations readable with the selected workspace theme. */
+.replay-speed-dropdown .Select-control,
+.replay-speed-dropdown .Select.is-open > .Select-control,
+.replay-speed-dropdown .Select.is-focused > .Select-control {
+  border-color: var(--line) !important;
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+}
+
+.replay-speed-dropdown .Select-value-label,
+.replay-speed-dropdown .Select-placeholder,
+.replay-speed-dropdown .Select-input input {
+  color: var(--ink) !important;
+}
+
+.replay-speed-dropdown .Select-arrow {
+  border-top-color: var(--muted);
+}
+
+.replay-speed-dropdown .Select-menu-outer {
+  border-color: var(--line) !important;
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+}
+
+.replay-speed-dropdown .Select-menu-outer .VirtualizedSelectOption,
+.replay-speed-dropdown .Select-menu-outer .Select-option {
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+}
+
+.replay-speed-dropdown .Select-menu-outer .VirtualizedSelectFocusedOption,
+.replay-speed-dropdown .Select-menu-outer .Select-option.is-focused {
+  background: var(--sea-soft) !important;
+  color: var(--ink) !important;
+}
+
+.replay-speed-dropdown .Select-menu-outer .VirtualizedSelectSelectedOption,
+.replay-speed-dropdown .Select-menu-outer .Select-option.is-selected {
+  color: var(--sea) !important;
+  font-weight: 750;
+}
+
 .replay-position {
   min-width: 0;
 }

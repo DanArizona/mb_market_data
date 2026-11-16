@@ -31,7 +31,9 @@ The left activity bar selects one independently scrollable side-panel section:
 - **Time Controls** — the existing historical replay play/pause, step,
   restart, seek, speed, and position controls. Its internal activity ID remains
   `activity-replay` to preserve callback behavior. Mode-specific controls can
-  be added here as the other data paths qualify.
+  be added here as the other data paths qualify. The replay-speed dropdown
+  explicitly styles both Dash 2.x React Select menus and Dash 4 dropdowns to
+  follow the dark/light workspace theme.
 - **Backtest Settings** — inert description; no backtest implementation.
 - **Trading** — inert description; no order execution or simulation.
 
