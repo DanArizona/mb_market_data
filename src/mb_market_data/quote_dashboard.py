@@ -32,6 +32,21 @@ from mb_market_data.quote_dashboard_view import (
 ASSETS_DIRECTORY = Path(__file__).with_name("assets")
 ET = ZoneInfo("America/New_York")
 OVERLAY_CHANNELS = ("uni", "focus", "hot")
+ACTIVITY_SECTIONS = ("information", "graph", "replay", "backtest", "trading")
+
+
+def _activity_button(html: Any, section: str, glyph: str, title: str, *, active: bool) -> Any:
+    return html.Button(
+        [
+            html.Span(glyph, className="activity-glyph", **{"aria-hidden": "true"}),
+            html.Span(title, className="activity-accessible-label"),
+        ],
+        id=f"activity-{section}",
+        className="activity-button" + (" activity-button-selected" if active else ""),
+        title=title,
+        type="button",
+        **{"aria-label": title},
+    )
 
 
 def _overlay_point_style(
@@ -95,6 +110,83 @@ def _overlay_channel_control(html: Any, dcc: Any, channel: str) -> Any:
             ),
         ],
         className=f"overlay-channel-control overlay-channel-{channel}",
+    )
+
+
+def _overlay_display_controls(html: Any, dcc: Any) -> Any:
+    """Reusable chart controls, mounted once in the workspace side panel."""
+
+    return html.Div(
+        [
+            html.Fieldset(
+                [
+                    html.Legend("Hover"),
+                    dcc.Checklist(
+                        id="observation-overlay-detailed-hover",
+                        options=[{"label": "Detailed hover", "value": "show"}],
+                        value=[],
+                    ),
+                    html.Small("Hold Shift for bars and features."),
+                ],
+                className="overlay-session-control",
+            ),
+            html.Fieldset(
+                [
+                    html.Legend("Vertical axis"),
+                    dcc.RadioItems(
+                        id="observation-overlay-units",
+                        options=[
+                            {"label": "Price", "value": "price"},
+                            {"label": "Percent", "value": "percent"},
+                        ],
+                        value="price",
+                        className="overlay-units-control",
+                    ),
+                    html.Label(
+                        [
+                            html.Span("Candle price on click"),
+                            dcc.RadioItems(
+                                id="observation-overlay-candle-field",
+                                options=[
+                                    {"label": name.title(), "value": name}
+                                    for name in ("open", "high", "low", "close")
+                                ],
+                                value="close",
+                                className="overlay-candle-field",
+                            ),
+                        ]
+                    ),
+                    html.Button(
+                        "Set 0% reference",
+                        id="observation-overlay-set-reference",
+                        className="control-button overlay-reference-button",
+                    ),
+                    html.Button(
+                        "Reset to first regular open",
+                        id="observation-overlay-reset-reference",
+                        className="overlay-reset-button",
+                    ),
+                    html.Div(
+                        id="observation-overlay-reference-label",
+                        className="overlay-reference-label",
+                    ),
+                ],
+                className="overlay-axis-control",
+            ),
+            html.Div(
+                [
+                    html.Strong("Quote points"),
+                    html.Span("Display settings only; evidence is unchanged."),
+                ],
+                className="overlay-control-intro",
+            ),
+            *[
+                _overlay_channel_control(html, dcc, channel)
+                for channel in OVERLAY_CHANNELS
+            ],
+        ],
+        className="overlay-display-controls",
+        **{"aria-label": "Observation Overlay display controls"},
     )
 
 
@@ -193,90 +285,6 @@ def _observation_overlay_panel(
             ),
             html.Div(
                 [
-                    html.Div(
-                        [
-                            html.Fieldset(
-                                [
-                                    html.Legend("Hover"),
-                                    dcc.Checklist(
-                                        id="observation-overlay-detailed-hover",
-                                        options=[
-                                            {"label": "Detailed hover", "value": "show"}
-                                        ],
-                                        value=[],
-                                    ),
-                                    html.Small("Hold Shift for bars and features."),
-                                ],
-                                className="overlay-session-control",
-                            ),
-                            html.Fieldset(
-                                [
-                                    html.Legend("Vertical axis"),
-                                    dcc.RadioItems(
-                                        id="observation-overlay-units",
-                                        options=[
-                                            {"label": "Price", "value": "price"},
-                                            {"label": "Percent", "value": "percent"},
-                                        ],
-                                        value="price",
-                                        className="overlay-units-control",
-                                    ),
-                                    html.Label(
-                                        [
-                                            html.Span("Candle price on click"),
-                                            dcc.RadioItems(
-                                                id="observation-overlay-candle-field",
-                                                options=[
-                                                    {
-                                                        "label": name.title(),
-                                                        "value": name,
-                                                    }
-                                                    for name in (
-                                                        "open",
-                                                        "high",
-                                                        "low",
-                                                        "close",
-                                                    )
-                                                ],
-                                                value="close",
-                                                className="overlay-candle-field",
-                                            ),
-                                        ]
-                                    ),
-                                    html.Button(
-                                        "Set 0% reference",
-                                        id="observation-overlay-set-reference",
-                                        className="control-button overlay-reference-button",
-                                    ),
-                                    html.Button(
-                                        "Reset to first regular open",
-                                        id="observation-overlay-reset-reference",
-                                        className="overlay-reset-button",
-                                    ),
-                                    html.Div(
-                                        id="observation-overlay-reference-label",
-                                        className="overlay-reference-label",
-                                    ),
-                                ],
-                                className="overlay-axis-control",
-                            ),
-                            html.Div(
-                                [
-                                    html.Strong("Quote points"),
-                                    html.Span(
-                                        "Display settings only; evidence is unchanged."
-                                    ),
-                                ],
-                                className="overlay-control-intro",
-                            ),
-                            *[
-                                _overlay_channel_control(html, dcc, channel)
-                                for channel in OVERLAY_CHANNELS
-                            ],
-                        ],
-                        className="overlay-display-controls",
-                        **{"aria-label": "Observation Overlay display controls"},
-                    ),
                     dcc.Graph(
                         id="observation-overlay-chart",
                         figure=build_observation_overlay_figure(
@@ -565,6 +573,10 @@ def create_quote_dashboard(
             dcc.Store(id="observation-overlay-reference-mode", data=False),
             dcc.Store(id="observation-overlay-viewport"),
             dcc.Store(id="observation-overlay-shift-hover", data=False),
+            dcc.Store(
+                id="activity-section",
+                data="graph" if replay.observation_overlay is not None else "information",
+            ),
             html.Header(
                 [
                     html.Div(
@@ -642,8 +654,75 @@ def create_quote_dashboard(
                 ],
                 className="topbar",
             ),
+            html.Nav(
+                [
+                    _activity_button(html, "information", "ⓘ", "Information", active=replay.observation_overlay is None),
+                    _activity_button(html, "graph", "▥", "Graph Setups", active=replay.observation_overlay is not None),
+                    _activity_button(html, "replay", "◷", "Replay Settings", active=False),
+                    _activity_button(html, "backtest", "◇", "Backtest Settings", active=False),
+                    _activity_button(html, "trading", "$", "Trading", active=False),
+                ],
+                className="activity-rail",
+                **{"aria-label": "Overlay activity bar"},
+            ),
+            html.Aside(
+                [
+                    html.Section(
+                        [
+                            html.H2("Information"),
+                            html.P("Read-only, one-session journal replay."),
+                            html.Dl(
+                                [
+                                    html.Dt("Session"),
+                                    html.Dd(str(view.session_date) if view.session_date else "Unavailable"),
+                                    html.Dt("Chart symbol"),
+                                    html.Dd(replay.observation_overlay.symbol if replay.observation_overlay is not None else "None loaded"),
+                                    html.Dt("Evidence timing"),
+                                    html.Dd("Membership at effective time · quotes at acquisition completion · candles at interval completion"),
+                                ],
+                                className="sidebar-information-list",
+                            ),
+                        ],
+                        id="sidebar-information",
+                        className="side-section",
+                        style={"display": "none" if replay.observation_overlay is not None else "block"},
+                    ),
+                    html.Section(
+                        [
+                            html.H2("Graph Setups"),
+                            _overlay_display_controls(html, dcc) if replay.observation_overlay is not None
+                            else html.P("Load a session with Observation Overlay evidence to configure a chart."),
+                        ],
+                        id="sidebar-graph",
+                        className="side-section",
+                        style={"display": "block" if replay.observation_overlay is not None else "none"},
+                    ),
+                    html.Section(
+                        [
+                            html.H2("Backtest Settings"),
+                            html.P("Reserved for a future, separately qualified backtesting workflow. No backtest executes here."),
+                        ],
+                        id="sidebar-backtest",
+                        className="side-section",
+                        style={"display": "none"},
+                    ),
+                    html.Section(
+                        [
+                            html.H2("Trading"),
+                            html.P("Reserved for future work. This Overlay cannot place or simulate orders."),
+                        ],
+                        id="sidebar-trading",
+                        className="side-section",
+                        style={"display": "none"},
+                    ),
+                ],
+                id="overlay-sidebar",
+                className="overlay-sidebar",
+                **{"aria-label": "Selected activity controls"},
+            ),
             html.Section(
                 [
+                    html.H2("Replay Settings", className="side-section-title"),
                     html.Div(
                         [
                             html.Button(
@@ -751,69 +830,22 @@ def create_quote_dashboard(
                         className="replay-position",
                     ),
                 ],
+                id="replay-controls-panel",
                 className="replay-controls",
+                style={"display": "none"},
                 **{"aria-label": "Replay controls"},
             ),
-            *([html.Section(_acquisition_health_panel(html, acquisition_health_reader()),
-                            id="acquisition-health-panel", className="acquisition-health-panel",
-                            **{"aria-label": "Acquisition health"})] if acquisition_health_reader else []),
             dcc.Tabs(
                 id="dashboard-tabs",
                 value="monitor",
                 className="dashboard-tabs",
                 children=[
                     dcc.Tab(
-                        label="Monitor",
-                        value="monitor",
+                        label="Membership",
+                        value="membership",
                         className="dashboard-tab",
                         selected_className="dashboard-tab-selected",
                         children=[
-                            html.Section(
-                                [
-                                    html.Div(
-                                        [
-                                            html.Span("Unique members"),
-                                            html.Strong(
-                                                f"{view.unique_member_count:,}",
-                                                id="metric-unique",
-                                            ),
-                                        ],
-                                        className="metric-card",
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Span("Multi-channel"),
-                                            html.Strong(
-                                                f"{view.multi_channel_count:,}",
-                                                id="metric-multi",
-                                            ),
-                                        ],
-                                        className="metric-card",
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Span("Events applied"),
-                                            html.Strong(
-                                                f"{view.event_count:,}",
-                                                id="metric-events",
-                                            ),
-                                        ],
-                                        className="metric-card",
-                                    ),
-                                    html.Div(
-                                        [
-                                            html.Span("Observations"),
-                                            html.Strong(
-                                                f"{view.observation_count:,}",
-                                                id="metric-observations",
-                                            ),
-                                        ],
-                                        className="metric-card",
-                                    ),
-                                ],
-                                className="metric-grid",
-                                **{"aria-label": "Replay totals"},
-                            ),
                             html.Section(
                                 _channel_cards(html, view),
                                 id="channel-grid",
@@ -881,8 +913,8 @@ def create_quote_dashboard(
                     *(
                         [
                             dcc.Tab(
-                                label="Chart",
-                                value="chart",
+                                label="Charts",
+                                value="charts",
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
                                 children=[
@@ -895,7 +927,78 @@ def create_quote_dashboard(
                             )
                         ]
                         if replay.observation_overlay is not None
-                        else []
+                        else [
+                            dcc.Tab(
+                                label="Charts",
+                                value="charts",
+                                className="dashboard-tab",
+                                selected_className="dashboard-tab-selected",
+                                children=[html.P("No Observation Overlay evidence was loaded for this session.", className="empty-state")],
+                            )
+                        ]
+                    ),
+                    dcc.Tab(
+                        label="Indicators",
+                        value="indicators",
+                        className="dashboard-tab",
+                        selected_className="dashboard-tab-selected",
+                        children=[html.Section(
+                            [html.H2("Indicators"), html.P("Future workspace: indicators and trading signals are not computed in this read-only replay.")],
+                            className="workspace-placeholder",
+                        )],
+                    ),
+                    dcc.Tab(
+                        label="Monitor",
+                        value="monitor",
+                        className="dashboard-tab",
+                        selected_className="dashboard-tab-selected",
+                        children=[
+                            html.Section(
+                                [
+                                    html.Div(
+                                        [html.Span("Unique members"), html.Strong(f"{view.unique_member_count:,}", id="metric-unique")],
+                                        className="metric-card",
+                                    ),
+                                    html.Div(
+                                        [html.Span("Multi-channel"), html.Strong(f"{view.multi_channel_count:,}", id="metric-multi")],
+                                        className="metric-card",
+                                    ),
+                                    html.Div(
+                                        [html.Span("Events applied"), html.Strong(f"{view.event_count:,}", id="metric-events")],
+                                        className="metric-card",
+                                    ),
+                                    html.Div(
+                                        [html.Span("Observations"), html.Strong(f"{view.observation_count:,}", id="metric-observations")],
+                                        className="metric-card",
+                                    ),
+                                ],
+                                className="metric-grid",
+                                **{"aria-label": "Replay totals"},
+                            ),
+                            html.Section(
+                                [
+                                    html.H2("Replay monitor"),
+                                    html.P("The membership table and chart use the same replay clock. Live collection is independent."),
+                                ],
+                                className="workspace-placeholder",
+                            ),
+                            *([html.Section(
+                                _acquisition_health_panel(html, acquisition_health_reader()),
+                                id="acquisition-health-panel",
+                                className="acquisition-health-panel",
+                                **{"aria-label": "Acquisition health"},
+                            )] if acquisition_health_reader else []),
+                        ],
+                    ),
+                    dcc.Tab(
+                        label="Alerts",
+                        value="alerts",
+                        className="dashboard-tab",
+                        selected_className="dashboard-tab-selected",
+                        children=[html.Section(
+                            [html.H2("Alerts"), html.P("No separate historical alert feed is connected. Collection health remains available under Monitor.")],
+                            className="workspace-placeholder",
+                        )],
                     ),
                 ],
             ),
@@ -909,6 +1012,36 @@ def create_quote_dashboard(
                       Input("acquisition-health-tick", "n_intervals"))
         def update_acquisition_health(_ticks: int) -> list[Any]:
             return _acquisition_health_panel(html, acquisition_health_reader())
+
+    @app.callback(
+        Output("activity-section", "data"),
+        *[Input(f"activity-{section}", "n_clicks") for section in ACTIVITY_SECTIONS],
+        prevent_initial_call=True,
+    )
+    def select_activity(*_clicks: int | None) -> str | Any:
+        selected = str(ctx.triggered_id or "").removeprefix("activity-")
+        return selected if selected in ACTIVITY_SECTIONS else no_update
+
+    @app.callback(
+        Output("overlay-sidebar", "style"),
+        Output("replay-controls-panel", "style"),
+        *[Output(f"sidebar-{section}", "style") for section in ("information", "graph", "backtest", "trading")],
+        *[Output(f"activity-{section}", "className") for section in ACTIVITY_SECTIONS],
+        Input("activity-section", "data"),
+    )
+    def display_activity(selected: str | None) -> tuple[Any, ...]:
+        selected = selected if selected in ACTIVITY_SECTIONS else "information"
+        visible = {"display": "block"}
+        hidden = {"display": "none"}
+        return (
+            hidden if selected == "replay" else visible,
+            {"display": "grid"} if selected == "replay" else hidden,
+            *[visible if selected == section else hidden for section in ("information", "graph", "backtest", "trading")],
+            *[
+                "activity-button" + (" activity-button-selected" if selected == section else "")
+                for section in ACTIVITY_SECTIONS
+            ],
+        )
 
     @app.callback(
         Output("theme-preference", "data"),
