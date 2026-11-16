@@ -367,6 +367,8 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"Focus", layout.data)
         self.assertIn(b"dashboard-tabs", layout.data)
         self.assertIn(b'"value":"monitor"', layout.data)
+        self.assertIn(b"Time Controls", layout.data)
+        self.assertNotIn(b"Replay Settings", layout.data)
         for channel in ("uni", "focus", "hot"):
             self.assertIn(
                 f"observation-overlay-{channel}-size".encode(),
@@ -413,8 +415,25 @@ class TestQuoteDashboard(unittest.TestCase):
         tree = layout.get_json()
         sidebar = find_component(tree, "overlay-sidebar")
         chart_panel = find_component(tree, "observation-overlay-panel")
+        main_workspace = find_component(tree, "main-workspace")
+        mode_selector = find_component(tree, "workspace-mode")
         self.assertIsNotNone(sidebar)
         self.assertIsNotNone(chart_panel)
+        self.assertIsNotNone(main_workspace)
+        self.assertIsNotNone(mode_selector)
+        self.assertEqual(mode_selector["props"]["value"], "historical")
+        self.assertEqual(
+            mode_selector["props"]["options"],
+            [
+                {"label": "Real Time", "value": "real-time", "disabled": True},
+                {"label": "Historical", "value": "historical"},
+                {"label": "Backtest", "value": "backtest", "disabled": True},
+            ],
+        )
+        workspace_children = main_workspace["props"]["children"]
+        self.assertEqual(len(workspace_children), 2)
+        self.assertIsNotNone(find_component(workspace_children[0], "workspace-mode"))
+        self.assertEqual(workspace_children[1]["props"]["id"], "dashboard-tabs")
         self.assertIn("observation-overlay-units", json.dumps(sidebar))
         self.assertNotIn("observation-overlay-units", json.dumps(chart_panel))
         self.assertEqual(layout.data.count(b'"id":"observation-overlay-units"'), 1)

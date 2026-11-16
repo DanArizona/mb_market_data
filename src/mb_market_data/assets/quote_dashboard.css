@@ -1029,11 +1029,110 @@ h1 {
   border: 0;
 }
 
-.dashboard-shell .dashboard-tabs {
+.main-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   grid-column: 3;
   grid-row: 2;
   min-width: 0;
-  margin: 0 0 0 0.35rem;
+  margin-left: 0.35rem;
+}
+
+.workspace-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--surface);
+}
+
+.workspace-mode-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.95rem;
+}
+
+.workspace-mode-heading {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  color: var(--muted);
+}
+
+.workspace-mode-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.18rem;
+  padding: 0.24rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface-raised);
+}
+
+.workspace-mode-control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.38rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 0.45rem;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.workspace-mode-control label:has(input:checked) {
+  border-color: var(--sea);
+  background: var(--sea-soft);
+  color: var(--sea);
+}
+
+.workspace-mode-control label:has(input:disabled) {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.workspace-mode-control input {
+  margin: 0;
+  accent-color: var(--sea);
+}
+
+.workspace-mode-control label:focus-within {
+  outline: 2px solid var(--sea);
+  outline-offset: 1px;
+}
+
+.workspace-mode-context {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.workspace-mode-status {
+  font-size: 0.82rem;
+  color: var(--sea);
+}
+
+.workspace-mode-note {
+  font-size: 0.73rem;
+  color: var(--muted);
+}
+
+.dashboard-shell .dashboard-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   padding: 0.25rem 0.45rem;
   border: 1px solid var(--line);
   border-radius: 0.7rem;
@@ -1096,10 +1195,15 @@ h1 {
     resize: none;
   }
 
-  .dashboard-shell .dashboard-tabs {
+  .main-workspace {
     grid-column: 1 / -1;
     grid-row: 3;
     margin: 0.5rem 0 0;
+  }
+
+  .workspace-mode-context {
+    align-items: flex-start;
+    text-align: left;
   }
 }
 

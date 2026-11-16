@@ -658,7 +658,7 @@ def create_quote_dashboard(
                 [
                     _activity_button(html, "information", "ⓘ", "Information", active=replay.observation_overlay is None),
                     _activity_button(html, "graph", "▥", "Graph Setups", active=replay.observation_overlay is not None),
-                    _activity_button(html, "replay", "◷", "Replay Settings", active=False),
+                    _activity_button(html, "replay", "◷", "Time Controls", active=False),
                     _activity_button(html, "backtest", "◇", "Backtest Settings", active=False),
                     _activity_button(html, "trading", "$", "Trading", active=False),
                 ],
@@ -722,7 +722,7 @@ def create_quote_dashboard(
             ),
             html.Section(
                 [
-                    html.H2("Replay Settings", className="side-section-title"),
+                    html.H2("Time Controls", className="side-section-title"),
                     html.Div(
                         [
                             html.Button(
@@ -835,172 +835,211 @@ def create_quote_dashboard(
                 style={"display": "none"},
                 **{"aria-label": "Replay controls"},
             ),
-            dcc.Tabs(
-                id="dashboard-tabs",
-                value="monitor",
-                className="dashboard-tabs",
-                children=[
-                    dcc.Tab(
-                        label="Membership",
-                        value="membership",
-                        className="dashboard-tab",
-                        selected_className="dashboard-tab-selected",
-                        children=[
-                            html.Section(
-                                _channel_cards(html, view),
-                                id="channel-grid",
-                                className="channel-grid",
-                                **{"aria-label": "Sampling channels"},
-                            ),
-                            html.Section(
+            html.Div(
+                [
+                    html.Section(
+                        [
+                            html.Div(
                                 [
-                                    html.Div(
-                                        [
-                                            html.Div(
-                                                [
-                                                    html.H2("Current symbols"),
-                                                    html.P(
-                                                        "Sort any column or use the filters "
-                                                        "beneath the headings."
-                                                    ),
-                                                ]
-                                            ),
-                                            html.Div(
-                                                f"{len(view.rows):,} rows",
-                                                id="row-count",
-                                                className="row-count",
-                                            ),
+                                    html.H2("Workspace mode", className="workspace-mode-heading"),
+                                    dcc.RadioItems(
+                                        id="workspace-mode",
+                                        options=[
+                                            {"label": "Real Time", "value": "real-time", "disabled": True},
+                                            {"label": "Historical", "value": "historical"},
+                                            {"label": "Backtest", "value": "backtest", "disabled": True},
                                         ],
-                                        className="table-heading",
-                                    ),
-                                    dag.AgGrid(
-                                        id="market-state-grid",
-                                        className="ag-theme-quartz-dark market-grid",
-                                        rowData=view.grid_records(),
-                                        columnDefs=_column_definitions(),
-                                        defaultColDef={
-                                            "sortable": True,
-                                            "filter": True,
-                                            "floatingFilter": True,
-                                            "resizable": True,
-                                        },
-                                        dashGridOptions={
-                                            "animateRows": False,
-                                            "tooltipShowDelay": 350,
-                                            "tooltipHideDelay": 10_000,
-                                            "pagination": True,
-                                            "paginationPageSize": 50,
-                                            "paginationPageSizeSelector": [
-                                                25,
-                                                50,
-                                                100,
-                                                250,
-                                            ],
-                                            "enableCellTextSelection": True,
-                                            "ensureDomOrder": True,
-                                            "getRowId": {
-                                                "function": "params.data.symbol"
-                                            },
-                                        },
-                                        style={"height": "min(58vh, 700px)"},
+                                        value="historical",
+                                        inline=True,
+                                        className="workspace-mode-control",
                                     ),
                                 ],
-                                className="table-panel",
-                                **{"aria-label": "Current symbols"},
+                                className="workspace-mode-picker",
+                            ),
+                            html.Div(
+                                [
+                                    html.Strong("Historical · read-only", className="workspace-mode-status"),
+                                    html.Span(
+                                        "Real Time and Backtest are reserved for future data adapters.",
+                                        className="workspace-mode-note",
+                                    ),
+                                ],
+                                className="workspace-mode-context",
                             ),
                         ],
+                        className="workspace-context-bar",
+                        **{"aria-label": "Workspace operating mode"},
                     ),
-                    *(
-                        [
+                    dcc.Tabs(
+                        id="dashboard-tabs",
+                        value="monitor",
+                        className="dashboard-tabs",
+                        children=[
                             dcc.Tab(
-                                label="Charts",
-                                value="charts",
+                                label="Membership",
+                                value="membership",
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
                                 children=[
-                                    _observation_overlay_panel(
-                                        html,
-                                        dcc,
-                                        replay.observation_overlay,
-                                    )
+                                    html.Section(
+                                        _channel_cards(html, view),
+                                        id="channel-grid",
+                                        className="channel-grid",
+                                        **{"aria-label": "Sampling channels"},
+                                    ),
+                                    html.Section(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.Div(
+                                                        [
+                                                            html.H2("Current symbols"),
+                                                            html.P(
+                                                                "Sort any column or use the filters "
+                                                                "beneath the headings."
+                                                            ),
+                                                        ]
+                                                    ),
+                                                    html.Div(
+                                                        f"{len(view.rows):,} rows",
+                                                        id="row-count",
+                                                        className="row-count",
+                                                    ),
+                                                ],
+                                                className="table-heading",
+                                            ),
+                                            dag.AgGrid(
+                                                id="market-state-grid",
+                                                className="ag-theme-quartz-dark market-grid",
+                                                rowData=view.grid_records(),
+                                                columnDefs=_column_definitions(),
+                                                defaultColDef={
+                                                    "sortable": True,
+                                                    "filter": True,
+                                                    "floatingFilter": True,
+                                                    "resizable": True,
+                                                },
+                                                dashGridOptions={
+                                                    "animateRows": False,
+                                                    "tooltipShowDelay": 350,
+                                                    "tooltipHideDelay": 10_000,
+                                                    "pagination": True,
+                                                    "paginationPageSize": 50,
+                                                    "paginationPageSizeSelector": [
+                                                        25,
+                                                        50,
+                                                        100,
+                                                        250,
+                                                    ],
+                                                    "enableCellTextSelection": True,
+                                                    "ensureDomOrder": True,
+                                                    "getRowId": {
+                                                        "function": "params.data.symbol"
+                                                    },
+                                                },
+                                                style={"height": "min(58vh, 700px)"},
+                                            ),
+                                        ],
+                                        className="table-panel",
+                                        **{"aria-label": "Current symbols"},
+                                    ),
                                 ],
-                            )
-                        ]
-                        if replay.observation_overlay is not None
-                        else [
+                            ),
+                            *(
+                                [
+                                    dcc.Tab(
+                                        label="Charts",
+                                        value="charts",
+                                        className="dashboard-tab",
+                                        selected_className="dashboard-tab-selected",
+                                        children=[
+                                            _observation_overlay_panel(
+                                                html,
+                                                dcc,
+                                                replay.observation_overlay,
+                                            )
+                                        ],
+                                    )
+                                ]
+                                if replay.observation_overlay is not None
+                                else [
+                                    dcc.Tab(
+                                        label="Charts",
+                                        value="charts",
+                                        className="dashboard-tab",
+                                        selected_className="dashboard-tab-selected",
+                                        children=[html.P("No Observation Overlay evidence was loaded for this session.", className="empty-state")],
+                                    )
+                                ]
+                            ),
                             dcc.Tab(
-                                label="Charts",
-                                value="charts",
+                                label="Indicators",
+                                value="indicators",
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
-                                children=[html.P("No Observation Overlay evidence was loaded for this session.", className="empty-state")],
-                            )
-                        ]
-                    ),
-                    dcc.Tab(
-                        label="Indicators",
-                        value="indicators",
-                        className="dashboard-tab",
-                        selected_className="dashboard-tab-selected",
-                        children=[html.Section(
-                            [html.H2("Indicators"), html.P("Future workspace: indicators and trading signals are not computed in this read-only replay.")],
-                            className="workspace-placeholder",
-                        )],
-                    ),
-                    dcc.Tab(
-                        label="Monitor",
-                        value="monitor",
-                        className="dashboard-tab",
-                        selected_className="dashboard-tab-selected",
-                        children=[
-                            html.Section(
-                                [
-                                    html.Div(
-                                        [html.Span("Unique members"), html.Strong(f"{view.unique_member_count:,}", id="metric-unique")],
-                                        className="metric-card",
-                                    ),
-                                    html.Div(
-                                        [html.Span("Multi-channel"), html.Strong(f"{view.multi_channel_count:,}", id="metric-multi")],
-                                        className="metric-card",
-                                    ),
-                                    html.Div(
-                                        [html.Span("Events applied"), html.Strong(f"{view.event_count:,}", id="metric-events")],
-                                        className="metric-card",
-                                    ),
-                                    html.Div(
-                                        [html.Span("Observations"), html.Strong(f"{view.observation_count:,}", id="metric-observations")],
-                                        className="metric-card",
-                                    ),
-                                ],
-                                className="metric-grid",
-                                **{"aria-label": "Replay totals"},
+                                children=[html.Section(
+                                    [html.H2("Indicators"), html.P("Future workspace: indicators and trading signals are not computed in this read-only replay.")],
+                                    className="workspace-placeholder",
+                                )],
                             ),
-                            html.Section(
-                                [
-                                    html.H2("Replay monitor"),
-                                    html.P("The membership table and chart use the same replay clock. Live collection is independent."),
+                            dcc.Tab(
+                                label="Monitor",
+                                value="monitor",
+                                className="dashboard-tab",
+                                selected_className="dashboard-tab-selected",
+                                children=[
+                                    html.Section(
+                                        [
+                                            html.Div(
+                                                [html.Span("Unique members"), html.Strong(f"{view.unique_member_count:,}", id="metric-unique")],
+                                                className="metric-card",
+                                            ),
+                                            html.Div(
+                                                [html.Span("Multi-channel"), html.Strong(f"{view.multi_channel_count:,}", id="metric-multi")],
+                                                className="metric-card",
+                                            ),
+                                            html.Div(
+                                                [html.Span("Events applied"), html.Strong(f"{view.event_count:,}", id="metric-events")],
+                                                className="metric-card",
+                                            ),
+                                            html.Div(
+                                                [html.Span("Observations"), html.Strong(f"{view.observation_count:,}", id="metric-observations")],
+                                                className="metric-card",
+                                            ),
+                                        ],
+                                        className="metric-grid",
+                                        **{"aria-label": "Replay totals"},
+                                    ),
+                                    html.Section(
+                                        [
+                                            html.H2("Replay monitor"),
+                                            html.P("The membership table and chart use the same replay clock. Live collection is independent."),
+                                        ],
+                                        className="workspace-placeholder",
+                                    ),
+                                    *([html.Section(
+                                        _acquisition_health_panel(html, acquisition_health_reader()),
+                                        id="acquisition-health-panel",
+                                        className="acquisition-health-panel",
+                                        **{"aria-label": "Acquisition health"},
+                                    )] if acquisition_health_reader else []),
                                 ],
-                                className="workspace-placeholder",
                             ),
-                            *([html.Section(
-                                _acquisition_health_panel(html, acquisition_health_reader()),
-                                id="acquisition-health-panel",
-                                className="acquisition-health-panel",
-                                **{"aria-label": "Acquisition health"},
-                            )] if acquisition_health_reader else []),
+                            dcc.Tab(
+                                label="Alerts",
+                                value="alerts",
+                                className="dashboard-tab",
+                                selected_className="dashboard-tab-selected",
+                                children=[html.Section(
+                                    [html.H2("Alerts"), html.P("No separate historical alert feed is connected. Collection health remains available under Monitor.")],
+                                    className="workspace-placeholder",
+                                )],
+                            ),
                         ],
                     ),
-                    dcc.Tab(
-                        label="Alerts",
-                        value="alerts",
-                        className="dashboard-tab",
-                        selected_className="dashboard-tab-selected",
-                        children=[html.Section(
-                            [html.H2("Alerts"), html.P("No separate historical alert feed is connected. Collection health remains available under Monitor.")],
-                            className="workspace-placeholder",
-                        )],
-                    ),
                 ],
+                id="main-workspace",
+                className="main-workspace",
             ),
         ],
         id="dashboard-page",
