@@ -47,6 +47,13 @@ suite passed **25/25**. The desktop layout has **not** yet received visual
 acceptance on MasterBot; its `dashing` environment uses Plotly 6.5.2 and needs
 an independent review before this UI branch is considered qualified.
 
+For an interactive **synthetic, offline** preview, in the same experimental
+checkout run `call preview_overlay_workspace.cmd` from `dashing`. Open the
+printed localhost address, click **Charts**, and try the activity icons for
+Graph Setups and Replay Settings. The preview does not open any SQLite journal,
+request credentials, or make provider calls. Stop with Ctrl+C or the dashboard's
+Stop server button. Do not infer desktop visual acceptance from the unit tests.
+
 The old `verify_overlay.cmd` still strictly checks the immutable 117-file
 integration fingerprint from PR #9. It is **expected to BLOCK** on legitimate
 new Overlay changes; do not rewrite those accepted source hashes or relabel
