@@ -213,6 +213,119 @@ def replay_callback_payload(
 
 
 class TestQuoteDashboard(unittest.TestCase):
+    def test_membership_browsing_is_read_only_and_old_tables_live_in_monitor(self) -> None:
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        response = client.get("/_dash-layout")
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+
+        def find_id(node: Any, identifier: str) -> Any:
+            if isinstance(node, dict):
+                if node.get("props", {}).get("id") == identifier:
+                    return node
+                for value in node.values():
+                    result = find_id(value, identifier)
+                    if result is not None:
+                        return result
+            elif isinstance(node, list):
+                for child in node:
+                    result = find_id(child, identifier)
+                    if result is not None:
+                        return result
+            return None
+
+        tabs = find_id(response.get_json(), "dashboard-tabs")
+        self.assertIsNotNone(tabs)
+        by_value = {tab["props"]["value"]: tab for tab in tabs["props"]["children"]}
+        membership = by_value["membership"]
+        monitor = by_value["monitor"]
+        self.assertIsNotNone(find_id(membership, "membership-symbol-inspector"))
+        self.assertIsNotNone(find_id(membership, "membership-focus-grid"))
+        self.assertIsNotNone(find_id(membership, "membership-uni-grid"))
+        self.assertIsNotNone(find_id(membership, "membership-hot-grid"))
+        self.assertIsNone(find_id(membership, "market-state-grid"))
+        self.assertIsNone(find_id(membership, "channel-grid"))
+        self.assertIsNotNone(find_id(monitor, "market-state-grid"))
+        self.assertIsNotNone(find_id(monitor, "channel-grid"))
+        self.assertEqual(
+            [row["symbol"] for row in find_id(membership, "membership-focus-grid")["props"]["rowData"]],
+            ["SPY"],
+        )
+        self.assertEqual(find_id(membership, "membership-uni-grid")["props"]["rowData"], [])
+        self.assertIn("READ-ONLY", json.dumps(membership))
+        self.assertIn("status unknown", json.dumps(membership))
+
+    def test_clicking_membership_symbol_only_selects_inspector(self) -> None:
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, value) for key, value in app.callback_map.items()
+            if getattr(value["output"], "component_id", None) == "membership-selected-symbol"
+        )
+        selection_response = client.post("/_dash-update-component", json={
+            "output": callback_key,
+            "outputs": {"id": "membership-selected-symbol", "property": "data"},
+            "changedPropIds": ["membership-focus-grid.selectedRows"],
+            "inputs": [
+                {"id": item["id"], "property": item["property"],
+                 "value": [{"symbol": "SPY"}] if item["id"] == "membership-focus-grid" else []}
+                for item in callback["inputs"]
+            ],
+            "state": [],
+        })
+        self.addCleanup(selection_response.close)
+        self.assertEqual(selection_response.status_code, 200)
+        self.assertEqual(
+            selection_response.get_json()["response"]["membership-selected-symbol"]["data"],
+            "SPY",
+        )
+        # Only the browser selection changes. A click does not publish a revision.
+        self.assertEqual(controller.snapshot().state.channel_revisions["focus"].revision, 0)
+
+    def test_membership_lists_follow_replay_revision_not_final_session(self) -> None:
+        controller = overlay_controller()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, value) for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(item.component_id == "membership-focus-grid" for item in value["output"])
+        )
+
+        def current_lists() -> dict[str, Any]:
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in callback["output"]
+                ],
+                "changedPropIds": ["rendered-event-count.data"],
+                "inputs": [{"id": "rendered-event-count", "property": "data",
+                            "value": controller.snapshot().applied_event_count}],
+                "state": [],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            return response.get_json()["response"]
+
+        before = current_lists()
+        self.assertEqual(before["membership-focus-grid"]["rowData"], [])
+        controller.finish()
+        after = current_lists()
+        self.assertEqual(
+            [row["symbol"] for row in after["membership-focus-grid"]["rowData"]],
+            ["SPY"],
+        )
+        self.assertEqual(after["membership-uni-grid"]["rowData"], [])
+        self.assertEqual(after["membership-focus-count"]["children"], "1")
+        controller.restart()
+        self.assertEqual(current_lists()["membership-focus-grid"]["rowData"], [])
+
     def test_activity_bar_selects_sidebar_without_mutating_replay(self) -> None:
         controller = overlay_controller()
         app = create_quote_dashboard(controller)
@@ -593,7 +706,7 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"replay-speed-dropdown", layout.data)
         self.assertIn(b"server-stop", layout.data)
         self.assertNotIn(b"observation-overlay-panel", layout.data)
-        self.assertEqual(len(app.callback_map), 7)
+        self.assertEqual(len(app.callback_map), 10)
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)

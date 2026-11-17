@@ -52,6 +52,27 @@ five-minute OHLCV candles and volume alongside the same quote, membership,
 and Nasdaq-event evidence. If the provider returns no usable candles, keep
 the quote-only view; never fabricate OHLCV.
 
+## Stage 3 — separate Membership exploration from Monitor
+
+The Membership tab now provides three independently filtered, scrollable
+lists: **Uni only**, **Focus only**, and **Hot**. Each symbol is shown exactly
+once in its highest current tier for easy inspection, while the underlying
+replay membership remains nested (`Hot ⊆ Focus ⊆ Uni`). Selecting any row
+opens a detail inspector based exclusively on saved evidence available at the
+current replay time. Latest quote price, reference change, range, volume,
+security status, and an approximate market cap are shown when the journal
+supplies the required fields; otherwise they are explicitly unavailable.
+An ordinary demotion does not imply a rest-of-day automatic promotion block;
+the journal does not record that policy state, so the inspector says unknown.
+
+The Monitor tab now contains the former membership summary cards and complete
+filterable observation table, alongside replay totals and acquisition health.
+This move preserves their replay-time and wall-clock distinction.
+
+**No drag-and-drop, manual membership writes, or live trading controls are
+enabled.** Historical and Backtest workflows remain separate, and this
+experimental viewer has no authority to publish membership commands.
+
 ## Safety and qualification
 
 - Historical snapshot is read-only. Stop this viewer without stopping collectors.

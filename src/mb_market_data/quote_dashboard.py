@@ -9,6 +9,11 @@ from threading import Timer
 from typing import Any, Callable, Mapping
 from zoneinfo import ZoneInfo
 
+from mb_market_data.membership_browser import (
+    TIERS,
+    membership_tier_records,
+    selected_symbol_details,
+)
 from mb_market_data.observation_overlay import ObservationOverlayData
 from mb_market_data.observation_overlay_view import (
     CHANNEL_COLORS,
@@ -237,6 +242,144 @@ def _channel_cards(html: Any, view: QuoteDashboardView) -> list[Any]:
         )
         for summary in view.channels
     ]
+
+
+def _membership_price(value: float | None) -> str:
+    if value is None:
+        return "Unavailable"
+    return f"${value:,.4f}" if abs(value) < 1 else f"${value:,.2f}"
+
+
+def _membership_inspector(html: Any, view: QuoteDashboardView, symbol: str | None) -> Any:
+    """Show only evidence available at this replay time; never infer a block."""
+
+    details = selected_symbol_details(view, symbol)
+    if details is None:
+        return html.Div(
+            [
+                html.H3("Symbol details"),
+                html.P(
+                    "Select a current member to inspect it. The selected symbol "
+                    "may not yet have been admitted at this replay time."
+                ),
+            ],
+            className="membership-details-empty",
+        )
+
+    band = details.highest_tier.title()
+    status = details.security_status or "Unavailable"
+    cap = (
+        f"Approx. ${details.estimated_market_cap:,.0f} "
+        "(latest quote × shares outstanding)"
+        if details.estimated_market_cap is not None
+        else "Unavailable in recorded quote"
+    )
+    change = (
+        f"{details.change_from_close_percent:+.2f}%"
+        if details.change_from_close_percent is not None
+        else "Unavailable"
+    )
+    fields = (
+        ("Membership", f"{band} · " + ", ".join(c.upper() for c in details.channels)),
+        ("Revisions", ", ".join(f"{c.upper()} r{r}" for c, r in sorted(details.revisions.items()))),
+        ("Last price", _membership_price(details.last_price)),
+        ("Reference (quote close)", _membership_price(details.previous_close)),
+        ("Change vs quote close", change),
+        ("Volume", f"{details.volume:,}" if details.volume is not None else "Unavailable"),
+        ("Today's open", _membership_price(details.day_open)),
+        ("Today's range", f"{_membership_price(details.day_low)} – {_membership_price(details.day_high)}" if details.day_low is not None and details.day_high is not None else "Unavailable"),
+        ("Estimated market cap", cap),
+        ("Security status", status),
+        ("Quote outcome", details.observation_status),
+        ("Latest observation", f"{details.observed_at_et} via {details.latest_channel.upper()}" if details.observed_at_et and details.latest_channel else "No quote observed yet"),
+        ("Promotion block", "Not recorded in this quote journal; status unknown"),
+    )
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Div([html.H3(details.symbol), html.P(details.description or "Company name unavailable")]),
+                    html.Span(band.upper(), className=f"membership-band membership-band-{details.highest_tier}"),
+                ],
+                className="membership-details-heading",
+            ),
+            html.Dl(
+                [html.Div([html.Dt(label), html.Dd(value)]) for label, value in fields],
+                className="membership-details-grid",
+            ),
+            html.P(
+                "Historical · read-only. This information is from saved, "
+                "replay-causal observations; it is not a live price feed. "
+                "A rest-of-day suppression policy is not implied by an ordinary demotion.",
+                className="membership-details-note",
+            ),
+        ]
+    )
+
+
+def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str, Any]]) -> Any:
+    name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
+    return html.Section(
+        [
+            html.Div(
+                [
+                    html.H3(name),
+                    html.Span(f"{len(records):,}", id=f"membership-{tier}-count", className="membership-tier-count"),
+                ],
+                className="membership-tier-heading",
+            ),
+            dag.AgGrid(
+                id=f"membership-{tier}-grid",
+                className="ag-theme-quartz-dark market-grid membership-symbol-grid",
+                rowData=records,
+                columnDefs=[
+                    {"field": "symbol", "headerName": "Symbol", "width": 115, "pinned": "left", "cellClass": "symbol-cell"},
+                    {"field": "last_price", "headerName": "Last", "type": "numericColumn", "width": 95},
+                    {"field": "description", "headerName": "Name", "minWidth": 130, "flex": 1},
+                ],
+                defaultColDef={"sortable": True, "filter": True, "floatingFilter": True, "resizable": True},
+                dashGridOptions={
+                    "rowSelection": "single",
+                    "animateRows": False,
+                    "getRowId": {"function": "params.data.symbol"},
+                    "tooltipShowDelay": 350,
+                },
+                style={"height": "min(46vh, 565px)"},
+            ),
+        ],
+        className=f"membership-tier membership-tier-{tier}",
+    )
+
+
+def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_symbol: str | None) -> Any:
+    by_tier = membership_tier_records(view)
+    return html.Section(
+        [
+            html.Div(
+                [
+                    html.Div([
+                        html.H2("Membership explorer"),
+                        html.P("Select a symbol to inspect its saved information at the replay clock. Filter and scroll each list independently."),
+                    ]),
+                    html.Span("HISTORICAL · READ-ONLY", className="membership-readonly"),
+                ],
+                className="membership-heading",
+            ),
+            html.P("Each symbol appears once, in its highest tier: Uni only, Focus (not Hot), or Hot. Underlying membership remains nested: Hot ⊆ Focus ⊆ Uni.", className="membership-explanation"),
+            html.Div(
+                [_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                className="membership-tier-columns",
+            ),
+            html.Section(
+                _membership_inspector(html, view, selected_symbol),
+                id="membership-symbol-inspector",
+                className="membership-inspector",
+                **{"aria-label": "Selected symbol information"},
+            ),
+            html.P("Membership changes, drag-and-drop, and automatic-promotion suppression are not enabled in historical replay.", className="membership-editing-note"),
+        ],
+        className="membership-explorer",
+    )
 
 
 def _observation_overlay_panel(
@@ -565,6 +708,10 @@ def create_quote_dashboard(
                 data=replay.applied_event_count,
             ),
             dcc.Store(
+                id="membership-selected-symbol",
+                data=(replay.observation_overlay.symbol if replay.observation_overlay is not None else None),
+            ),
+            dcc.Store(
                 id="theme-preference",
                 data="dark",
                 storage_type="local",
@@ -881,67 +1028,11 @@ def create_quote_dashboard(
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
                                 children=[
-                                    html.Section(
-                                        _channel_cards(html, view),
-                                        id="channel-grid",
-                                        className="channel-grid",
-                                        **{"aria-label": "Sampling channels"},
-                                    ),
-                                    html.Section(
-                                        [
-                                            html.Div(
-                                                [
-                                                    html.Div(
-                                                        [
-                                                            html.H2("Current symbols"),
-                                                            html.P(
-                                                                "Sort any column or use the filters "
-                                                                "beneath the headings."
-                                                            ),
-                                                        ]
-                                                    ),
-                                                    html.Div(
-                                                        f"{len(view.rows):,} rows",
-                                                        id="row-count",
-                                                        className="row-count",
-                                                    ),
-                                                ],
-                                                className="table-heading",
-                                            ),
-                                            dag.AgGrid(
-                                                id="market-state-grid",
-                                                className="ag-theme-quartz-dark market-grid",
-                                                rowData=view.grid_records(),
-                                                columnDefs=_column_definitions(),
-                                                defaultColDef={
-                                                    "sortable": True,
-                                                    "filter": True,
-                                                    "floatingFilter": True,
-                                                    "resizable": True,
-                                                },
-                                                dashGridOptions={
-                                                    "animateRows": False,
-                                                    "tooltipShowDelay": 350,
-                                                    "tooltipHideDelay": 10_000,
-                                                    "pagination": True,
-                                                    "paginationPageSize": 50,
-                                                    "paginationPageSizeSelector": [
-                                                        25,
-                                                        50,
-                                                        100,
-                                                        250,
-                                                    ],
-                                                    "enableCellTextSelection": True,
-                                                    "ensureDomOrder": True,
-                                                    "getRowId": {
-                                                        "function": "params.data.symbol"
-                                                    },
-                                                },
-                                                style={"height": "min(58vh, 700px)"},
-                                            ),
-                                        ],
-                                        className="table-panel",
-                                        **{"aria-label": "Current symbols"},
+                                    _membership_panel(
+                                        html,
+                                        dag,
+                                        view,
+                                        replay.observation_overlay.symbol if replay.observation_overlay is not None else None,
                                     ),
                                 ],
                             ),
@@ -1013,9 +1104,59 @@ def create_quote_dashboard(
                                     html.Section(
                                         [
                                             html.H2("Replay monitor"),
-                                            html.P("The membership table and chart use the same replay clock. Live collection is independent."),
+                                            html.P("Sampling revisions and latest quote outcomes below use the replay clock. Wall-clock collection health is separate."),
                                         ],
                                         className="workspace-placeholder",
+                                    ),
+                                    html.Section(
+                                        _channel_cards(html, view),
+                                        id="channel-grid",
+                                        className="channel-grid",
+                                        **{"aria-label": "Sampling channels"},
+                                    ),
+                                    html.Section(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.Div([
+                                                        html.H2("Recorded symbol observations"),
+                                                        html.P("Filter or sort the latest channel results at this replay time."),
+                                                    ]),
+                                                    html.Div(
+                                                        f"{len(view.rows):,} rows",
+                                                        id="row-count",
+                                                        className="row-count",
+                                                    ),
+                                                ],
+                                                className="table-heading",
+                                            ),
+                                            dag.AgGrid(
+                                                id="market-state-grid",
+                                                className="ag-theme-quartz-dark market-grid",
+                                                rowData=view.grid_records(),
+                                                columnDefs=_column_definitions(),
+                                                defaultColDef={
+                                                    "sortable": True,
+                                                    "filter": True,
+                                                    "floatingFilter": True,
+                                                    "resizable": True,
+                                                },
+                                                dashGridOptions={
+                                                    "animateRows": False,
+                                                    "tooltipShowDelay": 350,
+                                                    "tooltipHideDelay": 10_000,
+                                                    "pagination": True,
+                                                    "paginationPageSize": 50,
+                                                    "paginationPageSizeSelector": [25, 50, 100, 250],
+                                                    "enableCellTextSelection": True,
+                                                    "ensureDomOrder": True,
+                                                    "getRowId": {"function": "params.data.symbol"},
+                                                },
+                                                style={"height": "min(58vh, 700px)"},
+                                            ),
+                                        ],
+                                        className="table-panel",
+                                        **{"aria-label": "Recorded symbol observations"},
                                     ),
                                     *([html.Section(
                                         _acquisition_health_panel(html, acquisition_health_reader()),
@@ -1051,6 +1192,42 @@ def create_quote_dashboard(
                       Input("acquisition-health-tick", "n_intervals"))
         def update_acquisition_health(_ticks: int) -> list[Any]:
             return _acquisition_health_panel(html, acquisition_health_reader())
+
+    @app.callback(
+        *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
+        *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
+        Input("rendered-event-count", "data"),
+    )
+    def update_membership_lists(_event_count: int) -> tuple[Any, ...]:
+        replay_view = build_quote_dashboard_view(controller.snapshot().state)
+        records = membership_tier_records(replay_view)
+        return (
+            *[records[tier] for tier in TIERS],
+            *[f"{len(records[tier]):,}" for tier in TIERS],
+        )
+
+    @app.callback(
+        Output("membership-selected-symbol", "data"),
+        *[Input(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
+        prevent_initial_call=True,
+    )
+    def select_membership_symbol(*selected_rows: list[dict[str, Any]] | None) -> Any:
+        """Inspect a symbol; selection never creates a membership command."""
+        selected_grid = ctx.triggered_id
+        for tier, rows in zip(TIERS, selected_rows):
+            if selected_grid == f"membership-{tier}-grid" and rows:
+                symbol = rows[0].get("symbol")
+                return symbol if isinstance(symbol, str) and symbol else no_update
+        return no_update
+
+    @app.callback(
+        Output("membership-symbol-inspector", "children"),
+        Input("membership-selected-symbol", "data"),
+        Input("rendered-event-count", "data"),
+    )
+    def update_membership_inspector(symbol: str | None, _event_count: int) -> Any:
+        replay_view = build_quote_dashboard_view(controller.snapshot().state)
+        return _membership_inspector(html, replay_view, symbol)
 
     @app.callback(
         Output("activity-section", "data"),
