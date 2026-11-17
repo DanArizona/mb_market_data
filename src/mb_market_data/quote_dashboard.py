@@ -340,10 +340,15 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                 defaultColDef={"sortable": True, "filter": True, "floatingFilter": True, "resizable": True},
                 dashGridOptions={
                     "rowSelection": "single",
+                    # The one selected row across all three grids is owned by
+                    # the membership click callback, not by each grid alone.
+                    "suppressRowClickSelection": True,
                     "animateRows": False,
                     "getRowId": {"function": "params.data.symbol"},
                     "tooltipShowDelay": 350,
                 },
+                selectedRows=[],
+                persistence=False,
                 style={"height": "min(46vh, 565px)"},
             ),
         ],
@@ -620,6 +625,19 @@ def _parse_seek_time_utc(
 
 def _acquisition_health_panel(html: Any, status: dict[str, Any]) -> list[Any]:
     """Operational wall-clock state stays separate from replay projections."""
+    if status["state"] == "UNAVAILABLE" and not status.get("channels"):
+        return [
+            html.P(
+                [
+                    html.Strong("Acquisition health · not attached"),
+                    " · This experimental replay has no matching wall-clock "
+                    "health report. Replay data is unaffected. To inspect "
+                    "historical collection health, supply "
+                    "--polling-health-directory when launching the viewer.",
+                ],
+                className="acquisition-health-unavailable",
+            )
+        ]
     current = status["state"] == "CURRENT"
     observed = status.get("observed_at_utc")
     rows = []
@@ -1098,20 +1116,18 @@ def create_quote_dashboard(
                                                 className="metric-card",
                                             ),
                                         ],
-                                        className="metric-grid",
+                                        className="metric-grid monitor-metric-grid",
                                         **{"aria-label": "Replay totals"},
                                     ),
-                                    html.Section(
-                                        [
-                                            html.H2("Replay monitor"),
-                                            html.P("Sampling revisions and latest quote outcomes below use the replay clock. Wall-clock collection health is separate."),
-                                        ],
-                                        className="workspace-placeholder",
+                                    html.P(
+                                        "Sampling revisions and quote outcomes use replay time; "
+                                        "collection health below uses wall-clock time.",
+                                        className="monitor-context-note",
                                     ),
                                     html.Section(
                                         _channel_cards(html, view),
                                         id="channel-grid",
-                                        className="channel-grid",
+                                        className="channel-grid monitor-channel-grid",
                                         **{"aria-label": "Sampling channels"},
                                     ),
                                     html.Section(
@@ -1152,10 +1168,10 @@ def create_quote_dashboard(
                                                     "ensureDomOrder": True,
                                                     "getRowId": {"function": "params.data.symbol"},
                                                 },
-                                                style={"height": "min(58vh, 700px)"},
+                                                style={"height": "min(52vh, 620px)"},
                                             ),
                                         ],
-                                        className="table-panel",
+                                        className="table-panel monitor-table-panel",
                                         **{"aria-label": "Recorded symbol observations"},
                                     ),
                                     *([html.Section(
@@ -1208,17 +1224,22 @@ def create_quote_dashboard(
 
     @app.callback(
         Output("membership-selected-symbol", "data"),
-        *[Input(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
+        *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
+        *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
         prevent_initial_call=True,
     )
-    def select_membership_symbol(*selected_rows: list[dict[str, Any]] | None) -> Any:
-        """Inspect a symbol; selection never creates a membership command."""
+    def select_membership_symbol(*cell_clicks: dict[str, Any] | None) -> tuple[Any, ...]:
+        """Select one row across all grids; never create a membership command."""
         selected_grid = ctx.triggered_id
-        for tier, rows in zip(TIERS, selected_rows):
-            if selected_grid == f"membership-{tier}-grid" and rows:
-                symbol = rows[0].get("symbol")
-                return symbol if isinstance(symbol, str) and symbol else no_update
-        return no_update
+        for tier, click in zip(TIERS, cell_clicks):
+            if selected_grid == f"membership-{tier}-grid" and isinstance(click, dict):
+                symbol = click.get("rowId")
+                if isinstance(symbol, str) and symbol:
+                    return (
+                        symbol,
+                        *({"ids": [symbol]} if current == tier else [] for current in TIERS),
+                    )
+        return (no_update,) * (len(TIERS) + 1)
 
     @app.callback(
         Output("membership-symbol-inspector", "children"),

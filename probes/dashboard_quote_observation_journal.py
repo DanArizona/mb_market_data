@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("database", type=Path, help="Daily .sqlite3 file")
     parser.add_argument("--polling-health-directory", type=Path,
-                        help="Read-only monitor status folder; defaults to output/polling_health/SESSION_DATE")
+                        help="Read-only monitor status folder; defaults to the journal's output/polling_health/SESSION_DATE")
     parser.add_argument(
         "--host",
         default="127.0.0.1",
@@ -170,7 +170,7 @@ def main() -> int:
             controller,
             request_server_stop=stop_event.set,
             acquisition_health_reader=partial(read_health_status,
-                args.polling_health_directory or PROJECT_ROOT / "output/polling_health" / str(reader.session_date),
+                args.polling_health_directory or args.database.parent.parent / "polling_health" / str(reader.session_date),
                 journal=args.database, session_date=reader.session_date),
         )
         server = LocalDashboardServer(

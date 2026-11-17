@@ -953,6 +953,12 @@ def build_observation_overlay_figure(
         vertical_spacing=0.025,
         row_heights=(0.779, 0.22, 0.001),
     )
+    # Keep the volume panel and its navigator where they are, but give the
+    # price candles more breathing room above volume. Increasing the global
+    # subplot spacing also shifts the invisible navigator host subplot.
+    price_domain = list(figure.layout.yaxis.domain)
+    price_domain[0] += 0.05
+    figure.layout.yaxis.domain = price_domain
     reference = resolve_reference(overlay, selected_reference)
     candles = tuple(
         item for item in overlay.candles if off_hours or _regular_hours(item.start_et)

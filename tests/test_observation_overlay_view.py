@@ -238,6 +238,13 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(figure.layout.yaxis2.title.text, "Volume")
         self.assertFalse(figure.layout.yaxis3.visible)
 
+    def test_price_volume_gap_increases_without_moving_volume_or_navigator(self) -> None:
+        figure = build_observation_overlay_figure(overlay())
+        price_to_volume = figure.layout.yaxis.domain[0] - figure.layout.yaxis2.domain[1]
+        volume_to_navigator = figure.layout.yaxis2.domain[0] - figure.layout.yaxis3.domain[1]
+        self.assertGreater(price_to_volume, 0.07)
+        self.assertAlmostEqual(volume_to_navigator, 0.025, places=3)
+
     def test_centers_candles_and_volume_on_five_minute_intervals(self) -> None:
         figure = build_observation_overlay_figure(overlay())
 

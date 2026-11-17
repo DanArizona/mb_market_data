@@ -427,6 +427,40 @@ h1 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.monitor-metric-grid,
+.monitor-channel-grid {
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.monitor-metric-grid .metric-card {
+  padding: 0.55rem 0.75rem;
+}
+
+.monitor-metric-grid .metric-card strong {
+  font-size: 1.1rem;
+}
+
+.monitor-context-note {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.monitor-channel-grid .channel-card {
+  padding: 0.55rem 0.75rem;
+}
+
+.monitor-channel-grid .channel-card-value {
+  margin-top: 0.2rem;
+  font-size: 1.4rem;
+}
+
+.monitor-channel-grid .channel-card-detail {
+  margin-top: 0.1rem;
+  font-size: 0.76rem;
+}
+
 .channel-grid {
   grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
 }
@@ -703,6 +737,15 @@ h1 {
   border-radius: 0.75rem;
 }
 
+.monitor-table-panel {
+  margin-top: 0.55rem;
+  padding: 0.7rem;
+}
+
+.monitor-table-panel .table-heading {
+  padding-bottom: 0.5rem;
+}
+
 .table-heading {
   justify-content: space-between;
   gap: 1rem;
@@ -920,11 +963,20 @@ h1 {
   }
 }
 /* Operational health remains visible above both Monitor and Chart tabs. */
-.acquisition-health-panel { padding: 12px 16px; margin: 12px 0; border: 1px solid #b88423; border-radius: 8px; overflow-x: auto; }
+.acquisition-health-panel { padding: 8px 12px; margin: 8px 0; border: 1px solid #b88423; border-radius: 8px; overflow-x: auto; }
 .acquisition-health-panel h3 { margin: 0 0 8px; }
 .acquisition-health-panel p { margin: 5px 0; }
 .acquisition-health-panel table { width: 100%; border-collapse: collapse; }
 .acquisition-health-panel th, .acquisition-health-panel td { text-align: left; padding: 7px 9px; vertical-align: top; border-bottom: 1px solid #80808055; }
+.acquisition-health-panel:has(.acquisition-health-unavailable) {
+  border-color: var(--line);
+  color: var(--muted);
+}
+.acquisition-health-unavailable {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.acquisition-health-unavailable strong { color: var(--ink); }
 
 /* Workspace shell: independent activity bar, settings panel, and tabbed content. */
 .dashboard-shell {
@@ -1301,9 +1353,39 @@ h1 {
 }
 
 .membership-band-hot {
-  border-color: #e04cf4;
-  color: #e04cf4;
+  border-color: #d100d1;
+  color: #d100d1;
 }
+
+.membership-band-uni,
+.membership-tier-uni .membership-tier-heading h3,
+.membership-tier-uni .membership-tier-count {
+  border-color: #00bcd4;
+  color: #00bcd4;
+}
+
+.membership-band-focus,
+.membership-tier-focus .membership-tier-heading h3,
+.membership-tier-focus .membership-tier-count {
+  border-color: #d4a017;
+  color: #d4a017;
+}
+
+.membership-tier-hot .membership-tier-heading h3,
+.membership-tier-hot .membership-tier-count {
+  border-color: #d100d1;
+  color: #d100d1;
+}
+
+.theme-light .membership-band-uni,
+.theme-light .membership-tier-uni .membership-tier-heading h3,
+.theme-light .membership-tier-uni .membership-tier-count { color: #006d89; border-color: #006d89; }
+.theme-light .membership-band-focus,
+.theme-light .membership-tier-focus .membership-tier-heading h3,
+.theme-light .membership-tier-focus .membership-tier-count { color: #885900; border-color: #885900; }
+.theme-light .membership-band-hot,
+.theme-light .membership-tier-hot .membership-tier-heading h3,
+.theme-light .membership-tier-hot .membership-tier-count { color: #a000a0; border-color: #a000a0; }
 
 .membership-details-grid {
   display: grid;

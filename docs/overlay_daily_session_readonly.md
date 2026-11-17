@@ -62,12 +62,23 @@ opens a detail inspector based exclusively on saved evidence available at the
 current replay time. Latest quote price, reference change, range, volume,
 security status, and an approximate market cap are shown when the journal
 supplies the required fields; otherwise they are explicitly unavailable.
+Selection is exclusive across all three lists: clicking a new symbol clears
+the previously highlighted row, even if it belonged to a different tier.
+The tier headings and inspector badge use the matching Uni cyan, Focus amber,
+and Hot magenta channel colors.
 An ordinary demotion does not imply a rest-of-day automatic promotion block;
 the journal does not record that policy state, so the inspector says unknown.
 
 The Monitor tab now contains the former membership summary cards and complete
 filterable observation table, alongside replay totals and acquisition health.
-This move preserves their replay-time and wall-clock distinction.
+The summary is compact so the table fits better on a 1080p-height screen.
+This move preserves the replay-time and wall-clock distinction. Operational
+health files are optional for completed-day replay: the default lookup is
+relative to the **journal's** output directory, not to the experimental
+viewer checkout. If no matching health report exists, the page shows a small
+"not attached" note; use `--polling-health-directory` to supply an explicit
+historical health folder if available. The absent report does not affect
+saved quote replay.
 
 **No drag-and-drop, manual membership writes, or live trading controls are
 enabled.** Historical and Backtest workflows remain separate, and this

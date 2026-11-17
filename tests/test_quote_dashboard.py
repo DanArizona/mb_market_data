@@ -140,6 +140,25 @@ def overlay_controller() -> QuoteDashboardReplayController:
     )
 
 
+def three_tier_controller() -> QuoteDashboardReplayController:
+    available_at = datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc)
+    event = MembershipRevisionEvent(
+        SamplingHierarchyRevision(
+            session_date=SESSION_DATE,
+            revision=0,
+            effective_at=available_at,
+            uni_symbols=("AAA", "BBB", "CCC"),
+            focus_symbols=("BBB", "CCC"),
+            hot_symbols=("CCC",),
+            source="unit-test",
+        )
+    )
+    return QuoteDashboardReplayController(
+        timeline=ReplayTimeline(SESSION_DATE, 1, available_at, available_at),
+        event_factory=lambda: iter((event,)),
+    )
+
+
 def replay_callback_payload(
     app: Any,
     *,
@@ -250,40 +269,58 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIsNone(find_id(membership, "channel-grid"))
         self.assertIsNotNone(find_id(monitor, "market-state-grid"))
         self.assertIsNotNone(find_id(monitor, "channel-grid"))
+        self.assertIn("monitor-channel-grid", find_id(monitor, "channel-grid")["props"]["className"])
+        self.assertEqual(find_id(monitor, "market-state-grid")["props"]["style"]["height"], "min(52vh, 620px)")
         self.assertEqual(
             [row["symbol"] for row in find_id(membership, "membership-focus-grid")["props"]["rowData"]],
             ["SPY"],
         )
         self.assertEqual(find_id(membership, "membership-uni-grid")["props"]["rowData"], [])
+        for tier in ("uni", "focus", "hot"):
+            self.assertEqual(find_id(membership, f"membership-{tier}-grid")["props"]["selectedRows"], [])
         self.assertIn("READ-ONLY", json.dumps(membership))
         self.assertIn("status unknown", json.dumps(membership))
 
-    def test_clicking_membership_symbol_only_selects_inspector(self) -> None:
-        controller = overlay_controller()
+    def test_clicking_membership_symbol_selects_exactly_one_grid_and_inspector(self) -> None:
+        controller = three_tier_controller()
         controller.finish()
         app = create_quote_dashboard(controller)
         client = app.server.test_client()
         callback_key, callback = next(
             (key, value) for key, value in app.callback_map.items()
-            if getattr(value["output"], "component_id", None) == "membership-selected-symbol"
+            if isinstance(value["output"], list)
+            and any(item.component_id == "membership-selected-symbol" for item in value["output"])
         )
-        selection_response = client.post("/_dash-update-component", json={
-            "output": callback_key,
-            "outputs": {"id": "membership-selected-symbol", "property": "data"},
-            "changedPropIds": ["membership-focus-grid.selectedRows"],
-            "inputs": [
-                {"id": item["id"], "property": item["property"],
-                 "value": [{"symbol": "SPY"}] if item["id"] == "membership-focus-grid" else []}
-                for item in callback["inputs"]
-            ],
-            "state": [],
-        })
-        self.addCleanup(selection_response.close)
-        self.assertEqual(selection_response.status_code, 200)
         self.assertEqual(
-            selection_response.get_json()["response"]["membership-selected-symbol"]["data"],
-            "SPY",
+            [(item["id"], item["property"]) for item in callback["inputs"]],
+            [(f"membership-{tier}-grid", "cellClicked") for tier in ("uni", "focus", "hot")],
         )
+
+        for clicked_tier, symbol in (("focus", "BBB"), ("hot", "CCC"), ("uni", "AAA")):
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in callback["output"]
+                ],
+                "changedPropIds": [f"membership-{clicked_tier}-grid.cellClicked"],
+                "inputs": [
+                    {"id": item["id"], "property": item["property"],
+                     "value": {"rowId": symbol, "colId": "symbol"}
+                     if item["id"] == f"membership-{clicked_tier}-grid" else None}
+                    for item in callback["inputs"]
+                ],
+                "state": [],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            updates = response.get_json()["response"]
+            self.assertEqual(updates["membership-selected-symbol"]["data"], symbol)
+            for tier in ("uni", "focus", "hot"):
+                self.assertEqual(
+                    updates[f"membership-{tier}-grid"]["selectedRows"],
+                    {"ids": [symbol]} if tier == clicked_tier else [],
+                )
         # Only the browser selection changes. A click does not publish a revision.
         self.assertEqual(controller.snapshot().state.channel_revisions["focus"].revision, 0)
 
@@ -294,7 +331,8 @@ class TestQuoteDashboard(unittest.TestCase):
         callback_key, callback = next(
             (key, value) for key, value in app.callback_map.items()
             if isinstance(value["output"], list)
-            and any(item.component_id == "membership-focus-grid" for item in value["output"])
+            and any(item.component_id == "membership-focus-grid" and item.component_property == "rowData"
+                    for item in value["output"])
         )
 
         def current_lists() -> dict[str, Any]:
@@ -395,6 +433,24 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn("Last reported: RUNNING", text)
         self.assertIn("17", text)
         self.assertEqual(controller.snapshot().applied_event_count, before)
+
+    def test_missing_external_health_is_a_compact_notice_not_a_replay_failure(self) -> None:
+        controller = three_tier_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller, acquisition_health_reader=lambda: {
+            "state": "UNAVAILABLE",
+            "reason": "[WinError 3] The system cannot find the path specified: C:\\QA\\polling_health\\latest.json",
+            "channels": {},
+        })
+        client = app.server.test_client()
+        response = client.get("/_dash-layout")
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        markup = json.dumps(response.get_json(), ensure_ascii=False)
+        self.assertIn("Acquisition health · not attached", markup)
+        self.assertIn("--polling-health-directory", markup)
+        self.assertNotIn("WinError", markup)
+        self.assertNotIn("Replay monitor", markup)
 
     def test_clicked_candle_field_sets_visible_reference(self) -> None:
         controller = overlay_controller()
