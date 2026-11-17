@@ -315,17 +315,18 @@ class ObservationOverlayProjector:
     def __init__(
         self,
         *,
-        cache: ObservationOverlayOHLCVCache,
+        cache: ObservationOverlayOHLCVCache | None,
         symbol: str,
         session_date: date,
         halt_intervals: tuple[OverlayHaltInterval, ...] = (),
         poll_seconds_by_run: Mapping[str, tuple[int, ...]] | None = None,
     ) -> None:
         normalized_symbol = _symbol(symbol)
-        if cache.symbol != normalized_symbol:
-            raise ValueError("OHLCV cache symbol differs from overlay symbol")
-        if cache.session_date != session_date:
-            raise ValueError("OHLCV cache session differs from overlay session")
+        if cache is not None:
+            if cache.symbol != normalized_symbol:
+                raise ValueError("OHLCV cache symbol differs from overlay symbol")
+            if cache.session_date != session_date:
+                raise ValueError("OHLCV cache session differs from overlay session")
         self.cache = cache
         self.symbol = normalized_symbol
         self.session_date = session_date
@@ -336,6 +337,11 @@ class ObservationOverlayProjector:
             or (
                 interval.end_et is not None
                 and interval.end_et.date() != session_date
+            )
+            or (
+                interval.first_observed_at_utc is not None
+                and _utc(interval.first_observed_at_utc, "halt first_observed_at_utc")
+                < interval.start_et.astimezone(UTC)
             )
             for interval in self.halt_intervals
         ):
@@ -424,7 +430,7 @@ class ObservationOverlayProjector:
             symbol=self.symbol,
             replay_time_utc=cutoff,
             cache=self.cache,
-            candles=self.cache.visible_candles(cutoff),
+            candles=self.cache.visible_candles(cutoff) if self.cache else (),
             membership_transitions=tuple(
                 item
                 for item in self._transitions
@@ -437,7 +443,11 @@ class ObservationOverlayProjector:
             ),
             halt_intervals=tuple(
                 interval for interval in self.halt_intervals
-                if interval.start_et <= cutoff.astimezone(ET)
+                if (
+                    _utc(interval.first_observed_at_utc, "halt first_observed_at_utc")
+                    if interval.first_observed_at_utc is not None
+                    else interval.start_et.astimezone(UTC)
+                ) <= cutoff
             ),
         )
 
