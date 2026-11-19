@@ -1276,10 +1276,11 @@ def create_quote_dashboard(
         *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
         *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
         Input("rendered-event-count", "data"),
-        Input("workspace-mode", "value"),
-        *([Input("operator-receipt-tick", "n_intervals")] if operator_bridge else []),
+        *([Input("workspace-mode", "value"),
+           Input("operator-receipt-tick", "n_intervals")] if operator_bridge else []),
     )
-    def update_membership_lists(_event_count: int, mode: str, *_ticks: Any) -> tuple[Any, ...]:
+    def update_membership_lists(_event_count: int, *mode_and_ticks: Any) -> tuple[Any, ...]:
+        mode = mode_and_ticks[0] if operator_bridge is not None else "historical"
         if mode == "real-time" and operator_bridge is not None:
             records = operator_bridge.records()
         else:
@@ -1294,14 +1295,14 @@ def create_quote_dashboard(
         Output("membership-selected-symbol", "data"),
         *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
-        Input("workspace-mode", "value"),
+        *([Input("workspace-mode", "value")] if operator_bridge else []),
         prevent_initial_call=True,
     )
     def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
-        if ctx.triggered_id == "workspace-mode":
+        """Select exactly one row across the three grids without publishing."""
+        if operator_bridge is not None and ctx.triggered_id == "workspace-mode":
             return (None, [], [], [])
         cell_clicks = args[:len(TIERS)]
-        """Select one row across all grids; never create a membership command."""
         selected_grid = ctx.triggered_id
         for tier, click in zip(TIERS, cell_clicks):
             if selected_grid == f"membership-{tier}-grid" and isinstance(click, dict):
@@ -1317,11 +1318,12 @@ def create_quote_dashboard(
         Output("membership-symbol-inspector", "children"),
         Input("membership-selected-symbol", "data"),
         Input("rendered-event-count", "data"),
-        Input("workspace-mode", "value"),
-        *([Input("operator-receipt-tick", "n_intervals")] if operator_bridge else []),
+        *([Input("workspace-mode", "value"),
+           Input("operator-receipt-tick", "n_intervals")] if operator_bridge else []),
     )
     def update_membership_inspector(symbol: str | None, _event_count: int,
-                                     mode: str, *_ticks: Any) -> Any:
+                                     *mode_and_ticks: Any) -> Any:
+        mode = mode_and_ticks[0] if operator_bridge is not None else "historical"
         if mode == "real-time" and operator_bridge is not None:
             try:
                 return _synthetic_membership_inspector(html, operator_bridge.snapshot(symbol))
