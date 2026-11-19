@@ -39,6 +39,10 @@ ET = ZoneInfo("America/New_York")
 OVERLAY_CHANNELS = ("uni", "focus", "hot")
 ACTIVITY_SECTIONS = ("information", "graph", "replay", "backtest", "trading")
 
+from .overlay_membership_bridge import SyntheticOverlayMembership
+from .daily_operator_ui import OperatorProblem
+
+
 
 def _activity_button(html: Any, section: str, glyph: str, title: str, *, active: bool) -> Any:
     return html.Button(
@@ -356,7 +360,55 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
     )
 
 
-def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_symbol: str | None) -> Any:
+
+def _synthetic_membership_inspector(html: Any, snapshot: dict[str, Any]) -> Any:
+    """Render only synthetic evidence; never mistake it for replay quotes."""
+    item = snapshot.get("selected")
+    if not item:
+        return html.P("Select a synthetic member or enter a symbol to inspect it.")
+    labels = [
+        ("Symbol", item["symbol"]),
+        ("Current tier", item["tier"].upper()),
+        ("Saved synthetic quote", str(item.get("last") if item.get("last") is not None else "Unavailable")),
+        ("Quote time (UTC)", item.get("quote_time_utc") or "Unavailable"),
+        ("Recorded (UTC)", item.get("recorded_at_utc") or "Unavailable"),
+        ("Effective revision", str(snapshot.get("effective_revision"))),
+    ]
+    return html.Div([
+        html.H3(item["symbol"] + " · SYNTHETIC QA"),
+        html.Dl([html.Div([html.Dt(label), html.Dd(value)]) for label, value in labels]),
+        html.P("Fabricated evidence only. No live market feed or production membership authority."),
+    ])
+
+
+def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
+    return html.Section([
+        html.H3("Manual membership · OFFLINE SYNTHETIC QA"),
+        html.P("Preview and confirm using the disposable membership worker. Real production controls are disabled."),
+        html.Div([
+            html.Label(["Symbol", dcc.Input(id="operator-symbol", type="text", placeholder="e.g. INTC", maxLength=20)]),
+            html.Label(["Action", dcc.Dropdown(id="operator-action", options=[
+                {"label": "Promote", "value": "promote"},
+                {"label": "Ordinary demote", "value": "demote"},
+            ], value="demote", clearable=False)]),
+            html.Label(["Destination", dcc.Dropdown(id="operator-target", options=[
+                {"label": "Uni", "value": "uni"},
+                {"label": "Focus", "value": "focus"},
+                {"label": "Hot", "value": "hot"},
+            ], value="focus", clearable=False)]),
+        ], className="operator-bridge-inputs"),
+        html.Button("Preview action", id="operator-preview-button", n_clicks=0),
+        html.Div(id="operator-preview-status", role="status"),
+        html.Button("Confirm and queue request", id="operator-confirm-button", disabled=True, n_clicks=0),
+        html.Div(id="operator-confirm-status", role="status"),
+        html.Div(id="operator-receipt-status", role="status"),
+        dcc.Store(id="operator-preview-proposal"),
+        dcc.Store(id="operator-command-id"),
+        dcc.Interval(id="operator-receipt-tick", interval=1000),
+    ], id="operator-bridge-panel", style={"display": "none"}, className="operator-bridge-panel")
+
+
+def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_symbol: str | None, *, operator_enabled: bool = False, dcc: Any = None) -> Any:
     by_tier = membership_tier_records(view)
     return html.Section(
         [
@@ -381,7 +433,8 @@ def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_sy
                 className="membership-inspector",
                 **{"aria-label": "Selected symbol information"},
             ),
-            html.P("Membership changes, drag-and-drop, and automatic-promotion suppression are not enabled in historical replay.", className="membership-editing-note"),
+            html.P("Historical replay remains read-only. Synthetic operator actions are only available in explicitly selected Real Time (synthetic QA) mode.", className="membership-editing-note"),
+            *([_synthetic_operator_controls(html, dcc)] if operator_enabled else []),
         ],
         className="membership-explorer",
     )
@@ -669,6 +722,7 @@ def create_quote_dashboard(
     *,
     request_server_stop: Callable[[], None] | None = None,
     acquisition_health_reader: Callable[[], dict[str, Any]] | None = None,
+    synthetic_operator_root: Path | None = None,
 ) -> Any:
     """Create a local interactive dashboard for one replay controller."""
 
@@ -689,6 +743,8 @@ def create_quote_dashboard(
             "Dash dependencies are not installed. Run: " "python -m pip install -e ."
         ) from exc
 
+    operator_bridge = (SyntheticOverlayMembership(synthetic_operator_root)
+                       if synthetic_operator_root is not None else None)
     replay = controller.snapshot()
     view = build_quote_dashboard_view(replay.state)
     controls = _control_values(replay)
@@ -1010,7 +1066,7 @@ def create_quote_dashboard(
                                     dcc.RadioItems(
                                         id="workspace-mode",
                                         options=[
-                                            {"label": "Real Time", "value": "real-time", "disabled": True},
+                                            {"label": "Real Time (synthetic QA)" if operator_bridge else "Real Time", "value": "real-time", "disabled": operator_bridge is None},
                                             {"label": "Historical", "value": "historical"},
                                             {"label": "Backtest", "value": "backtest", "disabled": True},
                                         ],
@@ -1023,9 +1079,9 @@ def create_quote_dashboard(
                             ),
                             html.Div(
                                 [
-                                    html.Strong("Historical · read-only", className="workspace-mode-status"),
+                                    html.Strong("Historical · read-only", className="workspace-mode-status", id="workspace-mode-status"),
                                     html.Span(
-                                        "Real Time and Backtest are reserved for future data adapters.",
+                                        "Real Time is synthetic-only if enabled; Backtest remains unavailable.",
                                         className="workspace-mode-note",
                                     ),
                                 ],
@@ -1051,6 +1107,8 @@ def create_quote_dashboard(
                                         dag,
                                         view,
                                         replay.observation_overlay.symbol if replay.observation_overlay is not None else None,
+                                        operator_enabled=operator_bridge is not None,
+                                        dcc=dcc,
                                     ),
                                 ],
                             ),
@@ -1058,6 +1116,7 @@ def create_quote_dashboard(
                                 [
                                     dcc.Tab(
                                         label="Charts",
+                                id="dashboard-tab-charts",
                                         value="charts",
                                         className="dashboard-tab",
                                         selected_className="dashboard-tab-selected",
@@ -1074,6 +1133,7 @@ def create_quote_dashboard(
                                 else [
                                     dcc.Tab(
                                         label="Charts",
+                                id="dashboard-tab-charts",
                                         value="charts",
                                         className="dashboard-tab",
                                         selected_className="dashboard-tab-selected",
@@ -1083,6 +1143,7 @@ def create_quote_dashboard(
                             ),
                             dcc.Tab(
                                 label="Indicators",
+                                id="dashboard-tab-indicators",
                                 value="indicators",
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
@@ -1093,6 +1154,7 @@ def create_quote_dashboard(
                             ),
                             dcc.Tab(
                                 label="Monitor",
+                                id="dashboard-tab-monitor",
                                 value="monitor",
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
@@ -1184,6 +1246,7 @@ def create_quote_dashboard(
                             ),
                             dcc.Tab(
                                 label="Alerts",
+                                id="dashboard-tab-alerts",
                                 value="alerts",
                                 className="dashboard-tab",
                                 selected_className="dashboard-tab-selected",
@@ -1213,10 +1276,15 @@ def create_quote_dashboard(
         *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
         *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
         Input("rendered-event-count", "data"),
+        Input("workspace-mode", "value"),
+        *([Input("operator-receipt-tick", "n_intervals")] if operator_bridge else []),
     )
-    def update_membership_lists(_event_count: int) -> tuple[Any, ...]:
-        replay_view = build_quote_dashboard_view(controller.snapshot().state)
-        records = membership_tier_records(replay_view)
+    def update_membership_lists(_event_count: int, mode: str, *_ticks: Any) -> tuple[Any, ...]:
+        if mode == "real-time" and operator_bridge is not None:
+            records = operator_bridge.records()
+        else:
+            replay_view = build_quote_dashboard_view(controller.snapshot().state)
+            records = membership_tier_records(replay_view)
         return (
             *[records[tier] for tier in TIERS],
             *[f"{len(records[tier]):,}" for tier in TIERS],
@@ -1226,9 +1294,13 @@ def create_quote_dashboard(
         Output("membership-selected-symbol", "data"),
         *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
+        Input("workspace-mode", "value"),
         prevent_initial_call=True,
     )
-    def select_membership_symbol(*cell_clicks: dict[str, Any] | None) -> tuple[Any, ...]:
+    def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
+        if ctx.triggered_id == "workspace-mode":
+            return (None, [], [], [])
+        cell_clicks = args[:len(TIERS)]
         """Select one row across all grids; never create a membership command."""
         selected_grid = ctx.triggered_id
         for tier, click in zip(TIERS, cell_clicks):
@@ -1245,10 +1317,117 @@ def create_quote_dashboard(
         Output("membership-symbol-inspector", "children"),
         Input("membership-selected-symbol", "data"),
         Input("rendered-event-count", "data"),
+        Input("workspace-mode", "value"),
+        *([Input("operator-receipt-tick", "n_intervals")] if operator_bridge else []),
     )
-    def update_membership_inspector(symbol: str | None, _event_count: int) -> Any:
+    def update_membership_inspector(symbol: str | None, _event_count: int,
+                                     mode: str, *_ticks: Any) -> Any:
+        if mode == "real-time" and operator_bridge is not None:
+            try:
+                return _synthetic_membership_inspector(html, operator_bridge.snapshot(symbol))
+            except (OSError, ValueError) as error:
+                return html.P(f"Synthetic membership unavailable: {error}")
         replay_view = build_quote_dashboard_view(controller.snapshot().state)
         return _membership_inspector(html, replay_view, symbol)
+
+
+    if operator_bridge is not None:
+        @app.callback(
+            Output("dashboard-tabs", "value"),
+            Output("dashboard-tab-charts", "disabled"),
+            Output("dashboard-tab-indicators", "disabled"),
+            Output("dashboard-tab-monitor", "disabled"),
+            Output("dashboard-tab-alerts", "disabled"),
+            Input("workspace-mode", "value"),
+        )
+        def isolate_synthetic_workspace(mode: str) -> tuple[Any, ...]:
+            if mode == "real-time":
+                return "membership", True, True, True, True
+            return no_update, False, False, False, False
+
+    if operator_bridge is not None:
+        @app.callback(
+            Output("workspace-mode-status", "children"),
+            Output("operator-bridge-panel", "style"),
+            Output("operator-confirm-button", "disabled"),
+            Input("workspace-mode", "value"),
+            Input("operator-preview-proposal", "data"),
+        )
+        def operator_mode_status(mode: str, proposal: dict | None) -> tuple:
+            if mode != "real-time":
+                return "Historical · read-only", {"display": "none"}, True
+            return ("REAL TIME · OFFLINE SYNTHETIC QA (NO SCHWAB)",
+                    {"display": "block"},
+                    not bool(proposal and proposal.get("proposal_id")))
+
+        @app.callback(
+            Output("operator-symbol", "value"),
+            Input("membership-selected-symbol", "data"),
+            State("workspace-mode", "value"),
+            prevent_initial_call=True,
+        )
+        def operator_selected_symbol(symbol: str | None, mode: str) -> Any:
+            return symbol if mode == "real-time" and symbol else no_update
+
+        @app.callback(
+            Output("operator-preview-proposal", "data"),
+            Output("operator-preview-status", "children"),
+            Input("operator-preview-button", "n_clicks"),
+            Input("workspace-mode", "value"),
+            State("operator-symbol", "value"),
+            State("operator-action", "value"),
+            State("operator-target", "value"),
+            prevent_initial_call=True,
+        )
+        def operator_preview(_clicks: int, mode: str, symbol: str | None,
+                             action: str, target: str) -> tuple[Any, str]:
+            if ctx.triggered_id != "operator-preview-button":
+                return None, "Historical replay is read-only." if mode != "real-time" else "Select a symbol, then Preview."
+            try:
+                proposal = operator_bridge.preview(mode, symbol or "", action, target)
+            except (OperatorProblem, OSError, ValueError) as error:
+                return None, f"Preview blocked: {error}"
+            return proposal, (
+                f"PREVIEW ONLY: {proposal['symbol']} {proposal['before'].upper()} → "
+                f"{proposal['after'].upper()} at published revision "
+                f"r{proposal['based_on_revision']}. Confirm explicitly to queue."
+            )
+
+        @app.callback(
+            Output("operator-command-id", "data"),
+            Output("operator-confirm-status", "children"),
+            Input("operator-confirm-button", "n_clicks"),
+            State("workspace-mode", "value"),
+            State("operator-preview-proposal", "data"),
+            prevent_initial_call=True,
+        )
+        def operator_confirm(_clicks: int, mode: str,
+                             proposal: dict | None) -> tuple[Any, str]:
+            if not proposal or not proposal.get("proposal_id"):
+                return None, "No current preview. Preview again."
+            try:
+                result = operator_bridge.confirm(mode, proposal["proposal_id"])
+            except (OperatorProblem, OSError, ValueError) as error:
+                return None, f"No request queued: {error}"
+            command = result["request"]
+            return command["id"], f"Request queued: {command['id']}. Waiting for worker receipt."
+
+        @app.callback(
+            Output("operator-receipt-status", "children"),
+            Input("operator-receipt-tick", "n_intervals"),
+            Input("operator-command-id", "data"),
+            State("workspace-mode", "value"),
+        )
+        def operator_receipt(_ticks: int, command_id: str | None,
+                             mode: str) -> str:
+            if mode != "real-time" or not command_id:
+                return "No synthetic operator request in progress."
+            try:
+                receipt = operator_bridge.result(command_id)
+            except (OSError, ValueError) as error:
+                return f"Receipt unavailable: {error}"
+            return (f"Worker receipt: {receipt.get('status', 'UNKNOWN')} · "
+                    f"Command {command_id}")
 
     @app.callback(
         Output("activity-section", "data"),
