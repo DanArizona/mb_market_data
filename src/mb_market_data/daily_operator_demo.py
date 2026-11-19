@@ -179,10 +179,10 @@ def main(argv=None) -> int:
             demo.start()
             server = create_server(demo.root, port=args.port,
                                    demo_stop=lambda: demo.stop_server(server))
-            print('OFFLINE SYNTHETIC DEMO — NO SCHWAB / NO PASSWORD / NO PRODUCTION JOURNAL', flush=True)
+            print('OFFLINE SYNTHETIC DEMO - NO SCHWAB / NO PASSWORD / NO PRODUCTION JOURNAL', flush=True)
             print(f'SYNTHETIC TEMP ROOT: {demo.root}', flush=True)
             print(f'Open Firefox: http://127.0.0.1:{args.port}/', flush=True)
-            print('Try INTC Hot → Focus, then Focus → Hot; also try a symbol outside Uni.', flush=True)
+            print('Try INTC Hot to Focus, then Focus to Hot; also try a symbol outside Uni.', flush=True)
             print('Use Stop Demo in Firefox for graceful shutdown and temporary journal cleanup.', flush=True)
             server.serve_forever(poll_interval=.25)
             if demo.stop_requested.is_set():

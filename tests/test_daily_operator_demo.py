@@ -201,10 +201,14 @@ class DemoTests(unittest.TestCase):
             listener.bind(('127.0.0.1', 0))
             port = listener.getsockname()[1]
         script = Path(__file__).resolve().parents[1] / 'probes' / 'run_daily_operator_demo.py'
+        child_env = os.environ.copy()
+        # Windows may redirect Python output through legacy code pages.
+        # Require the demo startup messages to work even with strict ASCII.
+        child_env['PYTHONIOENCODING'] = 'ascii:strict'
         proc = subprocess.Popen([sys.executable, '-u', '-B', str(script),
                                  '--port', str(port), '--duration-minutes', '10'],
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, env=os.environ.copy())
+                                text=True, errors='replace', env=child_env)
         def cleanup_child():
             if proc.poll() is None:
                 proc.kill()
@@ -226,7 +230,12 @@ class DemoTests(unittest.TestCase):
                 time.sleep(.05)
             finally:
                 conn.close()
-        self.assertIsNotNone(config, 'Isolated demo child must start its local server')
+        if config is None:
+            if proc.poll() is None:
+                proc.kill()
+            child_output, _ = proc.communicate(timeout=5)
+            self.fail('Isolated demo child failed to start (exit={})\n{}'.format(
+                proc.returncode, child_output[-4000:]))
         conn = HTTPConnection('127.0.0.1', port, timeout=3)
         try:
             conn.request('POST', '/stop-demo', body='{}', headers={
