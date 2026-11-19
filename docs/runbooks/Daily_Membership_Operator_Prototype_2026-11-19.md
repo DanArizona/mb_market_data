@@ -32,7 +32,64 @@ Ordinary demotion is the accepted policy: a previously observed halt episode
 will not automatically undo it; a distinct later qualifying Nasdaq halt can
 elevate the symbol again. `Suppress Automatic` remains deferred.
 
-## Separate Windows QA only — when approved for an operator trial
+## First Windows QA: fully isolated synthetic demo
+
+The experiment branch includes a **self-contained synthetic demonstration**.
+It creates a brand-new temporary state directory and schema-v2 journal,
+fabricates Uni/Focus/Hot memberships and quotes, and runs the **existing
+membership worker** with an explicitly fake identity verifier. The web page
+uses the normal Preview → Confirm → worker receipt → effective-revision path.
+Neither the UI nor the worker constructs a Schwab client, loads credentials,
+connects to a market-data service, or touches production session files.
+
+Use a *separate* checkout of
+`experiment/daily-membership-operator-ui-20261119` on MasterBot. In Windows
+CMD, activate the offline QA environment, change into that checkout, then run
+each command separately:
+
+```cmd
+conda activate closeout-qa
+```
+
+```cmd
+call verify_membership_operator.cmd
+```
+
+This verifies both the prototype's offline unit tests and a full local HTTP
+preview/confirm/worker/effectiveness exercise. After it passes, start the
+synthetic viewer (default port 8054):
+
+```cmd
+call membership_operator_demo.cmd
+```
+
+Open **http://127.0.0.1:8054/** in Firefox on the same computer. Confirm the
+prominent amber **OFFLINE SYNTHETIC DEMO** banner, and try:
+
+1. Select `INTC` in Hot. Choose **Ordinary demote → Focus**, Preview, examine
+   the proposed change, then Confirm. Watch the receipt until the revision
+   becomes effective; `INTC` should then appear in Focus only.
+2. Select `INTC` again and **Promote → Hot** through a new Preview/Confirm.
+   Observe the second revision and its eventual effectiveness.
+3. Select another member to inspect its synthetic quote timestamp, distinct
+   from the fabricated API response time. Try Preview then Cancel and confirm
+   that no request is queued.
+4. Optionally enter an outside-Universe symbol. Its identity validation in
+   this demo is **simulated**, not an actual Schwab equity check.
+
+The runner prints the local URL and does **not** launch a browser. The demo
+starts near the current wall clock so that its future-effective revisions can
+be observed without seeking. Closing the Firefox tab does not stop the demo;
+use **Ctrl+C in its own CMD window** to stop the synthetic worker and server.
+The temporary journal and receipts are discarded automatically when the
+process exits. No production worker, installed controller, or main branch is
+modified.
+
+If port 8054 is occupied, pass `--port 8055` to the demo launcher and use
+`http://127.0.0.1:8055/` instead. If a test fails, leave production alone and
+capture the CMD output for diagnosis.
+
+## Later Windows QA against an existing opted-in session — not yet approved
 
 From an isolated integration checkout with the appropriate Python environment:
 
@@ -50,10 +107,11 @@ call membership_operator.cmd --state-root "C:\PATH\TO\EXISTING\daily_session\202
 Open `http://127.0.0.1:8054/` on that computer. Closing the viewer or using
 Ctrl+C in its console stops only the operator window; collectors keep running.
 
-Run offline tests without any provider access or password:
+The old direct test command below is superseded by the dedicated verifier
+above, which supplies the checkout's `src` and `tests` paths:
 
 ```cmd
-python -B -m unittest -v tests.test_daily_operator_ui
+call verify_membership_operator.cmd
 ```
 
 ## Explicit limitations and next gates
@@ -65,8 +123,8 @@ python -B -m unittest -v tests.test_daily_operator_ui
 - Server-side previews are advisory. The existing membership writer is the
   final authority on caps, source policy, equity identity, effective time,
   and whether the request is accepted.
-- Before an attended Windows live operator trial: run the integrated offline
-  verifier in a clean test environment; confirm the installed controller plan
-  and state path; review localhost access and stop behavior; and approve the
-  exact deployment/launch procedure. Do not replace installed production code
-  or merge to main as part of this prototype.
+- Before an attended Windows *live* operator trial: accept the synthetic QA
+  results, confirm the installed controller plan and state path, review
+  localhost access and stop behavior, and approve the exact deployment/launch
+  procedure. Do not replace installed production code or merge to main as
+  part of this prototype.

@@ -65,6 +65,7 @@ function setDetails(info){
 }
 function renderSnapshot(v){
   view=v;
+  el('demo-banner').hidden=!v.synthetic_demo;
   el('session-date').textContent=v.session_date;
   el('session-phase').textContent=v.phase+(v.final?' · FINAL REPORT':'');
   el('revision').textContent=`Effective r${v.effective_revision??'—'} · Latest published r${v.published_revision??'—'} · ${clock(v.as_of_utc)}`;

@@ -159,6 +159,7 @@ def membership_snapshot(root: Path, *, selected: str | None = None, clock=utcnow
     pending = (dict(revision=latest['revision'], effective_at_utc=latest['effective_at_utc'])
                if latest and (not effective or latest['revision'] != effective['revision']) else None)
     return {'session_date': plan['session_date'], 'as_of_utc': asof,
+            'synthetic_demo': bool(plan.get('operator_demo_synthetic')),
             'phase': status.get('phase', 'UNAVAILABLE'), 'final': status.get('final_status', False),
             'eligible': allowed, 'eligibility_message': reason,
             'effective_revision': effective['revision'] if effective else None,
@@ -260,7 +261,8 @@ PAGE = '''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <p>MANUAL MEMBERSHIP OPERATOR · LOCAL EXPERIMENT</p></div>
 <div class="header-status"><strong id="session-date">Session unavailable</strong>
 <small id="session-phase">Checking local collector…</small></div></header>
-<main><div id="gate" role="status" class="gate">Checking controller and worker…</div>
+<main><div id="demo-banner" class="demo-banner" hidden>OFFLINE SYNTHETIC DEMO — FABRICATED QUOTES · NO SCHWAB CONNECTION · NO PRODUCTION FILES</div>
+<div id="gate" role="status" class="gate">Checking controller and worker…</div>
 <div class="intro"><h2>Membership</h2><span id="revision">—</span></div>
 <p class="muted">Each symbol appears once at its highest tier. Underlying membership is nested: Hot ⊆ Focus ⊆ Uni.
 This window does not start, stop, or authenticate a collector.</p>
