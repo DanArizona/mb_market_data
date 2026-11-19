@@ -188,6 +188,16 @@ class OverlayHaltSegment(NamedTuple):
     reason_code: str
 
 
+class OverlayDailyHaltMarker(NamedTuple):
+    plotted_at_et: datetime
+    halted_at_et: datetime
+    first_observed_at_et: datetime
+    quote_at_et: datetime
+    price: float
+    reason_code: str
+    quote_security_status: str
+
+
 class OverlayRequestErrorSegment(NamedTuple):
     channel: str
     start_et: datetime
@@ -208,6 +218,10 @@ def resolve_halt_segments(
     replay_time_et = overlay.replay_time_utc.astimezone(ET)
     segments: list[OverlayHaltSegment] = []
     for interval in overlay.halt_intervals:
+        # A daily feed event has no causally verified end. Rendering it as
+        # a span through replay time would assert a halt duration we do not know.
+        if interval.first_observed_at_utc is not None:
+            continue
         visible_end = min(interval.end_et or replay_time_et, replay_time_et)
         if visible_end <= interval.start_et:
             continue
@@ -235,6 +249,60 @@ def resolve_halt_segments(
             )
         )
     return tuple(segments)
+
+
+def resolve_daily_halt_markers(
+    overlay: ObservationOverlayData,
+    *,
+    off_hours: bool,
+) -> tuple[OverlayDailyHaltMarker, ...]:
+    """Place daily Nasdaq reports only when a real quote can anchor them.
+
+    Source halt time and first system observation remain distinct. If the
+    first quote is later than Nasdaq observation, its price cannot appear on
+    the chart until that quote actually became available.
+    """
+
+    markers: list[OverlayDailyHaltMarker] = []
+    priced = [
+        (point, price)
+        for point in overlay.quote_points
+        if (price := _quote_price(point)) is not None
+    ]
+    for interval in overlay.halt_intervals:
+        observed = interval.first_observed_at_utc
+        if observed is None:
+            continue
+        if not off_hours and not _regular_hours(interval.start_et):
+            continue
+        # A preceding known quote is preferable to a later price. Otherwise
+        # the first subsequent quote is used, but never before its own time.
+        prior = next(
+            ((point, price) for point, price in reversed(priced)
+             if point.available_at_utc <= observed),
+            None,
+        )
+        anchor = prior or next(
+            ((point, price) for point, price in priced
+             if point.available_at_utc >= observed),
+            None,
+        )
+        if anchor is None:
+            continue
+        point, price = anchor
+        plotted = max(observed, point.available_at_utc).astimezone(ET)
+        markers.append(
+            OverlayDailyHaltMarker(
+                plotted,
+                interval.start_et,
+                observed.astimezone(ET),
+                point.available_at_utc.astimezone(ET),
+                price,
+                interval.reason_code,
+                str(point.values.get("quote_security_status") or "unknown"),
+            )
+        )
+    return tuple(markers)
 
 
 def resolve_request_error_segments(
@@ -1069,6 +1137,57 @@ def build_observation_overlay_figure(
                 "%{customdata[1]}–%{customdata[2]} ET<br>"
                 "Reason code %{customdata[0]}<br>"
                 "Marker price %{y} (first in-halt observation)<extra></extra>"
+            ),
+            detailed_hover=detailed_hover,
+            shift_hover=shift_hover,
+        )
+
+    daily_markers = resolve_daily_halt_markers(overlay, off_hours=off_hours)
+    if daily_markers:
+        figure.add_trace(
+            go.Scatter(
+                x=[item.plotted_at_et for item in daily_markers],
+                y=[item.price for item in daily_markers],
+                mode="markers",
+                name="Nasdaq halt first observed",
+                marker={
+                    "symbol": "diamond-open",
+                    "color": HALT_COLOR,
+                    "size": 13,
+                    "line": {"color": HALT_COLOR, "width": 2},
+                },
+                customdata=[
+                    [
+                        item.halted_at_et.strftime("%H:%M:%S.%f")[:-3],
+                        item.first_observed_at_et.strftime("%H:%M:%S.%f")[:-3],
+                        item.quote_at_et.strftime("%H:%M:%S.%f")[:-3],
+                        item.reason_code,
+                        item.quote_security_status,
+                    ]
+                    for item in daily_markers
+                ],
+            ),
+            row=1,
+            col=1,
+        )
+        figure.data[-1].xaxis = "x3"
+        daily_hover = (
+            "<b>Nasdaq halt report</b><br>"
+            "Halt event %{customdata[0]} ET<br>"
+            "First observed %{customdata[1]} ET<br>"
+            "Reason %{customdata[3]}<br>"
+            "Quote anchor %{customdata[2]} ET · %{y}"
+            "<extra></extra>"
+        )
+        _hover_variants(
+            figure.data[-1],
+            category="feature",
+            standard=daily_hover,
+            detailed=daily_hover.replace(
+                "<extra>",
+                "<br>Quote status %{customdata[4]}"
+                "<br>Report time is distinct from market event time; "
+                "no release time inferred<extra>",
             ),
             detailed_hover=detailed_hover,
             shift_hover=shift_hover,

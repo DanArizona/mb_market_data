@@ -25,6 +25,7 @@ from mb_market_data.observation_overlay_view import (
     resolve_overlay_time_viewport,
     resolve_reference,
     resolve_halt_segments,
+    resolve_daily_halt_markers,
     selected_reference_from_click,
 )
 from mb_market_data.overlay_halts import OverlayHaltInterval
@@ -106,6 +107,47 @@ def overlay() -> ObservationOverlayData:
 
 
 class TestObservationOverlayView(unittest.TestCase):
+    def test_daily_nasdaq_report_is_marker_not_assumed_halt_span(self) -> None:
+        event = OverlayHaltInterval(
+            datetime(2026, 9, 24, 9, 31, 9, tzinfo=ET),
+            None,
+            "LUDP",
+            datetime(2026, 9, 24, 13, 32, 3, tzinfo=UTC),
+        )
+        value = replace(overlay(), halt_intervals=(event,))
+        self.assertEqual(resolve_halt_segments(value, off_hours=True), ())
+        markers = resolve_daily_halt_markers(value, off_hours=True)
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(markers[0].plotted_at_et.strftime("%H:%M:%S"), "09:32:03")
+        self.assertEqual(markers[0].halted_at_et.strftime("%H:%M:%S"), "09:31:09")
+        self.assertEqual(markers[0].price, 10.4)
+        figure = build_observation_overlay_figure(value)
+        daily = [trace for trace in figure.data
+                 if trace.name == "Nasdaq halt first observed"]
+        self.assertEqual(len(daily), 1)
+        self.assertEqual(daily[0].mode, "markers")
+        self.assertEqual(daily[0].customdata[0][0], "09:31:09.000")
+        self.assertEqual(daily[0].customdata[0][1], "09:32:03.000")
+
+    def test_daily_nasdaq_marker_waits_for_actual_quote_anchor(self) -> None:
+        event = OverlayHaltInterval(
+            datetime(2026, 9, 24, 9, 31, 9, tzinfo=ET),
+            None,
+            "LUDP",
+            datetime(2026, 9, 24, 13, 32, 3, tzinfo=UTC),
+        )
+        later = replace(
+            overlay().quote_points[0],
+            available_at_utc=datetime(2026, 9, 24, 13, 33, tzinfo=UTC),
+        )
+        value = replace(overlay(), halt_intervals=(event,), quote_points=(later,))
+        markers = resolve_daily_halt_markers(value, off_hours=True)
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(markers[0].plotted_at_et.strftime("%H:%M:%S"), "09:33:00")
+        self.assertEqual(resolve_daily_halt_markers(
+            replace(value, quote_points=()), off_hours=True
+        ), ())
+
     def test_halt_segment_uses_first_in_halt_quote_and_recorded_release(self) -> None:
         value = overlay()
         halt = OverlayHaltInterval(

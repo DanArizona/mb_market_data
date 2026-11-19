@@ -16,7 +16,10 @@ if str(SRC_ROOT) not in sys.path:
 
 from mb_market_data.local_dashboard_server import LocalDashboardServer
 from mb_market_data.polling_health_status import read_health_status
-from mb_market_data.overlay_halts import load_overlay_halt_intervals
+from mb_market_data.overlay_halts import (
+    load_daily_nasdaq_halt_events,
+    load_overlay_halt_intervals,
+)
 from mb_market_data.observation_overlay import (
     ObservationOverlayProjector,
     load_observation_overlay_cache,
@@ -66,15 +69,35 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--overlay-symbol",
+        help=(
+            "Enable a selected-symbol, read-only quote Overlay without a "
+            "candle cache; adding a validated OHLCV cache later enables candles"
+        ),
+    )
+    halts = parser.add_mutually_exclusive_group()
+    halts.add_argument(
         "--nasdaq-halts-json",
         type=Path,
         help="Historical Nasdaq probe normalized.json for Overlay halt intervals",
+    )
+    halts.add_argument(
+        "--nasdaq-daily-events-json",
+        type=Path,
+        help=(
+            "Completed daily_session/DATE/nasdaq/events.json for causally "
+            "observed Nasdaq halt markers (never infer release times)"
+        ),
     )
     args = parser.parse_args()
     if not 1 <= args.port <= 65_535:
         parser.error("--port must be between 1 and 65535")
     if args.nasdaq_halts_json and not args.observation_overlay_cache:
         parser.error("--nasdaq-halts-json requires --observation-overlay-cache")
+    if args.nasdaq_daily_events_json and not (
+        args.observation_overlay_cache or args.overlay_symbol
+    ):
+        parser.error("--nasdaq-daily-events-json requires --overlay-symbol or --observation-overlay-cache")
     return args
 
 
@@ -96,23 +119,40 @@ def main() -> int:
             if args.observation_overlay_cache is not None
             else None
         )
+        overlay_symbol = (
+            overlay_cache.symbol if overlay_cache is not None
+            else args.overlay_symbol.strip().upper() if args.overlay_symbol else None
+        )
+        if args.overlay_symbol and not args.overlay_symbol.strip():
+            raise ValueError("--overlay-symbol must be nonblank")
+        if overlay_cache is not None and args.overlay_symbol and (
+            args.overlay_symbol.strip().upper() != overlay_cache.symbol
+        ):
+            raise ValueError("--overlay-symbol differs from OHLCV cache symbol")
         overlay_projector_factory = (
             partial(
                 ObservationOverlayProjector,
                 cache=overlay_cache,
-                symbol=overlay_cache.symbol,
+                symbol=overlay_symbol,
                 session_date=reader.session_date,
                 poll_seconds_by_run=reader.poll_seconds_by_run(),
                 halt_intervals=(
                     load_overlay_halt_intervals(
                         args.nasdaq_halts_json,
-                        symbol=overlay_cache.symbol,
+                        symbol=overlay_symbol,
                         session_date=reader.session_date,
                     )
-                    if args.nasdaq_halts_json is not None else ()
+                    if args.nasdaq_halts_json is not None
+                    else load_daily_nasdaq_halt_events(
+                        args.nasdaq_daily_events_json,
+                        symbol=overlay_symbol,
+                        session_date=reader.session_date,
+                    )
+                    if args.nasdaq_daily_events_json is not None
+                    else ()
                 ),
             )
-            if overlay_cache is not None
+            if overlay_symbol is not None
             else None
         )
         controller = QuoteDashboardReplayController(
@@ -146,11 +186,16 @@ def main() -> int:
     elapsed = time.perf_counter() - started
     url = f"http://{args.host}:{args.port}"
     print(f"Session date     : {reader.session_date.isoformat()}")
+    if overlay_symbol is not None:
+        print(f"OO symbol        : {overlay_symbol}")
     if overlay_cache is not None:
-        print(f"OO symbol        : {overlay_cache.symbol}")
         print(f"OO cache         : {args.observation_overlay_cache}")
+    elif overlay_symbol is not None:
+        print("OO candles       : none (quote-only historical replay)")
     if args.nasdaq_halts_json is not None:
         print(f"Nasdaq halts     : {args.nasdaq_halts_json}")
+    if args.nasdaq_daily_events_json is not None:
+        print(f"Daily Nasdaq     : {args.nasdaq_daily_events_json}")
     print(f"Replay events    : {timeline.event_count:,}")
     print(
         "Initial position : "
