@@ -17,7 +17,8 @@ import math
 from pathlib import Path
 import secrets
 import sqlite3
-from threading import Lock
+from threading import Lock, Thread
+from typing import Callable
 from urllib.parse import parse_qs, urlparse
 
 from .daily_membership import CONTRACT, LEVELS, normalized, read, report_result, submit, timestamp, utcnow
@@ -261,7 +262,9 @@ PAGE = '''<!doctype html><html lang="en"><head><meta charset="utf-8">
 <p>MANUAL MEMBERSHIP OPERATOR · LOCAL EXPERIMENT</p></div>
 <div class="header-status"><strong id="session-date">Session unavailable</strong>
 <small id="session-phase">Checking local collector…</small></div></header>
-<main><div id="demo-banner" class="demo-banner" hidden>OFFLINE SYNTHETIC DEMO — FABRICATED QUOTES · NO SCHWAB CONNECTION · NO PRODUCTION FILES</div>
+<main><div id="demo-banner" class="demo-banner" hidden>
+<span>OFFLINE SYNTHETIC DEMO — FABRICATED QUOTES · NO SCHWAB CONNECTION · NO PRODUCTION FILES</span>
+<button id="stop-demo" class="stop-demo" type="button">Stop Demo</button></div>
 <div id="gate" role="status" class="gate">Checking controller and worker…</div>
 <div class="intro"><h2>Membership</h2><span id="revision">—</span></div>
 <p class="muted">Each symbol appears once at its highest tier. Underlying membership is nested: Hot ⊆ Focus ⊆ Uni.
@@ -289,9 +292,13 @@ This window does not start, stop, or authenticate a collector.</p>
 Closing this window does not stop collection.</footer></main></body></html>'''
 
 
-def create_server(root: Path, *, port: int = 8054, clock=utcnow) -> ThreadingHTTPServer:
-    """Bind exclusively to loopback; constructing the server never submits work."""
+def create_server(root: Path, *, port: int = 8054, clock=utcnow,
+                  demo_stop: Callable[[], None] | None = None) -> ThreadingHTTPServer:
+    """Bind to loopback; only an explicitly synthetic session can stop itself."""
     state = OperatorState(root, clock=clock)
+    if demo_stop is not None and not read(state.root / 'plan.json').get('operator_demo_synthetic'):
+        raise ValueError('Demo shutdown is only available for synthetic sessions')
+    demo_shutdown_started = False
     assets = files('mb_market_data').joinpath('assets')
     css = assets.joinpath('membership_operator.css').read_bytes()
     js = assets.joinpath('membership_operator.js').read_bytes()
@@ -344,8 +351,12 @@ def create_server(root: Path, *, port: int = 8054, clock=utcnow) -> ThreadingHTT
                 self.fail(error)
 
         def do_POST(self):
+            nonlocal demo_shutdown_started
             path = urlparse(self.path).path
-            if path not in ('/preview', '/confirm'):
+            if path == '/stop-demo' and demo_stop is None:
+                self.json(404, {'error': 'Demo shutdown is unavailable for this session'})
+                return
+            if path not in ('/preview', '/confirm', '/stop-demo'):
                 self.json(405, {'error': 'Unsupported action'})
                 return
             base = 'http://127.0.0.1:' + str(self.server.server_port)
@@ -362,6 +373,19 @@ def create_server(root: Path, *, port: int = 8054, clock=utcnow) -> ThreadingHTT
                 data = json.loads(self.rfile.read(size))
                 if not isinstance(data, dict):
                     raise OperatorProblem('Expected an object.', 400)
+                if path == '/stop-demo':
+                    if data:
+                        raise OperatorProblem('Demo stop takes no parameters.', 400)
+                    self.json(202, {'status': 'STOP_REQUESTED', 'synthetic_only': True})
+                    # shutdown() must run outside the serving thread. Only
+                    # the synthetic runner supplies this callback; the normal
+                    # production viewer has no shutdown endpoint.
+                    with state.lock:
+                        start_shutdown = not demo_shutdown_started
+                        demo_shutdown_started = True
+                    if start_shutdown:
+                        Thread(target=demo_stop, name='synthetic-demo-shutdown', daemon=True).start()
+                    return
                 if path == '/preview':
                     answer = state.preview(data.get('symbol', ''), data.get('action', ''), data.get('target', ''))
                 else:

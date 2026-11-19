@@ -64,7 +64,8 @@ call membership_operator_demo.cmd
 ```
 
 Open **http://127.0.0.1:8054/** in Firefox on the same computer. Confirm the
-prominent amber **OFFLINE SYNTHETIC DEMO** banner, and try:
+prominent amber **OFFLINE SYNTHETIC DEMO** banner and **Stop Demo** button,
+and try:
 
 1. Select `INTC` in Hot. Choose **Ordinary demote → Focus**, Preview, examine
    the proposed change, then Confirm. Watch the receipt until the revision
@@ -78,12 +79,16 @@ prominent amber **OFFLINE SYNTHETIC DEMO** banner, and try:
    this demo is **simulated**, not an actual Schwab equity check.
 
 The runner prints the local URL and does **not** launch a browser. The demo
-starts near the current wall clock so that its future-effective revisions can
-be observed without seeking. Closing the Firefox tab does not stop the demo;
-use **Ctrl+C in its own CMD window** to stop the synthetic worker and server.
-The temporary journal and receipts are discarded automatically when the
-process exits. No production worker, installed controller, or main branch is
-modified.
+starts near the current wall clock with a **three-hour default window** so its
+future-effective revisions can be observed without seeking. Closing the
+Firefox tab does not stop the demo. To stop it, click **Stop Demo** in the amber
+banner and accept the confirmation dialog. The browser sends an authenticated
+loopback-only request; the synthetic worker and server stop, temporary journal
+and receipts are removed, and the Python process returns to the CMD prompt.
+The stop endpoint is **not available** for a non-synthetic session. If the
+browser cannot send the request, inspect the exact demo PID before attempting
+a process-specific emergency stop; do not terminate unrelated collectors.
+No production worker, installed controller, or main branch is modified.
 
 If port 8054 is occupied, pass `--port 8055` to the demo launcher and use
 `http://127.0.0.1:8055/` instead. If a test fails, leave production alone and

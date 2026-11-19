@@ -2,13 +2,18 @@
 from datetime import datetime, timezone
 from http.client import HTTPConnection
 import json
+import os
 from pathlib import Path
+import socket
+import subprocess
+import sys
 import tempfile
 from threading import Thread
 import time
 import unittest
 from unittest.mock import patch
 
+from mb_market_data.acquisition_health import atomic_json
 from mb_market_data.daily_operator_demo import DemoSession, seed_demo
 from mb_market_data.daily_operator_ui import create_server, membership_snapshot
 
@@ -63,7 +68,8 @@ class DemoTests(unittest.TestCase):
             time.sleep(.05)
         else:
             self.fail('Synthetic membership worker did not start')
-        server = create_server(self.root, port=0)
+        server = create_server(self.root, port=0,
+                               demo_stop=lambda: demo.stop_server(server))
         thread = Thread(target=server.serve_forever, kwargs={'poll_interval': .01}, daemon=True)
         thread.start()
         self.addCleanup(server.server_close)
@@ -138,9 +144,108 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(restored['selected']['tier'], 'hot')
         self.assertEqual(restored['effective_revision'], 4)
+
+        # The shutdown command is restricted to a valid same-origin browser
+        # session with its CSRF token; bad tokens cannot close the demo.
+        invalid_headers = dict(headers, **{'X-MB-Operator-CSRF':'wrong'})
+        code, denied = exchange('POST', '/stop-demo', {}, invalid_headers)
+        self.assertEqual(code, 403, denied)
+        self.assertTrue(thread.is_alive())
+        code, denied = exchange('POST', '/stop-demo', {},
+                                dict(headers, Origin='http://unrelated.example'))
+        self.assertEqual(code, 403, denied)
+        self.assertTrue(thread.is_alive())
+        code, denied = exchange('POST', '/stop-demo', {'other': 'value'}, headers)
+        self.assertEqual(code, 400, denied)
+        self.assertTrue(thread.is_alive())
+        code, accepted = exchange('POST', '/stop-demo', {}, headers)
+        self.assertEqual(code, 202, accepted)
+        self.assertEqual(accepted['status'], 'STOP_REQUESTED')
+        thread.join(timeout=4)
+        self.assertFalse(thread.is_alive(), 'Stop Demo must unblock serve_forever')
         demo.close()
         read_only = membership_snapshot(self.root, selected='INTC')
         self.assertFalse(read_only['eligible'], 'Shutdown disables further commands')
+
+    def test_shutdown_is_unavailable_without_synthetic_callback(self):
+        plan = seed_demo(self.root)
+        server = create_server(self.root, port=0)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        conn = HTTPConnection('127.0.0.1', server.server_port, timeout=3)
+        self.addCleanup(conn.close)
+        conn.request('GET', '/config')
+        config = json.loads(conn.getresponse().read())
+        data = json.dumps({})
+        conn.request('POST', '/stop-demo', body=data, headers={
+            'Content-Type':'application/json',
+            'X-MB-Operator-CSRF':config['csrf'],
+            'Origin':f'http://127.0.0.1:{server.server_port}'})
+        response = conn.getresponse()
+        self.assertEqual(response.status, 404)
+        response.read()
+        self.assertTrue(thread.is_alive())
+        server.shutdown()
+        server.server_close()
+
+        plan['operator_demo_synthetic'] = False
+        atomic_json(self.root / 'plan.json', plan)
+        with self.assertRaisesRegex(ValueError, 'synthetic sessions'):
+            create_server(self.root, port=0, demo_stop=lambda: None)
+
+    def test_stop_demo_exits_subprocess_and_removes_its_temp_journal(self):
+        """Exercise the same entry point used by the Windows CMD launcher."""
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0))
+            port = listener.getsockname()[1]
+        script = Path(__file__).resolve().parents[1] / 'probes' / 'run_daily_operator_demo.py'
+        proc = subprocess.Popen([sys.executable, '-u', '-B', str(script),
+                                 '--port', str(port), '--duration-minutes', '10'],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, env=os.environ.copy())
+        def cleanup_child():
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+            if proc.stdout is not None:
+                proc.stdout.close()
+        self.addCleanup(cleanup_child)
+        config = None
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and proc.poll() is None:
+            conn = HTTPConnection('127.0.0.1', port, timeout=1)
+            try:
+                conn.request('GET', '/config')
+                response = conn.getresponse()
+                if response.status == 200:
+                    config = json.loads(response.read())
+                    break
+            except OSError:
+                time.sleep(.05)
+            finally:
+                conn.close()
+        self.assertIsNotNone(config, 'Isolated demo child must start its local server')
+        conn = HTTPConnection('127.0.0.1', port, timeout=3)
+        try:
+            conn.request('POST', '/stop-demo', body='{}', headers={
+                'Content-Type': 'application/json',
+                'X-MB-Operator-CSRF': config['csrf'],
+                'Origin': f'http://127.0.0.1:{port}'})
+            response = conn.getresponse()
+            self.assertEqual(response.status, 202)
+            self.assertEqual(json.loads(response.read())['status'], 'STOP_REQUESTED')
+        finally:
+            conn.close()
+        self.assertEqual(proc.wait(timeout=10), 0,
+                         'Stop Demo must exit the Python process, returning the CMD prompt')
+        output, _ = proc.communicate(timeout=2)
+        paths = [line.split(': ', 1)[1] for line in output.splitlines()
+                 if line.startswith('SYNTHETIC TEMP ROOT: ')]
+        self.assertEqual(len(paths), 1, output)
+        self.assertFalse(Path(paths[0]).exists(), 'Stop Demo must remove temporary files')
+        self.assertIn('Synthetic temporary files removed', output)
 
 
 if __name__ == '__main__':

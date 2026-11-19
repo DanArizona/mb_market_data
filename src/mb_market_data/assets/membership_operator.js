@@ -1,6 +1,6 @@
 'use strict';
 const el=id=>document.getElementById(id);
-let csrf=null, view=null, proposal=null, latestRequest=null, refreshing=false, selected='', renderedKey='';
+let csrf=null, view=null, proposal=null, latestRequest=null, refreshing=false, selected='', renderedKey='', stoppingDemo=false;
 const names={uni:'UNI',focus:'FOCUS',hot:'HOT',outside:'OUTSIDE UNI'};
 const currency=v=>v==null?'Unavailable':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:4}).format(v);
 const integer=v=>v==null?'Unavailable':new Intl.NumberFormat('en-US').format(v);
@@ -78,7 +78,7 @@ function renderSnapshot(v){
   renderLists();setDetails(v.selected);
 }
 async function refresh(){
-  if(refreshing)return;refreshing=true;
+  if(stoppingDemo||refreshing)return;refreshing=true;
   try{
     const query=selected?'?symbol='+encodeURIComponent(selected):'';
     renderSnapshot(await request('/snapshot'+query));
@@ -131,6 +131,21 @@ function refreshTargets(){
   if([...target.options].some(o=>o.value===old))target.value=old;
   clearProposal();
 }
+async function stopDemo(){
+  if(stoppingDemo||!view?.synthetic_demo)return;
+  if(!window.confirm('Stop this synthetic demo and remove its temporary journal?'))return;
+  stoppingDemo=true;clearProposal();el('stop-demo').disabled=true;el('preview').disabled=true;
+  failure('');showReceipt('Requesting graceful synthetic demo shutdown…','pending');
+  try{
+    const reply=await post('/stop-demo',{});
+    if(reply.status!=='STOP_REQUESTED')throw Error('Unexpected stop acknowledgement');
+    el('gate').className='gate blocked';
+    el('gate').textContent='SYNTHETIC DEMO STOP REQUESTED · The server and worker are shutting down.';
+    showReceipt('Stop acknowledged. The CMD prompt should return after temporary files are removed.','good');
+  }catch(e){stoppingDemo=false;el('stop-demo').disabled=false;
+    failure('DEMO STOP NOT CONFIRMED: '+e.message+' — check the CMD window before another attempt.');
+    await refresh();}
+}
 async function boot(){
   for(const tier of ['uni','focus','hot'])el(tier+'-filter').addEventListener('input',()=>{renderedKey='';renderLists();});
   let debounce;
@@ -138,9 +153,10 @@ async function boot(){
     clearTimeout(debounce);debounce=setTimeout(refresh,260);});
   el('action').onchange=refreshTargets;el('target').onchange=clearProposal;
   el('preview').onclick=previewAction;el('confirm').onclick=confirmAction;el('cancel').onclick=clearProposal;
+  el('stop-demo').onclick=stopDemo;
   refreshTargets();
   try{csrf=(await request('/config')).csrf;await refresh();}
   catch(e){failure('Cannot connect to local operator: '+e.message);el('preview').disabled=true;}
-  setInterval(()=>{refresh();pollReceipt();},3500);
+  setInterval(()=>{if(!stoppingDemo){refresh();pollReceipt();}},3500);
 }
 boot();

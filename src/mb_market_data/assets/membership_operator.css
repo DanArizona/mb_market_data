@@ -7,7 +7,8 @@ header h1{font-size:23px;line-height:1.2;margin:0}header p{font-size:11px;letter
 main{padding:15px 22px 14px;max-width:1750px;margin:auto}h2{font-size:18px;margin:0 0 8px}h3{font-size:16px;margin:0}.muted{color:var(--muted)}.intro{display:flex;align-items:center;justify-content:space-between;margin:12px 0 0}
 .intro span{font:12px ui-monospace,Consolas,monospace;color:var(--muted)}.intro+p{font-size:13px;margin:3px 0 12px}
 .gate{padding:11px 14px;border:1px solid #346658;color:#bbf1e3;background:#0c2a2b;border-radius:9px;font-weight:650}
-.demo-banner{padding:12px 14px;margin-bottom:12px;border:2px solid #db9341;border-radius:9px;background:#493019;color:#ffddb0;font-size:13px;font-weight:800;letter-spacing:.025em}
+.demo-banner{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:12px 14px;margin-bottom:12px;border:2px solid #db9341;border-radius:9px;background:#493019;color:#ffddb0;font-size:13px;font-weight:800;letter-spacing:.025em}
+.demo-banner[hidden]{display:none}.stop-demo{flex-shrink:0;background:#843b27;border-color:#ffa36b;color:white;font-weight:800;padding:8px 15px}
 .gate.blocked{border-color:#786047;background:#302718;color:#ffd59a}.gate.pending{border-color:#456488;background:#152b40;color:#b9dcff}
 .tier-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.tier{border:1px solid var(--line);border-radius:11px;background:var(--panel);padding:12px;min-width:0}
 .tier h3{display:flex;justify-content:space-between;align-items:center;margin:2px 0 12px}.tier h3 span{font:700 12px ui-monospace,Consolas,monospace;border:1px solid #2b9988;color:var(--teal);padding:5px 9px;border-radius:7px}

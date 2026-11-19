@@ -45,7 +45,7 @@ def synthetic_identity(_client, symbol, evidence_path):
     return True
 
 
-def seed_demo(root: Path, *, at: datetime | None = None, duration_minutes: int = 90) -> dict:
+def seed_demo(root: Path, *, at: datetime | None = None, duration_minutes: int = 180) -> dict:
     """Populate only the caller-provided new, empty directory with test data."""
     root = Path(root).resolve()
     if not 10 <= duration_minutes <= 180:
@@ -124,7 +124,7 @@ def seed_demo(root: Path, *, at: datetime | None = None, duration_minutes: int =
 
 class DemoSession:
     """Own temporary heartbeats and the single synthetic membership worker."""
-    def __init__(self, root: Path, *, duration_minutes: int = 90, at: datetime | None = None):
+    def __init__(self, root: Path, *, duration_minutes: int = 180, at: datetime | None = None):
         self.root = Path(root).resolve()
         self.plan = seed_demo(self.root, at=at, duration_minutes=duration_minutes)
         self.stop_requested = Event()
@@ -157,11 +157,16 @@ class DemoSession:
         for thread in self.threads:
             thread.join(timeout=3)
 
+    def stop_server(self, server):
+        """Request server shutdown from the separate stop-handler thread."""
+        self.stop_requested.set()
+        server.shutdown()
+
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8054)
-    parser.add_argument('--duration-minutes', type=int, default=90)
+    parser.add_argument('--duration-minutes', type=int, default=180)
     args = parser.parse_args(argv)
     if not 1024 <= args.port <= 65535:
         parser.error('Use a local port from 1024 through 65535')
@@ -172,18 +177,23 @@ def main(argv=None) -> int:
         server = None
         try:
             demo.start()
-            server = create_server(demo.root, port=args.port)
+            server = create_server(demo.root, port=args.port,
+                                   demo_stop=lambda: demo.stop_server(server))
             print('OFFLINE SYNTHETIC DEMO — NO SCHWAB / NO PASSWORD / NO PRODUCTION JOURNAL', flush=True)
+            print(f'SYNTHETIC TEMP ROOT: {demo.root}', flush=True)
             print(f'Open Firefox: http://127.0.0.1:{args.port}/', flush=True)
             print('Try INTC Hot → Focus, then Focus → Hot; also try a symbol outside Uni.', flush=True)
-            print('Ctrl+C closes this demo only and removes its temporary journal.', flush=True)
+            print('Use Stop Demo in Firefox for graceful shutdown and temporary journal cleanup.', flush=True)
             server.serve_forever(poll_interval=.25)
+            if demo.stop_requested.is_set():
+                print('Stop Demo received; closing synthetic worker and server.', flush=True)
         except KeyboardInterrupt:
             print('Synthetic demonstration stopped.', flush=True)
         finally:
             if server is not None:
                 server.server_close()
             demo.close()
+    print('Synthetic temporary files removed; CMD prompt should now return.', flush=True)
     return 0
 
 
