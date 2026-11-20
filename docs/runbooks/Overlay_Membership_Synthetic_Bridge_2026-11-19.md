@@ -90,7 +90,9 @@ When the ticker text changes, the previous selected symbol, inspector details
 and the associated grid highlight are cleared. Selecting a symbol by clicking
 one of the three tier lists still fills the search field and immediately shows
 its details; the resulting programmatic search-field update does **not** clear
-the selection. Enter and Find use the same exact, case-insensitive symbol
+the selection. The bidirectional text/selection synchronization is implemented
+in a **single Dash callback**, since Dash does not support a circular
+dependency spanning separate callbacks. Enter and Find use the same exact, case-insensitive symbol
 lookup against the current effective synthetic roster or historical replay
 position. Unknown symbols report absence, never a fabricated membership.
 

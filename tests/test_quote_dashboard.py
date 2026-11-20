@@ -322,6 +322,7 @@ class TestQuoteDashboard(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             updates = response.get_json()["response"]
             self.assertEqual(updates["membership-selected-symbol"]["data"], symbol)
+            self.assertEqual(updates["membership-search-symbol"]["value"], symbol)
             for tier in ("uni", "focus", "hot"):
                 self.assertEqual(
                     updates[f"membership-{tier}-grid"]["selectedRows"],
@@ -768,14 +769,24 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"replay-speed-dropdown", layout.data)
         self.assertIn(b"server-stop", layout.data)
         self.assertNotIn(b"observation-overlay-panel", layout.data)
-        # Shared cross-tier lookup adds one non-mutating callback to reflect
-        # the selected ticker in the search field. The historical replay
-        # callbacks and their data dependencies are otherwise unchanged.
-        self.assertEqual(len(app.callback_map), 11)
-        search_callback = app.callback_map["membership-search-symbol.value"]
-        self.assertEqual(
-            [(item["id"], item["property"]) for item in search_callback["inputs"]],
-            [("membership-selected-symbol", "data")],
+        # Cross-tier lookup and search-input synchronization are handled by
+        # one callback, avoiding a multi-callback circular dependency.
+        self.assertEqual(len(app.callback_map), 10)
+        membership_callback = next(
+            entry for entry in app.callback_map.values()
+            if isinstance(entry["output"], list)
+            and any(item.component_id == "membership-selected-symbol"
+                    for item in entry["output"])
+        )
+        self.assertIn(
+            ("membership-search-symbol", "value"),
+            [(item.component_id, item.component_property)
+             for item in membership_callback["output"]],
+        )
+        self.assertIn(
+            ("membership-search-symbol", "value"),
+            [(item["id"], item["property"])
+             for item in membership_callback["inputs"]],
         )
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)

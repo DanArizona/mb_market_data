@@ -102,6 +102,11 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(panels[-1].children[1].id, "membership-inspector-panel")
         self.assertIn("membership-search-symbol", components)
         self.assertIn("membership-find-button", components)
+        self.assertEqual(
+            [item.id for item in descendants(panels[-1].children[0])
+             if getattr(item, "id", None) == "membership-search-symbol"],
+            ["membership-search-symbol"],
+        )
         for tier in ("uni", "focus", "hot"):
             grid = components[f"membership-{tier}-grid"]
             self.assertEqual([col["field"] for col in grid.columnDefs],
@@ -155,6 +160,7 @@ class BridgeTests(unittest.TestCase):
                          {"ids": ["INTC"]})
         self.assertEqual(synthetic["membership-focus-grid"]["selectedRows"], [])
         self.assertIn("Hot", synthetic["membership-search-status"]["children"])
+        self.assertEqual(synthetic["membership-search-symbol"]["value"], "INTC")
         self.assertEqual(synthetic["membership-hot-grid"]["scrollTo"],
                          {"rowId": "INTC", "rowPosition": "middle"})
         self.assertNotIn("scrollTo", synthetic.get("membership-focus-grid", {}))
@@ -164,6 +170,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(historical["membership-focus-grid"]["selectedRows"],
                          {"ids": ["SPY"]})
         self.assertIn("Focus only", historical["membership-search-status"]["children"])
+        self.assertEqual(historical["membership-search-symbol"]["value"], "SPY")
         self.assertEqual(historical["membership-focus-grid"]["scrollTo"],
                          {"rowId": "SPY", "rowPosition": "middle"})
 

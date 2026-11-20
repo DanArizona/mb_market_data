@@ -1355,6 +1355,7 @@ def create_quote_dashboard(
         *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
         Output("membership-search-status", "children"),
         *[Output(f"membership-{tier}-grid", "scrollTo") for tier in TIERS],
+        Output("membership-search-symbol", "value"),
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
         Input("membership-find-button", "n_clicks"),
         Input("membership-search-symbol", "n_submit"),
@@ -1365,33 +1366,40 @@ def create_quote_dashboard(
         prevent_initial_call=True,
     )
     def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
-        """Keep symbol search, inspector, and three grid highlights synchronized."""
+        """Own both the input's reflected value and the selected symbol.
+
+        Dash permits circular Input/Output state in ONE callback, not
+        across distinct callbacks. This keeps edit-to-clear and click-to-fill
+        atomic without a browser-side callback dependency cycle.
+        """
         trigger = ctx.triggered_id
         changed = ctx.triggered_prop_ids
-        query = args[len(TIERS) + 2]  # The search value Input, after 3 grids + Find + Enter.
+        query = args[len(TIERS) + 2]  # Search value after 3 grid events + Find + Enter.
         mode, selected_symbol = args[-2:]
         no_scroll = (no_update,) * len(TIERS)
+        no_change = (no_update,) * (len(TIERS) * 2 + 3)
+
         if operator_bridge is not None and trigger == "workspace-mode":
             return (None, [], [], [], "Select a symbol or search all three lists.",
-                    *no_scroll)
+                    *no_scroll, "")
 
-        # Programmatic reflection of a list click or a completed Find leaves
-        # details intact. An actual edit invalidates the prior selection.
-        # Check n_submit first: Enter may also update the input's value.
+        # The same callback reflects list clicks into the input. A matching
+        # programmatic value change must NOT erase the selected inspector.
+        # Enter is a submission, even if it also updates the text value.
         submitted = "membership-search-symbol.n_submit" in changed
         edited = "membership-search-symbol.value" in changed
         if edited and not submitted and trigger == "membership-search-symbol":
             if query == selected_symbol:
-                return (no_update,) * (len(TIERS) * 2 + 2)
+                return no_change
             return (None, [], [], [],
                     "Search text changed. Press Find or Enter for updated details.",
-                    *no_scroll)
+                    *no_scroll, no_update)
 
         if trigger == "membership-find-button" or submitted:
             symbol = (query or "").strip().upper()
             if not symbol:
                 return (None, [], [], [], "Enter a ticker symbol to find.",
-                        *no_scroll)
+                        *no_scroll, no_update)
             records = (
                 operator_bridge.records()
                 if operator_bridge is not None and mode == "real-time"
@@ -1404,17 +1412,17 @@ def create_quote_dashboard(
                 return (None, [], [], [],
                         f"{symbol} is not in Uni, Focus, or Hot at the current "
                         f"{'synthetic session' if mode == 'real-time' else 'replay'} time.",
-                        *no_scroll)
+                        *no_scroll, no_update)
             heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
-            # AG Grid scrollTo by stable rowId honors the grid's CURRENT sort
-            # order; a static row index would fail when sorting is reversed.
+            # AG Grid scrollTo by stable rowId follows the current sort order
+            # in the target list; other lists are left at their positions.
             scroll = tuple(
                 {"rowId": symbol, "rowPosition": "middle"}
                 if current == tier else no_update for current in TIERS
             )
             return (symbol,
                     *({"ids": [symbol]} if t == tier else [] for t in TIERS),
-                    f"{symbol} found in {heading}.", *scroll)
+                    f"{symbol} found in {heading}.", *scroll, symbol)
 
         for tier, click in zip(TIERS, args[:len(TIERS)]):
             if trigger == f"membership-{tier}-grid" and isinstance(click, dict):
@@ -1423,16 +1431,8 @@ def create_quote_dashboard(
                     heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
                     return (symbol,
                             *({"ids": [symbol]} if t == tier else [] for t in TIERS),
-                            f"{symbol} selected in {heading}.", *no_scroll)
-        return (no_update,) * (len(TIERS) * 2 + 2)
-
-    @app.callback(
-        Output("membership-search-symbol", "value"),
-        Input("membership-selected-symbol", "data"),
-        prevent_initial_call=True,
-    )
-    def reflect_symbol_in_search(symbol: str | None) -> Any:
-        return symbol if isinstance(symbol, str) and symbol else no_update
+                            f"{symbol} selected in {heading}.", *no_scroll, symbol)
+        return no_change
 
 
     @app.callback(
