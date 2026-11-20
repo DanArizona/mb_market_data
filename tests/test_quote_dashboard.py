@@ -766,7 +766,15 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"replay-speed-dropdown", layout.data)
         self.assertIn(b"server-stop", layout.data)
         self.assertNotIn(b"observation-overlay-panel", layout.data)
-        self.assertEqual(len(app.callback_map), 10)
+        # Shared cross-tier lookup adds one non-mutating callback to reflect
+        # the selected ticker in the search field. The historical replay
+        # callbacks and their data dependencies are otherwise unchanged.
+        self.assertEqual(len(app.callback_map), 11)
+        search_callback = app.callback_map["membership-search-symbol.value"]
+        self.assertEqual(
+            [(item["id"], item["property"]) for item in search_callback["inputs"]],
+            [("membership-selected-symbol", "data")],
+        )
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)
