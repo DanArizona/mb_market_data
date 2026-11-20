@@ -464,24 +464,30 @@ def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_sy
             html.Div(
                 [
                     *[_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
-                    html.Section([
-                        html.H3("Symbol details", className="membership-inspector-title"),
-                        html.Div([
-                            dcc.Input(id="membership-search-symbol", type="text",
-                                      placeholder="Ticker across all tiers", maxLength=20,
-                                      autoComplete="off", n_submit=0,
-                                      className="membership-search-input"),
-                            html.Button("Find", id="membership-find-button",
-                                        n_clicks=0, className="membership-find-button"),
-                        ], className="membership-search-row"),
-                        html.Div("Search by ticker or click a symbol in any list.",
-                                 id="membership-search-status", role="status",
-                                 className="membership-search-status"),
-                        html.Div(_membership_inspector(html, view, selected_symbol),
-                                 id="membership-symbol-inspector"),
-                    ], className="membership-inspector",
-                        id="membership-inspector-panel",
-                        **{"aria-label": "Selected symbol and cross-tier search"}),
+                    html.Div([
+                        html.Section([
+                            html.H3("Symbol search", className="membership-search-title"),
+                            html.Div([
+                                dcc.Input(id="membership-search-symbol", type="text",
+                                          placeholder="Ticker", maxLength=20,
+                                          autoComplete="off", n_submit=0,
+                                          className="membership-search-input"),
+                                html.Button("Find", id="membership-find-button",
+                                            n_clicks=0, className="membership-find-button"),
+                            ], className="membership-search-row"),
+                        ], id="membership-search-panel", className="membership-search-panel",
+                           **{"aria-label": "Search symbol across all three tiers"}),
+                        html.Section([
+                            html.H3("Symbol details", className="membership-inspector-title"),
+                            html.Div("Search by ticker or click a symbol in any list.",
+                                     id="membership-search-status", role="status",
+                                     className="membership-search-status"),
+                            html.Div(_membership_inspector(html, view, selected_symbol),
+                                     id="membership-symbol-inspector"),
+                        ], className="membership-inspector",
+                            id="membership-inspector-panel",
+                            **{"aria-label": "Selected symbol details"}),
+                    ], id="membership-lookup-column", className="membership-lookup-column"),
                 ],
                 className="membership-tier-columns",
                 id="membership-tier-columns",
@@ -1348,25 +1354,44 @@ def create_quote_dashboard(
         Output("membership-selected-symbol", "data"),
         *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
         Output("membership-search-status", "children"),
+        *[Output(f"membership-{tier}-grid", "scrollTo") for tier in TIERS],
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
         Input("membership-find-button", "n_clicks"),
         Input("membership-search-symbol", "n_submit"),
+        Input("membership-search-symbol", "value"),
         *([Input("workspace-mode", "value")] if operator_bridge else []),
-        State("membership-search-symbol", "value"),
         State("workspace-mode", "value"),
+        State("membership-selected-symbol", "data"),
         prevent_initial_call=True,
     )
     def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
-        """Click a row or find a ticker across all tiers; no membership writes."""
+        """Keep symbol search, inspector, and three grid highlights synchronized."""
         trigger = ctx.triggered_id
-        query, mode = args[-2], args[-1]
+        changed = ctx.triggered_prop_ids
+        query = args[len(TIERS) + 2]  # The search value Input, after 3 grids + Find + Enter.
+        mode, selected_symbol = args[-2:]
+        no_scroll = (no_update,) * len(TIERS)
         if operator_bridge is not None and trigger == "workspace-mode":
-            return (None, [], [], [], "Select a symbol or search all three lists.")
-        if trigger in ("membership-find-button", "membership-search-symbol"):
+            return (None, [], [], [], "Select a symbol or search all three lists.",
+                    *no_scroll)
+
+        # Programmatic reflection of a list click or a completed Find leaves
+        # details intact. An actual edit invalidates the prior selection.
+        # Check n_submit first: Enter may also update the input's value.
+        submitted = "membership-search-symbol.n_submit" in changed
+        edited = "membership-search-symbol.value" in changed
+        if edited and not submitted and trigger == "membership-search-symbol":
+            if query == selected_symbol:
+                return (no_update,) * (len(TIERS) * 2 + 2)
+            return (None, [], [], [],
+                    "Search text changed. Press Find or Enter for updated details.",
+                    *no_scroll)
+
+        if trigger == "membership-find-button" or submitted:
             symbol = (query or "").strip().upper()
             if not symbol:
-                return (no_update, no_update, no_update, no_update,
-                        "Enter a ticker symbol to find.")
+                return (None, [], [], [], "Enter a ticker symbol to find.",
+                        *no_scroll)
             records = (
                 operator_bridge.records()
                 if operator_bridge is not None and mode == "real-time"
@@ -1378,11 +1403,19 @@ def create_quote_dashboard(
             if tier is None:
                 return (None, [], [], [],
                         f"{symbol} is not in Uni, Focus, or Hot at the current "
-                        f"{'synthetic session' if mode == 'real-time' else 'replay'} time.")
+                        f"{'synthetic session' if mode == 'real-time' else 'replay'} time.",
+                        *no_scroll)
             heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
+            # AG Grid scrollTo by stable rowId honors the grid's CURRENT sort
+            # order; a static row index would fail when sorting is reversed.
+            scroll = tuple(
+                {"rowId": symbol, "rowPosition": "middle"}
+                if current == tier else no_update for current in TIERS
+            )
             return (symbol,
                     *({"ids": [symbol]} if t == tier else [] for t in TIERS),
-                    f"{symbol} found in {heading}.")
+                    f"{symbol} found in {heading}.", *scroll)
+
         for tier, click in zip(TIERS, args[:len(TIERS)]):
             if trigger == f"membership-{tier}-grid" and isinstance(click, dict):
                 symbol = click.get("rowId")
@@ -1390,8 +1423,8 @@ def create_quote_dashboard(
                     heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
                     return (symbol,
                             *({"ids": [symbol]} if t == tier else [] for t in TIERS),
-                            f"{symbol} selected in {heading}.")
-        return (no_update,) * (len(TIERS) + 2)
+                            f"{symbol} selected in {heading}.", *no_scroll)
+        return (no_update,) * (len(TIERS) * 2 + 2)
 
     @app.callback(
         Output("membership-search-symbol", "value"),

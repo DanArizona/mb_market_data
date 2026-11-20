@@ -79,6 +79,32 @@ The refinements are isolated to
 semantics are unchanged. The new layout, search, and theme behavior need
 MasterBot browser inspection in addition to Windows offline test results.
 
+### Search-field editing and sorted-list navigation (November 20 refinement)
+
+The fourth column now consists of **two separate surfaces**: a compact
+**Symbol search** strip (ticker-only input plus Find) above a read-only
+**Symbol details** card. The search input is deliberately narrower than the
+description card.
+
+When the ticker text changes, the previous selected symbol, inspector details
+and the associated grid highlight are cleared. Selecting a symbol by clicking
+one of the three tier lists still fills the search field and immediately shows
+its details; the resulting programmatic search-field update does **not** clear
+the selection. Enter and Find use the same exact, case-insensitive symbol
+lookup against the current effective synthetic roster or historical replay
+position. Unknown symbols report absence, never a fabricated membership.
+
+Successful Find also outputs AG Grid \`scrollTo\` with
+\`{"rowId": SYMBOL, "rowPosition": "middle"}\` **for the matching tier only**.
+Each grid's existing \`getRowId=params.data.symbol\` makes the row identity
+independent of current ascending or descending sort order; the other grids'
+scroll positions are left alone. Search editing never changes the journal or
+submits a membership action.
+
+MasterBot Windows qualification now includes new tests for edit-to-clear,
+programmatic symbol reflection, search strip layout and stable row-ID scrolling.
+Actual browser scrolling under both sort directions still requires visual QA.
+
 ## Remaining production gates
 
 A real-time read adapter for the other workspace tabs, reviewed localhost

@@ -1624,3 +1624,64 @@ h1 {
   border-color: var(--sea);
 }
 .operator-bridge-panel button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+
+/* Compact symbol finder is a separate, visually independent strip above
+   the inspection card. Keep the fourth column aligned with the tier lists. */
+.membership-lookup-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  height: calc(min(42vh, 480px) + 3.5rem);
+}
+.membership-search-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface-glass);
+}
+.membership-search-title {
+  margin: 0;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.membership-search-panel .membership-search-row {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+.membership-search-panel .membership-search-input {
+  box-sizing: border-box;
+  width: 8.5rem;
+  max-width: 8.5rem;
+  min-width: 4rem;
+  flex: 0 1 8.5rem;
+}
+.membership-lookup-column .membership-inspector {
+  min-height: 0;
+  flex: 1 1 auto;
+  height: auto;
+  max-height: none;
+  overflow-y: auto;
+}
+@media (max-width: 1250px) {
+  .membership-lookup-column {
+    grid-column: 1 / -1;
+    height: auto;
+  }
+  .membership-lookup-column .membership-inspector {
+    max-height: 22rem;
+    min-height: 12rem;
+  }
+}
+@media (max-width: 750px) {
+  .membership-lookup-column { grid-column: auto; }
+  .membership-search-panel { flex-wrap: wrap; }
+}
