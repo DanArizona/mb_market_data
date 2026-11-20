@@ -321,7 +321,7 @@ def _membership_inspector(html: Any, view: QuoteDashboardView, symbol: str | Non
     )
 
 
-def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str, Any]]) -> Any:
+def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str, Any]], *, drag_enabled: bool = False) -> Any:
     name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
     return html.Section(
         [
@@ -339,6 +339,7 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                 columnDefs=[
                     {"field": "symbol", "headerName": "Symbol", "minWidth": 82, "flex": 1,
                      "pinned": "left", "cellClass": "symbol-cell", "sort": "asc",
+                     "rowDrag": drag_enabled,
                      "sortingOrder": ["asc", "desc"],
                      "headerTooltip": "Click to sort symbols ascending or descending"},
                     {"field": "last_price", "headerName": "Last", "type": "numericColumn",
@@ -352,6 +353,11 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                     # the membership click callback, not by each grid alone.
                     "suppressRowClickSelection": True,
                     "animateRows": False,
+                    # Sorted rows must never be reordered before Preview/Confirm.
+                    "rowDragManaged": drag_enabled,
+                    "rowDragMultiRow": False,
+                    "suppressMoveWhenRowDragging": True,
+                    "suppressRowDrag": True,  # Enabled only by the synthetic JS binder.
                     "getRowId": {"function": "params.data.symbol"},
                     "tooltipShowDelay": 350,
                 },
@@ -361,6 +367,7 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
             ),
         ],
         className=f"membership-tier membership-tier-{tier}",
+        id=f"membership-tier-{tier}",
     )
 
 
@@ -442,6 +449,8 @@ def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
         html.Div(id="operator-receipt-status", role="status"),
         dcc.Store(id="operator-preview-proposal"),
         dcc.Store(id="operator-command-id"),
+        dcc.Store(id="membership-drag-request"),
+        dcc.Store(id="membership-drag-binding-status"),
         dcc.Interval(id="operator-receipt-tick", interval=1000),
     ], id="operator-bridge-panel", style={"display": "none"}, className="operator-bridge-panel")
 
@@ -461,9 +470,17 @@ def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_sy
                 className="membership-heading",
             ),
             html.P("Each symbol appears once, in its highest tier: Uni only, Focus (not Hot), or Hot. Underlying membership remains nested: Hot ⊆ Focus ⊆ Uni.", className="membership-explanation"),
+            *([html.P(
+                "Synthetic Real Time: drag a symbol by its grip to another tier to preview; "
+                "the actual membership stays unchanged until explicit Confirm and worker effectiveness.",
+                className="membership-drag-instructions",
+            ), html.Div("Drag-and-drop disabled in Historical mode.",
+                        id="membership-drag-status", role="status",
+                        className="membership-drag-status")] if operator_enabled else []),
             html.Div(
                 [
-                    *[_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                    *[_membership_tier_grid(html, dag, tier, by_tier[tier],
+                                            drag_enabled=operator_enabled) for tier in TIERS],
                     html.Div([
                         html.Section([
                             html.H3("Symbol search", className="membership-search-title"),
@@ -789,6 +806,7 @@ def create_quote_dashboard(
         import dash_ag_grid as dag
         from dash import (
             Dash,
+            ClientsideFunction,
             Input,
             Output,
             State,
@@ -1455,6 +1473,33 @@ def create_quote_dashboard(
 
 
     if operator_bridge is not None:
+        # Native AG Grid external dropzones, enabled only by this disposable
+        # synthetic session. The binder only reports a proposed drag event
+        # into a Dash Store; it never changes rowData or writes membership.
+        app.clientside_callback(
+            ClientsideFunction(namespace="mbMembershipDrag", function_name="bind"),
+            Output("membership-drag-binding-status", "data"),
+            Input("workspace-mode", "value"),
+            *[Input(f"membership-{tier}-grid", "id") for tier in TIERS],
+        )
+
+        @app.callback(
+            Output("membership-drag-status", "children"),
+            Input("membership-drag-binding-status", "data"),
+            Input("workspace-mode", "value"),
+        )
+        def display_drag_status(binding: dict | None, mode: str) -> str:
+            if mode != "real-time":
+                return "Historical replay is read-only; drag handles are disabled."
+            if binding and binding.get("ready") is True:
+                return ("Drag a symbol by its grip onto another tier. "
+                        "Drop creates a PREVIEW only; confirm below.")
+            if binding and binding.get("phase") == "drag-unavailable":
+                return ("Drag setup unavailable; use manual Preview instead. "
+                        + str(binding.get("reason") or ""))
+            return "Preparing synthetic drag handles; manual Preview remains available."
+
+    if operator_bridge is not None:
         @app.callback(
             Output("dashboard-tabs", "value"),
             Output("dashboard-tab-charts", "disabled"),
@@ -1488,35 +1533,64 @@ def create_quote_dashboard(
 
         @app.callback(
             Output("operator-symbol", "value"),
+            Output("operator-action", "value"),
+            Output("operator-target", "value"),
             Input("membership-selected-symbol", "data"),
+            Input("membership-drag-request", "data"),
             State("workspace-mode", "value"),
             prevent_initial_call=True,
         )
-        def operator_selected_symbol(symbol: str | None, mode: str) -> Any:
-            return symbol if mode == "real-time" and symbol else no_update
+        def reflect_operator_selection(symbol: str | None,
+                                       drag: dict | None, mode: str) -> tuple:
+            if mode != "real-time":
+                return (no_update, no_update, no_update)
+            if ctx.triggered_id == "membership-drag-request" and isinstance(drag, dict):
+                source = drag.get("source_tier")
+                target = drag.get("destination_tier")
+                if source in TIERS and target in TIERS and source != target:
+                    action = ("promote" if TIERS.index(target) > TIERS.index(source)
+                              else "demote")
+                    return (drag.get("symbol"), action, target)
+                return (no_update, no_update, no_update)
+            return (symbol, no_update, no_update) if symbol else (no_update,) * 3
 
         @app.callback(
             Output("operator-preview-proposal", "data"),
             Output("operator-preview-status", "children"),
             Input("operator-preview-button", "n_clicks"),
+            Input("membership-drag-request", "data"),
             Input("workspace-mode", "value"),
             State("operator-symbol", "value"),
             State("operator-action", "value"),
             State("operator-target", "value"),
             prevent_initial_call=True,
         )
-        def operator_preview(_clicks: int, mode: str, symbol: str | None,
-                             action: str, target: str) -> tuple[Any, str]:
-            if ctx.triggered_id != "operator-preview-button":
-                return None, "Historical replay is read-only." if mode != "real-time" else "Select a symbol, then Preview."
+        def operator_preview(_clicks: int, drag: dict | None, mode: str,
+                             symbol: str | None, action: str, target: str) -> tuple:
+            source = ctx.triggered_id
             try:
-                proposal = operator_bridge.preview(mode, symbol or "", action, target)
-            except (OperatorProblem, OSError, ValueError) as error:
-                return None, f"Preview blocked: {error}"
+                if source == "membership-drag-request":
+                    if not isinstance(drag, dict):
+                        return None, "Drop ignored: invalid drag event."
+                    proposal = operator_bridge.preview_drop(
+                        mode, drag.get("symbol", ""),
+                        drag.get("source_tier", ""),
+                        drag.get("destination_tier", ""),
+                    )
+                    reason = "DRAG PREVIEW ONLY: "
+                elif source == "operator-preview-button":
+                    proposal = operator_bridge.preview(mode, symbol or "", action, target)
+                    reason = "PREVIEW ONLY: "
+                else:
+                    return None, ("Historical replay is read-only." if mode != "real-time"
+                                  else "Select a symbol, then drag or Preview.")
+            except (OperatorProblem, OSError, ValueError, TypeError) as error:
+                return None, f"No request queued; preview blocked: {error}"
             return proposal, (
-                f"PREVIEW ONLY: {proposal['symbol']} {proposal['before'].upper()} → "
+                f"{reason}{proposal['symbol']} {proposal['before'].upper()} → "
                 f"{proposal['after'].upper()} at published revision "
-                f"r{proposal['based_on_revision']}. Confirm explicitly to queue."
+                f"r{proposal['based_on_revision']}. "
+                "Nothing changed. Confirm explicitly below to queue the request."
             )
 
         @app.callback(

@@ -1685,3 +1685,26 @@ h1 {
   .membership-lookup-column { grid-column: auto; }
   .membership-search-panel { flex-wrap: wrap; }
 }
+
+/* Experimental drag-to-preview; icons appear only after the synthetic binder
+   explicitly enables row dragging. Historical has no drop destinations. */
+.membership-drag-instructions {
+  margin: 0.1rem 0 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.membership-drag-status {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: var(--sea);
+}
+.membership-tier.membership-drop-ready {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.membership-tier.membership-drop-target {
+  border: 2px dashed var(--sea);
+  box-shadow: inset 0 0 0 2px var(--sea-soft);
+  background: var(--surface-raised);
+}
+.membership-tier .ag-row-drag { cursor: grab; }
+.membership-tier .ag-row-drag:active { cursor: grabbing; }

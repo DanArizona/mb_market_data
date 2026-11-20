@@ -107,6 +107,59 @@ MasterBot Windows qualification now includes new tests for edit-to-clear,
 programmatic symbol reflection, search strip layout and stable row-ID scrolling.
 Actual browser scrolling under both sort directions still requires visual QA.
 
+## Drag-and-drop membership proposals — November 20 experiment
+
+**Synthetic Real Time only**. The existing three tier grids expose a
+single-row drag grip in the Symbol column when the disposable demonstration is
+active. Drag from a member's *current highest tier* to a different tier panel:
+
+- Uni → Focus/Hot: ordinary promotion.
+- Focus → Uni: ordinary demotion; Focus → Hot: promotion.
+- Hot → Focus/Uni: ordinary demotion.
+
+The three tiers remain exclusive on screen but nested in the journal. A drop
+onto an external **HTML panel** sends a clientside-only
+`membership-drag-request` event; it **does not mutate either grid's rowData,
+queue a request, or publish a revision**. The synthetic
+`SyntheticOverlayMembership.preview_drop` checks the user-supplied source
+tier against the journal's current effective membership and infers the
+promote/demote action. It then uses the already-qualified
+`OperatorState.preview`; only a later explicit **Confirm and queue request**
+can reach the existing worker inbox. The worker enforces membership policy,
+capacity, and revision/effective-time guards.
+
+The interface uses the documented Dash AG Grid
+`dash_ag_grid.getApiAsync` + `addRowDropZone` API to register six
+source/target pairs (two targets per tier). Source grids use a row-drag grip,
+but the sorted lists **do not reorder locally**. Drop regions are highlighted
+when hovered. The client JS can be disabled or torn down by changing back to
+Historical, with `suppressRowDrag` restored; non-synthetic viewers never
+register the binding. If JS binding fails, the original Preview button remains
+available. This is a *single-symbol* workflow; multiple-row drag remains
+disabled.
+
+The experimental `src/mb_market_data/assets/membership_drag_bridge.js`
+contains the clientside registration and drop routing, and
+`src/mb_market_data/overlay_membership_bridge.py` performs authoritative
+advisory checks before any preview is shown. The tests cover spoofed source
+tiers, Historical-mode refusal, a no-write drag preview, and the unchanged
+synthetic worker confirmation path. The JavaScript was syntax-checked and its
+registration/drop/disable logic exercised with stubbed Grid API objects; this
+does **not** replace a Windows browser test.
+
+For interactive MasterBot QA: `call verify_overlay_membership_bridge.cmd`,
+then `call preview_overlay_membership_bridge.cmd`; open
+`http://127.0.0.1:8062/`, select **Real Time (synthetic QA)** and Membership.
+Drag **INTC from Hot to Focus**, inspect the proposal, and verify the counts do
+not change until Confirm + worker receipt effectiveness. Repeat **Focus to
+Hot**, and try drag-to-Uni to test ordinary demotion. Reverse the symbol sort
+before another drag; check that drag grips still work. Switch to Historical to
+ensure dragging is disabled and historical inspection is unchanged.
+
+**Remaining gate:** real drag events and cursor behavior at 90% Firefox
+magnification require explicit Windows user acceptance. No production or main
+change is implied.
+
 ## Remaining production gates
 
 A real-time read adapter for the other workspace tabs, reviewed localhost

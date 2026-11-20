@@ -258,5 +258,123 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(grid.columnDefs[0]["sortingOrder"], ["asc", "desc"])
 
 
+    def test_drag_backend_proposes_demote_and_promote_without_writing(self):
+        journal = Path(self.demo.plan["journal"])
+        baseline = journal.read_bytes()
+        inbox = self.root / "membership" / "inbox"
+
+        demote = self.bridge.preview_drop("real-time", "INTC", "hot", "uni")
+        self.assertEqual((demote["symbol"], demote["action"], demote["target"]),
+                         ("INTC", "demote", "uni"))
+        self.assertFalse(demote["request_written"])
+        promote = self.bridge.preview_drop("real-time", "AAME", "uni", "hot")
+        self.assertEqual((promote["symbol"], promote["action"], promote["target"]),
+                         ("AAME", "promote", "hot"))
+        focus_to_hot = self.bridge.preview_drop("real-time", "ACH", "focus", "hot")
+        self.assertEqual(focus_to_hot["action"], "promote")
+        self.assertEqual(journal.read_bytes(), baseline)
+        self.assertFalse(list(inbox.glob("*.json")), "Preview must never queue an inbox request")
+
+    def test_drag_rejects_historical_spoofed_source_and_same_tier(self):
+        with self.assertRaisesRegex(OperatorProblem, "read-only"):
+            self.bridge.preview_drop("historical", "INTC", "hot", "focus")
+        with self.assertRaisesRegex(OperatorProblem, "Source tier changed"):
+            self.bridge.preview_drop("real-time", "INTC", "focus", "uni")
+        with self.assertRaisesRegex(OperatorProblem, "between different"):
+            self.bridge.preview_drop("real-time", "INTC", "hot", "hot")
+        with self.assertRaisesRegex(OperatorProblem, "between different"):
+            self.bridge.preview_drop("real-time", "INTC", "hot", "outside")
+        with self.assertRaisesRegex(OperatorProblem, "Source tier changed"):
+            self.bridge.preview_drop("real-time", "ZZZZ", "hot", "focus")
+
+    def test_synthetic_grid_registers_only_preview_first_dropzones(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        components = {getattr(c, "id", None): c for c in descendants(app.layout)}
+        for tier in ("uni", "focus", "hot"):
+            grid = components[f"membership-{tier}-grid"]
+            self.assertTrue(grid.columnDefs[0]["rowDrag"])
+            self.assertTrue(grid.dashGridOptions["suppressRowDrag"])
+            self.assertTrue(grid.dashGridOptions["suppressMoveWhenRowDragging"])
+            self.assertTrue(grid.dashGridOptions["rowDragManaged"])
+            self.assertFalse(grid.dashGridOptions["rowDragMultiRow"])
+            self.assertIsNotNone(components[f"membership-tier-{tier}"])
+        self.assertIn("membership-drag-request", components)
+        self.assertIn("membership-drag-binding-status", components)
+        self.assertIn("membership-drag-status", components)
+        self.assertIn("membership-drag-binding-status.data", app.callback_map)
+        js_path = (Path(__file__).resolve().parents[1] / "src" / "mb_market_data"
+                   / "assets" / "membership_drag_bridge.js")
+        script = js_path.read_text(encoding="utf-8")
+        self.assertIn("addRowDropZone", script)
+        self.assertIn("removeRowDropZone", script)
+        self.assertIn("dash_ag_grid.getApiAsync", script)
+        self.assertIn('set_props("membership-drag-request"', script)
+        self.assertNotIn("applyTransaction", script)
+
+    def test_historical_dashboard_has_no_drag_submission_surface(self):
+        app = create_quote_dashboard(overlay_controller())
+        elements = {getattr(c, "id", None): c for c in descendants(app.layout)}
+        self.assertNotIn("membership-drag-request", elements)
+        self.assertNotIn("membership-drag-binding-status", elements)
+        for tier in ("uni", "focus", "hot"):
+            grid = elements[f"membership-{tier}-grid"]
+            self.assertFalse(grid.columnDefs[0]["rowDrag"])
+            self.assertTrue(grid.dashGridOptions["suppressRowDrag"])
+
+    def test_drag_event_dash_preview_callback_never_publishes(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, entry) for key, entry in app.callback_map.items()
+            if isinstance(entry["output"], list)
+            and any(output.component_id == "operator-preview-proposal"
+                    for output in entry["output"])
+        )
+        self.assertIn(("membership-drag-request", "data"),
+                      [(arg["id"], arg["property"]) for arg in callback["inputs"]])
+        before = Path(self.demo.plan["journal"]).read_bytes()
+        inbox = self.root / "membership" / "inbox"
+
+        def drop(mode, from_tier):
+            payload = {"symbol": "INTC", "source_tier": from_tier,
+                       "destination_tier": "focus", "nonce": "synthetic-test-123"}
+            inputs = [
+                {"id": item["id"], "property": item["property"],
+                 "value": (payload if item["id"] == "membership-drag-request"
+                           else mode if item["id"] == "workspace-mode" else 0)}
+                for item in callback["inputs"]
+            ]
+            state = [
+                {"id": item["id"], "property": item["property"],
+                 "value": ("INTC" if item["id"] == "operator-symbol" else
+                           "demote" if item["id"] == "operator-action" else "focus")}
+                for item in callback["state"]
+            ]
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [{"id": item.component_id, "property": item.component_property}
+                            for item in callback["output"]],
+                "changedPropIds": ["membership-drag-request.data"],
+                "inputs": inputs, "state": state,
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            return response.get_json()["response"]
+
+        result = drop("real-time", "hot")
+        proposed = result["operator-preview-proposal"]["data"]
+        self.assertEqual((proposed["action"], proposed["target"]), ("demote", "focus"))
+        self.assertFalse(proposed["request_written"])
+        self.assertIn("DRAG PREVIEW ONLY", result["operator-preview-status"]["children"])
+        blocked = drop("historical", "hot")
+        self.assertIsNone(blocked["operator-preview-proposal"]["data"])
+        self.assertIn("read-only", blocked["operator-preview-status"]["children"])
+        spoofed = drop("real-time", "uni")
+        self.assertIsNone(spoofed["operator-preview-proposal"]["data"])
+        self.assertIn("Source tier changed", spoofed["operator-preview-status"]["children"])
+        self.assertEqual(Path(self.demo.plan["journal"]).read_bytes(), before)
+        self.assertFalse(list(inbox.glob("*.json")))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

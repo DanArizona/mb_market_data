@@ -51,6 +51,27 @@ class SyntheticOverlayMembership:
         self._require_mode(mode)
         return self.operator.preview(symbol, action, target)
 
+    def preview_drop(self, mode: str, symbol: str, source_tier: str,
+                     destination_tier: str) -> dict:
+        """Validate a proposed grid-to-grid drag; publication is never implicit.
+
+        The source tier comes from an untrusted client event. Compare it with
+        the effective journal membership before creating the existing
+        operator's advisory Preview. That operator rechecks the revision
+        again on explicit Confirm.
+        """
+        self._require_mode(mode)
+        order = ("uni", "focus", "hot")
+        if (source_tier not in order or destination_tier not in order
+                or source_tier == destination_tier):
+            raise OperatorProblem("Drop must move one symbol between different tiers.", 400)
+        selected = self.snapshot(symbol).get("selected")
+        if not selected or selected["tier"] != source_tier:
+            raise OperatorProblem("Source tier changed or is unavailable. Refresh and drag again.")
+        action = ("promote" if order.index(destination_tier) > order.index(source_tier)
+                  else "demote")
+        return self.preview(mode, symbol, action, destination_tier)
+
     def confirm(self, mode: str, proposal_id: str) -> dict:
         self._require_mode(mode)
         return self.operator.confirm(proposal_id)
