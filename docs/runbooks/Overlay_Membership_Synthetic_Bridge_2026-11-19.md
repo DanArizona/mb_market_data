@@ -55,6 +55,30 @@ temporary journal. Closing Firefox alone does not stop the server.
 No claim of Windows acceptance is made until these commands and the desktop
 interaction are verified on MasterBot.
 
+## Compact Membership explorer refinement (November 20)
+
+The Membership explorer uses four side-by-side panels on a wide desktop:
+**Uni only, Focus only, Hot, and Symbol details**. The fourth panel contains
+the selected symbol inspector and the one shared exact-symbol finder. The three
+list grids now have **Symbol** and **Last** columns; the Name column and
+individual floating filter rows are removed. The full available name and
+saved quote details remain in the inspector. Searching is case-insensitive,
+selects the highest exclusive tier at the current mode clock, and explicitly
+reports a missing symbol instead of pretending it is admitted.
+
+Each list initially sorts by symbol ascending. Clicking the Symbol header
+switches between ascending and descending sorting without an additional
+toolbar. The Last header also supports sorting. The synthetic operator's
+Action and Destination dropdown controls use the same dark/light theme
+variables as the existing Overlay replay dropdown. The Membership badge
+displays an explicit synthetic-QA label when that mode is selected, rather
+than the historical-only label.
+
+The refinements are isolated to
+`experiment/overlay-membership-bridge-20261119`; all journal and worker
+semantics are unchanged. The new layout, search, and theme behavior need
+MasterBot browser inspection in addition to Windows offline test results.
+
 ## Remaining production gates
 
 A real-time read adapter for the other workspace tabs, reviewed localhost

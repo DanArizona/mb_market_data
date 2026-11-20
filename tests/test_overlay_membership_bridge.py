@@ -92,5 +92,85 @@ class BridgeTests(unittest.TestCase):
         self.assertNotIn("operator-confirm-button", elements)
 
 
+    def test_four_panels_sort_and_no_filter_row(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        components = {getattr(c, "id", None): c for c in descendants(app.layout)}
+        panels = components["membership-tier-columns"].children
+        self.assertEqual(len(panels), 4)
+        self.assertEqual(panels[-1].id, "membership-inspector-panel")
+        self.assertIn("membership-search-symbol", components)
+        self.assertIn("membership-find-button", components)
+        for tier in ("uni", "focus", "hot"):
+            grid = components[f"membership-{tier}-grid"]
+            self.assertEqual([col["field"] for col in grid.columnDefs],
+                             ["symbol", "last_price"])
+            self.assertEqual(grid.columnDefs[0]["sort"], "asc")
+            self.assertEqual(grid.columnDefs[0]["sortingOrder"], ["asc", "desc"])
+            self.assertFalse(grid.defaultColDef["floatingFilter"])
+            self.assertFalse(grid.defaultColDef["filter"])
+
+    def test_global_find_selects_correct_tier_in_both_modes(self):
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller, synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, entry) for key, entry in app.callback_map.items()
+            if isinstance(entry["output"], list)
+            and any(output.component_id == "membership-selected-symbol"
+                    for output in entry["output"])
+        )
+        def search(symbol: str, mode: str):
+            inputs = [
+                {"id": item["id"], "property": item["property"],
+                 "value": (1 if item["id"] == "membership-find-button" else
+                           0 if item["id"] == "membership-search-symbol" else
+                           mode if item["id"] == "workspace-mode" else None)}
+                for item in callback["inputs"]
+            ]
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [{"id": output.component_id,
+                             "property": output.component_property}
+                            for output in callback["output"]],
+                "changedPropIds": ["membership-find-button.n_clicks"],
+                "inputs": inputs,
+                "state": [
+                    {"id": "membership-search-symbol", "property": "value",
+                     "value": symbol},
+                    {"id": "workspace-mode", "property": "value", "value": mode},
+                ],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            return response.get_json()["response"]
+
+        synthetic = search("  intc ", "real-time")
+        self.assertEqual(synthetic["membership-selected-symbol"]["data"], "INTC")
+        self.assertEqual(synthetic["membership-hot-grid"]["selectedRows"],
+                         {"ids": ["INTC"]})
+        self.assertEqual(synthetic["membership-focus-grid"]["selectedRows"], [])
+        self.assertIn("Hot", synthetic["membership-search-status"]["children"])
+
+        historical = search("spy", "historical")
+        self.assertEqual(historical["membership-selected-symbol"]["data"], "SPY")
+        self.assertEqual(historical["membership-focus-grid"]["selectedRows"],
+                         {"ids": ["SPY"]})
+        self.assertIn("Focus only", historical["membership-search-status"]["children"])
+
+        absent = search("NOTINSIDE", "real-time")
+        self.assertIsNone(absent["membership-selected-symbol"]["data"])
+        self.assertEqual(absent["membership-hot-grid"]["selectedRows"], [])
+        self.assertIn("not in Uni, Focus, or Hot",
+                      absent["membership-search-status"]["children"])
+
+    def test_operator_dropdown_uses_theme_aware_menu_styles(self):
+        css = (Path(__file__).resolve().parents[1] / "src" / "mb_market_data"
+               / "assets" / "quote_dashboard.css").read_text(encoding="utf-8")
+        self.assertIn(".operator-bridge-panel .Select-menu-outer", css)
+        self.assertIn(".Select-menu-outer .Select-option.is-focused", css)
+        self.assertIn("background: var(--surface-raised) !important", css)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

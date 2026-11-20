@@ -293,7 +293,8 @@ class TestQuoteDashboard(unittest.TestCase):
         )
         self.assertEqual(
             [(item["id"], item["property"]) for item in callback["inputs"]],
-            [(f"membership-{tier}-grid", "cellClicked") for tier in ("uni", "focus", "hot")],
+            [(f"membership-{tier}-grid", "cellClicked") for tier in ("uni", "focus", "hot")]
+            + [("membership-find-button", "n_clicks"), ("membership-search-symbol", "n_submit")],
         )
 
         for clicked_tier, symbol in (("focus", "BBB"), ("hot", "CCC"), ("uni", "AAA")):
@@ -307,10 +308,13 @@ class TestQuoteDashboard(unittest.TestCase):
                 "inputs": [
                     {"id": item["id"], "property": item["property"],
                      "value": {"rowId": symbol, "colId": "symbol"}
-                     if item["id"] == f"membership-{clicked_tier}-grid" else None}
+                     if item["id"] == f"membership-{clicked_tier}-grid" else 0}
                     for item in callback["inputs"]
                 ],
-                "state": [],
+                "state": [
+                    {"id": "membership-search-symbol", "property": "value", "value": None},
+                    {"id": "workspace-mode", "property": "value", "value": "historical"},
+                ],
             })
             self.addCleanup(response.close)
             self.assertEqual(response.status_code, 200)

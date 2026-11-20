@@ -1313,8 +1313,9 @@ h1 {
 
 .membership-tier-columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(145px, 0.75fr)) minmax(285px, 1.7fr);
+  gap: 0.65rem;
+  align-items: start;
 }
 
 .membership-tier,
@@ -1339,8 +1340,62 @@ h1 {
 }
 
 .membership-inspector {
-  margin-top: 0.85rem;
+  margin-top: 0;
+  height: calc(min(42vh, 480px) + 3.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.membership-inspector-title {
+  margin: 0;
+  font-size: 0.98rem;
+}
+.membership-search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  margin: 0.55rem 0 0.3rem;
+}
+.membership-search-input {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+}
+.membership-find-button {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--sea);
+  border-radius: 0.4rem;
+  background: var(--sea-soft);
+  color: var(--sea);
+  font-weight: 700;
+  cursor: pointer;
+}
+.membership-find-button:focus-visible,
+.membership-search-input:focus-visible {
+  outline: 2px solid var(--sea);
+  outline-offset: 1px;
+}
+.membership-search-status {
+  margin-bottom: 0.5rem;
+  min-height: 1.1rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.membership-inspector .membership-details-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.7rem;
+  margin-top: 0.6rem;
+}
+.membership-inspector .membership-details-grid dd { font-size: 0.82rem; }
+.membership-inspector .membership-details-heading { align-items: flex-start; }
+.membership-inspector .membership-details-heading h3 { font-size: 1.05rem; }
+.membership-inspector .membership-details-heading p { font-size: 0.8rem; }
+
 
 .membership-details-heading h3 {
   margin: 0;
@@ -1416,8 +1471,9 @@ h1 {
 
 @media (max-width: 1250px) {
   .membership-tier-columns {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
   }
+  .membership-inspector { grid-column: 1 / -1; height: auto; max-height: 22rem; }
 
   .membership-details-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1429,6 +1485,7 @@ h1 {
   .membership-details-grid {
     grid-template-columns: 1fr;
   }
+  .membership-inspector { grid-column: auto; }
 
   .membership-heading {
     align-items: flex-start;
@@ -1495,3 +1552,75 @@ h1 {
 #operator-preview-button, #operator-confirm-button { margin: 10px 10px 10px 0; padding: 8px 14px; cursor: pointer; }
 #operator-preview-status, #operator-confirm-status, #operator-receipt-status { margin: 8px 0; overflow-wrap: anywhere; }
 @media (max-width: 780px) { .operator-bridge-inputs { grid-template-columns: 1fr; } }
+
+
+/* Integrated Manual Membership controls: Dash 2.x React Select + Dash 4. */
+.operator-bridge-panel {
+  border-color: var(--line);
+  background: var(--surface-glass);
+  color: var(--ink);
+}
+.operator-bridge-panel input,
+.operator-bridge-panel .Select-control,
+.operator-bridge-panel .Select.is-open > .Select-control,
+.operator-bridge-panel .Select.is-focused > .Select-control,
+.operator-bridge-panel .dash-dropdown {
+  border: 1px solid var(--line) !important;
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+  border-radius: 0.4rem;
+}
+.operator-bridge-panel input {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.operator-bridge-panel .Select-value-label,
+.operator-bridge-panel .Select-placeholder,
+.operator-bridge-panel .Select-input input,
+.operator-bridge-panel .dash-dropdown-value,
+.operator-bridge-panel .dash-dropdown-input {
+  color: var(--ink) !important;
+}
+.operator-bridge-panel .Select-input input {
+  background: transparent !important;
+  border: none !important;
+}
+.operator-bridge-panel .Select-arrow { border-top-color: var(--muted); }
+.operator-bridge-panel .Select-menu-outer,
+.operator-bridge-panel .dash-dropdown-content {
+  background: var(--surface-raised) !important;
+  border: 1px solid var(--line) !important;
+  color: var(--ink) !important;
+  z-index: 1002;
+}
+.operator-bridge-panel .Select-menu-outer .VirtualizedSelectOption,
+.operator-bridge-panel .Select-menu-outer .Select-option,
+.operator-bridge-panel .dash-dropdown-option {
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+}
+.operator-bridge-panel .Select-menu-outer .VirtualizedSelectFocusedOption,
+.operator-bridge-panel .Select-menu-outer .Select-option.is-focused,
+.operator-bridge-panel .dash-dropdown-option:hover,
+.operator-bridge-panel .dash-dropdown-option:focus {
+  background: var(--sea-soft) !important;
+  color: var(--ink) !important;
+}
+.operator-bridge-panel .Select-menu-outer .VirtualizedSelectSelectedOption,
+.operator-bridge-panel .Select-menu-outer .Select-option.is-selected {
+  color: var(--sea) !important;
+  font-weight: 750;
+}
+.operator-bridge-panel button {
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+}
+.operator-bridge-panel button:hover:not(:disabled) {
+  border-color: var(--sea);
+}
+.operator-bridge-panel button:disabled { opacity: 0.5; cursor: not-allowed; }

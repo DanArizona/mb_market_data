@@ -337,11 +337,15 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                 className="ag-theme-quartz-dark market-grid membership-symbol-grid",
                 rowData=records,
                 columnDefs=[
-                    {"field": "symbol", "headerName": "Symbol", "width": 115, "pinned": "left", "cellClass": "symbol-cell"},
-                    {"field": "last_price", "headerName": "Last", "type": "numericColumn", "width": 95},
-                    {"field": "description", "headerName": "Name", "minWidth": 130, "flex": 1},
+                    {"field": "symbol", "headerName": "Symbol", "minWidth": 82, "flex": 1,
+                     "pinned": "left", "cellClass": "symbol-cell", "sort": "asc",
+                     "sortingOrder": ["asc", "desc"],
+                     "headerTooltip": "Click to sort symbols ascending or descending"},
+                    {"field": "last_price", "headerName": "Last", "type": "numericColumn",
+                     "minWidth": 70, "width": 82, "maxWidth": 110,
+                     "sortingOrder": ["asc", "desc"]},
                 ],
-                defaultColDef={"sortable": True, "filter": True, "floatingFilter": True, "resizable": True},
+                defaultColDef={"sortable": True, "filter": False, "floatingFilter": False, "resizable": True},
                 dashGridOptions={
                     "rowSelection": "single",
                     # The one selected row across all three grids is owned by
@@ -353,7 +357,7 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                 },
                 selectedRows=[],
                 persistence=False,
-                style={"height": "min(46vh, 565px)"},
+                style={"height": "min(42vh, 480px)"},
             ),
         ],
         className=f"membership-tier membership-tier-{tier}",
@@ -362,23 +366,57 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
 
 
 def _synthetic_membership_inspector(html: Any, snapshot: dict[str, Any]) -> Any:
-    """Render only synthetic evidence; never mistake it for replay quotes."""
+    """Show synthetic quote provenance without implying real market coverage."""
     item = snapshot.get("selected")
     if not item:
-        return html.P("Select a synthetic member or enter a symbol to inspect it.")
-    labels = [
-        ("Symbol", item["symbol"]),
+        return html.P("Select a symbol in any list, or search above.")
+    price = lambda key: _membership_price(item.get(key))
+    number = lambda key: f"{item[key]:,}" if isinstance(item.get(key), int) else "Unavailable"
+    cap = item.get("estimated_market_cap")
+    fields = (
         ("Current tier", item["tier"].upper()),
-        ("Saved synthetic quote", str(item.get("last") if item.get("last") is not None else "Unavailable")),
-        ("Quote time (UTC)", item.get("quote_time_utc") or "Unavailable"),
-        ("Recorded (UTC)", item.get("recorded_at_utc") or "Unavailable"),
+        ("Last", price("last")),
+        ("Previous close", price("close")),
+        ("Open", price("open")),
+        ("Day range", f"{price('low')} – {price('high')}"),
+        ("Volume", number("volume")),
+        ("Estimated market cap", f"${cap:,.0f}" if isinstance(cap, (float, int)) else "Unavailable"),
+        ("Security status", item.get("security_status") or "Unavailable"),
+        ("Latest quote channel", (item.get("channel") or "Unavailable").upper()),
+        ("Quote time UTC", item.get("quote_time_utc") or "Unavailable"),
+        ("Last trade UTC", item.get("last_trade_time_utc") or "Unavailable"),
+        ("API response UTC", item.get("api_response_utc") or "Unavailable"),
+        ("Acquisition completed UTC", item.get("recorded_at_utc") or "Unavailable"),
         ("Effective revision", str(snapshot.get("effective_revision"))),
-    ]
+    )
     return html.Div([
-        html.H3(item["symbol"] + " · SYNTHETIC QA"),
-        html.Dl([html.Div([html.Dt(label), html.Dd(value)]) for label, value in labels]),
-        html.P("Fabricated evidence only. No live market feed or production membership authority."),
+        html.Div([
+            html.Div([
+                html.H3(item["symbol"]),
+                html.P(item.get("description") or "Synthetic security name unavailable"),
+            ]),
+            html.Span(item["tier"].upper(),
+                      className=f"membership-band membership-band-{item['tier']}"
+                      if item["tier"] in TIERS else "membership-band"),
+        ], className="membership-details-heading"),
+        html.Dl([html.Div([html.Dt(label), html.Dd(value)]) for label, value in fields],
+                className="membership-details-grid"),
+        html.P("OFFLINE SYNTHETIC QA · Fabricated quotes. Not a live Schwab feed.",
+               className="membership-details-note"),
     ])
+
+
+def _membership_search_tier(records: Mapping[str, list[dict[str, Any]]],
+                            query: str | None) -> tuple[str, str | None]:
+    """Find an exact symbol in the three exclusive tiers, regardless of channel."""
+    symbol = (query or "").strip().upper()
+    if not symbol or len(symbol) > 20:
+        return symbol, None
+    for tier in TIERS:
+        if any(row.get("symbol") == symbol for row in records.get(tier, ())):
+            return symbol, tier
+    return symbol, None
+
 
 
 def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
@@ -390,12 +428,12 @@ def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
             html.Label(["Action", dcc.Dropdown(id="operator-action", options=[
                 {"label": "Promote", "value": "promote"},
                 {"label": "Ordinary demote", "value": "demote"},
-            ], value="demote", clearable=False)]),
+            ], value="demote", clearable=False, className="operator-bridge-dropdown")]),
             html.Label(["Destination", dcc.Dropdown(id="operator-target", options=[
                 {"label": "Uni", "value": "uni"},
                 {"label": "Focus", "value": "focus"},
                 {"label": "Hot", "value": "hot"},
-            ], value="focus", clearable=False)]),
+            ], value="focus", clearable=False, className="operator-bridge-dropdown")]),
         ], className="operator-bridge-inputs"),
         html.Button("Preview action", id="operator-preview-button", n_clicks=0),
         html.Div(id="operator-preview-status", role="status"),
@@ -416,22 +454,37 @@ def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_sy
                 [
                     html.Div([
                         html.H2("Membership explorer"),
-                        html.P("Select a symbol to inspect its saved information at the replay clock. Filter and scroll each list independently."),
+                        html.P("Three sorted lists and one shared symbol finder. Click a column heading to reverse its sort."),
                     ]),
-                    html.Span("HISTORICAL · READ-ONLY", className="membership-readonly"),
+                    html.Span("HISTORICAL · READ-ONLY", className="membership-readonly", id="membership-context-status"),
                 ],
                 className="membership-heading",
             ),
             html.P("Each symbol appears once, in its highest tier: Uni only, Focus (not Hot), or Hot. Underlying membership remains nested: Hot ⊆ Focus ⊆ Uni.", className="membership-explanation"),
             html.Div(
-                [_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                [
+                    *[_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                    html.Section([
+                        html.H3("Symbol details", className="membership-inspector-title"),
+                        html.Div([
+                            dcc.Input(id="membership-search-symbol", type="text",
+                                      placeholder="Ticker across all tiers", maxLength=20,
+                                      autoComplete="off", n_submit=0,
+                                      className="membership-search-input"),
+                            html.Button("Find", id="membership-find-button",
+                                        n_clicks=0, className="membership-find-button"),
+                        ], className="membership-search-row"),
+                        html.Div("Search by ticker or click a symbol in any list.",
+                                 id="membership-search-status", role="status",
+                                 className="membership-search-status"),
+                        html.Div(_membership_inspector(html, view, selected_symbol),
+                                 id="membership-symbol-inspector"),
+                    ], className="membership-inspector",
+                        id="membership-inspector-panel",
+                        **{"aria-label": "Selected symbol and cross-tier search"}),
+                ],
                 className="membership-tier-columns",
-            ),
-            html.Section(
-                _membership_inspector(html, view, selected_symbol),
-                id="membership-symbol-inspector",
-                className="membership-inspector",
-                **{"aria-label": "Selected symbol information"},
+                id="membership-tier-columns",
             ),
             html.P("Historical replay remains read-only. Synthetic operator actions are only available in explicitly selected Real Time (synthetic QA) mode.", className="membership-editing-note"),
             *([_synthetic_operator_controls(html, dcc)] if operator_enabled else []),
@@ -1294,25 +1347,60 @@ def create_quote_dashboard(
     @app.callback(
         Output("membership-selected-symbol", "data"),
         *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
+        Output("membership-search-status", "children"),
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
+        Input("membership-find-button", "n_clicks"),
+        Input("membership-search-symbol", "n_submit"),
         *([Input("workspace-mode", "value")] if operator_bridge else []),
+        State("membership-search-symbol", "value"),
+        State("workspace-mode", "value"),
         prevent_initial_call=True,
     )
     def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
-        """Select exactly one row across the three grids without publishing."""
-        if operator_bridge is not None and ctx.triggered_id == "workspace-mode":
-            return (None, [], [], [])
-        cell_clicks = args[:len(TIERS)]
-        selected_grid = ctx.triggered_id
-        for tier, click in zip(TIERS, cell_clicks):
-            if selected_grid == f"membership-{tier}-grid" and isinstance(click, dict):
+        """Click a row or find a ticker across all tiers; no membership writes."""
+        trigger = ctx.triggered_id
+        query, mode = args[-2], args[-1]
+        if operator_bridge is not None and trigger == "workspace-mode":
+            return (None, [], [], [], "Select a symbol or search all three lists.")
+        if trigger in ("membership-find-button", "membership-search-symbol"):
+            symbol = (query or "").strip().upper()
+            if not symbol:
+                return (no_update, no_update, no_update, no_update,
+                        "Enter a ticker symbol to find.")
+            records = (
+                operator_bridge.records()
+                if operator_bridge is not None and mode == "real-time"
+                else membership_tier_records(
+                    build_quote_dashboard_view(controller.snapshot().state)
+                )
+            )
+            symbol, tier = _membership_search_tier(records, symbol)
+            if tier is None:
+                return (None, [], [], [],
+                        f"{symbol} is not in Uni, Focus, or Hot at the current "
+                        f"{'synthetic session' if mode == 'real-time' else 'replay'} time.")
+            heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
+            return (symbol,
+                    *({"ids": [symbol]} if t == tier else [] for t in TIERS),
+                    f"{symbol} found in {heading}.")
+        for tier, click in zip(TIERS, args[:len(TIERS)]):
+            if trigger == f"membership-{tier}-grid" and isinstance(click, dict):
                 symbol = click.get("rowId")
                 if isinstance(symbol, str) and symbol:
-                    return (
-                        symbol,
-                        *({"ids": [symbol]} if current == tier else [] for current in TIERS),
-                    )
-        return (no_update,) * (len(TIERS) + 1)
+                    heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
+                    return (symbol,
+                            *({"ids": [symbol]} if t == tier else [] for t in TIERS),
+                            f"{symbol} selected in {heading}.")
+        return (no_update,) * (len(TIERS) + 2)
+
+    @app.callback(
+        Output("membership-search-symbol", "value"),
+        Input("membership-selected-symbol", "data"),
+        prevent_initial_call=True,
+    )
+    def reflect_symbol_in_search(symbol: str | None) -> Any:
+        return symbol if isinstance(symbol, str) and symbol else no_update
+
 
     @app.callback(
         Output("membership-symbol-inspector", "children"),
@@ -1350,6 +1438,7 @@ def create_quote_dashboard(
     if operator_bridge is not None:
         @app.callback(
             Output("workspace-mode-status", "children"),
+            Output("membership-context-status", "children"),
             Output("operator-bridge-panel", "style"),
             Output("operator-confirm-button", "disabled"),
             Input("workspace-mode", "value"),
@@ -1357,8 +1446,10 @@ def create_quote_dashboard(
         )
         def operator_mode_status(mode: str, proposal: dict | None) -> tuple:
             if mode != "real-time":
-                return "Historical · read-only", {"display": "none"}, True
+                return ("Historical · read-only", "HISTORICAL · READ-ONLY",
+                        {"display": "none"}, True)
             return ("REAL TIME · OFFLINE SYNTHETIC QA (NO SCHWAB)",
+                    "SYNTHETIC QA · MANUAL CONTROLS",
                     {"display": "block"},
                     not bool(proposal and proposal.get("proposal_id")))
 
