@@ -161,6 +161,7 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(synthetic["membership-focus-grid"]["selectedRows"], [])
         self.assertIn("Hot", synthetic["membership-search-status"]["children"])
         self.assertEqual(synthetic["membership-search-symbol"]["value"], "INTC")
+        self.assertIsNone(synthetic["membership-admission-candidate"]["data"])
         self.assertEqual(synthetic["membership-hot-grid"]["scrollTo"],
                          {"rowId": "INTC", "rowPosition": "middle"})
         self.assertNotIn("scrollTo", synthetic.get("membership-focus-grid", {}))
@@ -180,6 +181,13 @@ class BridgeTests(unittest.TestCase):
         self.assertIn("not in Uni, Focus, or Hot",
                       absent["membership-search-status"]["children"])
         self.assertNotIn("scrollTo", absent.get("membership-hot-grid", {}))
+        self.assertEqual(absent["membership-admission-candidate"]["data"], "NOTINSIDE")
+        malformed = search("$$", "real-time")
+        self.assertIsNone(malformed["membership-admission-candidate"]["data"])
+        self.assertIn("Invalid canonical ticker format",
+                      malformed["membership-search-status"]["children"])
+        historical_absent = search("AMD", "historical")
+        self.assertIsNone(historical_absent["membership-admission-candidate"]["data"])
 
     def test_operator_dropdown_uses_theme_aware_menu_styles(self):
         css = (Path(__file__).resolve().parents[1] / "src" / "mb_market_data"
@@ -236,13 +244,15 @@ class BridgeTests(unittest.TestCase):
             self.assertNotIn("scrollTo", updates[f"membership-{tier}-grid"])
         self.assertIn("Press Find or Enter",
                       updates["membership-search-status"]["children"])
+        self.assertIsNone(updates["membership-admission-candidate"]["data"])
 
     def test_symbol_search_strip_and_scroll_are_independent_of_details(self):
         app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
         components = {getattr(c, "id", None): c for c in descendants(app.layout)}
         lookup = components["membership-lookup-column"]
         self.assertEqual([child.id for child in lookup.children],
-                         ["membership-search-panel", "membership-inspector-panel"])
+                         ["membership-search-panel", "membership-outside-panel",
+                          "membership-inspector-panel"])
         search = components["membership-search-symbol"]
         self.assertEqual(search.placeholder, "Ticker")
         css = (Path(__file__).resolve().parents[1] / "src" / "mb_market_data"
@@ -316,6 +326,9 @@ class BridgeTests(unittest.TestCase):
         elements = {getattr(c, "id", None): c for c in descendants(app.layout)}
         self.assertNotIn("membership-drag-request", elements)
         self.assertNotIn("membership-drag-binding-status", elements)
+        self.assertNotIn("membership-admission-candidate", elements)
+        self.assertNotIn("membership-admit-button", elements)
+        self.assertNotIn("membership-outside-panel", elements)
         for tier in ("uni", "focus", "hot"):
             grid = elements[f"membership-{tier}-grid"]
             self.assertFalse(grid.columnDefs[0]["rowDrag"])
@@ -374,6 +387,205 @@ class BridgeTests(unittest.TestCase):
         self.assertIn("Source tier changed", spoofed["operator-preview-status"]["children"])
         self.assertEqual(Path(self.demo.plan["journal"]).read_bytes(), before)
         self.assertFalse(list(inbox.glob("*.json")))
+
+
+    def test_outside_admission_preview_is_unverified_and_nonmutating(self):
+        journal = Path(self.demo.plan["journal"])
+        before = journal.read_bytes()
+        inbox = self.root / "membership" / "inbox"
+        proposal = self.bridge.preview_admission("real-time", " amd ")
+        self.assertEqual(
+            (proposal["symbol"], proposal["before"], proposal["after"],
+             proposal["action"], proposal["target"]),
+            ("AMD", "outside", "uni", "promote", "uni"),
+        )
+        self.assertFalse(proposal["request_written"])
+        self.assertIn("identity validation", proposal["note"])
+        self.assertEqual(journal.read_bytes(), before)
+        self.assertFalse(list(inbox.glob("*.json")))
+
+    def test_outside_admission_rejects_member_syntax_and_historical_mode(self):
+        with self.assertRaisesRegex(OperatorProblem, "read-only"):
+            self.bridge.preview_admission("historical", "AMD")
+        with self.assertRaisesRegex(OperatorProblem, "canonical security"):
+            self.bridge.preview_admission("real-time", "$$")
+        with self.assertRaisesRegex(OperatorProblem, "already in HOT"):
+            self.bridge.preview_admission("real-time", "INTC")
+        with self.assertRaisesRegex(OperatorProblem, "already in UNI"):
+            self.bridge.preview_admission("real-time", "AAME")
+
+    def test_outside_admission_card_only_ready_for_current_synthetic_nonmember(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        components = {getattr(c, "id", None): c for c in descendants(app.layout)}
+        self.assertEqual(components["membership-outside-panel"].style,
+                         {"display": "none"})
+        self.assertIn("membership-admit-button", components)
+        self.assertIn("membership-admission-candidate", components)
+        callback_key, callback = next(
+            (key, entry) for key, entry in app.callback_map.items()
+            if isinstance(entry["output"], list)
+            and any(item.component_id == "membership-outside-panel"
+                    for item in entry["output"])
+        )
+        def view(candidate, mode):
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [{"id": item.component_id, "property": item.component_property}
+                            for item in callback["output"]],
+                "changedPropIds": ["membership-admission-candidate.data"],
+                "inputs": [
+                    {"id": i["id"], "property": i["property"],
+                     "value": (candidate if i["id"] == "membership-admission-candidate"
+                               else mode if i["id"] == "workspace-mode" else 0)}
+                    for i in callback["inputs"]
+                ],
+                "state": [],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            return response.get_json()["response"]
+        allowed = view("AMD", "real-time")
+        self.assertEqual(allowed["membership-outside-panel"]["style"], {})
+        self.assertFalse(allowed["membership-admit-button"]["disabled"])
+        self.assertIn("AMD — outside", allowed["membership-admission-label"]["children"])
+        self.assertEqual(view("AMD", "historical")
+                         ["membership-outside-panel"]["style"], {"display": "none"})
+        self.assertEqual(view("INTC", "real-time")
+                         ["membership-outside-panel"]["style"], {"display": "none"})
+
+    def test_admission_button_creates_exact_promotion_preview_and_never_queues(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, entry) for key, entry in app.callback_map.items()
+            if isinstance(entry["output"], list)
+            and any(item.component_id == "operator-preview-proposal"
+                    for item in entry["output"])
+        )
+        before = Path(self.demo.plan["journal"]).read_bytes()
+        inbox = self.root / "membership" / "inbox"
+        def click(candidate, search, mode="real-time"):
+            inputs = [
+                {"id": i["id"], "property": i["property"],
+                 "value": (1 if i["id"] == "membership-admit-button"
+                           else search if i["id"] == "membership-search-symbol"
+                           else mode if i["id"] == "workspace-mode" else 0)}
+                for i in callback["inputs"]
+            ]
+            state = [
+                {"id": i["id"], "property": i["property"],
+                 "value": (candidate if i["id"] == "membership-admission-candidate"
+                           else "INTC" if i["id"] == "operator-symbol"
+                           else "demote" if i["id"] == "operator-action"
+                           else "hot")}
+                for i in callback["state"]
+            ]
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [{"id": i.component_id, "property": i.component_property}
+                            for i in callback["output"]],
+                "changedPropIds": ["membership-admit-button.n_clicks"],
+                "inputs": inputs, "state": state,
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            return response.get_json()["response"]
+        proposed = click("AMD", "amd")
+        data = proposed["operator-preview-proposal"]["data"]
+        self.assertEqual((data["symbol"], data["action"], data["target"], data["before"]),
+                         ("AMD", "promote", "uni", "outside"))
+        self.assertFalse(data["request_written"])
+        self.assertIn("ADMISSION PREVIEW ONLY",
+                      proposed["operator-preview-status"]["children"])
+        mismatch = click("AMD", "MSFT")
+        self.assertIsNone(mismatch["operator-preview-proposal"]["data"])
+        self.assertIn("search again", mismatch["operator-preview-status"]["children"])
+        historical = click("AMD", "AMD", "historical")
+        self.assertIsNone(historical["operator-preview-proposal"]["data"])
+        self.assertIn("read-only", historical["operator-preview-status"]["children"])
+        already = click("INTC", "INTC")
+        self.assertIsNone(already["operator-preview-proposal"]["data"])
+        self.assertIn("already in HOT",
+                      already["operator-preview-status"]["children"])
+        self.assertEqual(Path(self.demo.plan["journal"]).read_bytes(), before)
+        self.assertFalse(list(inbox.glob("*.json")))
+
+    def test_admission_button_sets_existing_operator_controls(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, entry) for key, entry in app.callback_map.items()
+            if isinstance(entry["output"], list)
+            and any(item.component_id == "operator-action" for item in entry["output"])
+        )
+        response = client.post("/_dash-update-component", json={
+            "output": callback_key,
+            "outputs": [{"id": i.component_id, "property": i.component_property}
+                        for i in callback["output"]],
+            "changedPropIds": ["membership-admit-button.n_clicks"],
+            "inputs": [
+                {"id": i["id"], "property": i["property"],
+                 "value": (1 if i["id"] == "membership-admit-button"
+                           else "real-time" if i["id"] == "workspace-mode" else None)}
+                for i in callback["inputs"]
+            ],
+            "state": [
+                {"id": i["id"], "property": i["property"],
+                 "value": ("real-time" if i["id"] == "workspace-mode" else
+                           "AMD" if i["id"] == "membership-admission-candidate" else
+                           "amd")}
+                for i in callback["state"]
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+        changes = response.get_json()["response"]
+        self.assertEqual(changes["operator-symbol"]["value"], "AMD")
+        self.assertEqual(changes["operator-action"]["value"], "promote")
+        self.assertEqual(changes["operator-target"]["value"], "uni")
+
+    def test_outside_admission_real_worker_effective_and_simulated_rejection(self):
+        original = self.bridge.snapshot()
+        proposal = self.bridge.preview_admission("real-time", "AMD")
+        request = self.bridge.confirm("real-time", proposal["proposal_id"])
+        self.assertEqual(request["request"]["action"], "promote")
+        self.assertEqual(request["request"]["target"], "uni")
+        cid = request["request"]["id"]
+        result = None
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            result = self.bridge.result(cid)
+            if result["status"] == "EFFECTIVE_AS_PUBLISHED":
+                break
+            self.assertNotIn(result["status"], ("REJECTED", "FAILED", "NOT_FOUND"))
+            time.sleep(.1)
+        self.assertEqual(result["status"], "EFFECTIVE_AS_PUBLISHED")
+        current = self.bridge.snapshot("AMD")
+        self.assertEqual(current["selected"]["tier"], "uni")
+        self.assertEqual(current["counts"]["uni"], original["counts"]["uni"] + 1)
+        self.assertEqual(current["counts"]["focus"], original["counts"]["focus"])
+        self.assertEqual(current["counts"]["hot"], original["counts"]["hot"])
+        self.assertIn("AMD", [r["symbol"] for r in self.bridge.records()["uni"]])
+
+        # Canonical-looking NOTREAL reaches the synthetic identity fixture
+        # but is explicitly refused: ticker syntax alone is not equity identity.
+        negative = self.bridge.preview_admission("real-time", "NOTREAL")
+        rejected_command = self.bridge.confirm("real-time", negative["proposal_id"])
+        negative_id = rejected_command["request"]["id"]
+        rejected = None
+        deadline = time.monotonic() + 8
+        while time.monotonic() < deadline:
+            rejected = self.bridge.result(negative_id)
+            if rejected["status"] == "REJECTED":
+                break
+            self.assertNotIn(rejected["status"], ("FAILED", "NOT_FOUND"))
+            time.sleep(.1)
+        self.assertEqual(rejected["status"], "REJECTED")
+        self.assertIn("SIMULATED: Exact equity identity not confirmed",
+                      rejected["message"])
+        self.assertEqual(self.bridge.snapshot("NOTREAL")["selected"]["tier"],
+                         "outside")
 
 
 if __name__ == "__main__":

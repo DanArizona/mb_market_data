@@ -41,6 +41,7 @@ ACTIVITY_SECTIONS = ("information", "graph", "replay", "backtest", "trading")
 
 from .overlay_membership_bridge import SyntheticOverlayMembership
 from .daily_operator_ui import OperatorProblem
+from .daily_membership import normalized
 
 
 
@@ -451,6 +452,7 @@ def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
         dcc.Store(id="operator-command-id"),
         dcc.Store(id="membership-drag-request"),
         dcc.Store(id="membership-drag-binding-status"),
+        dcc.Store(id="membership-admission-candidate"),
         dcc.Interval(id="operator-receipt-tick", interval=1000),
     ], id="operator-bridge-panel", style={"display": "none"}, className="operator-bridge-panel")
 
@@ -494,6 +496,24 @@ def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_sy
                             ], className="membership-search-row"),
                         ], id="membership-search-panel", className="membership-search-panel",
                            **{"aria-label": "Search symbol across all three tiers"}),
+                        *([html.Section([
+                            html.Div([
+                                html.Strong(id="membership-admission-label"),
+                                html.Span("UNVERIFIED", className="membership-admission-unverified"),
+                            ], className="membership-admission-heading"),
+                            html.P(
+                                "Ticker format accepted; equity identity is not yet verified. "
+                                "The real worker validates exact EQUITY identity and capacity "
+                                "before publication; this offline demonstration simulates identity.",
+                                className="membership-admission-explanation",
+                            ),
+                            html.Button("Preview admission to Uni",
+                                        id="membership-admit-button", n_clicks=0,
+                                        className="membership-admit-button"),
+                        ], id="membership-outside-panel", style={"display": "none"},
+                           className="membership-outside-panel",
+                           **{"aria-label": "Propose admission of an outside-Universe symbol"})]
+                           if operator_enabled else []),
                         html.Section([
                             html.H3("Symbol details", className="membership-inspector-title"),
                             html.Div("Search by ticker or click a symbol in any list.",
@@ -1374,6 +1394,7 @@ def create_quote_dashboard(
         Output("membership-search-status", "children"),
         *[Output(f"membership-{tier}-grid", "scrollTo") for tier in TIERS],
         Output("membership-search-symbol", "value"),
+        *([Output("membership-admission-candidate", "data")] if operator_bridge else []),
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
         Input("membership-find-button", "n_clicks"),
         Input("membership-search-symbol", "n_submit"),
@@ -1384,26 +1405,27 @@ def create_quote_dashboard(
         prevent_initial_call=True,
     )
     def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
-        """Own both the input's reflected value and the selected symbol.
+        """Keep selection, search, and any outside-Uni admission offer in sync.
 
-        Dash permits circular Input/Output state in ONE callback, not
-        across distinct callbacks. This keeps edit-to-clear and click-to-fill
-        atomic without a browser-side callback dependency cycle.
+        An admission candidate is offered only for a canonical ticker absent
+        from the effective synthetic roster. This is NOT security identity
+        verification; that occurs inside the membership writer.
         """
         trigger = ctx.triggered_id
         changed = ctx.triggered_prop_ids
-        query = args[len(TIERS) + 2]  # Search value after 3 grid events + Find + Enter.
+        query = args[len(TIERS) + 2]
         mode, selected_symbol = args[-2:]
         no_scroll = (no_update,) * len(TIERS)
-        no_change = (no_update,) * (len(TIERS) * 2 + 3)
+        candidate = (lambda value: (value,) if operator_bridge is not None else ())
+        no_change = (no_update,) * (len(TIERS) * 2 + 3
+                                   + (1 if operator_bridge is not None else 0))
 
         if operator_bridge is not None and trigger == "workspace-mode":
             return (None, [], [], [], "Select a symbol or search all three lists.",
-                    *no_scroll, "")
+                    *no_scroll, "", *candidate(None))
 
-        # The same callback reflects list clicks into the input. A matching
-        # programmatic value change must NOT erase the selected inspector.
-        # Enter is a submission, even if it also updates the text value.
+        # A user edit removes any prior admission offer, even when the old
+        # symbol is absent from membership. Reflected clicks are ignored.
         submitted = "membership-search-symbol.n_submit" in changed
         edited = "membership-search-symbol.value" in changed
         if edited and not submitted and trigger == "membership-search-symbol":
@@ -1411,13 +1433,20 @@ def create_quote_dashboard(
                 return no_change
             return (None, [], [], [],
                     "Search text changed. Press Find or Enter for updated details.",
-                    *no_scroll, no_update)
+                    *no_scroll, no_update, *candidate(None))
 
         if trigger == "membership-find-button" or submitted:
-            symbol = (query or "").strip().upper()
-            if not symbol:
+            raw = str(query or "").strip().upper()
+            if not raw:
                 return (None, [], [], [], "Enter a ticker symbol to find.",
-                        *no_scroll, no_update)
+                        *no_scroll, no_update, *candidate(None))
+            try:
+                symbol = normalized(raw)
+            except ValueError:
+                return (None, [], [], [],
+                        "Invalid canonical ticker format. Admission is not offered.",
+                        *no_scroll, no_update, *candidate(None))
+
             records = (
                 operator_bridge.records()
                 if operator_bridge is not None and mode == "real-time"
@@ -1427,20 +1456,25 @@ def create_quote_dashboard(
             )
             symbol, tier = _membership_search_tier(records, symbol)
             if tier is None:
+                offer = operator_bridge is not None and mode == "real-time"
+                detail = (
+                    " Preview admission to Uni is available; identity remains unverified."
+                    if offer else ""
+                )
                 return (None, [], [], [],
                         f"{symbol} is not in Uni, Focus, or Hot at the current "
-                        f"{'synthetic session' if mode == 'real-time' else 'replay'} time.",
-                        *no_scroll, no_update)
+                        f"{'synthetic session' if mode == 'real-time' else 'replay'} time."
+                        + detail, *no_scroll, no_update,
+                        *candidate(symbol if offer else None))
             heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
-            # AG Grid scrollTo by stable rowId follows the current sort order
-            # in the target list; other lists are left at their positions.
             scroll = tuple(
                 {"rowId": symbol, "rowPosition": "middle"}
                 if current == tier else no_update for current in TIERS
             )
             return (symbol,
                     *({"ids": [symbol]} if t == tier else [] for t in TIERS),
-                    f"{symbol} found in {heading}.", *scroll, symbol)
+                    f"{symbol} found in {heading}.", *scroll, symbol,
+                    *candidate(None))
 
         for tier, click in zip(TIERS, args[:len(TIERS)]):
             if trigger == f"membership-{tier}-grid" and isinstance(click, dict):
@@ -1449,7 +1483,8 @@ def create_quote_dashboard(
                     heading = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
                     return (symbol,
                             *({"ids": [symbol]} if t == tier else [] for t in TIERS),
-                            f"{symbol} selected in {heading}.", *no_scroll, symbol)
+                            f"{symbol} selected in {heading}.", *no_scroll, symbol,
+                            *candidate(None))
         return no_change
 
 
@@ -1471,6 +1506,31 @@ def create_quote_dashboard(
         replay_view = build_quote_dashboard_view(controller.snapshot().state)
         return _membership_inspector(html, replay_view, symbol)
 
+
+    if operator_bridge is not None:
+        @app.callback(
+            Output("membership-outside-panel", "style"),
+            Output("membership-admission-label", "children"),
+            Output("membership-admit-button", "disabled"),
+            Input("membership-admission-candidate", "data"),
+            Input("workspace-mode", "value"),
+            Input("operator-receipt-tick", "n_intervals"),
+        )
+        def show_outside_admission(candidate: str | None, mode: str,
+                                   _receipt_tick: int) -> tuple:
+            """Only offer admission for an effective outside member in QA."""
+            if mode != "real-time" or not isinstance(candidate, str) or not candidate:
+                return {"display": "none"}, "", True
+            try:
+                snapshot = operator_bridge.snapshot(candidate)
+            except (OSError, ValueError, KeyError, TypeError):
+                return {"display": "none"}, "", True
+            if snapshot["selected"]["tier"] != "outside":
+                # Once an effective revision admits the symbol, hide the offer.
+                return {"display": "none"}, "", True
+            ready = bool(snapshot["eligible"]) and not snapshot["pending_revision"]
+            status = "Available for preview" if ready else "Worker not currently available"
+            return {}, f"{candidate} — outside all tiers · {status}", not ready
 
     if operator_bridge is not None:
         # Native AG Grid external dropzones, enabled only by this disposable
@@ -1537,13 +1597,24 @@ def create_quote_dashboard(
             Output("operator-target", "value"),
             Input("membership-selected-symbol", "data"),
             Input("membership-drag-request", "data"),
+            Input("membership-admit-button", "n_clicks"),
             State("workspace-mode", "value"),
+            State("membership-admission-candidate", "data"),
+            State("membership-search-symbol", "value"),
             prevent_initial_call=True,
         )
-        def reflect_operator_selection(symbol: str | None,
-                                       drag: dict | None, mode: str) -> tuple:
+        def reflect_operator_selection(symbol: str | None, drag: dict | None,
+                                       _admit_clicks: int, mode: str,
+                                       candidate: str | None, search: str | None) -> tuple:
             if mode != "real-time":
                 return (no_update, no_update, no_update)
+            if ctx.triggered_id == "membership-admit-button" and candidate:
+                try:
+                    if normalized(search or "") == candidate:
+                        return candidate, "promote", "uni"
+                except ValueError:
+                    pass
+                return (no_update,) * 3
             if ctx.triggered_id == "membership-drag-request" and isinstance(drag, dict):
                 source = drag.get("source_tier")
                 target = drag.get("destination_tier")
@@ -1559,15 +1630,22 @@ def create_quote_dashboard(
             Output("operator-preview-status", "children"),
             Input("operator-preview-button", "n_clicks"),
             Input("membership-drag-request", "data"),
+            Input("membership-admit-button", "n_clicks"),
+            Input("membership-search-symbol", "value"),
             Input("workspace-mode", "value"),
             State("operator-symbol", "value"),
             State("operator-action", "value"),
             State("operator-target", "value"),
+            State("membership-admission-candidate", "data"),
             prevent_initial_call=True,
         )
-        def operator_preview(_clicks: int, drag: dict | None, mode: str,
-                             symbol: str | None, action: str, target: str) -> tuple:
+        def operator_preview(_clicks: int, drag: dict | None,
+                             _admit_clicks: int, search: str | None, mode: str,
+                             symbol: str | None, action: str, target: str,
+                             candidate: str | None) -> tuple:
             source = ctx.triggered_id
+            if source == "membership-search-symbol":
+                return None, "Search changed; any previous action preview was cleared."
             try:
                 if source == "membership-drag-request":
                     if not isinstance(drag, dict):
@@ -1578,6 +1656,11 @@ def create_quote_dashboard(
                         drag.get("destination_tier", ""),
                     )
                     reason = "DRAG PREVIEW ONLY: "
+                elif source == "membership-admit-button":
+                    if not candidate or normalized(search or "") != candidate:
+                        return None, "Admission preview blocked: search again for the symbol."
+                    proposal = operator_bridge.preview_admission(mode, candidate)
+                    reason = "ADMISSION PREVIEW ONLY: "
                 elif source == "operator-preview-button":
                     proposal = operator_bridge.preview(mode, symbol or "", action, target)
                     reason = "PREVIEW ONLY: "

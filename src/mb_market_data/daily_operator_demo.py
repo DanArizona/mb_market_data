@@ -39,9 +39,17 @@ HOT = ('BGIN', 'INTC', 'MSFT', 'NVDA')
 
 
 def synthetic_identity(_client, symbol, evidence_path):
-    """Explicitly simulated identity response; never calls an API."""
+    """Simulated identity response; NOT an assertion of real-market eligibility.
+
+    NOTREAL is a deliberate negative fixture so the end-to-end QA can also
+    prove that a well-formed ticker can be refused by the worker.
+    """
+    denied = symbol == 'NOTREAL'
     atomic_json(evidence_path, {'symbol': symbol, 'synthetic': True,
-                                'provider_calls': 0, 'warning': 'OFFLINE TEST IDENTITY ONLY'})
+                                'provider_calls': 0, 'identity_confirmed': not denied,
+                                'warning': 'OFFLINE TEST IDENTITY ONLY'})
+    if denied:
+        raise daily_membership.Rejected('SIMULATED: Exact equity identity not confirmed')
     return True
 
 

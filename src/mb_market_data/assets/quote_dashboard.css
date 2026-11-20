@@ -1708,3 +1708,52 @@ h1 {
 }
 .membership-tier .ag-row-drag { cursor: grab; }
 .membership-tier .ag-row-drag:active { cursor: grabbing; }
+
+/* Outside-Uni search result: advisory admission, never an automatic change. */
+.membership-outside-panel {
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--sea);
+  border-radius: 0.75rem;
+  background: var(--surface-glass);
+}
+.membership-admission-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+}
+.membership-admission-unverified {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+.membership-admission-explanation {
+  margin: 0.4rem 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+.membership-admit-button {
+  padding: 0.43rem 0.65rem;
+  border: 1px solid var(--sea);
+  border-radius: 0.4rem;
+  background: var(--sea-soft);
+  color: var(--sea);
+  font-weight: 700;
+  cursor: pointer;
+}
+.membership-admit-button:hover:not(:disabled) {
+  filter: brightness(1.18);
+}
+.membership-admit-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.membership-admit-button:focus-visible {
+  outline: 2px solid var(--sea);
+  outline-offset: 2px;
+}

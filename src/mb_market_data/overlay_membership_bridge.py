@@ -72,6 +72,27 @@ class SyntheticOverlayMembership:
                   else "demote")
         return self.preview(mode, symbol, action, destination_tier)
 
+    def preview_admission(self, mode: str, symbol: str) -> dict:
+        """Offer an outside-Uni symbol to the existing reviewed promotion path.
+
+        This is deliberately NOT an equity identity lookup. The live
+        membership worker validates the exact EQUITY identity and capacity
+        before publishing. The disposable QA worker simulates that check.
+        """
+        from .daily_membership import normalized
+
+        self._require_mode(mode)
+        try:
+            symbol = normalized(symbol)
+        except ValueError as error:
+            raise OperatorProblem(str(error), 400) from error
+        current = self.snapshot(symbol)["selected"]["tier"]
+        if current != "outside":
+            raise OperatorProblem(
+                f"{symbol} is already in {current.upper()}; use the existing tier controls."
+            )
+        return self.preview(mode, symbol, "promote", "uni")
+
     def confirm(self, mode: str, proposal_id: str) -> dict:
         self._require_mode(mode)
         return self.operator.confirm(proposal_id)
