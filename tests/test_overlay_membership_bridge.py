@@ -98,8 +98,11 @@ class BridgeTests(unittest.TestCase):
         panels = components["membership-tier-columns"].children
         self.assertEqual(len(panels), 4)
         self.assertEqual(panels[-1].id, "membership-lookup-column")
-        self.assertEqual(panels[-1].children[0].id, "membership-search-panel")
-        self.assertEqual(panels[-1].children[1].id, "membership-inspector-panel")
+        self.assertEqual(
+            [panel.id for panel in panels[-1].children],
+            ["membership-search-panel", "membership-outside-panel",
+             "membership-inspector-panel"],
+        )
         self.assertIn("membership-search-symbol", components)
         self.assertIn("membership-find-button", components)
         self.assertEqual(
