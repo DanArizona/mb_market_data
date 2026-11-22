@@ -459,7 +459,7 @@ def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
         ], className="operator-result-stage"),
         dcc.Store(id="operator-preview-proposal"),
         dcc.Store(id="operator-command-id"),
-        dcc.Store(id="operator-post-admission-seen"),
+        dcc.Store(id="operator-post-transition-seen"),
         dcc.Store(id="membership-drag-request"),
         dcc.Store(id="membership-drag-binding-status"),
         dcc.Store(id="membership-admission-candidate"),
@@ -1409,7 +1409,8 @@ def create_quote_dashboard(
         Input("membership-find-button", "n_clicks"),
         Input("membership-search-symbol", "n_submit"),
         Input("membership-search-symbol", "value"),
-        *([Input("workspace-mode", "value")] if operator_bridge else []),
+        *([Input("workspace-mode", "value"),
+           Input("membership-drag-request", "data")] if operator_bridge else []),
         State("workspace-mode", "value"),
         State("membership-selected-symbol", "data"),
         prevent_initial_call=True,
@@ -1423,6 +1424,10 @@ def create_quote_dashboard(
         """
         trigger = ctx.triggered_id
         changed = ctx.triggered_prop_ids
+        # A real drag takes precedence if Dash batches it with a reflected
+        # Find value change. Neither event changes membership by itself.
+        if operator_bridge is not None and "membership-drag-request.data" in changed:
+            trigger = "membership-drag-request"
         query = args[len(TIERS) + 2]
         mode, selected_symbol = args[-2:]
         no_scroll = (no_update,) * len(TIERS)
@@ -1433,6 +1438,32 @@ def create_quote_dashboard(
         if operator_bridge is not None and trigger == "workspace-mode":
             return (None, [], [], [], "Select a symbol or search all three lists.",
                     *no_scroll, "", *candidate(None))
+
+        if operator_bridge is not None and trigger == "membership-drag-request":
+            # A drop proposes an action, but selection remains in its actual
+            # SOURCE tier until the worker publishes an effective revision.
+            # Explicitly synchronize the shared Find input and clear an older
+            # outside-Uni search offer (e.g. REALLY while dragging AMD).
+            drag = args[len(TIERS) + 4]
+            if mode != "real-time" or not isinstance(drag, dict):
+                return no_change
+            source, target = drag.get("source_tier"), drag.get("destination_tier")
+            try:
+                symbol = normalized(drag.get("symbol", ""))
+                actual = operator_bridge.snapshot(symbol)["selected"]["tier"]
+            except (OSError, KeyError, TypeError, ValueError):
+                return (None, [], [], [], "Drop could not be inspected; retry.",
+                        *no_scroll, no_update, *candidate(None))
+            if source not in TIERS or target not in TIERS or source == target or actual != source:
+                return (None, [], [], [], "Source tier changed or invalid drop; retry.",
+                        *no_scroll, no_update, *candidate(None))
+            labels = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}
+            return (symbol,
+                    *({"ids": [symbol]} if tier == source else [] for tier in TIERS),
+                    f"{symbol} selected in {labels[source]}. Drop proposed to "
+                    f"{labels[target]}; membership unchanged until Confirm and "
+                    "worker effectiveness.",
+                    *no_scroll, symbol, *candidate(None))
 
         # A user edit removes any prior admission offer, even when the old
         # symbol is absent from membership. Reflected clicks are ignored.
@@ -1693,9 +1724,17 @@ def create_quote_dashboard(
                 return (None, "Historical replay is read-only.", None, "", "")
 
             if trigger == "membership-search-symbol":
-                # Selecting or automatically admitting a symbol reflects the
-                # ticker into Find. Reflection to the SAME selected/previewed
-                # symbol must not erase the just-completed transaction.
+                # A drag changes Find programmatically. The reflected ticker
+                # can arrive before or after the drag's own Preview response:
+                # never allow this input echo to erase the new drag proposal.
+                # A genuinely different typed ticker still clears the prior
+                # transaction as before.
+                if (isinstance(drag, dict) and isinstance(search, str)
+                        and search.strip().upper() == drag.get("symbol")
+                        and selected_symbol == drag.get("symbol")):
+                    return unchanged
+                # Selecting or admitting a symbol can also reflect the same
+                # ticker without invalidating its currently active preview.
                 same = (isinstance(proposal, dict)
                         and isinstance(search, str)
                         and search.strip().upper() == proposal.get("symbol")
@@ -1802,51 +1841,55 @@ def create_quote_dashboard(
             Output("membership-search-status", "children", allow_duplicate=True),
             *[Output(f"membership-{tier}-grid", "selectedRows", allow_duplicate=True)
               for tier in TIERS],
-            Output("membership-uni-grid", "scrollTo", allow_duplicate=True),
-            Output("operator-post-admission-seen", "data"),
-            Input("membership-uni-grid", "rowData"),
+            *[Output(f"membership-{tier}-grid", "scrollTo", allow_duplicate=True)
+              for tier in TIERS],
+            Output("operator-post-transition-seen", "data"),
+            *[Input(f"membership-{tier}-grid", "rowData") for tier in TIERS],
             Input("operator-receipt-tick", "n_intervals"),
             Input("operator-command-id", "data"),
             State("operator-preview-proposal", "data"),
             State("workspace-mode", "value"),
-            State("operator-post-admission-seen", "data"),
+            State("operator-post-transition-seen", "data"),
             prevent_initial_call=True,
         )
-        def select_effective_admission(uni_rows: list[dict[str, Any]],
-                                       _ticks: int, command_id: str | None,
-                                       proposal: dict | None, mode: str,
-                                       selected_command: str | None) -> tuple[Any, ...]:
-            """Select ONLY a completed outside→Uni admission, once per command.
+        def select_effective_transition(*args: Any) -> tuple[Any, ...]:
+            """Show one confirmed move in its effective tier, once per command.
 
-            Wait until the authoritative rowData actually contains the symbol
-            before scrolling. This avoids racing Grid rendering when the
-            membership revision becomes effective.
+            A drag is not a movement: wait for the authoritative worker receipt
+            AND for the target grid row to be present before selecting/scrolling.
+            Applies to outside→Uni, Uni→Focus, Focus→Hot and demotions alike.
             """
-            unchanged = (no_update,) * (len(TIERS) + 4)
+            no_change = (no_update,) * (2 * len(TIERS) + 3)
+            rows = dict(zip(TIERS, args[:len(TIERS)]))
+            _ticks, command_id, proposal, mode, selected_command = args[len(TIERS):]
             if (mode != "real-time" or not command_id
-                    or command_id == selected_command
-                    or not isinstance(proposal, dict)
-                    or proposal.get("before") != "outside"
-                    or proposal.get("after") != "uni"):
-                return unchanged
-            symbol = proposal.get("symbol")
-            if not isinstance(symbol, str) or not any(
+                    or selected_command == command_id
+                    or not isinstance(proposal, dict)):
+                return no_change
+            symbol, target, before = (
+                proposal.get("symbol"), proposal.get("after"), proposal.get("before")
+            )
+            if (not isinstance(symbol, str) or target not in TIERS
+                    or before not in ("outside", *TIERS) or before == target):
+                return no_change
+            if not any(
                     isinstance(row, dict) and row.get("symbol") == symbol
-                    for row in (uni_rows or [])):
-                return unchanged
+                    for row in (rows.get(target) or [])):
+                return no_change
             try:
                 receipt = operator_bridge.result(command_id)
-                if receipt.get("status") != "EFFECTIVE_AS_PUBLISHED":
-                    return unchanged
-                if operator_bridge.snapshot(symbol)["selected"]["tier"] != "uni":
-                    return unchanged
+                if (receipt.get("status") != "EFFECTIVE_AS_PUBLISHED"
+                        or operator_bridge.snapshot(symbol)["selected"]["tier"] != target):
+                    return no_change
             except (OSError, ValueError, KeyError, TypeError):
-                return unchanged
+                return no_change
+            labels = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}
             return (
                 symbol,
-                f"{symbol} admitted to Uni only; selected automatically.",
-                {"ids": [symbol]}, [], [],
-                {"rowId": symbol, "rowPosition": "middle"},
+                f"{symbol} is now effective in {labels[target]}; selected automatically.",
+                *({"ids": [symbol]} if tier == target else [] for tier in TIERS),
+                *({"rowId": symbol, "rowPosition": "middle"}
+                  if tier == target else no_update for tier in TIERS),
                 command_id,
             )
 

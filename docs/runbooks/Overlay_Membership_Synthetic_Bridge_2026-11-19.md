@@ -245,27 +245,37 @@ These are presentation and callback-ownership changes in synthetic Dash, not
 changes to membership-writer semantics, idempotence, capacity policy, or
 authority to publish.
 
-## November 22 refinement — automatic post-admission selection
+## November 22 refinement — automatic effective-transition selection
 
-Only after a command with preview **outside → Uni** receives
-`EFFECTIVE_AS_PUBLISHED`, the synthetic bridge verifies that:
+After an effective admission **or any confirmed promotion/demotion**, the
+synthetic bridge now checks:
 
-1. The effective membership snapshot reports Uni (not a stale/pending tier).
-2. The newly admitted ticker is present in the actual Uni AG Grid `rowData`.
-3. This particular command ID has not already triggered automatic selection.
+1. The worker receipt is `EFFECTIVE_AS_PUBLISHED` for the current command.
+2. The effective membership snapshot reports the proposed destination tier.
+3. The ticker is present in that destination tier's current AG Grid `rowData`.
+4. This exact command ID has not already triggered automatic selection.
 
-It then selects, centers by stable row ID, and inspects the new Uni symbol
-while updating the search status. The Find box retains the operator's typed
-query to avoid a cross-callback dependency cycle; its value is not forcibly
-overwritten by the automatic selection. It applies **once per
-command**, so later refreshes do not override subsequent manual list choices.
-Failed admission, pending effective revisions, missing grid rows, and historical
-mode never trigger this behavior.
+Then it highlights the symbol in its new effective tier, clears stale
+highlights elsewhere, centers the destination list by stable symbol ID, and
+updates the search/inspection status. A completed Hot→Focus, Uni→Focus,
+Focus→Hot, etc., now behaves like an outside→Uni admission.
 
-The deliberate wait for Uni `rowData` avoids the previously observed race
-where a worker receipt became effective before the row could be scrolled into
-view. The inspector is allowed to show **Unavailable** quote fields until a
-subsequent actual acquisition; it never fabricates quotes.
+At **drop time**, before any worker publication, the Find field is also
+synchronized to the dragged symbol, the source row stays highlighted, and
+the old symbol's search/admission message is cleared. A programmatic Find
+reflection caused by dragging must not invalidate the current Preview;
+a later genuine manual search edit still clears stale Preview/Confirm state.
+
+For the post-effective update, the Find field retains its already
+synchronized ticker rather than being overwritten by a second callback.
+The update happens **once per command**, so later refreshes do not override
+subsequent manual list choices. Failed requests, pending revisions, missing
+destination grid rows, and Historical mode never trigger selection.
+
+The deliberate wait for the destination `rowData` avoids the observed
+rendering race between receipt effectiveness and grid scrolling. The
+inspector may show **Unavailable** quote fields until an actual acquisition;
+it never fabricates quotes.
 
 ## November 22 refinement — controlled synthetic identity fixtures
 

@@ -783,18 +783,20 @@ class BridgeTests(unittest.TestCase):
 
         def auto(rows, seen=None):
             result = dashboard_callback_response(
-                client, app, "operator-post-admission-seen",
+                client, app, "operator-post-transition-seen",
                 "membership-uni-grid.rowData",
                 input_values={
                     "workspace-mode.value": "real-time",
                     "membership-uni-grid.rowData": rows,
+                    "membership-focus-grid.rowData": self.bridge.records()["focus"],
+                    "membership-hot-grid.rowData": self.bridge.records()["hot"],
                     "operator-command-id.data": cid,
                     "operator-receipt-tick.n_intervals": 20,
                 },
                 state_values={
                     "workspace-mode.value": "real-time",
                     "operator-preview-proposal.data": preview,
-                    "operator-post-admission-seen.data": seen,
+                    "operator-post-transition-seen.data": seen,
                 },
             )
             self.addCleanup(result.close)
@@ -810,17 +812,150 @@ class BridgeTests(unittest.TestCase):
         # The existing typed Find text is preserved: no cross-callback cycle
         # or unexpected replacement of an operator's current search input.
         self.assertNotIn("membership-search-symbol", updated)
-        self.assertIn("admitted to Uni only",
+        self.assertIn("now effective in Uni only",
                       updated["membership-search-status"]["children"])
         self.assertEqual(updated["membership-uni-grid"]["selectedRows"], {"ids": ["AMD"]})
         self.assertEqual(updated["membership-uni-grid"]["scrollTo"],
                          {"rowId": "AMD", "rowPosition": "middle"})
         self.assertEqual(updated["membership-focus-grid"]["selectedRows"], [])
         self.assertEqual(updated["membership-hot-grid"]["selectedRows"], [])
-        self.assertEqual(updated["operator-post-admission-seen"]["data"], cid)
+        self.assertEqual(updated["operator-post-transition-seen"]["data"], cid)
         # The user's manual choices must not be overwritten on future ticks.
         again = auto(self.bridge.records()["uni"], seen=cid)
         self.assertEqual(again.status_code, 204)
+
+
+    def test_drag_updates_shared_find_and_selects_source_without_publishing(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        before = Path(self.demo.plan["journal"]).read_bytes()
+        drag = {"symbol": "INTC", "source_tier": "hot",
+                "destination_tier": "focus", "nonce": "test-drag-search"}
+        result = dashboard_callback_response(
+            client, app, "membership-selected-symbol",
+            "membership-drag-request.data",
+            input_values={
+                "workspace-mode.value": "real-time",
+                "membership-search-symbol.value": "REALLY",
+                "membership-drag-request.data": drag,
+            },
+            state_values={
+                "workspace-mode.value": "real-time",
+                "membership-selected-symbol.data": None,
+            },
+        )
+        self.addCleanup(result.close)
+        self.assertEqual(result.status_code, 200, result.get_data(as_text=True))
+        updated = result.get_json()["response"]
+        self.assertEqual(updated["membership-selected-symbol"]["data"], "INTC")
+        self.assertEqual(updated["membership-search-symbol"]["value"], "INTC")
+        self.assertEqual(updated["membership-hot-grid"]["selectedRows"], {"ids": ["INTC"]})
+        self.assertEqual(updated["membership-focus-grid"]["selectedRows"], [])
+        self.assertEqual(updated["membership-uni-grid"]["selectedRows"], [])
+        self.assertIsNone(updated["membership-admission-candidate"]["data"])
+        self.assertIn("INTC selected in Hot",
+                      updated["membership-search-status"]["children"])
+        self.assertIn("proposed to Focus only",
+                      updated["membership-search-status"]["children"])
+        self.assertNotIn("REALLY", str(updated))
+        self.assertEqual(Path(self.demo.plan["journal"]).read_bytes(), before)
+        self.assertFalse(list((self.root / "membership" / "inbox").glob("*.json")))
+
+    def test_effective_drag_to_focus_auto_highlights_target_and_scrolls(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        proposal = self.bridge.preview_drop("real-time", "INTC", "hot", "focus")
+        request = self.bridge.confirm("real-time", proposal["proposal_id"])
+        cid = request["request"]["id"]
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            if self.bridge.result(cid)["status"] == "EFFECTIVE_AS_PUBLISHED":
+                break
+            time.sleep(.1)
+        self.assertEqual(self.bridge.result(cid)["status"], "EFFECTIVE_AS_PUBLISHED")
+        self.assertEqual(self.bridge.snapshot("INTC")["selected"]["tier"], "focus")
+
+        def update(focus_rows, seen=None):
+            records = self.bridge.records()
+            response = dashboard_callback_response(
+                client, app, "operator-post-transition-seen",
+                "membership-focus-grid.rowData",
+                input_values={
+                    "membership-uni-grid.rowData": records["uni"],
+                    "membership-focus-grid.rowData": focus_rows,
+                    "membership-hot-grid.rowData": records["hot"],
+                    "operator-receipt-tick.n_intervals": 10,
+                    "operator-command-id.data": cid,
+                },
+                state_values={
+                    "operator-preview-proposal.data": proposal,
+                    "workspace-mode.value": "real-time",
+                    "operator-post-transition-seen.data": seen,
+                },
+            )
+            self.addCleanup(response.close)
+            return response
+
+        absent = update([r for r in self.bridge.records()["focus"]
+                         if r["symbol"] != "INTC"])
+        self.assertEqual(absent.status_code, 204)
+        effective = update(self.bridge.records()["focus"])
+        self.assertEqual(effective.status_code, 200,
+                         effective.get_data(as_text=True))
+        changes = effective.get_json()["response"]
+        self.assertEqual(changes["membership-selected-symbol"]["data"], "INTC")
+        self.assertIn("INTC is now effective in Focus only",
+                      changes["membership-search-status"]["children"])
+        self.assertEqual(changes["membership-focus-grid"]["selectedRows"],
+                         {"ids": ["INTC"]})
+        self.assertEqual(changes["membership-uni-grid"]["selectedRows"], [])
+        self.assertEqual(changes["membership-hot-grid"]["selectedRows"], [])
+        self.assertEqual(changes["membership-focus-grid"]["scrollTo"],
+                         {"rowId": "INTC", "rowPosition": "middle"})
+        self.assertNotIn("scrollTo", changes.get("membership-uni-grid", {}))
+        self.assertNotIn("scrollTo", changes.get("membership-hot-grid", {}))
+        self.assertEqual(changes["operator-post-transition-seen"]["data"], cid)
+        subsequent = update(self.bridge.records()["focus"], seen=cid)
+        self.assertEqual(subsequent.status_code, 204)
+
+
+    def test_programmatic_drag_find_echo_does_not_erase_preview_but_user_edit_does(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        prior = {"proposal_id": "synthetic-previous-preview",
+                 "symbol": "REALLY", "before": "outside", "after": "uni"}
+        drag = {"symbol": "INTC", "source_tier": "hot",
+                "destination_tier": "focus", "nonce": "test-echo"}
+        def change(selected):
+            response = dashboard_callback_response(
+                client, app, "operator-preview-proposal",
+                "membership-search-symbol.value",
+                input_values={
+                    "workspace-mode.value": "real-time",
+                    "membership-drag-request.data": drag,
+                    "membership-search-symbol.value": "INTC",
+                },
+                state_values={
+                    "operator-preview-proposal.data": prior,
+                    "membership-selected-symbol.data": selected,
+                    "operator-command-id.data": "manual-" + "a" * 32,
+                },
+            )
+            self.addCleanup(response.close)
+            return response
+
+        # Search reflection happens while the same symbol is selected by drag.
+        automatic = change("INTC")
+        self.assertEqual(automatic.status_code, 204)
+        # A later typed search is a genuine edit (selected member is cleared).
+        # The old transaction must then be invalidated, not carried forward.
+        edited = change(None)
+        self.assertEqual(edited.status_code, 200, edited.get_data(as_text=True))
+        changed = edited.get_json()["response"]
+        self.assertIsNone(changed["operator-preview-proposal"]["data"])
+        self.assertIsNone(changed["operator-command-id"]["data"])
+        self.assertEqual(changed["operator-confirm-status"]["children"], "")
+        self.assertEqual(changed["operator-receipt-status"]["children"], "")
 
     def test_synthetic_eligibility_fixture_rejects_all_unlisted_symbols(self):
         self.assertIn("AMD", SYNTHETIC_ALLOWED_ADMISSIONS)
