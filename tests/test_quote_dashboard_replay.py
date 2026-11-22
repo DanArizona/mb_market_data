@@ -84,6 +84,21 @@ def overlay_projector() -> ObservationOverlayProjector:
 
 
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_quote_only_overlay_is_available_without_ohlcv_cache(self) -> None:
+        event = membership_event(0)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: ObservationOverlayProjector(
+                cache=None, symbol="FOCUS", session_date=SESSION_DATE,
+            ),
+        )
+        replay = controller.finish()
+        self.assertIsNotNone(replay.observation_overlay)
+        self.assertEqual(replay.observation_overlay.current_band, MembershipBand.FOCUS)
+        self.assertIsNone(replay.observation_overlay.cache)
+        self.assertEqual(replay.observation_overlay.candles, ())
+
     def test_overlay_clock_continues_after_last_journal_event(self) -> None:
         event = membership_event(0)
         clock = FakeClock()

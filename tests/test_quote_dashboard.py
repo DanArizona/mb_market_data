@@ -140,6 +140,25 @@ def overlay_controller() -> QuoteDashboardReplayController:
     )
 
 
+def three_tier_controller() -> QuoteDashboardReplayController:
+    available_at = datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc)
+    event = MembershipRevisionEvent(
+        SamplingHierarchyRevision(
+            session_date=SESSION_DATE,
+            revision=0,
+            effective_at=available_at,
+            uni_symbols=("AAA", "BBB", "CCC"),
+            focus_symbols=("BBB", "CCC"),
+            hot_symbols=("CCC",),
+            source="unit-test",
+        )
+    )
+    return QuoteDashboardReplayController(
+        timeline=ReplayTimeline(SESSION_DATE, 1, available_at, available_at),
+        event_factory=lambda: iter((event,)),
+    )
+
+
 def replay_callback_payload(
     app: Any,
     *,
@@ -213,6 +232,187 @@ def replay_callback_payload(
 
 
 class TestQuoteDashboard(unittest.TestCase):
+    def test_membership_browsing_is_read_only_and_old_tables_live_in_monitor(self) -> None:
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        response = client.get("/_dash-layout")
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+
+        def find_id(node: Any, identifier: str) -> Any:
+            if isinstance(node, dict):
+                if node.get("props", {}).get("id") == identifier:
+                    return node
+                for value in node.values():
+                    result = find_id(value, identifier)
+                    if result is not None:
+                        return result
+            elif isinstance(node, list):
+                for child in node:
+                    result = find_id(child, identifier)
+                    if result is not None:
+                        return result
+            return None
+
+        tabs = find_id(response.get_json(), "dashboard-tabs")
+        self.assertIsNotNone(tabs)
+        by_value = {tab["props"]["value"]: tab for tab in tabs["props"]["children"]}
+        membership = by_value["membership"]
+        monitor = by_value["monitor"]
+        self.assertIsNotNone(find_id(membership, "membership-symbol-inspector"))
+        self.assertIsNotNone(find_id(membership, "membership-focus-grid"))
+        self.assertIsNotNone(find_id(membership, "membership-uni-grid"))
+        self.assertIsNotNone(find_id(membership, "membership-hot-grid"))
+        self.assertIsNone(find_id(membership, "market-state-grid"))
+        self.assertIsNone(find_id(membership, "channel-grid"))
+        self.assertIsNotNone(find_id(monitor, "market-state-grid"))
+        self.assertIsNotNone(find_id(monitor, "channel-grid"))
+        self.assertIn("monitor-channel-grid", find_id(monitor, "channel-grid")["props"]["className"])
+        self.assertEqual(find_id(monitor, "market-state-grid")["props"]["style"]["height"], "min(52vh, 620px)")
+        self.assertEqual(
+            [row["symbol"] for row in find_id(membership, "membership-focus-grid")["props"]["rowData"]],
+            ["SPY"],
+        )
+        self.assertEqual(find_id(membership, "membership-uni-grid")["props"]["rowData"], [])
+        for tier in ("uni", "focus", "hot"):
+            self.assertEqual(find_id(membership, f"membership-{tier}-grid")["props"]["selectedRows"], [])
+        self.assertIn("READ-ONLY", json.dumps(membership))
+        self.assertIn("status unknown", json.dumps(membership))
+
+    def test_clicking_membership_symbol_selects_exactly_one_grid_and_inspector(self) -> None:
+        controller = three_tier_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, value) for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(item.component_id == "membership-selected-symbol" for item in value["output"])
+        )
+        self.assertEqual(
+            [(item["id"], item["property"]) for item in callback["inputs"]],
+            [(f"membership-{tier}-grid", "cellClicked") for tier in ("uni", "focus", "hot")],
+        )
+
+        for clicked_tier, symbol in (("focus", "BBB"), ("hot", "CCC"), ("uni", "AAA")):
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in callback["output"]
+                ],
+                "changedPropIds": [f"membership-{clicked_tier}-grid.cellClicked"],
+                "inputs": [
+                    {"id": item["id"], "property": item["property"],
+                     "value": {"rowId": symbol, "colId": "symbol"}
+                     if item["id"] == f"membership-{clicked_tier}-grid" else None}
+                    for item in callback["inputs"]
+                ],
+                "state": [],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            updates = response.get_json()["response"]
+            self.assertEqual(updates["membership-selected-symbol"]["data"], symbol)
+            for tier in ("uni", "focus", "hot"):
+                self.assertEqual(
+                    updates[f"membership-{tier}-grid"]["selectedRows"],
+                    {"ids": [symbol]} if tier == clicked_tier else [],
+                )
+        # Only the browser selection changes. A click does not publish a revision.
+        self.assertEqual(controller.snapshot().state.channel_revisions["focus"].revision, 0)
+
+    def test_membership_lists_follow_replay_revision_not_final_session(self) -> None:
+        controller = overlay_controller()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        callback_key, callback = next(
+            (key, value) for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(item.component_id == "membership-focus-grid" and item.component_property == "rowData"
+                    for item in value["output"])
+        )
+
+        def current_lists() -> dict[str, Any]:
+            response = client.post("/_dash-update-component", json={
+                "output": callback_key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in callback["output"]
+                ],
+                "changedPropIds": ["rendered-event-count.data"],
+                "inputs": [{"id": "rendered-event-count", "property": "data",
+                            "value": controller.snapshot().applied_event_count}],
+                "state": [],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            return response.get_json()["response"]
+
+        before = current_lists()
+        self.assertEqual(before["membership-focus-grid"]["rowData"], [])
+        controller.finish()
+        after = current_lists()
+        self.assertEqual(
+            [row["symbol"] for row in after["membership-focus-grid"]["rowData"]],
+            ["SPY"],
+        )
+        self.assertEqual(after["membership-uni-grid"]["rowData"], [])
+        self.assertEqual(after["membership-focus-count"]["children"], "1")
+        controller.restart()
+        self.assertEqual(current_lists()["membership-focus-grid"]["rowData"], [])
+
+    def test_activity_bar_selects_sidebar_without_mutating_replay(self) -> None:
+        controller = overlay_controller()
+        app = create_quote_dashboard(controller)
+        original = controller.snapshot().applied_event_count
+        client = app.server.test_client()
+
+        selected = client.post(
+            "/_dash-update-component",
+            json={
+                "output": "activity-section.data",
+                "outputs": {"id": "activity-section", "property": "data"},
+                "inputs": [
+                    {"id": f"activity-{section}", "property": "n_clicks", "value": 1 if section == "replay" else None}
+                    for section in ("information", "graph", "replay", "backtest", "trading")
+                ],
+                "changedPropIds": ["activity-replay.n_clicks"],
+                "state": [],
+            },
+        )
+        self.addCleanup(selected.close)
+        self.assertEqual(selected.status_code, 200)
+        self.assertEqual(selected.get_json()["response"]["activity-section"]["data"], "replay")
+
+        callback_key, callback = next(
+            (key, item)
+            for key, item in app.callback_map.items()
+            if any(value["id"] == "activity-section" for value in item["inputs"])
+        )
+        response = client.post(
+            "/_dash-update-component",
+            json={
+                "output": callback_key,
+                "outputs": [
+                    {"id": output.component_id, "property": output.component_property}
+                    for output in callback["output"]
+                ],
+                "changedPropIds": ["activity-section.data"],
+                "inputs": [{"id": "activity-section", "property": "data", "value": "replay"}],
+                "state": [],
+            },
+        )
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        updates = response.get_json()["response"]
+        self.assertEqual(updates["overlay-sidebar"]["style"], {"display": "none"})
+        self.assertEqual(updates["replay-controls-panel"]["style"], {"display": "grid"})
+        self.assertIn("activity-button-selected", updates["activity-replay"]["className"])
+        self.assertEqual(controller.snapshot().applied_event_count, original)
+
     def test_operational_health_refreshes_while_replay_is_paused_without_advancing_it(self):
         controller = two_event_controller()
         status = {"state": "CURRENT", "reason": "Recent monitor check", "observed_at_utc": "2026-10-08T17:30:00+00:00",
@@ -233,6 +433,24 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn("Last reported: RUNNING", text)
         self.assertIn("17", text)
         self.assertEqual(controller.snapshot().applied_event_count, before)
+
+    def test_missing_external_health_is_a_compact_notice_not_a_replay_failure(self) -> None:
+        controller = three_tier_controller()
+        controller.finish()
+        app = create_quote_dashboard(controller, acquisition_health_reader=lambda: {
+            "state": "UNAVAILABLE",
+            "reason": "[WinError 3] The system cannot find the path specified: C:\\QA\\polling_health\\latest.json",
+            "channels": {},
+        })
+        client = app.server.test_client()
+        response = client.get("/_dash-layout")
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        markup = json.dumps(response.get_json(), ensure_ascii=False)
+        self.assertIn("Acquisition health · not attached", markup)
+        self.assertIn("--polling-health-directory", markup)
+        self.assertNotIn("WinError", markup)
+        self.assertNotIn("Replay monitor", markup)
 
     def test_clicked_candle_field_sets_visible_reference(self) -> None:
         controller = overlay_controller()
@@ -318,6 +536,8 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"Focus", layout.data)
         self.assertIn(b"dashboard-tabs", layout.data)
         self.assertIn(b'"value":"monitor"', layout.data)
+        self.assertIn(b"Time Controls", layout.data)
+        self.assertNotIn(b"Replay Settings", layout.data)
         for channel in ("uni", "focus", "hot"):
             self.assertIn(
                 f"observation-overlay-{channel}-size".encode(),
@@ -341,6 +561,51 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"observation-overlay-units", layout.data)
         self.assertIn(b"observation-overlay-set-reference", layout.data)
         self.assertNotIn(b"observation-overlay-uni-visible", layout.data)
+        for tab in ("Membership", "Charts", "Indicators", "Monitor", "Alerts"):
+            self.assertIn(f'"label":"{tab}"'.encode(), layout.data)
+        for activity in ("information", "graph", "replay", "backtest", "trading"):
+            self.assertIn(f'"id":"activity-{activity}"'.encode(), layout.data)
+
+        def find_component(node: Any, component_id: str) -> Any:
+            if isinstance(node, dict):
+                if node.get("props", {}).get("id") == component_id:
+                    return node
+                for value in node.values():
+                    found = find_component(value, component_id)
+                    if found is not None:
+                        return found
+            elif isinstance(node, list):
+                for value in node:
+                    found = find_component(value, component_id)
+                    if found is not None:
+                        return found
+            return None
+
+        tree = layout.get_json()
+        sidebar = find_component(tree, "overlay-sidebar")
+        chart_panel = find_component(tree, "observation-overlay-panel")
+        main_workspace = find_component(tree, "main-workspace")
+        mode_selector = find_component(tree, "workspace-mode")
+        self.assertIsNotNone(sidebar)
+        self.assertIsNotNone(chart_panel)
+        self.assertIsNotNone(main_workspace)
+        self.assertIsNotNone(mode_selector)
+        self.assertEqual(mode_selector["props"]["value"], "historical")
+        self.assertEqual(
+            mode_selector["props"]["options"],
+            [
+                {"label": "Real Time", "value": "real-time", "disabled": True},
+                {"label": "Historical", "value": "historical"},
+                {"label": "Backtest", "value": "backtest", "disabled": True},
+            ],
+        )
+        workspace_children = main_workspace["props"]["children"]
+        self.assertEqual(len(workspace_children), 2)
+        self.assertIsNotNone(find_component(workspace_children[0], "workspace-mode"))
+        self.assertEqual(workspace_children[1]["props"]["id"], "dashboard-tabs")
+        self.assertIn("observation-overlay-units", json.dumps(sidebar))
+        self.assertNotIn("observation-overlay-units", json.dumps(chart_panel))
+        self.assertEqual(layout.data.count(b'"id":"observation-overlay-units"'), 1)
         overlay_callbacks = [
             (key, callback)
             for key, callback in app.callback_map.items()
@@ -497,10 +762,14 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertIn(b"replay-speed-dropdown", layout.data)
         self.assertIn(b"server-stop", layout.data)
         self.assertNotIn(b"observation-overlay-panel", layout.data)
-        self.assertEqual(len(app.callback_map), 5)
+        self.assertEqual(len(app.callback_map), 10)
         self.assertEqual(stylesheet.status_code, 200)
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)
+        self.assertIn(b".replay-speed-dropdown .Select-control", stylesheet.data)
+        self.assertIn(b".replay-speed-dropdown .Select-menu-outer", stylesheet.data)
+        self.assertIn(b".Select-menu-outer .VirtualizedSelectFocusedOption", stylesheet.data)
+        self.assertIn(b".Select-menu-outer .VirtualizedSelectSelectedOption", stylesheet.data)
         self.assertIn(b"--overlay-navigator-selected", stylesheet.data)
         self.assertIn(b"--overlay-navigator-unselected", stylesheet.data)
         self.assertIn(b"--overlay-navigator-selected: #131f2e", stylesheet.data)
