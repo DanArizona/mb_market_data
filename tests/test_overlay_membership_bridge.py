@@ -542,7 +542,8 @@ class BridgeTests(unittest.TestCase):
                       proposed["operator-preview-status"]["children"])
         mismatch = click("AMD", "MSFT")
         self.assertIsNone(mismatch["operator-preview-proposal"]["data"])
-        self.assertIn("search again", mismatch["operator-preview-status"]["children"])
+        self.assertIn("search again",
+                      mismatch["operator-preview-status"]["children"].casefold())
         historical = click("AMD", "AMD", "historical")
         self.assertIsNone(historical["operator-preview-proposal"]["data"])
         self.assertIn("read-only", historical["operator-preview-status"]["children"])
@@ -695,7 +696,36 @@ class BridgeTests(unittest.TestCase):
     def test_rejected_worker_receipt_names_symbol_and_reason(self):
         app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
         client = app.server.test_client()
-        proposal = self.bridge.preview_admission("real-time", "NOTREAL")
+        # Preview and Confirm must use the SAME dashboard-owned OperatorState.
+        # A separate SyntheticOverlayMembership instance has an independent
+        # preview-token registry and must not be used to mint UI tokens.
+        journal = Path(self.demo.plan["journal"])
+        before = journal.read_bytes()
+        inbox = self.root / "membership" / "inbox"
+        preview_response = dashboard_callback_response(
+            client, app, "operator-preview-proposal", "membership-admit-button.n_clicks",
+            input_values={
+                "workspace-mode.value": "real-time",
+                "membership-search-symbol.value": "NOTREAL",
+                "membership-admit-button.n_clicks": 1,
+            },
+            state_values={
+                "membership-admission-candidate.data": "NOTREAL",
+            },
+        )
+        self.addCleanup(preview_response.close)
+        self.assertEqual(preview_response.status_code, 200,
+                         preview_response.get_data(as_text=True))
+        preview_outputs = preview_response.get_json()["response"]
+        proposal = preview_outputs["operator-preview-proposal"]["data"]
+        self.assertEqual((proposal["symbol"], proposal["action"], proposal["target"]),
+                         ("NOTREAL", "promote", "uni"))
+        self.assertIn("ADMISSION PREVIEW ONLY",
+                      preview_outputs["operator-preview-status"]["children"])
+        self.assertFalse(proposal["request_written"])
+        self.assertEqual(journal.read_bytes(), before)
+        self.assertFalse(list(inbox.glob("*.json")),
+                         "Preview may not queue the worker request")
         accepted = dashboard_callback_response(
             client, app, "operator-preview-proposal", "operator-confirm-button.n_clicks",
             input_values={
