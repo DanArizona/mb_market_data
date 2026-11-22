@@ -4,7 +4,10 @@ from tempfile import TemporaryDirectory
 import time
 import unittest
 
-from mb_market_data.daily_operator_demo import DemoSession
+from mb_market_data.daily_operator_demo import (
+    DemoSession, SYNTHETIC_ALLOWED_ADMISSIONS, synthetic_identity,
+)
+from mb_market_data.daily_membership import Rejected, read
 from mb_market_data.daily_operator_ui import OperatorProblem
 from mb_market_data.overlay_membership_bridge import SyntheticOverlayMembership
 from mb_market_data.quote_dashboard import create_quote_dashboard
@@ -19,6 +22,42 @@ def descendants(component):
             yield from descendants(child)
     elif children is not None and not isinstance(children, (str, int, float, bool)):
         yield from descendants(children)
+
+
+def dashboard_callback_response(client, app, output_id, changed_prop,
+                                *, input_values=None, state_values=None):
+    """Post one real Dash callback request with all declared arguments."""
+    input_values = input_values or {}
+    state_values = state_values or {}
+    key, callback = next(
+        (key, entry) for key, entry in app.callback_map.items()
+        if isinstance(entry["output"], list)
+        and any(item.component_id == output_id for item in entry["output"])
+    )
+    return client.post("/_dash-update-component", json={
+        "output": key,
+        "outputs": [
+            {"id": out.component_id, "property": out.component_property}
+            for out in callback["output"]
+        ],
+        "changedPropIds": [changed_prop],
+        "inputs": [
+            {"id": item["id"], "property": item["property"],
+             "value": input_values.get(
+                 item["id"] + "." + item["property"],
+                 None,
+             )}
+            for item in callback["inputs"]
+        ],
+        "state": [
+            {"id": item["id"], "property": item["property"],
+             "value": state_values.get(
+                 item["id"] + "." + item["property"],
+                 None,
+             )}
+            for item in callback["state"]
+        ],
+    })
 
 
 class BridgeTests(unittest.TestCase):
@@ -589,6 +628,184 @@ class BridgeTests(unittest.TestCase):
                       rejected["message"])
         self.assertEqual(self.bridge.snapshot("NOTREAL")["selected"]["tier"],
                          "outside")
+
+
+    def test_new_preview_atomically_replaces_old_transaction_status(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        fake_old = "manual-" + "a" * 32
+        response = dashboard_callback_response(
+            client, app, "operator-preview-proposal", "membership-admit-button.n_clicks",
+            input_values={
+                "workspace-mode.value": "real-time",
+                "membership-search-symbol.value": "amd",
+                "membership-admit-button.n_clicks": 1,
+            },
+            state_values={
+                "membership-admission-candidate.data": "AMD",
+                "operator-symbol.value": "INTC",
+                "operator-action.value": "demote",
+                "operator-target.value": "focus",
+                "operator-command-id.data": fake_old,
+            },
+        )
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+        changed = response.get_json()["response"]
+        proposal = changed["operator-preview-proposal"]["data"]
+        self.assertEqual((proposal["symbol"], proposal["before"], proposal["after"]),
+                         ("AMD", "outside", "uni"))
+        self.assertIsNone(changed["operator-command-id"]["data"])
+        self.assertIn("AMD: no request queued", changed["operator-confirm-status"]["children"])
+        self.assertIn("AMD: no worker receipt", changed["operator-receipt-status"]["children"])
+        self.assertNotIn(fake_old, str(changed))
+        self.assertFalse(list((self.root / "membership" / "inbox").glob("*.json")))
+
+    def test_search_change_clears_current_transaction_but_reflection_does_not(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        proposal = self.bridge.preview_admission("real-time", "AMD")
+        cmd = "manual-" + "e" * 32
+        def update(search, selected):
+            result = dashboard_callback_response(
+                client, app, "operator-preview-proposal",
+                "membership-search-symbol.value",
+                input_values={
+                    "workspace-mode.value": "real-time",
+                    "membership-search-symbol.value": search,
+                },
+                state_values={
+                    "operator-preview-proposal.data": proposal,
+                    "operator-command-id.data": cmd,
+                    "membership-selected-symbol.data": selected,
+                },
+            )
+            self.addCleanup(result.close)
+            return result
+        same = update("AMD", "AMD")
+        self.assertEqual(same.status_code, 204)
+        changed = update("MSFT", "AMD")
+        self.assertEqual(changed.status_code, 200)
+        values = changed.get_json()["response"]
+        self.assertIsNone(values["operator-preview-proposal"]["data"])
+        self.assertIsNone(values["operator-command-id"]["data"])
+        self.assertEqual(values["operator-confirm-status"]["children"], "")
+        self.assertEqual(values["operator-receipt-status"]["children"], "")
+
+    def test_rejected_worker_receipt_names_symbol_and_reason(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        proposal = self.bridge.preview_admission("real-time", "NOTREAL")
+        accepted = dashboard_callback_response(
+            client, app, "operator-preview-proposal", "operator-confirm-button.n_clicks",
+            input_values={
+                "workspace-mode.value": "real-time",
+                "operator-confirm-button.n_clicks": 1,
+            },
+            state_values={
+                "operator-preview-proposal.data": proposal,
+            },
+        )
+        self.addCleanup(accepted.close)
+        self.assertEqual(accepted.status_code, 200, accepted.get_data(as_text=True))
+        outputs = accepted.get_json()["response"]
+        cid = outputs["operator-command-id"]["data"]
+        self.assertIn("NOTREAL", outputs["operator-confirm-status"]["children"])
+        self.assertIn(cid, outputs["operator-confirm-status"]["children"])
+        self.assertIn("NOTREAL", outputs["operator-receipt-status"]["children"])
+        deadline = time.monotonic() + 9
+        while time.monotonic() < deadline:
+            if self.bridge.result(cid)["status"] == "REJECTED":
+                break
+            time.sleep(.1)
+        self.assertEqual(self.bridge.result(cid)["status"], "REJECTED")
+        receipt_update = dashboard_callback_response(
+            client, app, "operator-preview-proposal", "operator-receipt-tick.n_intervals",
+            input_values={
+                "workspace-mode.value": "real-time",
+                "operator-receipt-tick.n_intervals": 10,
+            },
+            state_values={
+                "operator-preview-proposal.data": proposal,
+                "operator-command-id.data": cid,
+            },
+        )
+        self.addCleanup(receipt_update.close)
+        self.assertEqual(receipt_update.status_code, 200)
+        text_value = receipt_update.get_json()["response"]["operator-receipt-status"]["children"]
+        self.assertIn("NOTREAL", text_value)
+        self.assertIn("REJECTED", text_value)
+        self.assertIn("Exact equity identity not confirmed", text_value)
+        self.assertEqual(self.bridge.snapshot("NOTREAL")["selected"]["tier"], "outside")
+
+    def test_effective_admission_auto_selects_after_uni_row_is_renderable(self):
+        app = create_quote_dashboard(overlay_controller(), synthetic_operator_root=self.root)
+        client = app.server.test_client()
+        preview = self.bridge.preview_admission("real-time", "AMD")
+        response = self.bridge.confirm("real-time", preview["proposal_id"])
+        cid = response["request"]["id"]
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            if self.bridge.result(cid)["status"] == "EFFECTIVE_AS_PUBLISHED":
+                break
+            time.sleep(.1)
+        self.assertEqual(self.bridge.result(cid)["status"], "EFFECTIVE_AS_PUBLISHED")
+
+        def auto(rows, seen=None):
+            result = dashboard_callback_response(
+                client, app, "operator-post-admission-seen",
+                "membership-uni-grid.rowData",
+                input_values={
+                    "workspace-mode.value": "real-time",
+                    "membership-uni-grid.rowData": rows,
+                    "operator-command-id.data": cid,
+                    "operator-receipt-tick.n_intervals": 20,
+                },
+                state_values={
+                    "workspace-mode.value": "real-time",
+                    "operator-preview-proposal.data": preview,
+                    "operator-post-admission-seen.data": seen,
+                },
+            )
+            self.addCleanup(result.close)
+            return result
+
+        # A completed receipt is not sufficient before the row is present.
+        missing = auto([r for r in self.bridge.records()["uni"] if r["symbol"] != "AMD"])
+        self.assertEqual(missing.status_code, 204)
+        matched = auto(self.bridge.records()["uni"])
+        self.assertEqual(matched.status_code, 200, matched.get_data(as_text=True))
+        updated = matched.get_json()["response"]
+        self.assertEqual(updated["membership-selected-symbol"]["data"], "AMD")
+        # The existing typed Find text is preserved: no cross-callback cycle
+        # or unexpected replacement of an operator's current search input.
+        self.assertNotIn("membership-search-symbol", updated)
+        self.assertIn("admitted to Uni only",
+                      updated["membership-search-status"]["children"])
+        self.assertEqual(updated["membership-uni-grid"]["selectedRows"], {"ids": ["AMD"]})
+        self.assertEqual(updated["membership-uni-grid"]["scrollTo"],
+                         {"rowId": "AMD", "rowPosition": "middle"})
+        self.assertEqual(updated["membership-focus-grid"]["selectedRows"], [])
+        self.assertEqual(updated["membership-hot-grid"]["selectedRows"], [])
+        self.assertEqual(updated["operator-post-admission-seen"]["data"], cid)
+        # The user's manual choices must not be overwritten on future ticks.
+        again = auto(self.bridge.records()["uni"], seen=cid)
+        self.assertEqual(again.status_code, 204)
+
+    def test_synthetic_eligibility_fixture_rejects_all_unlisted_symbols(self):
+        self.assertIn("AMD", SYNTHETIC_ALLOWED_ADMISSIONS)
+        self.assertIn("T", SYNTHETIC_ALLOWED_ADMISSIONS)
+        for symbol in ("AMD", "T"):
+            path = self.root / f"fixture-{symbol}.json"
+            self.assertTrue(synthetic_identity(None, symbol, path))
+            self.assertTrue(read(path)["identity_confirmed"])
+            self.assertEqual(read(path)["provider_calls"], 0)
+        for symbol in ("NOTREAL", "REALLY", "ZZZZ"):
+            path = self.root / f"fixture-{symbol}.json"
+            with self.assertRaisesRegex(Rejected, "SIMULATED"):
+                synthetic_identity(None, symbol, path)
+            self.assertFalse(read(path)["identity_confirmed"])
+            self.assertEqual(read(path)["provider_calls"], 0)
 
 
 if __name__ == "__main__":

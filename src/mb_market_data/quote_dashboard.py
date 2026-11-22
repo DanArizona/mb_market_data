@@ -444,12 +444,22 @@ def _synthetic_operator_controls(html: Any, dcc: Any) -> Any:
             ], value="focus", clearable=False, className="operator-bridge-dropdown")]),
         ], className="operator-bridge-inputs"),
         html.Button("Preview action", id="operator-preview-button", n_clicks=0),
-        html.Div(id="operator-preview-status", role="status"),
+        html.Div([
+            html.Strong("Current preview", className="operator-result-heading"),
+            html.Div(id="operator-preview-status", role="status"),
+        ], className="operator-result-stage"),
         html.Button("Confirm and queue request", id="operator-confirm-button", disabled=True, n_clicks=0),
-        html.Div(id="operator-confirm-status", role="status"),
-        html.Div(id="operator-receipt-status", role="status"),
+        html.Div([
+            html.Strong("Queued request", className="operator-result-heading"),
+            html.Div(id="operator-confirm-status", role="status"),
+        ], className="operator-result-stage"),
+        html.Div([
+            html.Strong("Worker outcome", className="operator-result-heading"),
+            html.Div(id="operator-receipt-status", role="status"),
+        ], className="operator-result-stage"),
         dcc.Store(id="operator-preview-proposal"),
         dcc.Store(id="operator-command-id"),
+        dcc.Store(id="operator-post-admission-seen"),
         dcc.Store(id="membership-drag-request"),
         dcc.Store(id="membership-drag-binding-status"),
         dcc.Store(id="membership-admission-candidate"),
@@ -1581,15 +1591,18 @@ def create_quote_dashboard(
             Output("operator-confirm-button", "disabled"),
             Input("workspace-mode", "value"),
             Input("operator-preview-proposal", "data"),
+            Input("operator-command-id", "data"),
         )
-        def operator_mode_status(mode: str, proposal: dict | None) -> tuple:
+        def operator_mode_status(mode: str, proposal: dict | None,
+                                 command_id: str | None) -> tuple:
             if mode != "real-time":
                 return ("Historical · read-only", "HISTORICAL · READ-ONLY",
                         {"display": "none"}, True)
             return ("REAL TIME · OFFLINE SYNTHETIC QA (NO SCHWAB)",
                     "SYNTHETIC QA · MANUAL CONTROLS",
                     {"display": "block"},
-                    not bool(proposal and proposal.get("proposal_id")))
+                    not bool(isinstance(proposal, dict) and proposal.get("proposal_id")
+                             and not command_id))
 
         @app.callback(
             Output("operator-symbol", "value"),
@@ -1628,89 +1641,214 @@ def create_quote_dashboard(
         @app.callback(
             Output("operator-preview-proposal", "data"),
             Output("operator-preview-status", "children"),
+            Output("operator-command-id", "data"),
+            Output("operator-confirm-status", "children"),
+            Output("operator-receipt-status", "children"),
             Input("operator-preview-button", "n_clicks"),
             Input("membership-drag-request", "data"),
             Input("membership-admit-button", "n_clicks"),
             Input("membership-search-symbol", "value"),
             Input("workspace-mode", "value"),
+            Input("operator-confirm-button", "n_clicks"),
+            Input("operator-receipt-tick", "n_intervals"),
             State("operator-symbol", "value"),
             State("operator-action", "value"),
             State("operator-target", "value"),
             State("membership-admission-candidate", "data"),
-            prevent_initial_call=True,
-        )
-        def operator_preview(_clicks: int, drag: dict | None,
-                             _admit_clicks: int, search: str | None, mode: str,
-                             symbol: str | None, action: str, target: str,
-                             candidate: str | None) -> tuple:
-            source = ctx.triggered_id
-            if source == "membership-search-symbol":
-                return None, "Search changed; any previous action preview was cleared."
-            try:
-                if source == "membership-drag-request":
-                    if not isinstance(drag, dict):
-                        return None, "Drop ignored: invalid drag event."
-                    proposal = operator_bridge.preview_drop(
-                        mode, drag.get("symbol", ""),
-                        drag.get("source_tier", ""),
-                        drag.get("destination_tier", ""),
-                    )
-                    reason = "DRAG PREVIEW ONLY: "
-                elif source == "membership-admit-button":
-                    if not candidate or normalized(search or "") != candidate:
-                        return None, "Admission preview blocked: search again for the symbol."
-                    proposal = operator_bridge.preview_admission(mode, candidate)
-                    reason = "ADMISSION PREVIEW ONLY: "
-                elif source == "operator-preview-button":
-                    proposal = operator_bridge.preview(mode, symbol or "", action, target)
-                    reason = "PREVIEW ONLY: "
-                else:
-                    return None, ("Historical replay is read-only." if mode != "real-time"
-                                  else "Select a symbol, then drag or Preview.")
-            except (OperatorProblem, OSError, ValueError, TypeError) as error:
-                return None, f"No request queued; preview blocked: {error}"
-            return proposal, (
-                f"{reason}{proposal['symbol']} {proposal['before'].upper()} → "
-                f"{proposal['after'].upper()} at published revision "
-                f"r{proposal['based_on_revision']}. "
-                "Nothing changed. Confirm explicitly below to queue the request."
-            )
-
-        @app.callback(
-            Output("operator-command-id", "data"),
-            Output("operator-confirm-status", "children"),
-            Input("operator-confirm-button", "n_clicks"),
-            State("workspace-mode", "value"),
             State("operator-preview-proposal", "data"),
+            State("operator-command-id", "data"),
+            State("membership-selected-symbol", "data"),
             prevent_initial_call=True,
         )
-        def operator_confirm(_clicks: int, mode: str,
-                             proposal: dict | None) -> tuple[Any, str]:
-            if not proposal or not proposal.get("proposal_id"):
-                return None, "No current preview. Preview again."
-            try:
-                result = operator_bridge.confirm(mode, proposal["proposal_id"])
-            except (OperatorProblem, OSError, ValueError) as error:
-                return None, f"No request queued: {error}"
-            command = result["request"]
-            return command["id"], f"Request queued: {command['id']}. Waiting for worker receipt."
+        def operator_transaction(_preview_clicks: int, drag: dict | None,
+                                 _admit_clicks: int, search: str | None,
+                                 mode: str, _confirm_clicks: int, _ticks: int,
+                                 symbol: str | None, action: str, target: str,
+                                 candidate: str | None, proposal: dict | None,
+                                 command_id: str | None,
+                                 selected_symbol: str | None) -> tuple[Any, ...]:
+            """One owner for Preview/Confirm/receipt, so messages never mix.
+
+            A new proposal atomically resets any prior request ID, queue
+            message and worker receipt. The sole command that may be polled
+            belongs to the currently active proposal, not a previous action.
+            """
+            changed = ctx.triggered_prop_ids
+            trigger = ctx.triggered_id
+            # Prefer an explicit operator action to the periodic receipt tick
+            # when Dash coalesces several changed inputs in one request.
+            for property_id, own_trigger in (
+                ("workspace-mode.value", "workspace-mode"),
+                ("membership-drag-request.data", "membership-drag-request"),
+                ("membership-admit-button.n_clicks", "membership-admit-button"),
+                ("operator-preview-button.n_clicks", "operator-preview-button"),
+                ("operator-confirm-button.n_clicks", "operator-confirm-button"),
+                ("membership-search-symbol.value", "membership-search-symbol"),
+            ):
+                if property_id in changed:
+                    trigger = own_trigger
+                    break
+            unchanged = (no_update,) * 5
+            if mode != "real-time" or trigger == "workspace-mode":
+                return (None, "Historical replay is read-only.", None, "", "")
+
+            if trigger == "membership-search-symbol":
+                # Selecting or automatically admitting a symbol reflects the
+                # ticker into Find. Reflection to the SAME selected/previewed
+                # symbol must not erase the just-completed transaction.
+                same = (isinstance(proposal, dict)
+                        and isinstance(search, str)
+                        and search.strip().upper() == proposal.get("symbol")
+                        and (selected_symbol == proposal.get("symbol")
+                             or candidate == proposal.get("symbol")))
+                if same:
+                    return unchanged
+                return (None,
+                        "Search changed; previous preview cleared. Previously "
+                        "confirmed worker requests are not canceled.",
+                        None, "", "")
+
+            if trigger in ("membership-drag-request",
+                           "membership-admit-button",
+                           "operator-preview-button"):
+                try:
+                    if trigger == "membership-drag-request":
+                        if not isinstance(drag, dict):
+                            raise OperatorProblem("Invalid drag request.")
+                        proposed = operator_bridge.preview_drop(
+                            mode, drag.get("symbol", ""),
+                            drag.get("source_tier", ""),
+                            drag.get("destination_tier", ""),
+                        )
+                        label = "DRAG PREVIEW ONLY"
+                    elif trigger == "membership-admit-button":
+                        if not candidate or normalized(search or "") != candidate:
+                            raise OperatorProblem("Search again for the admission symbol.")
+                        proposed = operator_bridge.preview_admission(mode, candidate)
+                        label = "ADMISSION PREVIEW ONLY"
+                    else:
+                        proposed = operator_bridge.preview(
+                            mode, symbol or "", action, target
+                        )
+                        label = "PREVIEW ONLY"
+                except (OperatorProblem, OSError, ValueError, TypeError) as error:
+                    return (None, f"Preview blocked: {error}",
+                            None, "No request queued.", "")
+                name = proposed["symbol"]
+                description = (
+                    f"{label}: {name} {proposed['before'].upper()} → "
+                    f"{proposed['after'].upper()} at published revision "
+                    f"r{proposed['based_on_revision']}. "
+                    "Nothing changed. Confirm explicitly to queue."
+                )
+                old_request_note = (
+                    " Earlier confirmed requests are not canceled."
+                    if command_id else ""
+                )
+                return (proposed, description, None,
+                        f"{name}: no request queued for this preview." + old_request_note,
+                        f"{name}: no worker receipt for this preview.")
+
+            if trigger == "operator-confirm-button":
+                if not isinstance(proposal, dict) or not proposal.get("proposal_id"):
+                    return (no_update, no_update, None,
+                            "No current preview. Preview again.", "")
+                name = proposal["symbol"]
+                try:
+                    confirmation = operator_bridge.confirm(mode, proposal["proposal_id"])
+                except (OperatorProblem, OSError, ValueError) as error:
+                    return (no_update, no_update, None,
+                            f"{name}: no request accepted: {error}",
+                            f"{name}: no worker receipt.")
+                command = confirmation["request"]
+                return (
+                    no_update, no_update, command["id"],
+                    f"{name} {proposal['before'].upper()} → "
+                    f"{proposal['after'].upper()}: request queued "
+                    f"({command['id']}).",
+                    f"{name}: awaiting worker receipt for {command['id']}.",
+                )
+
+            if trigger == "operator-receipt-tick":
+                if not command_id or not isinstance(proposal, dict):
+                    return unchanged
+                name = proposal["symbol"]
+                try:
+                    receipt = operator_bridge.result(command_id)
+                except (OSError, ValueError) as error:
+                    return (no_update, no_update, no_update, no_update,
+                            f"{name}: worker receipt unavailable: {error}")
+                status = receipt.get("status", "UNKNOWN")
+                prefix = f"{name} — worker {status} · Command {command_id}"
+                if status in ("REJECTED", "FAILED", "IGNORED"):
+                    detail = receipt.get("message") or receipt.get("error_type") or ""
+                    message = f"{prefix} · {detail}".rstrip(" ·")
+                elif status == "PUBLISHED_PENDING_EFFECTIVE":
+                    message = (
+                        f"{prefix} · Effective at {receipt.get('effective_at', 'unknown')}"
+                    )
+                elif status == "EFFECTIVE_AS_PUBLISHED":
+                    message = f"{prefix} · Published revision is effective."
+                elif status in ("PENDING", "NOT_FOUND"):
+                    message = f"{prefix} · Waiting for worker."
+                else:
+                    message = prefix
+                return (no_update, no_update, no_update, no_update, message)
+
+            return unchanged
 
         @app.callback(
-            Output("operator-receipt-status", "children"),
+            Output("membership-selected-symbol", "data", allow_duplicate=True),
+            Output("membership-search-status", "children", allow_duplicate=True),
+            *[Output(f"membership-{tier}-grid", "selectedRows", allow_duplicate=True)
+              for tier in TIERS],
+            Output("membership-uni-grid", "scrollTo", allow_duplicate=True),
+            Output("operator-post-admission-seen", "data"),
+            Input("membership-uni-grid", "rowData"),
             Input("operator-receipt-tick", "n_intervals"),
             Input("operator-command-id", "data"),
+            State("operator-preview-proposal", "data"),
             State("workspace-mode", "value"),
+            State("operator-post-admission-seen", "data"),
+            prevent_initial_call=True,
         )
-        def operator_receipt(_ticks: int, command_id: str | None,
-                             mode: str) -> str:
-            if mode != "real-time" or not command_id:
-                return "No synthetic operator request in progress."
+        def select_effective_admission(uni_rows: list[dict[str, Any]],
+                                       _ticks: int, command_id: str | None,
+                                       proposal: dict | None, mode: str,
+                                       selected_command: str | None) -> tuple[Any, ...]:
+            """Select ONLY a completed outside→Uni admission, once per command.
+
+            Wait until the authoritative rowData actually contains the symbol
+            before scrolling. This avoids racing Grid rendering when the
+            membership revision becomes effective.
+            """
+            unchanged = (no_update,) * (len(TIERS) + 4)
+            if (mode != "real-time" or not command_id
+                    or command_id == selected_command
+                    or not isinstance(proposal, dict)
+                    or proposal.get("before") != "outside"
+                    or proposal.get("after") != "uni"):
+                return unchanged
+            symbol = proposal.get("symbol")
+            if not isinstance(symbol, str) or not any(
+                    isinstance(row, dict) and row.get("symbol") == symbol
+                    for row in (uni_rows or [])):
+                return unchanged
             try:
                 receipt = operator_bridge.result(command_id)
-            except (OSError, ValueError) as error:
-                return f"Receipt unavailable: {error}"
-            return (f"Worker receipt: {receipt.get('status', 'UNKNOWN')} · "
-                    f"Command {command_id}")
+                if receipt.get("status") != "EFFECTIVE_AS_PUBLISHED":
+                    return unchanged
+                if operator_bridge.snapshot(symbol)["selected"]["tier"] != "uni":
+                    return unchanged
+            except (OSError, ValueError, KeyError, TypeError):
+                return unchanged
+            return (
+                symbol,
+                f"{symbol} admitted to Uni only; selected automatically.",
+                {"ids": [symbol]}, [], [],
+                {"rowId": symbol, "rowPosition": "middle"},
+                command_id,
+            )
 
     @app.callback(
         Output("activity-section", "data"),

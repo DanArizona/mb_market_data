@@ -38,18 +38,33 @@ FOCUS = ('ACH', 'AEI', 'AIMD', 'BGIN', 'CRMN', 'CURX', 'INTC', 'MSFT', 'NVDA', '
 HOT = ('BGIN', 'INTC', 'MSFT', 'NVDA')
 
 
-def synthetic_identity(_client, symbol, evidence_path):
-    """Simulated identity response; NOT an assertion of real-market eligibility.
+# Explicitly declared offline fixtures, not a source of genuine listed symbols.
+# No provider call or security-discovery service is allowed in this demo.
+SYNTHETIC_ALLOWED_ADMISSIONS = frozenset({
+    'AMD', 'T', 'AAPL', 'AMZN', 'GOOG', 'META', 'TSLA', 'PLTR', 'SOFI',
+})
 
-    NOTREAL is a deliberate negative fixture so the end-to-end QA can also
-    prove that a well-formed ticker can be refused by the worker.
+
+def synthetic_identity(_client, symbol, evidence_path):
+    """Use an explicit positive test set; reject all other unknown tickers.
+
+    This simulates the worker-side identity decision, not an actual verification
+    of exchange listing, Schwab recognition, or equity identity. The production
+    writer's real verify_identity() implementation is unchanged.
     """
-    denied = symbol == 'NOTREAL'
-    atomic_json(evidence_path, {'symbol': symbol, 'synthetic': True,
-                                'provider_calls': 0, 'identity_confirmed': not denied,
-                                'warning': 'OFFLINE TEST IDENTITY ONLY'})
-    if denied:
-        raise daily_membership.Rejected('SIMULATED: Exact equity identity not confirmed')
+    admitted = symbol in SYNTHETIC_ALLOWED_ADMISSIONS
+    atomic_json(evidence_path, {
+        'symbol': symbol,
+        'synthetic': True,
+        'provider_calls': 0,
+        'identity_confirmed': admitted,
+        'fixture': 'explicit-synthetic-equity-allowlist-v1',
+        'warning': 'OFFLINE TEST IDENTITY ONLY — NOT A REAL EQUITY VALIDATION',
+    })
+    if not admitted:
+        raise daily_membership.Rejected(
+            'SIMULATED: Exact equity identity not confirmed (not an approved demo fixture)'
+        )
     return True
 
 

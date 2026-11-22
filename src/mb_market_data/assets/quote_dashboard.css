@@ -1757,3 +1757,27 @@ h1 {
   outline: 2px solid var(--sea);
   outline-offset: 2px;
 }
+
+
+/* Synthetic membership transaction status is scoped to the current preview.
+   Stage labels prevent an old queue receipt from looking like a new result. */
+.operator-bridge-panel .operator-result-stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.55rem;
+  margin: 0.4rem 0;
+  min-height: 1.05rem;
+  line-height: 1.4;
+}
+.operator-bridge-panel .operator-result-heading {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.76rem;
+  min-width: 7.1rem;
+}
+.operator-bridge-panel .operator-result-stage > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.79rem;
+}
