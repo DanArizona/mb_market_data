@@ -3,6 +3,7 @@
 **Scope:** The entire mb_package project; current focus is read-only Overlay
 Release A and reliable ordinary production operation.
 **Evidence cutoff:** Monday 2026-11-23, before the usual production opening.
+**See Section 8 for the post-review update:** the older zero-missing-Hot priority is superseded by accepted sequential Option A, and November 23 production was deliberately stopped after a shared quote-response failure.
 **Status:** Written on the isolated `experiment/overlay-release-a-historical-20261122`
 branch. This document is **not** an authorization to merge, install, restart,
 or change production. No code changes accompany this checkpoint.
@@ -292,3 +293,151 @@ placement/output; the review may have newer evidence.
 > with password-prompting commands individually separated.
 > Explain any conflict with the weekly task output rather than
 > silently overwriting accepted facts.
+
+
+## 8. Post-review handoff — current on November 23 after diagnostic qualification
+
+This addendum reconciles the scheduled Weekly mb_package Project Review section
+"week 2026-11-23" in "Universe Selector Next Steps" with subsequent
+production-incident work and tests. It supersedes conflicting priorities
+in the pre-opening Sections 1–7 without deleting their historical content.
+
+### Settled Hot operating policy
+
+The weekly review confirms the user's accepted **Option A**:
+retain deterministic **sequential Hot polling**, require full Uni and Focus
+coverage, preserve exact skipped Hot slots and strict audit FAIL verdicts,
+but treat explained sequential overruns as known coverage limitations.
+**Bounded Hot concurrency remains deferred** unless evidence or requirements
+change. Do not revive the previous first-priority target of a zero-missing
+Hot day.
+
+The weekly review reported Nov 16, 17, 18, 19 Uni 780/780 and Focus
+1,560/1,560 on each day; Hot 9,352 / 9,349 / 9,351 / 9,350 of 9,360
+with 8 / 11 / 9 / 10 missing respectively. Strict audits remain FAIL.
+Replays were deterministic. A complete Nov 20 closeout was not established.
+
+### November 23 production incident — original root cause still unknown
+
+Preopen Focus snapshot at 09:25 ET requested 586 symbols; a 400-symbol
+batch failed, a 186-symbol batch yielded 186 quotes, and a 400-symbol
+retry failed. Selection DEGRADED, but r1 and Hot seeds INTC/MSFT/NVDA
+were published. At the opening, Uni 09:30:00, Hot 09:30:02 and Focus
+09:30:10 ET began failing to decode responses, before MYND was automatically
+admitted to Hot at 09:31:05 ET. Every affected batch recorded
+"Unreadable Schwab JSON response: JSONDecodeError". Thus MYND did not
+cause the onset and this was not merely a sequential Hot overrun.
+
+Supported daily.cmd stop was issued; status confirmed **all three
+collector workers exited 0** with collection_stop_requested.
+At 09:45:09 ET, 14 Uni, 27 Focus and 31 Hot acquisitions were recorded,
+with 14 / 27 / 297 missing slots. The controller was
+COLLECTION_STOPPED; PREPARATION STILL ARMED; Membership PAUSED; Nasdaq
+RUNNING. **This is partial failure evidence, not an audit-clean day.**
+
+Schwab authorization was successfully renewed (refresh token expires
+2026-11-30 14:09:15 UTC), installed schwabdev 4.0.0 met the mb_tools
+minimum. Later separate, attended API probes obtained valid JSON,
+HTTP 200 for three Hot seeds and for the **exact original 400-symbol
+batch** (560,801 bytes). This rules against permanent batch-size
+incompatibility; it does not establish why production failed.
+**The HTTP status, headers and raw body of the original failing responses
+are not recoverable from the journal**. Do not invent an outage or an SDK
+root cause.
+
+### Experimental diagnostics — full Windows offline PASS, not deployed
+
+GitHub branch:
+experiment/quote-response-diagnostics-20261123
+
+Latest verified commit:
+0df0f51791460faad889df4cf5080a2c8d651e26
+
+The quote handler now records safe HTTP status, normalized content type,
+body length/hash, batch size and sanitized JSON parser location on
+decoding errors; it checks HTTP errors before parsing so errors retain
+their HTTP status. It never logs response bodies or credential material;
+no changed cadence, retries, journal schema or deployed controller.
+
+Initial experimental syntax error was corrected. Windows closeout-qa
+qualification then reported **15/15 focused tests PASS**, followed by
+**308/308 full core offline tests PASS** (304 original plus 4 new),
+zero failures, errors and skips, no real Schwab calls or passwords.
+The old integration source fingerprint remains immutable; its
+source_inventory_verified=false is expected for the experiment.
+This is NOT production or live qualification. Diagnostic runbook:
+docs/runbooks/Quote_Response_Decode_Diagnostics_2026-11-23.md on the
+diagnostic branch. Production GitHub main remains de1e554.
+
+### Overlay Release A and Membership Release B separation
+
+Historical Release A remains on
+experiment/overlay-release-a-historical-20261122, with 72/72 Windows
+tests PASS; genuine Nov 13 journal replay with 11,742 events, causal
+backward seek, Nasdaq markers, and successful browser Stop server,
+verified PORT_8051_FREE. Release order:
+1 (done) → 2 (major checks passed) → 4A → 3 → 4B → 5.
+Historical acquisition-health/audit attachment, quote-only subtitle,
+new compact read-only Membership layout, symbol selector, calendar,
+and genuine same-date/symbol OHLCV visualization remain to complete.
+The weekly review also notes an 84-candle ONFO historical cache,
+but this is not proof of integration into the current Release A UI.
+
+Split 4A into:
+- **4A-1 offline:** safe standalone session discovery/attachment,
+  identity/schema checking and independent viewer lifecycle using
+  retained completed journals. **Does not require running pollers.**
+- **4A-2 live:** after 4A-1 qualification, attach to a normal **healthy**
+  current Uni/Focus/Hot session and verify independence; active pollers
+  required. No changes to installed polling, authentication or
+  production journal, and do not make the controller dependent on Overlay.
+
+The accepted synthetic Membership UI remains separately at
+experiment/overlay-membership-bridge-20261119, c2a9a11,
+**119/119 Windows PASS** and Firefox synthetic acceptance.
+Write-capable GUI controls are **Release B**, not enabled in Historical.
+
+### Essential Nov 24 operational check and new-chat priorities
+
+**Verify the actual Nov 23 post-close preparation result and the resulting
+Nov 24 r0 before any next-session launch.** The Nov 23 controller was
+left armed, but post-close success is not yet verified. Do not assume
+the selector succeeded or silently carry forward a roster.
+
+For tomorrow's normal polling, use the installed one-unlock controller
+and confirm actual successful quote outcomes after the opening, not
+merely API AVAILABLE. If the shared JSON problem recurs, preserve
+evidence and prioritize production recovery instead of live Overlay QA.
+If polling is normal, the same session may be used for 4A-2 once 4A-1
+has passed offline qualification.
+
+New-chat priorities: (1) resolve/contain the Nov 23 API incident and
+verify the Nov 24 startup dependency, (2) develop Release A **4A-1**
+offline, then qualify **4A-2** on a healthy session, (3) continue
+approved Historical Overlay refinements and the separate controlled
+Membership operator boundary without prematurely deploying Release B.
+Keep Option A sequential Hot, Ordinary demotion, deferrals, and honest
+strict audit statuses intact. Do not change production, main,
+credentials, or saved evidence without explicit approval.
+
+### Suggested Week 2026-11-23 opening prompt
+
+Start by reviewing this Section 8, the scheduled review "week 2026-11-23"
+in "Universe Selector Next Steps", and the Canonical Project Roadmap.
+Accept Option A sequential Hot polling, explained Hot gaps with honest
+strict audit results, and no default concurrency redesign.
+
+The Nov 23 one-unlock session was deliberately stopped after a
+shared unreadable-JSON incident; the controller remained armed
+for post-close preparation, which must be verified before Nov 24 r0
+is used. Original failing HTTP body/status is unavailable.
+The quote-response diagnostic patch is offline-qualified
+(15/15 focused, 308/308 full Windows PASS), but not deployed or
+live-qualified, and the true root cause remains unknown.
+
+Proceed to standalone read-only Overlay **4A-1** development in an
+isolated experiment; reserve **4A-2** live attachment for a healthy
+normal polling session. Keep GUI membership writes for Release B.
+Preserve existing Windows CMD procedures, one prompt per
+password command, production source, sessions, journals, and
+approved project decisions.
