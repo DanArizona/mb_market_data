@@ -129,6 +129,27 @@ regressions would be required before any production merge/release.
 The dedicated verifier qualifies only the specific diagnostic
 change; it does **not** qualify installation.
 
+## November 23 correction — initial verifier startup failure
+
+The initial experimental commit `c8c5f5b` contained an accidentally
+corrupted media-type regular expression in `schwab_quotes.py`. The
+Windows verifier failed **before loading any tests** with a
+`SyntaxError: unterminated string literal` on line 249. This was a
+patch-construction error, not another provider failure.
+
+The correction replaces the corrupted regex with the simpler media-type
+validator `[a-z0-9][a-z0-9._+-]*/[a-z0-9][a-z0-9._+-]*`, allowing
+standard HTTP media types such as `application/json`,
+`application/problem+json`, and `text/html` while rejecting
+unrecognized types. No polling, scheduling, or request behavior was changed.
+The helper's syntax and sanitized metadata output were checked independently;
+**the full Windows regression suite is still pending and must be rerun**.
+
+For the existing isolated Windows checkout, update the experimental branch
+with `git pull --ff-only`, then rerun
+`call verify_quote_response_diagnostics.cmd`. Do not create another
+checkout or change the accepted production installation.
+
 ## Open diagnosis and production policy
 
 - Exactly what status/body Schwab returned during the 09:25–09:43

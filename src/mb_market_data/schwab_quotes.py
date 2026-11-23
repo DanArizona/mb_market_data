@@ -246,13 +246,7 @@ def _safe_response_metadata(response: Any, *, batch_symbols: int) -> str:
     raw_type = headers.get("Content-Type", "") if isinstance(headers, Mapping) else ""
     media_type = raw_type.split(";", 1)[0].strip().lower() if isinstance(raw_type, str) else ""
     if (len(media_type) > 80
-            or not re.fullmatch(r"[a-z0-9!#
-
-def fetch_quotes_batched(
-^_.+-]+/[a-z0-9!#
-
-def fetch_quotes_batched(
-^_.+-]+", media_type)):
+            or not re.fullmatch(r"[a-z0-9][a-z0-9._+-]*/[a-z0-9][a-z0-9._+-]*", media_type)):
         media_type = "unknown"
 
     body = getattr(response, "content", None)
