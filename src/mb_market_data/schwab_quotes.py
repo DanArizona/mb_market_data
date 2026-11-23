@@ -28,6 +28,9 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
+from hashlib import sha256
+from json import JSONDecodeError
+import re
 from typing import Any
 
 
@@ -227,6 +230,49 @@ def _http_error_detail(
     return detail
 
 
+
+def _safe_response_metadata(response: Any, *, batch_symbols: int) -> str:
+    """HTTP diagnostics only: never persist response bodies or auth headers.
+
+    The response content is read only to calculate its size and SHA-256.
+    Content-Type is reduced to a validated media type (no header parameters).
+    Any unsupported/malformed field is reported as unknown rather than
+    interpolated into a journal observation.
+    """
+    code = getattr(response, "status_code", None)
+    status = str(code) if type(code) is int and 100 <= code <= 599 else "unknown"
+
+    headers = getattr(response, "headers", None)
+    raw_type = headers.get("Content-Type", "") if isinstance(headers, Mapping) else ""
+    media_type = raw_type.split(";", 1)[0].strip().lower() if isinstance(raw_type, str) else ""
+    if (len(media_type) > 80
+            or not re.fullmatch(r"[a-z0-9!#
+
+def fetch_quotes_batched(
+^_.+-]+/[a-z0-9!#
+
+def fetch_quotes_batched(
+^_.+-]+", media_type)):
+        media_type = "unknown"
+
+    body = getattr(response, "content", None)
+    size = str(len(body)) if isinstance(body, bytes) else "unavailable"
+    digest = sha256(body).hexdigest() if isinstance(body, bytes) else "unavailable"
+    return (
+        f"http_status={status}; content_type={media_type}; "
+        f"body_bytes={size}; body_sha256={digest}; "
+        f"batch_symbols={batch_symbols}"
+    )
+
+
+def _safe_decode_error(error: Exception) -> str:
+    """Describe JSON decode failure without echoing the response or exception text."""
+    name = type(error).__name__
+    if isinstance(error, JSONDecodeError):
+        return f"{name}: line={error.lineno} column={error.colno} char={error.pos}"
+    return name
+
+
 def fetch_quotes_batched(
     client: Any,
     symbols: Iterable[str] | str,
@@ -355,13 +401,21 @@ def fetch_quotes_batched(
 
             continue
 
-        try:
-            payload = response.json()
-
-        except Exception as exc:
-            detail = (
-                "Unreadable Schwab JSON response: "
-                f"{type(exc).__name__}: {exc}"
+        # Classify HTTP errors BEFORE JSON decoding, so an HTML/invalid-JSON
+        # error response retains its actual HTTP status. Decode an HTTP error
+        # only to preserve its existing structured provider error detail.
+        if not getattr(response, "ok", False):
+            try:
+                error_payload = response.json()
+            except Exception as exc:
+                detail = (
+                    _http_error_detail(response, None)
+                    + f"; error_json={_safe_decode_error(exc)}"
+                )
+            else:
+                detail = _http_error_detail(response, error_payload)
+            detail += "; " + _safe_response_metadata(
+                response, batch_symbols=len(batch)
             )
 
             for symbol in batch:
@@ -372,25 +426,21 @@ def fetch_quotes_batched(
                         quote=None,
                         detail=detail,
                         batch_number=batch_number,
-                        request_started_at_utc=(
-                            request_started_at_utc
-                        ),
-                        response_received_at_utc=(
-                            response_received_at_utc
-                        ),
+                        request_started_at_utc=request_started_at_utc,
+                        response_received_at_utc=response_received_at_utc,
                     )
                 )
 
             continue
 
-        if not getattr(
-            response,
-            "ok",
-            False,
-        ):
-            detail = _http_error_detail(
-                response,
-                payload,
+        try:
+            payload = response.json()
+        except Exception as exc:
+            detail = (
+                "Unreadable Schwab JSON response: "
+                + _safe_decode_error(exc)
+                + "; "
+                + _safe_response_metadata(response, batch_symbols=len(batch))
             )
 
             for symbol in batch:
@@ -401,12 +451,8 @@ def fetch_quotes_batched(
                         quote=None,
                         detail=detail,
                         batch_number=batch_number,
-                        request_started_at_utc=(
-                            request_started_at_utc
-                        ),
-                        response_received_at_utc=(
-                            response_received_at_utc
-                        ),
+                        request_started_at_utc=request_started_at_utc,
+                        response_received_at_utc=response_received_at_utc,
                     )
                 )
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 from datetime import timezone
+from hashlib import sha256
+import json
 
 from mb_market_data.schwab_quotes import (
     DEFAULT_QUOTE_BATCH_SIZE,
@@ -20,13 +22,19 @@ class FakeResponse:
         ok: bool = True,
         status_code: int = 200,
         json_error: Exception | None = None,
+        content: bytes | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.payload = payload
         self.ok = ok
         self.status_code = status_code
         self.json_error = json_error
+        self.content = content
+        self.headers = headers or {}
+        self.json_calls = 0
 
     def json(self):
+        self.json_calls += 1
         if self.json_error is not None:
             raise self.json_error
 
@@ -400,6 +408,100 @@ class TestFetchQuotesBatched(unittest.TestCase):
             result.results[0].status,
             QuoteStatus.REQUEST_ERROR,
         )
+
+
+    def test_bad_json_records_status_type_hash_and_batch_size_without_secrets(self) -> None:
+        secret = "Bearer DO_NOT_LOG_SECRET"
+        body = (secret + "\\nnot-json").encode("utf-8")
+        response = FakeResponse(
+            None,
+            content=body,
+            headers={"Content-Type": "text/html; private=" + secret,
+                     "Authorization": secret},
+            json_error=json.JSONDecodeError("Expecting value", "bad-json", 1),
+        )
+        result = fetch_quotes_batched(FakeClient([response]), ["SPY", "AAPL"])
+        self.assertEqual(response.json_calls, 1)
+        self.assertEqual(len(result.results), 2)
+        self.assertEqual({r.status for r in result.results}, {QuoteStatus.REQUEST_ERROR})
+        details = {r.detail for r in result.results}
+        self.assertEqual(len(details), 1)
+        detail = next(iter(details))
+        for expected in (
+            "Unreadable Schwab JSON response",
+            "JSONDecodeError",
+            "http_status=200",
+            "content_type=text/html",
+            f"body_bytes={len(body)}",
+            f"body_sha256={sha256(body).hexdigest()}",
+            "batch_symbols=2",
+            "line=1",
+        ):
+            self.assertIn(expected, detail)
+        self.assertNotIn(secret, detail)
+        self.assertNotIn("Authorization", detail)
+        self.assertNotIn("private=", detail)
+
+    def test_non_json_http_failure_preserves_http_status_and_safe_metadata(self) -> None:
+        secret = "PASSWORD_DO_NOT_LOG"
+        body = ("<html>" + secret + "</html>").encode()
+        response = FakeResponse(
+            None,
+            ok=False,
+            status_code=503,
+            content=body,
+            headers={"Content-Type": "text/html; charset=UTF-8"},
+            json_error=ValueError(secret),
+        )
+        result = fetch_quotes_batched(FakeClient([response]), ["SPY", "AMD"])
+        self.assertEqual(response.json_calls, 1)
+        self.assertEqual(result.request_count, 1)
+        for item in result.results:
+            self.assertEqual(item.status, QuoteStatus.REQUEST_ERROR)
+            self.assertIsNotNone(item.response_received_at_utc)
+            self.assertIn("HTTP 503", item.detail)
+            self.assertIn("error_json=ValueError", item.detail)
+            self.assertIn("http_status=503", item.detail)
+            self.assertIn(f"body_sha256={sha256(body).hexdigest()}", item.detail)
+            self.assertIn("batch_symbols=2", item.detail)
+            self.assertNotIn(secret, item.detail)
+
+    def test_valid_http_error_keeps_structured_provider_detail(self) -> None:
+        response = FakeResponse(
+            {"errors": [{"detail": "Temporary failure"}]},
+            ok=False,
+            status_code=500,
+            content=b'{"errors":[{"detail":"Temporary failure"}]}',
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+        result = fetch_quotes_batched(FakeClient([response]), ["SPY"])
+        self.assertEqual(response.json_calls, 1)
+        self.assertEqual(result.results[0].status, QuoteStatus.REQUEST_ERROR)
+        self.assertIn("HTTP 500: Temporary failure", result.results[0].detail)
+        self.assertIn("content_type=application/json", result.results[0].detail)
+        self.assertIn("http_status=500", result.results[0].detail)
+
+    def test_four_hundred_bad_json_then_one_hundred_eighty_six_quotes_continue(self):
+        first = [f"Q{n:03d}" for n in range(400)]
+        second = [f"R{n:03d}" for n in range(186)]
+        response = FakeResponse(
+            None,
+            content=b"not parseable",
+            headers={"Content-Type": "application/json"},
+            json_error=ValueError("bad json"),
+        )
+        client = FakeClient([
+            response,
+            FakeResponse({symbol: {"symbol": symbol} for symbol in second}),
+        ])
+        result = fetch_quotes_batched(client, first + second, batch_size=400)
+        self.assertEqual(result.request_count, 2)
+        self.assertEqual(len(result.results), 586)
+        self.assertTrue(all(v.status == QuoteStatus.REQUEST_ERROR for v in result.results[:400]))
+        self.assertTrue(all(v.status == QuoteStatus.QUOTE for v in result.results[400:]))
+        self.assertIn("batch_symbols=400", result.results[0].detail)
+        self.assertEqual(len(client.calls[0]["symbols"]), 400)
+        self.assertEqual(len(client.calls[1]["symbols"]), 186)
 
     def test_client_exception_has_no_response_time(
         self,
