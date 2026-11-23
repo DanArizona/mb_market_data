@@ -141,3 +141,82 @@ approved writer actions.
 The extra restrictions on outside-Uni manual-admission eligibility (exchange,
 OTC, equity subtype and listing/trading status) remain **deferred** and do not
 change the existing strict Schwab EQUITY identity gate or this release.
+
+
+## 2026-11-23 qualification observations and planned workspace refinements
+
+**Observed on MasterBot from the isolated Release A checkout** at the original
+historical integration commit `cfadea5013eb9b3d0ffdc3db8e74a13e1bf0eacd`:
+
+- `call verify_overlay_workspace.cmd`: **72/72 PASS** with Dash 2.18.2,
+  Plotly 6.5.2, no provider calls and no production changes. This qualifies
+  the offline suite, not a production deployment.
+- The November 13 2026 real journal loaded **11,742 replay events** into the
+  localhost Dash viewer; optional daily Nasdaq evidence was attached.
+- At about **09:33:13 ET**, Membership showed **515 Uni-only / 40 Focus-only /
+  6 Hot**; ONFO had **r5, $0.72 last price, Halted**. Charts showed
+  **33 quote outcomes and 0 completed OHLCV candles**.
+- At about **10:28:44 ET**, the lists showed **512 Uni-only / 40 Focus-only /
+  18 Hot**; ONFO had **r30, $1.00 last price, Normal**. The chart showed
+  **1,697 ONFO quote outcomes** and multiple replay-visible Nasdaq markers.
+- A **backward seek to 09:33:13** restored the earlier r5 membership,
+  price, security state, counts and 33 charted quote outcomes. These are
+  desktop visual observations supporting historical causal replay.
+- Monitor at the earlier time showed **103 events applied**, **4,794
+  observations**, 561 unique members and 46 multi-channel members.
+  Its footer explicitly reported **"Acquisition health · not attached"**.
+  The real November 13 strict journal audit remains **FAIL** for six missed
+  Hot slots; the Monitor does **not** currently display that external audit
+  result. Do not claim collection-health/audit visibility has passed.
+- The viewer's current Charts subtitle says "Completed five-minute OHLCV"
+  even when its counter correctly reports zero candles. Correct that
+  conditional wording as a small presentation fix.
+- Stop/restart/port-release behavior for this particular real-day browser
+  session is still to be documented separately before final Step 2 closure.
+
+**User-approved planning notes** (recorded, not implemented here):
+
+1. **Harmonize Historical Membership with the newer accepted Membership UI.**
+   Retain the three compact sorted/exclusive tier lists, shared Find input,
+   inspected-symbol details, automatic selection/scroll on read-only search,
+   and informative empty/unavailable states. Reuse only presentation and
+   read-only selection behavior from
+   `experiment/overlay-membership-bridge-20261119`. In Historical mode,
+   **do not expose or register drag/drop, admission, Preview, Confirm, worker
+   polling, or write-capable callbacks**. Label historical membership and
+   quote provenance explicitly as of the replay clock. This should precede
+   final Release A production interface acceptance.
+2. **Add genuine OHLCV candles and volume to Historical Charts.**
+   The existing source has a separately acquired immutable one-symbol,
+   one-date five-minute Schwab cache and correct interval-completion
+   visibility. Qualify actual cache presentation with a **matching completed
+   historical date and selected symbol**; use the cached evidence, not
+   provider requests in the viewer. Acquisition and authentication, if
+   needed to generate a missing cache, are a separate explicitly attended
+   activity outside active polling. No cache means **quote-only**, with
+   a truthful headline and no invented OHLCV or volume bars.
+3. **Add a selected-chart-symbol control** in the Graph Setups sidebar.
+   Synchronize it with Membership selection so that clicking a ticker or
+   submitting a canonical ticker updates the shared inspected symbol,
+   Charts, and inspector consistently. Rebuild the view using the current
+   historical session's evidence and any exact symbol/date OHLCV cache.
+   Do not silently reuse ONFO's cached candles for another ticker.
+   This is a target for the production-readiness UI gate.
+4. **Add a historical session date selector**, preferably a calendar popup
+   in the Information or Time Controls sidebar. Discover available dates
+   from **validated, accessible completed-session journals**, not merely
+   filename patterns; indicate available/unavailable dates accurately.
+   Switching dates must update journal identity, replay clock, Nasdaq
+   evidence, symbol context, OHLCV cache and health/audit source together,
+   with no production write or cross-date carryover. This is a **planned
+   enhancement** and can follow the Release A step 4A standalone session
+   attachment/catalog; no calendar has been implemented yet.
+
+**Sequencing:** Keep the approved Release A order
+`1 → 2 → 4A → 3 → 4B → 5`. Step 2 real-data visual checks are substantially
+advanced but the health/audit attachment and real-day viewer shutdown remain
+open. Steps 4A and 3 should provide the reusable session-discovery and
+live-read infrastructure; the interface refinements above can be built in
+isolated increments alongside this work and assessed before final Release A
+release approval. All editing controls belong to Release B and remain
+disabled in Historical mode.
