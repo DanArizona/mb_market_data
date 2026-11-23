@@ -142,8 +142,9 @@ validator `[a-z0-9][a-z0-9._+-]*/[a-z0-9][a-z0-9._+-]*`, allowing
 standard HTTP media types such as `application/json`,
 `application/problem+json`, and `text/html` while rejecting
 unrecognized types. No polling, scheduling, or request behavior was changed.
-The helper's syntax and sanitized metadata output were checked independently;
-**the full Windows regression suite is still pending and must be rerun**.
+The helper's syntax and sanitized metadata output were checked independently.
+The initial syntax failure was corrected and the Windows qualification results
+are recorded in the sections below.
 
 For the existing isolated Windows checkout, update the experimental branch
 with `git pull --ff-only`, then rerun
@@ -201,9 +202,33 @@ git pull --ff-only origin experiment/quote-response-diagnostics-20261123
 call verify_quote_response_full_offline.cmd
 ```
 
-The **308-test full suite is pending Windows execution**. Do not
-represent it as PASS until the operator supplies actual results.
-This gate is still not authorization to merge or install.
+### Full Windows result — PASS
+
+On MasterBot, the operator updated the isolated `closeout-qa` checkout from
+`57b81f0` to `e571117`, then ran the new runner.
+
+- `ast.parse('verify_quote_response_full_offline.py')`: **SYNTAX PASS**.
+- `call verify_quote_response_full_offline.cmd`: **308/308 PASS**, zero
+  failures, zero errors and zero skipped tests, completed in **20.003 s**.
+- This includes the existing **304** core regression tests plus **4**
+  additional quote-response tests; it is a comprehensive **offline**
+  behavior regression, not live provider qualification.
+- Environment: **Windows (`win32`)**, `closeout-qa`, exchange-calendars
+  **4.13.2**.
+- Reported **no** real provider calls, password prompts or production
+  changes. The intentionally altered source fingerprint was **not
+  verified** under the old immutable integration inventory.
+- Evidence directory on MasterBot:
+  `C:\\Users\\danla\\mb_quote_response_qa_20261123\\output\\quote-response-full-20261123T153715116987Z`.
+  The evidence is operator-reported local Windows output, not a
+  GitHub Actions result.
+
+**Qualification conclusion:** Focused 15/15 and full-core 308/308 offline
+suites both passed. The experimental quote-response diagnostic patch is
+qualified for further integration review, **not** for production
+deployment. A reviewed source baseline, audit of detailed metadata
+behavior in the installed client, approved deployment strategy, and
+controlled attended live qualification remain separate gates.
 
 ## Open diagnosis and production policy
 
