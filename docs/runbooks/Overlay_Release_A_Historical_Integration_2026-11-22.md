@@ -174,9 +174,12 @@ historical integration commit `cfadea5013eb9b3d0ffdc3db8e74a13e1bf0eacd`:
 - **Graceful shutdown PASS (2026-11-23):** the operator reported that
   clicking **Stop server** in the genuine November 13 Historical Overlay
   returned the viewer's CMD window to its prompt. This establishes the
-  viewer's browser-initiated process shutdown; explicit port 8051 release,
-  repeated restart, and isolation from any running collectors have not yet
-  been independently observed in this qualification record.
+  viewer's browser-initiated process shutdown.
+- **TCP port release PASS (2026-11-23):** in the same isolated `dashing`
+  checkout, a separate read-only `Get-NetTCPConnection -LocalPort 8051
+  -State Listen` check returned **`PORT_8051_FREE`** after **Stop server**.
+  No process was listening on TCP port 8051. A repeated viewer restart and
+  active-collector isolation test remain separate later qualification checks.
 
 **User-approved planning notes** (recorded, not implemented here):
 
@@ -219,8 +222,9 @@ historical integration commit `cfadea5013eb9b3d0ffdc3db8e74a13e1bf0eacd`:
 **Sequencing:** Keep the approved Release A order
 `1 → 2 → 4A → 3 → 4B → 5`. Step 2 real-data visual checks are substantially
 advanced: browser-initiated graceful shutdown is now observed, while
-health/audit attachment, genuine same-session OHLCV, and explicit port-release
-and restart evidence remain open. Steps 4A and 3 should provide the reusable session-discovery and
+health/audit attachment, genuine same-session OHLCV, repeated restart, and
+active-collector isolation evidence remain open. Browser shutdown and TCP
+port-release have passed. Steps 4A and 3 should provide the reusable session-discovery and
 live-read infrastructure; the interface refinements above can be built in
 isolated increments alongside this work and assessed before final Release A
 release approval. All editing controls belong to Release B and remain
