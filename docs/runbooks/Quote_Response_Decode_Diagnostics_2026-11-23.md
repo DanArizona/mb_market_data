@@ -150,6 +150,61 @@ with `git pull --ff-only`, then rerun
 `call verify_quote_response_diagnostics.cmd`. Do not create another
 checkout or change the accepted production installation.
 
+## November 23 Windows qualification — verified
+
+In the isolated checkout
+`C:\\Users\\danla\\mb_quote_response_qa_20261123`,
+the operator fast-forwarded from `c8c5f5b` to `57b81f0`, then ran:
+
+- Offline `ast.parse` over the quote source and regression test file:
+  **SYNTAX PASS**.
+- `call verify_quote_response_diagnostics.cmd`:
+  **15/15 PASS**, zero errors, zero failures, zero skips.
+  The 15 tests comprise 11 unchanged tests and four new cases covering
+  safe metadata, HTTP failure classification, structured provider errors,
+  and the 400-failure/186-success sequence.
+- Result explicitly recorded `real_provider_calls=false`,
+  `password_prompts=false`, `production_changes=false`;
+  `source_inventory_verified=false` is intentional for this
+  experimental change, not a full release gate.
+
+**This is focused quote-handler acceptance, not a full production
+regression or live qualification.** The November 23 original failure
+remains attributable only to unreadable responses; its HTTP status
+cannot be recovered from the saved journal.
+
+## Additional full-core regression gate (experimental runner)
+
+This branch also provides `verify_quote_response_full_offline.cmd`,
+which runs the **same core test modules** as the accepted
+`verify_offline.py` (304 historical expected tests) plus the four
+new quote-response tests, requiring **308/308** and zero skips.
+
+It uses the installed `closeout-qa` dependencies, deliberately
+disables sockets and human credential inputs, preserves temporary
+journal/process test behavior in the isolated checkout, and writes
+a separate result/evidence directory under `output/`.
+
+It does **not** rewrite or disable the existing production-integrity
+fingerprint in `verify_offline.py`. It explicitly reports
+`source_inventory_verified=false` because this candidate modifies
+the accepted quote source. The remote source-tree delta is still
+reviewed separately against the recorded main baseline.
+
+From the existing isolated `closeout-qa` checkout:
+
+```cmd
+git pull --ff-only origin experiment/quote-response-diagnostics-20261123
+```
+
+```cmd
+call verify_quote_response_full_offline.cmd
+```
+
+The **308-test full suite is pending Windows execution**. Do not
+represent it as PASS until the operator supplies actual results.
+This gate is still not authorization to merge or install.
+
 ## Open diagnosis and production policy
 
 - Exactly what status/body Schwab returned during the 09:25–09:43
