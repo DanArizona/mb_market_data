@@ -33,10 +33,46 @@ Repeat once later to observe changes, but the one-shot CLI intentionally does
 not claim liveness between calls. If the session has finished, the count may
 legitimately be unchanged.
 
+## Experimental Real Time viewer (unverified on MasterBot)
+
+The *same* `dashboard_quote_observation_journal.py` executable now accepts
+`--real-time-data-root`, with the current-day journal as its positional
+argument. This mode validates the exact daily plan/journal identity and starts
+an isolated localhost viewer with **Real Time · committed read-only** selected.
+
+The viewer reads the established causal prefix once and subsequently refreshes
+every five seconds. A committed-event tail appends only newly recorded complete
+acquisitions and effective Membership revisions to the existing charts, tier
+lists, and inspector. It does **not** rerun full-day acquisition replay on each
+refresh, call Schwab, start or stop workers, publish Membership, or change any
+production file. It rejects a newly arriving event that would have to be placed
+before the already displayed causal prefix, rather than silently falsifying
+time ordering.
+
+Example on MasterBot (only on the **same ET session date**):
+
+```cmd
+python -u -B probes\dashboard_quote_observation_journal.py "%USERPROFILE%\dailyflow_qa\daily_flow_candidate_20261106\market_data\output\quote_observation_journal_v2_api_opening_2026-11-24\2026-11-24.sqlite3" --overlay-symbol NVDA --nasdaq-daily-events-json "%USERPROFILE%\dailyflow_qa\daily_flow_candidate_20261106\market_data\output\daily_session\2026-11-24\nasdaq\events.json" --real-time-data-root "%USERPROFILE%\dailyflow_qa\daily_flow_candidate_20261106\market_data" --host 127.0.0.1 --port 8051
+```
+
+Historical remains the default **without** the attachment flag. This beta
+requires a viewer restart to switch modes; a seamless in-browser
+Historical/Real Time switch is not yet implemented. Backtest and all operator
+actions remain disabled. The live heading shows latest committed evidence,
+the saved controller phase, and explicitly warns that process liveness was
+not independently verified. Do not infer polling health or audit PASS from
+a growing count.
+
+**Status:** experimental implementation only. Offline suite expanded to
+109 expected checks; no real-day in-browser live qualification yet. Confirm
+the 2026-11-24 session journal is read-only-attachable, demonstrate additional
+acquisitions and refreshed quote/Hot/Membership evidence while collectors
+continue, and stop only the viewer before treating this as qualified.
+
 ## Not yet qualified or enabled
 
-- A continuous Real Time chart/membership data stream, current-session
-  freshness UI, or Real Time workspace mode.
+- Real Time chart and Membership refresh still require Windows qualification
+  against the active production journal; the current beta is not a release.
 - Historical-to-Real-Time UI switching in one running browser session.
 - Manual membership preview/confirm controls against the authoritative daily
   worker. The synthetic prototype's controls have **not** been promoted.
