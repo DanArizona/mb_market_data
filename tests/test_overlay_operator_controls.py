@@ -400,6 +400,34 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(self.backend.preview_calls, [])
         self.assertEqual(self.backend.confirm_calls, [])
 
+    def test_auto_follow_does_not_arm_reverse_action(self):
+        """Worker-driven selection cannot silently change demote to promote."""
+        app = self.app()
+        key, cb = self.callback(app, "operator-symbol")
+        response = app.server.test_client().post("/_dash-update-component", json={
+            "output": key,
+            "outputs": [
+                {"id": item.component_id, "property": item.component_property}
+                for item in cb["output"]
+            ],
+            "changedPropIds": ["membership-selected-symbol.data"],
+            "inputs": [
+                {"id": "membership-selected-symbol", "property": "data",
+                 "value": "INTC"},
+                {"id": "membership-drag-request", "property": "data",
+                 "value": None},
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        changed = response.get_json()["response"]
+        self.assertEqual(changed["operator-symbol"]["value"], "INTC")
+        self.assertNotIn("operator-action", changed)
+        self.assertNotIn("operator-target", changed)
+        self.assertNotIn("operator-drag-intent", changed)
+        self.assertEqual(self.backend.preview_calls, [])
+        self.assertEqual(self.backend.confirm_calls, [])
+
     def test_stale_drag_control_values_cannot_enable_confirm(self):
         app = self.app()
         layout = app.server.test_client().get("/_dash-layout")
