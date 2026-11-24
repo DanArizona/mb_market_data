@@ -69,6 +69,9 @@ class QuoteDashboardReplayController:
             Callable[[], ObservationOverlayProjector] | None
         ) = None,
         overlay_end_at_utc: datetime | None = None,
+        symbol_projector_factory: (
+            Callable[[str], ObservationOverlayProjector] | None
+        ) = None,
     ) -> None:
         if isinstance(speed, bool) or not isinstance(speed, (int, float)):
             raise TypeError("speed must be a number")
@@ -79,6 +82,7 @@ class QuoteDashboardReplayController:
         self._speed = float(speed)
         self._monotonic = monotonic
         self._overlay_projector_factory = overlay_projector_factory
+        self._symbol_projector_factory = symbol_projector_factory
         if overlay_end_at_utc is not None:
             if overlay_projector_factory is None:
                 raise ValueError("overlay_end_at_utc requires an overlay projector")
@@ -246,6 +250,36 @@ class QuoteDashboardReplayController:
     def restart(self) -> DashboardReplaySnapshot:
         with self._lock:
             self._reset_unlocked()
+            return self.snapshot()
+
+    def select_overlay_symbol(self, symbol: str) -> DashboardReplaySnapshot:
+        """Switch the inspected symbol without changing the main replay clock.
+
+        Rebuild only the selected-symbol Overlay from the same immutable event
+        source through the present causal cutoff. Current hierarchy and replay
+        progress remain untouched. Invalid/incompatible candidates fail before
+        replacing the visible Overlay.
+        """
+        if not isinstance(symbol, str) or not symbol.strip():
+            raise ValueError("Chart symbol must be nonblank text")
+        normalized = symbol.strip().upper()
+        with self._lock:
+            if self._symbol_projector_factory is None:
+                raise RuntimeError("Historical chart symbol switching is unavailable")
+            if self._overlay_projector is not None and self._overlay_projector.symbol == normalized:
+                return self.snapshot()
+            replacement = self._symbol_projector_factory(normalized)
+            if replacement.symbol != normalized or replacement.session_date != self._timeline.session_date:
+                raise ValueError("Selected-symbol projector identity mismatch")
+            cutoff = self._position_utc
+            if cutoff is not None:
+                for event in self._event_factory():
+                    if event.available_at_utc > cutoff:
+                        break
+                    replacement.apply(event)
+            self._overlay_projector = replacement
+            # The next seek/restart must retain the newly inspected symbol.
+            self._overlay_projector_factory = lambda: self._symbol_projector_factory(normalized)
             return self.snapshot()
 
     def seek(self, target_utc: datetime) -> DashboardReplaySnapshot:
