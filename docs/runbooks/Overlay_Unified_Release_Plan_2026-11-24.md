@@ -294,11 +294,10 @@ take precedence over the current unified Membership grid presentation.
   display via a dropdown with `Last`, `%change`, and `%range`. Requested
   calculations, preserving the user's definitions:
   `%change = 100 * (last / open - 1)`;
-  `%range = (max - min) / open`.
+  `%range = 100 * (max - min) / open`.
   Determine the precise source and time window for `open`, `max`, and
-  `min`, treatment of missing/zero open, and whether `%range` is
-  multiplied by 100 for display under a percent label **when we work
-  on the feature**. Do not silently change the formula now.
+  `min`, treatment of missing/zero open, **when we work on the feature**. The user clarified that `%range`
+  explicitly includes the factor of `100`; that part is settled.
 
 This is an accepted deferred UX direction, not a completed change or a
 reason to delay the next priority: **genuine Schwab five-minute OHLCV
