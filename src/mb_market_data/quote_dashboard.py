@@ -1560,6 +1560,105 @@ def create_quote_dashboard(
                 return controller.snapshot().applied_event_count, detail
             return no_update, detail
 
+    if operator_enabled:
+        @app.callback(
+            Output("operator-symbol", "value"),
+            Input("membership-selected-symbol", "data"),
+            prevent_initial_call=True,
+        )
+        def sync_operator_selected_symbol(symbol: str | None) -> Any:
+            return symbol if isinstance(symbol, str) and symbol else no_update
+
+        @app.callback(
+            Output("operator-proposal", "data"),
+            Output("operator-preview-status", "children"),
+            Output("operator-confirm-button", "disabled"),
+            Output("operator-command", "data"),
+            Output("operator-submit-status", "children"),
+            Input("operator-preview-button", "n_clicks"),
+            Input("operator-confirm-button", "n_clicks"),
+            Input("operator-symbol", "value"),
+            Input("operator-action", "value"),
+            Input("operator-target", "value"),
+            State("operator-proposal", "data"),
+            State("operator-csrf", "data"),
+            prevent_initial_call=True,
+        )
+        def handle_operator_request(
+            _preview_clicks: int | None,
+            _confirm_clicks: int | None,
+            symbol: str | None,
+            action: str | None,
+            target: str | None,
+            proposal: Mapping[str, Any] | None,
+            csrf: str | None,
+        ) -> tuple[Any, ...]:
+            """No command can be queued without explicit Preview and Confirm."""
+            if csrf != operator_token:
+                return None, "Operator session authorization invalid.", True, None, "No request queued."
+            trigger = ctx.triggered_id
+            if trigger in {"operator-symbol", "operator-action", "operator-target"}:
+                return None, "Selection changed. Preview again.", True, None, "No request queued."
+            if trigger == "operator-preview-button":
+                try:
+                    reviewed = operator_actions.preview(
+                        str(symbol or ""), str(action or ""), str(target or "")
+                    )
+                except (OSError, ValueError, TypeError, KeyError) as error:
+                    return None, f"Preview refused: {error}", True, None, "No request queued."
+                status = (
+                    f"PREVIEW ONLY · {reviewed['symbol']}: "
+                    f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
+                    f"({reviewed['action']}); based on revision "
+                    f"r{reviewed['based_on_revision']}; "
+                    f"expires {reviewed['expires_at_utc']}. "
+                    f"{reviewed.get('note', '')}"
+                )
+                return reviewed, status, False, None, "No request queued."
+            if trigger == "operator-confirm-button":
+                if not isinstance(proposal, dict) or not proposal.get("proposal_id"):
+                    return None, "No current preview. Preview again.", True, None, "No request queued."
+                if (
+                    str(symbol or "").strip().upper() != proposal.get("symbol")
+                    or action != proposal.get("action")
+                    or target != proposal.get("target")
+                ):
+                    return None, "Request changed since preview. Preview again.", True, None, "No request queued."
+                try:
+                    result = operator_actions.confirm(proposal["proposal_id"])
+                    request = result["request"]
+                    command_id = request["id"]
+                except (OSError, ValueError, TypeError, KeyError) as error:
+                    return None, f"Confirm refused: {error}", True, None, "No request queued."
+                return (
+                    None,
+                    f"Preview confirmed for {proposal['symbol']}; no direct journal edit.",
+                    True,
+                    command_id,
+                    f"REQUEST QUEUED · {command_id}. "
+                    "Await the existing membership worker's receipt; effectiveness is not yet confirmed.",
+                )
+            return (no_update,) * 5
+
+        @app.callback(
+            Output("operator-receipt-status", "children"),
+            Input("operator-command", "data"),
+            Input("operator-receipt-tick", "n_intervals"),
+        )
+        def update_operator_receipt(command_id: str | None, _tick: int) -> str:
+            if not isinstance(command_id, str) or not command_id:
+                return "No worker receipt."
+            try:
+                receipt = operator_actions.result(command_id)
+            except (OSError, ValueError, TypeError, KeyError) as error:
+                return f"Receipt unavailable: {error}. No additional command was queued."
+            status = str(receipt.get("status", "UNAVAILABLE"))
+            message = str(receipt.get("message") or receipt.get("note") or "")
+            return (
+                f"Worker receipt · {command_id}: {status}"
+                + (f" · {message}" if message else "")
+            )
+
     @app.callback(
         *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
         *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
