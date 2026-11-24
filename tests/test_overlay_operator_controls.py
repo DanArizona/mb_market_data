@@ -179,6 +179,35 @@ class TestOverlayOperatorControls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Historical"):
             create_quote_dashboard(self.controller, operator_actions=self.backend)
 
+    def test_unselected_manual_action_never_arms_confirm(self):
+        app = self.app()
+        layout = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(layout.close)
+        controls = _component(layout.get_json(), "operator-controls-panel")
+        self.assertIsNone(_component(controls, "operator-action")["props"]["value"])
+        self.assertIsNone(_component(controls, "operator-target")["props"]["value"])
+        self.assertTrue(
+            _component(controls, "operator-confirm-button")["props"]["disabled"]
+        )
+        token = _component(layout.get_json(), "operator-csrf")["props"]["data"]
+        incomplete = self.invoke_operator(
+            app, token, "operator-action.value", action="demote", target=None,
+        )
+        self.assertTrue(incomplete["operator-confirm-button"]["disabled"])
+        self.assertIsNone(incomplete["operator-proposal"]["data"])
+        self.assertIn(
+            "Choose an action and destination",
+            incomplete["operator-preview-status"]["children"],
+        )
+        self.assertEqual(self.backend.preview_calls, [])
+        self.assertEqual(self.backend.confirm_calls, [])
+        complete = self.invoke_operator(
+            app, token, "operator-target.value", action="demote", target="uni",
+        )
+        self.assertFalse(complete["operator-confirm-button"]["disabled"])
+        self.assertEqual(complete["operator-proposal"]["data"]["target"], "uni")
+        self.assertEqual(self.backend.confirm_calls, [])
+
     def test_manual_fields_auto_preview_and_single_confirm_queues_once(self):
         app = self.app()
         response = app.server.test_client().get("/_dash-layout")
