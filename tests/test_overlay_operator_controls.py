@@ -109,6 +109,29 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return response.get_json()["response"]
 
+    def test_synthetic_banner_is_explicit_and_requires_operator_gate(self):
+        with self.assertRaisesRegex(ValueError, "Synthetic operator labeling"):
+            create_quote_dashboard(
+                self.controller, live_mode=True,
+                live_refresh=lambda: (0, "synthetic"),
+                synthetic_operator_demo=True,
+            )
+        app = create_quote_dashboard(
+            self.controller, live_mode=True,
+            live_refresh=lambda: (0, "synthetic"),
+            operator_actions=self.backend,
+            synthetic_operator_demo=True,
+        )
+        response = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        import json
+        markup = json.dumps(response.get_json(), ensure_ascii=False)
+        self.assertIn("OFFLINE SYNTHETIC MEMBERSHIP DEMO", markup)
+        self.assertIn("NO SCHWAB / NO PRODUCTION JOURNAL", markup)
+        self.assertIn("SYNTHETIC DEMO · controlled Membership", markup)
+        self.assertIsNotNone(_component(response.get_json(), "operator-controls-panel"))
+
     def test_authoritative_operator_backend_imports_without_running_it(self):
         # Import-only smoke check: never construct a provider or submit a command.
         from mb_market_data.daily_operator_ui import OperatorState
