@@ -117,6 +117,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--start-at-beginning is not supported for Real Time attachment")
     if args.enable_manual_membership_actions and args.real_time_data_root is None:
         parser.error("Manual actions require an explicit Real Time controller attachment")
+    if args.enable_manual_membership_actions and args.host != "127.0.0.1":
+        parser.error("Manual actions require exact loopback host 127.0.0.1")
     if args.nasdaq_halts_json and not args.observation_overlay_cache:
         parser.error("--nasdaq-halts-json requires --observation-overlay-cache")
     if args.nasdaq_daily_events_json and not (
