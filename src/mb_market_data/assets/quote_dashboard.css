@@ -1313,8 +1313,9 @@ h1 {
 
 .membership-tier-columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(145px, 0.75fr)) minmax(285px, 1.7fr);
+  gap: 0.65rem;
+  align-items: start;
 }
 
 .membership-tier,
@@ -1338,9 +1339,80 @@ h1 {
   width: 100%;
 }
 
-.membership-inspector {
-  margin-top: 0.85rem;
+.membership-lookup-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
+
+.membership-search-panel {
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface-glass);
+  padding: 0.8rem;
+}
+
+.membership-search-title,
+.membership-inspector-title {
+  font-size: 0.98rem;
+  margin: 0;
+}
+
+.membership-search-row {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.55rem 0 0.15rem;
+}
+
+.membership-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--surface-raised);
+  border-radius: 0.4rem;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.5rem;
+}
+
+.membership-find-button {
+  flex: 0 0 auto;
+  border: 1px solid var(--sea);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  background: var(--sea-soft);
+  color: var(--sea);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.membership-search-input:focus-visible,
+.membership-find-button:focus-visible {
+  outline: 2px solid var(--sea);
+  outline-offset: 1px;
+}
+
+.membership-search-status {
+  margin: 0.6rem 0;
+  min-height: 1.1rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.membership-inspector {
+  margin-top: 0;
+  max-height: min(52vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.membership-inspector .membership-details-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.7rem;
+  margin-top: 0.65rem;
+}
+.membership-inspector .membership-details-grid dd {font-size: 0.82rem;}
+
 
 .membership-details-heading h3 {
   margin: 0;
