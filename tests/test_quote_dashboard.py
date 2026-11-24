@@ -352,6 +352,7 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(layout.status_code, 200)
         self.assertIn(b'"id":"membership-search-symbol"', layout.data)
         self.assertIn(b'"id":"observation-overlay-symbol"', layout.data)
+        self.assertIn(b'"id":"observation-overlay-search-status"', layout.data)
         self.assertNotIn(b'"id":"operator-confirm-button"', layout.data)
         key, callback = next(
             (key, value) for key, value in app.callback_map.items()
