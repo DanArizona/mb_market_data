@@ -109,6 +109,15 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return response.get_json()["response"]
 
+    def test_authoritative_operator_backend_imports_without_running_it(self):
+        # Import-only smoke check: never construct a provider or submit a command.
+        from mb_market_data.daily_operator_ui import OperatorState
+        from mb_market_data.overlay_manual_membership import RealTimeMembershipOperator
+        self.assertTrue(callable(OperatorState.preview))
+        self.assertTrue(callable(OperatorState.confirm))
+        self.assertTrue(callable(RealTimeMembershipOperator.preview))
+        self.assertTrue(callable(RealTimeMembershipOperator.confirm))
+
     def test_default_modes_contain_no_operator_request_surface(self):
         for live in (False, True):
             with self.subTest(live=live):
