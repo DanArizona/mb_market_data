@@ -146,8 +146,8 @@ def main(argv: list[str] | None = None) -> int:
             print("OFFLINE SYNTHETIC UNIFIED OVERLAY — NO SCHWAB / NO PRODUCTION FILES", flush=True)
             print(f"Temporary synthetic journal: {demo.plan['journal']}", flush=True)
             print(f"Open Firefox: http://127.0.0.1:{args.port}/", flush=True)
-            print("Membership: INTC Hot → Focus (Ordinary demote), Preview then Confirm.", flush=True)
-            print("Wait for receipt/effective revision; then Promote INTC to Hot.", flush=True)
+            print("Drag INTC Hot → Focus; the preview is automatic; click Confirm once.", flush=True)
+            print("Wait for EFFECTIVE_AS_PUBLISHED and selection in Focus before another action.", flush=True)
             print("Use Stop server in Firefox to end and clean up the demo.", flush=True)
             server.serve_until_stopped()
         finally:
