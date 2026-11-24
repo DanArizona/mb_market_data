@@ -384,6 +384,87 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertFalse(body["operator-confirm-button"]["disabled"])
         self.assertNotIn("operator-command", body)
 
+    def test_operator_preview_refuses_noop_same_tier_demotions(self):
+        from pathlib import Path
+        from unittest.mock import patch
+        from mb_market_data.daily_operator_ui import OperatorState, OperatorProblem
+
+        view = {
+            "eligible": True,
+            "pending_revision": False,
+            "effective_revision": 3,
+            "published_revision": 3,
+            "selected": {"tier": "focus"},
+            "session_date": "2026-11-24",
+            "counts": {"uni": 25, "focus": 7, "hot": 3},
+        }
+        state = OperatorState(Path("/synthetic-demo-not-read"))
+        with patch(
+            "mb_market_data.daily_operator_ui.membership_snapshot",
+            return_value=view,
+        ):
+            with self.assertRaisesRegex(OperatorProblem, "strictly lower tier"):
+                state.preview("INTC", "demote", "focus")
+            with self.assertRaisesRegex(OperatorProblem, "strictly lower tier"):
+                state.preview("INTC", "demote", "hot")
+            with self.assertRaisesRegex(OperatorProblem, "already at or above"):
+                state.preview("INTC", "promote", "focus")
+            # A genuine Focus → Uni demotion can still be previewed.
+            allowed = state.preview("INTC", "demote", "uni")
+        self.assertEqual(allowed["before"], "focus")
+        self.assertEqual(allowed["after"], "uni")
+        self.assertEqual(allowed["request_written"], False)
+
+    def test_drag_miss_is_visible_and_never_queues_a_request(self):
+        from pathlib import Path
+        app = self.app()
+        response = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(response.close)
+        self.assertIsNotNone(
+            _component(response.get_json(), "membership-drag-diagnostic")
+        )
+        drag_js = (
+            Path(__file__).resolve().parents[1]
+            / "src" / "mb_market_data" / "assets"
+            / "membership_drag_bridge.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn('api.addEventListener("dragStopped", onStopped)', drag_js)
+        self.assertIn("document.elementFromPoint(", drag_js)
+        self.assertIn('notify("drop-missed"', drag_js)
+        self.assertIn('notify("drop-received"', drag_js)
+        self.assertIn("registry.lastIssued", drag_js)
+
+        key, cb = next(
+            (key, value) for key, value in app.callback_map.items()
+            if getattr(value["output"], "component_id", None)
+            == "membership-drag-status"
+        )
+        reply = app.server.test_client().post("/_dash-update-component", json={
+            "output": key,
+            "outputs": {
+                "id": "membership-drag-status", "property": "children",
+            },
+            "changedPropIds": ["membership-drag-diagnostic.data"],
+            "inputs": [
+                {"id": "membership-drag-binding-status", "property": "data",
+                 "value": {"ready": True}},
+                {"id": "membership-drag-diagnostic", "property": "data",
+                 "value": {
+                     "phase": "drop-missed",
+                     "reason": "Drop not registered. Release over another tier list, then retry.",
+                     "nonce": "drag-3",
+                 }},
+            ],
+        })
+        self.addCleanup(reply.close)
+        self.assertEqual(reply.status_code, 200)
+        self.assertIn(
+            "Drop not registered",
+            reply.get_json()["response"]["membership-drag-status"]["children"],
+        )
+        self.assertEqual(self.backend.preview_calls, [])
+        self.assertEqual(self.backend.confirm_calls, [])
+
     def test_drag_reflection_is_atomic_and_uses_only_confirm_button(self):
         app = self.app()
         layout = app.server.test_client().get("/_dash-layout")
