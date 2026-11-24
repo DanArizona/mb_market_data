@@ -1823,11 +1823,16 @@ def create_quote_dashboard(
             Input("operator-receipt-tick", "n_intervals"),
             Input("operator-command", "data"),
             Input("rendered-event-count", "data"),
+            *[Input(f"membership-{tier}-grid", "rowData") for tier in TIERS],
             State("operator-follow-seen", "data"),
         )
         def follow_confirmed_effective_membership(
             _tick: int, command_id: str | None,
-            _rendered: int, seen: str | None,
+            _rendered: int,
+            uni_rows: list[dict[str, Any]] | None,
+            focus_rows: list[dict[str, Any]] | None,
+            hot_rows: list[dict[str, Any]] | None,
+            seen: str | None,
         ) -> tuple[Any, Any]:
             """Follow once only after worker receipt AND effective roster agree.
 
@@ -1848,6 +1853,14 @@ def create_quote_dashboard(
                 view = build_quote_dashboard_view(controller.snapshot().state)
                 records = membership_tier_records(view)
                 if not any(item.get("symbol") == symbol for item in records[tier]):
+                    return unchanged
+                displayed = dict(zip(TIERS, (uni_rows, focus_rows, hot_rows)))
+                if not any(
+                    isinstance(item, dict) and item.get("symbol") == symbol
+                    for item in (displayed[tier] or [])
+                ):
+                    # Ensure browser grid has the destination row before
+                    # issuing AG Grid scrollTo, avoiding callback ordering races.
                     return unchanged
             except (OSError, ValueError, TypeError, KeyError):
                 return unchanged
