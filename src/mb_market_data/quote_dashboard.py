@@ -148,6 +148,12 @@ def _overlay_display_controls(html: Any, dcc: Any, selected_symbol: str) -> Any:
                         className="membership-search-row",
                     ),
                     html.Small("Choose a listed member. Charts and Membership share one symbol."),
+                    html.Div(
+                        "Select a listed member or enter a ticker in either search field.",
+                        id="observation-overlay-search-status",
+                        role="status",
+                        className="membership-search-status",
+                    ),
                 ],
                 className="overlay-session-control",
             ),
@@ -440,6 +446,7 @@ def _membership_panel(
                                                 maxLength=20,
                                                 autoComplete="off",
                                                 n_submit=0,
+                                                value=selected_symbol or "",
                                                 className="membership-search-input",
                                             ),
                                             html.Button(
@@ -1344,21 +1351,35 @@ def create_quote_dashboard(
         *[Output(f"membership-{tier}-grid", "scrollTo") for tier in TIERS],
         Output("membership-search-symbol", "value"),
         Output("chart-symbol-current", "children"),
-        *([Output("observation-overlay-symbol", "value")] if replay.observation_overlay is not None else []),
+        *(
+            [
+                Output("observation-overlay-symbol", "value"),
+                Output("observation-overlay-search-status", "children"),
+            ]
+            if replay.observation_overlay is not None else []
+        ),
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
         Input("membership-find-button", "n_clicks"),
         Input("membership-search-symbol", "n_submit"),
-        *([Input("observation-overlay-symbol-apply", "n_clicks"),
-           Input("observation-overlay-symbol", "n_submit")] if replay.observation_overlay is not None else []),
+        *(
+            [
+                Input("observation-overlay-symbol-apply", "n_clicks"),
+                Input("observation-overlay-symbol", "n_submit"),
+            ]
+            if replay.observation_overlay is not None else []
+        ),
         State("membership-search-symbol", "value"),
-        *([State("observation-overlay-symbol", "value")] if replay.observation_overlay is not None else []),
-        State("membership-selected-symbol", "data"),
+        *(
+            [State("observation-overlay-symbol", "value")]
+            if replay.observation_overlay is not None else []
+        ),
         prevent_initial_call=True,
     )
     def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
-        """One inspected ticker for Find, tier clicks and Historical Charts.
+        """Synchronize submitted ticker and result across read-only workspaces.
 
-        This callback cannot create/publish a membership revision.
+        An unsuccessful search clears selection/inspector, not the chart data.
+        Neither outcome publishes or alters membership.
         """
         has_chart = replay.observation_overlay is not None
         trigger = ctx.triggered_id
@@ -1366,53 +1387,74 @@ def create_quote_dashboard(
         clicks = args[:count]
         search_text = args[count + (4 if has_chart else 2)]
         graph_text = args[count + 5] if has_chart else None
-        status_only = lambda message: (
-            no_update,
-            *((no_update,) * count),
-            message,
-            *((no_update,) * count),
-            no_update,
-            no_update,
-            *((no_update,) if has_chart else ()),
-        )
+        no_scroll = (no_update,) * count
+        output_count = count * 2 + 4 + (2 if has_chart else 0)
+
         if trigger in {"membership-find-button", "membership-search-symbol"}:
             raw = search_text
             from_grid = False
-        elif has_chart and trigger in {"observation-overlay-symbol-apply", "observation-overlay-symbol"}:
+        elif has_chart and trigger in {
+            "observation-overlay-symbol-apply", "observation-overlay-symbol"
+        }:
             raw = graph_text
             from_grid = False
         else:
-            from_grid = False
             raw = None
+            from_grid = False
             for tier, click in zip(TIERS, clicks):
                 if trigger == f"membership-{tier}-grid" and isinstance(click, dict):
                     raw = click.get("rowId")
                     from_grid = True
                     break
             if raw is None:
-                return (no_update,) * (count * 2 + 4 + int(has_chart))
+                return (no_update,) * output_count
 
-        symbol = str(raw or "").strip().upper()
-        if not symbol or len(symbol) > 20:
-            return status_only("Enter a valid ticker (maximum 20 characters).")
-        records = membership_tier_records(build_quote_dashboard_view(controller.snapshot().state))
-        symbol, tier = _membership_search_tier(records, symbol)
+        attempted = str(raw or "").strip().upper()
+
+        def rejected(message: str) -> tuple[Any, ...]:
+            # Clearing the selection also clears the inspector. The previous
+            # chart is intentionally left intact until a valid ticker is found.
+            chart_symbol = (
+                controller.snapshot().observation_overlay.symbol if has_chart
+                else None
+            )
+            return (
+                None,
+                *([] for _ in TIERS),
+                message,
+                *no_scroll,
+                attempted,
+                chart_symbol if chart_symbol else "None loaded",
+                *((attempted, message) if has_chart else ()),
+            )
+
+        if not attempted or len(attempted) > 20:
+            return rejected("Enter a valid ticker (maximum 20 characters).")
+        records = membership_tier_records(
+            build_quote_dashboard_view(controller.snapshot().state)
+        )
+        symbol, tier = _membership_search_tier(records, attempted)
         if tier is None:
-            return status_only(f"{symbol} is not a listed member at the current replay time.")
+            message = f"{symbol} is not a listed member at the current replay time."
+            if has_chart:
+                message += " The displayed chart is unchanged."
+            return rejected(message)
 
         if has_chart:
             started = perf_timer.perf_counter()
             try:
                 controller.select_overlay_symbol(symbol)
             except (ValueError, RuntimeError) as error:
-                return status_only(f"Chart selection unavailable: {error}")
+                return rejected(f"Chart selection unavailable: {error}")
             finally:
                 print(
                     f"OVERLAY SYMBOL SELECTION {symbol}: "
                     f"{perf_timer.perf_counter() - started:.3f}s backend",
                     flush=True,
                 )
+
         tier_name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
+        message = f"{symbol} selected in {tier_name}."
         scroll = tuple(
             {"rowId": symbol, "rowPosition": "middle"}
             if current == tier and not from_grid else no_update
@@ -1421,11 +1463,11 @@ def create_quote_dashboard(
         return (
             symbol,
             *({"ids": [symbol]} if current == tier else [] for current in TIERS),
-            f"{symbol} selected in {tier_name}.",
+            message,
             *scroll,
             symbol,
             symbol if has_chart else "None loaded",
-            *((symbol,) if has_chart else ()),
+            *((symbol, message) if has_chart else ()),
         )
 
     @app.callback(
@@ -1519,6 +1561,12 @@ def create_quote_dashboard(
         ) -> tuple[Any, bool, str]:
             trigger = ctx.triggered_id
             if trigger == "membership-selected-symbol":
+                current_overlay = controller.snapshot().observation_overlay
+                if (
+                    current_overlay is None
+                    or _selected_symbol != current_overlay.symbol
+                ):
+                    return no_update, no_update, no_update
                 return None, False, "Set 0% reference"
             if trigger == "observation-overlay-reset-reference":
                 return None, False, "Set 0% reference"
@@ -1584,6 +1632,13 @@ def create_quote_dashboard(
         ) -> tuple[Any, ...]:
             overlay = controller.snapshot().observation_overlay
             if overlay is None:
+                return (no_update,) * 10
+            if (
+                set(ctx.triggered_prop_ids) == {"membership-selected-symbol.data"}
+                and _selected_symbol != overlay.symbol
+            ):
+                # A rejected ticker clears Membership details but must not
+                # redraw or otherwise change the previously selected chart.
                 return (no_update,) * 10
             overlay_view = build_observation_overlay_view(overlay)
             theme = "light" if stored_theme == "light" else "dark"
