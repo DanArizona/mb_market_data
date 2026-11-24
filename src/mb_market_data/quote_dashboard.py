@@ -118,11 +118,39 @@ def _overlay_channel_control(html: Any, dcc: Any, channel: str) -> Any:
     )
 
 
-def _overlay_display_controls(html: Any, dcc: Any) -> Any:
+def _overlay_display_controls(html: Any, dcc: Any, selected_symbol: str) -> Any:
     """Reusable chart controls, mounted once in the workspace side panel."""
 
     return html.Div(
         [
+            html.Fieldset(
+                [
+                    html.Legend("Chart symbol"),
+                    html.Div(
+                        [
+                            dcc.Input(
+                                id="observation-overlay-symbol",
+                                type="text",
+                                value=selected_symbol,
+                                maxLength=20,
+                                autoComplete="off",
+                                n_submit=0,
+                                className="membership-search-input",
+                                **{"aria-label": "Chart symbol ticker"},
+                            ),
+                            html.Button(
+                                "Apply",
+                                id="observation-overlay-symbol-apply",
+                                n_clicks=0,
+                                className="membership-find-button",
+                            ),
+                        ],
+                        className="membership-search-row",
+                    ),
+                    html.Small("Choose a listed member. Charts and Membership share one symbol."),
+                ],
+                className="overlay-session-control",
+            ),
             html.Fieldset(
                 [
                     html.Legend("Hover"),
@@ -356,7 +384,24 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
     )
 
 
-def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_symbol: str | None) -> Any:
+def _membership_search_tier(
+    records: Mapping[str, list[dict[str, Any]]], query: str | None
+) -> tuple[str, str | None]:
+    """Resolve one exact ticker against exclusive effective-time tier lists."""
+    symbol = (query or "").strip().upper()
+    if not symbol or len(symbol) > 20:
+        return symbol, None
+    for tier in TIERS:
+        if any(row.get("symbol") == symbol for row in records.get(tier, ())):
+            return symbol, tier
+    return symbol, None
+
+
+def _membership_panel(
+    html: Any, dag: Any, dcc: Any, view: QuoteDashboardView,
+    selected_symbol: str | None,
+) -> Any:
+    """New compact historical Membership layout, with no operator controls."""
     by_tier = membership_tier_records(view)
     return html.Section(
         [
@@ -364,27 +409,94 @@ def _membership_panel(html: Any, dag: Any, view: QuoteDashboardView, selected_sy
                 [
                     html.Div([
                         html.H2("Membership explorer"),
-                        html.P("Select a symbol to inspect its saved information at the replay clock. Filter and scroll each list independently."),
+                        html.P(
+                            "Three exclusive tier lists and one shared Find. "
+                            "Select a ticker to inspect it in Membership and Charts."
+                        ),
                     ]),
                     html.Span("HISTORICAL · READ-ONLY", className="membership-readonly"),
                 ],
                 className="membership-heading",
             ),
-            html.P("Each symbol appears once, in its highest tier: Uni only, Focus (not Hot), or Hot. Underlying membership remains nested: Hot ⊆ Focus ⊆ Uni.", className="membership-explanation"),
+            html.P(
+                "Each symbol appears in its highest tier: Uni only, Focus (not Hot), "
+                "or Hot. Underlying membership remains nested: Hot ⊆ Focus ⊆ Uni.",
+                className="membership-explanation",
+            ),
             html.Div(
-                [_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                [
+                    *[_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                    html.Div(
+                        [
+                            html.Section(
+                                [
+                                    html.H3("Find symbol", className="membership-search-title"),
+                                    html.Div(
+                                        [
+                                            dcc.Input(
+                                                id="membership-search-symbol",
+                                                type="text",
+                                                placeholder="Ticker",
+                                                maxLength=20,
+                                                autoComplete="off",
+                                                n_submit=0,
+                                                className="membership-search-input",
+                                                **{"aria-label": "Find ticker in effective membership"},
+                                            ),
+                                            html.Button(
+                                                "Find",
+                                                id="membership-find-button",
+                                                n_clicks=0,
+                                                className="membership-find-button",
+                                            ),
+                                        ],
+                                        className="membership-search-row",
+                                    ),
+                                ],
+                                id="membership-search-panel",
+                                className="membership-search-panel",
+                            ),
+                            html.Section(
+                                [
+                                    html.H3("Symbol details", className="membership-inspector-title"),
+                                    html.Div(
+                                        "Click a listed member or search by ticker.",
+                                        id="membership-search-status",
+                                        role="status",
+                                        className="membership-search-status",
+                                    ),
+                                    html.Div(
+                                        _membership_inspector(html, view, selected_symbol),
+                                        id="membership-symbol-inspector",
+                                    ),
+                                ],
+                                id="membership-inspector-panel",
+                                className="membership-inspector",
+                                **{"aria-label": "Selected symbol information"},
+                            ),
+                        ],
+                        id="membership-lookup-column",
+                        className="membership-lookup-column",
+                    ),
+                ],
                 className="membership-tier-columns",
             ),
-            html.Section(
-                _membership_inspector(html, view, selected_symbol),
-                id="membership-symbol-inspector",
-                className="membership-inspector",
-                **{"aria-label": "Selected symbol information"},
+            html.P(
+                "Historical membership is read-only; no drag, admission, "
+                "Preview, Confirm, or membership write actions are available.",
+                className="membership-editing-note",
             ),
-            html.P("Membership changes, drag-and-drop, and automatic-promotion suppression are not enabled in historical replay.", className="membership-editing-note"),
         ],
         className="membership-explorer",
     )
+
+
+def _overlay_description(overlay: ObservationOverlayData) -> str:
+    if overlay.candles:
+        return "Completed five-minute OHLCV with replay-causal quote and membership evidence."
+    if overlay.cache is not None:
+        return "No completed five-minute candles at this replay time; quote and membership evidence only."
+    return "Quote-only historical view: no matching OHLCV cache for this symbol and date."
 
 
 def _observation_overlay_panel(
@@ -399,20 +511,13 @@ def _observation_overlay_panel(
                 [
                     html.Div(
                         [
-                            html.H2(f"Observation Overlay · {view.symbol}"),
+                            html.H2(
+                                f"Observation Overlay · {view.symbol}",
+                                id="observation-overlay-title",
+                            ),
                             html.P(
-                                (
-                                    "Completed five-minute OHLCV with "
-                                    "replay-causal quote and membership evidence."
-                                )
-                                if overlay.candles
-                                else (
-                                    "No completed five-minute candles at this replay time; "
-                                    "quote and membership evidence only."
-                                    if overlay.cache is not None
-                                    else "Quote-only historical view: no OHLCV cache attached; "
-                                    "candle and volume bars are unavailable."
-                                )
+                                _overlay_description(overlay),
+                                id="observation-overlay-description",
                             ),
                         ]
                     ),
@@ -851,7 +956,7 @@ def create_quote_dashboard(
                                     html.Dt("Session"),
                                     html.Dd(str(view.session_date) if view.session_date else "Unavailable"),
                                     html.Dt("Chart symbol"),
-                                    html.Dd(replay.observation_overlay.symbol if replay.observation_overlay is not None else "None loaded"),
+                                    html.Dd(replay.observation_overlay.symbol if replay.observation_overlay is not None else "None loaded", id="chart-symbol-current"),
                                     html.Dt("Evidence timing"),
                                     html.Dd("Membership at effective time · quotes at acquisition completion · candles at interval completion"),
                                 ],
@@ -865,7 +970,7 @@ def create_quote_dashboard(
                     html.Section(
                         [
                             html.H2("Graph Setups"),
-                            _overlay_display_controls(html, dcc) if replay.observation_overlay is not None
+                            _overlay_display_controls(html, dcc, replay.observation_overlay.symbol) if replay.observation_overlay is not None
                             else html.P("Load a session with Observation Overlay evidence to configure a chart."),
                         ],
                         id="sidebar-graph",
@@ -1059,6 +1164,7 @@ def create_quote_dashboard(
                                     _membership_panel(
                                         html,
                                         dag,
+                                        dcc,
                                         view,
                                         replay.observation_overlay.symbol if replay.observation_overlay is not None else None,
                                     ),
@@ -1235,21 +1341,86 @@ def create_quote_dashboard(
     @app.callback(
         Output("membership-selected-symbol", "data"),
         *[Output(f"membership-{tier}-grid", "selectedRows") for tier in TIERS],
+        Output("membership-search-status", "children"),
+        *[Output(f"membership-{tier}-grid", "scrollTo") for tier in TIERS],
+        Output("membership-search-symbol", "value"),
+        Output("chart-symbol-current", "children"),
+        *([Output("observation-overlay-symbol", "value")] if replay.observation_overlay is not None else []),
         *[Input(f"membership-{tier}-grid", "cellClicked") for tier in TIERS],
+        Input("membership-find-button", "n_clicks"),
+        Input("membership-search-symbol", "n_submit"),
+        *([Input("observation-overlay-symbol-apply", "n_clicks"),
+           Input("observation-overlay-symbol", "n_submit")] if replay.observation_overlay is not None else []),
+        State("membership-search-symbol", "value"),
+        *([State("observation-overlay-symbol", "value")] if replay.observation_overlay is not None else []),
+        State("membership-selected-symbol", "data"),
         prevent_initial_call=True,
     )
-    def select_membership_symbol(*cell_clicks: dict[str, Any] | None) -> tuple[Any, ...]:
-        """Select one row across all grids; never create a membership command."""
-        selected_grid = ctx.triggered_id
-        for tier, click in zip(TIERS, cell_clicks):
-            if selected_grid == f"membership-{tier}-grid" and isinstance(click, dict):
-                symbol = click.get("rowId")
-                if isinstance(symbol, str) and symbol:
-                    return (
-                        symbol,
-                        *({"ids": [symbol]} if current == tier else [] for current in TIERS),
-                    )
-        return (no_update,) * (len(TIERS) + 1)
+    def select_membership_symbol(*args: Any) -> tuple[Any, ...]:
+        """One inspected ticker for Find, tier clicks and Historical Charts.
+
+        This callback cannot create/publish a membership revision.
+        """
+        has_chart = replay.observation_overlay is not None
+        trigger = ctx.triggered_id
+        count = len(TIERS)
+        clicks = args[:count]
+        search_text = args[count + (4 if has_chart else 2)]
+        graph_text = args[count + 5] if has_chart else None
+        status_only = lambda message: (
+            no_update,
+            *((no_update,) * count),
+            message,
+            *((no_update,) * count),
+            no_update,
+            no_update,
+            *((no_update,) if has_chart else ()),
+        )
+        if trigger in {"membership-find-button", "membership-search-symbol"}:
+            raw = search_text
+            from_grid = False
+        elif has_chart and trigger in {"observation-overlay-symbol-apply", "observation-overlay-symbol"}:
+            raw = graph_text
+            from_grid = False
+        else:
+            from_grid = False
+            raw = None
+            for tier, click in zip(TIERS, clicks):
+                if trigger == f"membership-{tier}-grid" and isinstance(click, dict):
+                    raw = click.get("rowId")
+                    from_grid = True
+                    break
+            if raw is None:
+                return (no_update,) * (count * 2 + 4 + int(has_chart))
+
+        symbol = str(raw or "").strip().upper()
+        if not symbol or len(symbol) > 20:
+            return status_only("Enter a valid ticker (maximum 20 characters).")
+        records = membership_tier_records(build_quote_dashboard_view(controller.snapshot().state))
+        symbol, tier = _membership_search_tier(records, symbol)
+        if tier is None:
+            return status_only(f"{symbol} is not a listed member at the current replay time.")
+
+        if has_chart:
+            try:
+                controller.select_overlay_symbol(symbol)
+            except (ValueError, RuntimeError) as error:
+                return status_only(f"Chart selection unavailable: {error}")
+        tier_name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
+        scroll = tuple(
+            {"rowId": symbol, "rowPosition": "middle"}
+            if current == tier and not from_grid else no_update
+            for current in TIERS
+        )
+        return (
+            symbol,
+            *({"ids": [symbol]} if current == tier else [] for current in TIERS),
+            f"{symbol} selected in {tier_name}.",
+            *scroll,
+            symbol,
+            symbol if has_chart else "None loaded",
+            *((symbol,) if has_chart else ()),
+        )
 
     @app.callback(
         Output("membership-symbol-inspector", "children"),
@@ -1325,6 +1496,7 @@ def create_quote_dashboard(
             Input("observation-overlay-set-reference", "n_clicks"),
             Input("observation-overlay-reset-reference", "n_clicks"),
             Input("observation-overlay-chart", "clickData"),
+            Input("membership-selected-symbol", "data"),
             State("observation-overlay-reference-mode", "data"),
             State("observation-overlay-chart", "figure"),
             State("observation-overlay-candle-field", "value"),
@@ -1334,11 +1506,14 @@ def create_quote_dashboard(
             _set_clicks: int | None,
             _reset_clicks: int | None,
             click_data: Mapping[str, Any] | None,
+            _selected_symbol: str | None,
             choosing: bool,
             figure_data: Mapping[str, Any] | None,
             candle_field: str,
         ) -> tuple[Any, bool, str]:
             trigger = ctx.triggered_id
+            if trigger == "membership-selected-symbol":
+                return None, False, "Set 0% reference"
             if trigger == "observation-overlay-reset-reference":
                 return None, False, "Set 0% reference"
             if trigger == "observation-overlay-set-reference":
@@ -1364,6 +1539,8 @@ def create_quote_dashboard(
             Output("observation-overlay-chart", "className"),
             Output("observation-overlay-reference-label", "children"),
             Output("observation-overlay-viewport", "data"),
+            Output("observation-overlay-title", "children"),
+            Output("observation-overlay-description", "children"),
             Input("replay-clock", "children"),
             Input("theme-preference", "modified_timestamp"),
             Input("observation-overlay-uni-size", "value"),
@@ -1377,6 +1554,7 @@ def create_quote_dashboard(
             Input("observation-overlay-units", "value"),
             Input("observation-overlay-reference", "data"),
             Input("observation-overlay-chart", "relayoutData"),
+            Input("membership-selected-symbol", "data"),
             State("theme-preference", "data"),
             State("observation-overlay-viewport", "data"),
         )
@@ -1394,12 +1572,13 @@ def create_quote_dashboard(
             units: str | None,
             selected_reference: Mapping[str, Any] | None,
             relayout_data: Mapping[str, Any] | None,
+            _selected_symbol: str | None,
             stored_theme: str | None,
             stored_viewport: Mapping[str, Any] | None,
         ) -> tuple[Any, ...]:
             overlay = controller.snapshot().observation_overlay
             if overlay is None:
-                return (no_update,) * 8
+                return (no_update,) * 10
             overlay_view = build_observation_overlay_view(overlay)
             theme = "light" if stored_theme == "light" else "dark"
             triggered = ctx.triggered_prop_ids
@@ -1452,6 +1631,8 @@ def create_quote_dashboard(
                 "overlay-chart",
                 reference_label,
                 viewport,
+                f"Observation Overlay · {overlay_view.symbol}",
+                _overlay_description(overlay),
             )
 
     if request_server_stop is not None:
