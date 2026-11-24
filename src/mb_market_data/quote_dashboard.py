@@ -41,7 +41,10 @@ OVERLAY_CHANNELS = ("uni", "focus", "hot")
 ACTIVITY_SECTIONS = ("information", "graph", "replay", "backtest", "trading")
 
 
-def _activity_button(html: Any, section: str, glyph: str, title: str, *, active: bool) -> Any:
+def _activity_button(
+    html: Any, section: str, glyph: str, title: str, *,
+    active: bool, disabled: bool = False,
+) -> Any:
     return html.Button(
         [
             html.Span(glyph, className="activity-glyph", **{"aria-hidden": "true"}),
@@ -51,6 +54,7 @@ def _activity_button(html: Any, section: str, glyph: str, title: str, *, active:
         className="activity-button" + (" activity-button-selected" if active else ""),
         title=title,
         type="button",
+        disabled=disabled,
         **{"aria-label": title},
     )
 
@@ -976,7 +980,7 @@ def create_quote_dashboard(
                 [
                     _activity_button(html, "information", "ⓘ", "Information", active=replay.observation_overlay is None),
                     _activity_button(html, "graph", "▥", "Graph Setups", active=replay.observation_overlay is not None),
-                    _activity_button(html, "replay", "◷", "Time Controls", active=False),
+                    _activity_button(html, "replay", "◷", "Time Controls", active=False, disabled=live_mode),
                     _activity_button(html, "backtest", "◇", "Backtest Settings", active=False),
                     _activity_button(html, "trading", "$", "Trading", active=False),
                 ],
@@ -1164,7 +1168,7 @@ def create_quote_dashboard(
                                         id="workspace-mode",
                                         options=[
                                             {"label": "Real Time", "value": "real-time", "disabled": not live_mode},
-                                            {"label": "Historical", "value": "historical", "disabled": live_mode},
+                                            {"label": "Historical", "value": "historical", **({"disabled": True} if live_mode else {})},
                                             {"label": "Backtest", "value": "backtest", "disabled": True},
                                         ],
                                         value="real-time" if live_mode else "historical",
@@ -1384,6 +1388,26 @@ def create_quote_dashboard(
                       Input("acquisition-health-tick", "n_intervals"))
         def update_acquisition_health(_ticks: int) -> list[Any]:
             return _acquisition_health_panel(html, acquisition_health_reader())
+
+    if live_mode:
+        @app.callback(
+            Output("live-refresh-count", "data"),
+            Output("live-data-status", "children"),
+            Input("live-tail-tick", "n_intervals"),
+        )
+        def refresh_committed_live(_tick: int) -> tuple[Any, str]:
+            """Observe committed additions; never request quotes or write journals."""
+            assert live_refresh is not None
+            try:
+                new_events, detail = live_refresh()
+            except Exception as error:
+                return no_update, (
+                    f"READ-ONLY ATTACHMENT ERROR: {type(error).__name__}: {error}. "
+                    "Displayed evidence is not current; no collector was changed."
+                )
+            if new_events:
+                return controller.snapshot().applied_event_count, detail
+            return no_update, detail
 
     @app.callback(
         *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
@@ -1796,6 +1820,7 @@ def create_quote_dashboard(
         Input("replay-seek", "n_clicks"),
         Input("replay-tick", "n_intervals"),
         Input("replay-speed", "value"),
+        *([Input("live-refresh-count", "data")] if live_mode else []),
         State("rendered-event-count", "data"),
         State("replay-seek-time", "value"),
     )
@@ -1806,16 +1831,24 @@ def create_quote_dashboard(
         _seek_clicks: int | None,
         _ticks: int,
         speed: float,
-        rendered_event_count: int,
-        seek_time: str | None,
+        *tail_and_state: Any,
     ) -> tuple[Any, ...]:
+        if live_mode:
+            _last_live_event_count, rendered_event_count, seek_time = tail_and_state
+        else:
+            rendered_event_count, seek_time = tail_and_state
         trigger = ctx.triggered_id
-        selected_speed = float(speed)
-        if controller.snapshot().speed != selected_speed:
-            controller.set_speed(selected_speed)
+        if live_mode:
+            updated = controller.snapshot()
+        else:
+            selected_speed = float(speed)
+            if controller.snapshot().speed != selected_speed:
+                controller.set_speed(selected_speed)
 
         seek_error: str | None = None
-        if trigger == "replay-toggle":
+        if live_mode:
+            pass  # The live projector is advanced only by committed tail events.
+        elif trigger == "replay-toggle":
             updated = controller.toggle()
         elif trigger == "replay-step":
             updated = controller.step()
