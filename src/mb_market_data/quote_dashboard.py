@@ -1610,21 +1610,37 @@ def create_quote_dashboard(
         @app.callback(
             Output("live-refresh-count", "data"),
             Output("live-data-status", "children"),
+            *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
+            *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
             Input("live-tail-tick", "n_intervals"),
         )
-        def refresh_committed_live(_tick: int) -> tuple[Any, str]:
-            """Observe committed additions; never request quotes or write journals."""
+        def refresh_committed_live(_tick: int) -> tuple[Any, ...]:
+            """Refresh status and the exact same projected Membership state.
+
+            They are one Dash response, not a chain of callbacks whose
+            intermediate store can lag behind an already advanced journal.
+            Ordinary reads and membership publishing remain independent.
+            """
             assert live_refresh is not None
             try:
                 new_events, detail = live_refresh()
-            except Exception as error:
-                return no_update, (
-                    f"READ-ONLY ATTACHMENT ERROR: {type(error).__name__}: {error}. "
-                    "Displayed evidence is not current; no collector was changed."
+                projected = controller.snapshot()
+                records = membership_tier_records(
+                    build_quote_dashboard_view(projected.state)
                 )
-            if new_events:
-                return controller.snapshot().applied_event_count, detail
-            return no_update, detail
+            except Exception as error:
+                return (
+                    no_update,
+                    f"READ-ONLY ATTACHMENT ERROR: {type(error).__name__}: {error}. "
+                    "Displayed evidence is not current; no collector was changed.",
+                    *((no_update,) * (2 * len(TIERS))),
+                )
+            return (
+                projected.applied_event_count if new_events else no_update,
+                detail,
+                *[records[tier] for tier in TIERS],
+                *[f"{len(records[tier]):,}" for tier in TIERS],
+            )
 
     if operator_enabled:
         # The client-side binder only emits an untrusted proposed drop to a
@@ -1869,18 +1885,19 @@ def create_quote_dashboard(
                 command_id,
             )
 
-    @app.callback(
-        *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
-        *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
-        Input("rendered-event-count", "data"),
-    )
-    def update_membership_lists(_event_count: int) -> tuple[Any, ...]:
-        replay_view = build_quote_dashboard_view(controller.snapshot().state)
-        records = membership_tier_records(replay_view)
-        return (
-            *[records[tier] for tier in TIERS],
-            *[f"{len(records[tier]):,}" for tier in TIERS],
+    if not live_mode:
+        @app.callback(
+            *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
+            *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
+            Input("rendered-event-count", "data"),
         )
+        def update_membership_lists(_event_count: int) -> tuple[Any, ...]:
+            replay_view = build_quote_dashboard_view(controller.snapshot().state)
+            records = membership_tier_records(replay_view)
+            return (
+                *[records[tier] for tier in TIERS],
+                *[f"{len(records[tier]):,}" for tier in TIERS],
+            )
 
     @app.callback(
         Output("membership-selected-symbol", "data"),
@@ -2045,7 +2062,7 @@ def create_quote_dashboard(
     @app.callback(
         Output("membership-symbol-inspector", "children"),
         Input("membership-selected-symbol", "data"),
-        Input("rendered-event-count", "data"),
+        Input("live-refresh-count" if live_mode else "rendered-event-count", "data"),
     )
     def update_membership_inspector(symbol: str | None, _event_count: int) -> Any:
         replay_view = build_quote_dashboard_view(controller.snapshot().state)
@@ -2170,7 +2187,10 @@ def create_quote_dashboard(
             Output("observation-overlay-viewport", "data"),
             Output("observation-overlay-title", "children"),
             Output("observation-overlay-description", "children"),
-            Input("replay-clock", "children"),
+            Input(
+                "live-refresh-count" if live_mode else "replay-clock",
+                "data" if live_mode else "children",
+            ),
             Input("theme-preference", "modified_timestamp"),
             Input("observation-overlay-uni-size", "value"),
             Input("observation-overlay-uni-opacity", "value"),
