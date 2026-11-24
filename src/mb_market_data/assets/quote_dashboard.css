@@ -1387,6 +1387,46 @@ h1 {
   font-weight: 700;
 }
 
+.operator-controls-panel {
+  max-height: none;
+  overflow: visible;
+}
+.operator-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+.operator-action-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.operator-controls-panel .control-button {
+  width: 100%;
+  margin-top: 0.55rem;
+}
+.operator-controls-panel .control-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.operator-controls-panel .membership-search-status {
+  overflow-wrap: anywhere;
+}
+.operator-controls-panel .Select-control,
+.operator-controls-panel .Select-menu-outer {
+  background: var(--surface-raised);
+  color: var(--ink);
+  border-color: var(--line);
+}
+.operator-controls-panel .Select-value-label,
+.operator-controls-panel .Select-placeholder {
+  color: var(--ink) !important;
+}
+
 .membership-search-input:focus-visible,
 .membership-find-button:focus-visible {
   outline: 2px solid var(--sea);
