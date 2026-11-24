@@ -264,10 +264,10 @@ class QuoteDashboardReplayController:
             raise ValueError("Chart symbol must be nonblank text")
         normalized = symbol.strip().upper()
         with self._lock:
-            if self._symbol_projector_factory is None:
-                raise RuntimeError("Historical chart symbol switching is unavailable")
             if self._overlay_projector is not None and self._overlay_projector.symbol == normalized:
                 return self.snapshot()
+            if self._symbol_projector_factory is None:
+                raise RuntimeError("Historical chart symbol switching is unavailable")
             replacement = self._symbol_projector_factory(normalized)
             if replacement.symbol != normalized or replacement.session_date != self._timeline.session_date:
                 raise ValueError("Selected-symbol projector identity mismatch")
