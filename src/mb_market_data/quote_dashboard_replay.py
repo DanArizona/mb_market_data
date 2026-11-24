@@ -117,9 +117,13 @@ class QuoteDashboardReplayController:
         self._overlay_projector: ObservationOverlayProjector | None
         self._anchor_position_utc: datetime | None = None
         self._anchor_monotonic: float | None = None
+        self._live_readonly = False
         self._reset_unlocked()
 
     def _reset_unlocked(self) -> None:
+        if self._live_readonly:
+            raise RuntimeError("Cannot reset a live read-only controller")
+        self._applied_event_ids: set[str] = set()
         self._projector = QuoteEventStateProjector(
             session_date=self._timeline.session_date
         )
@@ -152,6 +156,7 @@ class QuoteDashboardReplayController:
         if self._overlay_projector is not None:
             self._overlay_projector.apply(event)
         self._projector.apply(event)
+        self._applied_event_ids.add(event.event_id)
         self._position_utc = event.available_at_utc
         self._pending = next(self._events, None)
         if self._pending is None and (
@@ -254,6 +259,62 @@ class QuoteDashboardReplayController:
     def restart(self) -> DashboardReplaySnapshot:
         with self._lock:
             self._reset_unlocked()
+            return self.snapshot()
+
+    def applied_event_ids(self) -> frozenset[str]:
+        """The exact event IDs projected, including any equal-time prefix."""
+        with self._lock:
+            return frozenset(self._applied_event_ids)
+
+    def activate_live_readonly(self) -> DashboardReplaySnapshot:
+        """Freeze replay controls; subsequent updates must be committed events.
+
+        Call only after seek(now) on a validated current-day journal.
+        """
+        with self._lock:
+            if self._live_readonly:
+                return self.snapshot()
+            projected = self._projector.snapshot()
+            self._live_readonly = True
+            self._pending = None
+            self._events = iter(())
+            self._position_utc = projected.current_time_utc
+            self._end_time_utc = projected.current_time_utc
+            self._timeline = ReplayTimeline(
+                session_date=self._timeline.session_date,
+                event_count=projected.event_count,
+                first_available_at_utc=self._timeline.first_available_at_utc,
+                last_available_at_utc=projected.current_time_utc,
+            )
+            self._status = DashboardReplayStatus.COMPLETE
+            return self.snapshot()
+
+    def append_live_committed(self, events: tuple[ReplayEvent, ...]) -> DashboardReplaySnapshot:
+        """Project newly committed, causally ordered events, never journal writes."""
+        with self._lock:
+            if not self._live_readonly:
+                raise RuntimeError("Committed updates require read-only live mode")
+            prior_time = self._projector.snapshot().current_time_utc
+            for event in events:
+                if event.event_id in self._applied_event_ids:
+                    raise ValueError(f"Duplicate live event: {event.event_id}")
+                if prior_time is not None and event.available_at_utc < prior_time:
+                    raise ValueError("New committed event predates current projection")
+                self._projector.apply(event)
+                if self._overlay_projector is not None:
+                    self._overlay_projector.apply(event)
+                self._applied_event_ids.add(event.event_id)
+                prior_time = event.available_at_utc
+            if events:
+                self._position_utc = prior_time
+                self._end_time_utc = prior_time
+                applied = self._projector.snapshot()
+                self._timeline = ReplayTimeline(
+                    session_date=self._timeline.session_date,
+                    event_count=applied.event_count,
+                    first_available_at_utc=self._timeline.first_available_at_utc,
+                    last_available_at_utc=prior_time,
+                )
             return self.snapshot()
 
     def select_overlay_symbol(self, symbol: str) -> DashboardReplaySnapshot:
