@@ -267,7 +267,7 @@ External-drop-zone support is documented by Dash AG Grid and
 the upstream AG Grid dragStopped/row drag event contracts.
 
 **Status:** script syntax checked and new offline regression checks
-added; Windows 11/Firebase visual drag reliability remains unverified.
+added; Windows 11 Firefox visual drag reliability remains unverified.
 The exact cause of the first missed drag has not been established.
 The full suite and one fresh synthetic drag need MasterBot verification.
 After that bounded test, prioritize genuine Schwab 5-minute OHLCV
