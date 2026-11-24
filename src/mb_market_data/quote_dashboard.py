@@ -54,7 +54,7 @@ def _activity_button(
         className="activity-button" + (" activity-button-selected" if active else ""),
         title=title,
         type="button",
-        disabled=disabled,
+        **({"disabled": True} if disabled else {}),
         **{"aria-label": title},
     )
 
