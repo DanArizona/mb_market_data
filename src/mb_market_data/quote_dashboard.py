@@ -438,8 +438,15 @@ def _membership_search_tier(
 
 def _membership_operator_controls(
     html: Any, dcc: Any, selected_symbol: str | None,
+    selected_tier: str | None = None,
 ) -> Any:
     """One-click confirmation after automatic advisory preview; no journal edits."""
+    default_action, default_target = {
+        "hot": ("demote", "focus"),
+        "focus": ("promote", "hot"),
+        "uni": ("promote", "focus"),
+        None: ("promote", "uni"),
+    }[selected_tier]
     return html.Section(
         [
             html.H3("Manual Membership · controlled", className="membership-inspector-title"),
@@ -476,7 +483,7 @@ def _membership_operator_controls(
                                     {"label": "Promote", "value": "promote"},
                                     {"label": "Ordinary demote", "value": "demote"},
                                 ],
-                                value="promote",
+                                value=default_action,
                                 clearable=False,
                             ),
                         ],
@@ -492,7 +499,7 @@ def _membership_operator_controls(
                                     {"label": "Focus", "value": "focus"},
                                     {"label": "Hot", "value": "hot"},
                                 ],
-                                value="focus",
+                                value=default_target,
                                 clearable=False,
                             ),
                         ],
@@ -575,12 +582,12 @@ def _membership_panel(
             *(
                 [
                     html.P(
-                        "Drag a symbol by its grip into another tier to create a "
-                        "PREVIEW only; explicit confirmation is always required.",
+                        "Drag a symbol by its grip into another tier to generate "
+                        "a preview automatically. Only Confirm queues a request.",
                         className="membership-drag-instructions",
                     ),
                     html.Div(
-                        "Preparing drag handles; manual Preview remains available.",
+                        "Preparing drag handles; manual fields preview automatically.",
                         id="membership-drag-status",
                         className="membership-drag-status",
                         role="status",
@@ -648,7 +655,10 @@ def _membership_panel(
                                 **{"aria-label": "Selected symbol information"},
                             ),
                             *(
-                                [_membership_operator_controls(html, dcc, selected_symbol)]
+                                [_membership_operator_controls(
+                                    html, dcc, selected_symbol,
+                                    _membership_search_tier(by_tier, selected_symbol)[1],
+                                )]
                                 if operator_enabled else []
                             ),
                         ],
@@ -661,8 +671,9 @@ def _membership_panel(
             html.P(
                 (
                     (
-                        "Controlled operator requests are possible only through Preview "
-                        "and Confirm, never by editing the displayed roster."
+                        "Controlled actions automatically show Preview; a separate "
+                        "Confirm is required to queue the request. Recorded rosters "
+                        "are never edited directly."
                         if operator_enabled else
                         "Real Time is observing committed journal evidence; manual "
                         "Membership actions remain disabled in this experimental viewer."
