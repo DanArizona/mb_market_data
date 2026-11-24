@@ -1724,23 +1724,17 @@ def create_quote_dashboard(
                         dict(proposed_drag),
                     )
                 return (no_update,) * 4
-            if isinstance(symbol, str) and symbol:
-                # Choose an intuitively valid next action for the effective
-                # tier, including a new outside-Uni symbol. Selection never
-                # queues a request; the server only prepares a preview.
-                records = membership_tier_records(
-                    build_quote_dashboard_view(controller.snapshot().state)
-                )
-                exact_symbol, tier = _membership_search_tier(records, symbol)
-                defaults = {
-                    "hot": ("demote", "focus"),
-                    "focus": ("promote", "hot"),
-                    "uni": ("promote", "focus"),
-                    None: ("promote", "uni"),
-                }
-                action, target = defaults[tier]
-                return exact_symbol, action, target, no_update
-            return (no_update,) * 4
+            # Auto-follow after a published move may select the same symbol.
+            # Never change the action/target to an automatic *reverse* action:
+            # doing so could re-enable Confirm after the previous request.
+            # Operator edits or a new drag are required to choose the next
+            # destination. Backend preview will refuse stale directions.
+            return (
+                symbol if isinstance(symbol, str) and symbol else no_update,
+                no_update,
+                no_update,
+                no_update,
+            )
 
         @app.callback(
             Output("operator-proposal", "data"),
