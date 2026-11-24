@@ -171,6 +171,10 @@ class TestOverlayOperatorControls(unittest.TestCase):
                 self.addCleanup(response.close)
                 self.assertNotIn(b'"id":"operator-confirm-button"', response.data)
                 self.assertNotIn(b'"id":"operator-csrf"', response.data)
+                self.assertNotIn(b'"id":"membership-drag-request"', response.data)
+                for tier in ("uni", "focus", "hot"):
+                    grid = _component(response.get_json(), f"membership-{tier}-grid")
+                    self.assertFalse(grid["props"]["columnDefs"][0]["rowDrag"])
                 self.assertEqual(self.backend.confirm_calls, [])
         with self.assertRaisesRegex(ValueError, "Historical"):
             create_quote_dashboard(self.controller, operator_actions=self.backend)
@@ -241,6 +245,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(layout.status_code, 200)
         self.assertIsNotNone(_component(layout.get_json(), "membership-drag-request"))
         self.assertIsNotNone(_component(layout.get_json(), "membership-drag-status"))
+        self.assertIn("membership-drag-binding-status.data", app.callback_map)
         for tier in ("uni", "focus", "hot"):
             grid = _component(layout.get_json(), f"membership-{tier}-grid")
             self.assertTrue(grid["props"]["columnDefs"][0]["rowDrag"])
