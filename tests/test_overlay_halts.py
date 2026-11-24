@@ -55,7 +55,7 @@ class TestOverlayHalts(unittest.TestCase):
             "last_observed_at": "2026-11-24T14:32:00+00:00",
             "record": {
                 "symbol": "JAGX", "halt_date": "11/23/2026",
-                "halt_time": "10:31:09", "reason_code": "LUDP",
+                "halt_time": "19:50:09", "reason_code": "LUDP",
                 "retrieval_mode": "CURRENT",
             },
         }
@@ -69,7 +69,9 @@ class TestOverlayHalts(unittest.TestCase):
             },
         }
         episodes = {
-            "JAGX@2026-11-23T15:31:09+00:00": previous,
+            # 19:50 ET on Nov 23 is 00:50 UTC on Nov 24: same UTC day,
+            # different Eastern session. This matches the daily source date gate.
+            "JAGX@2026-11-24T00:50:09+00:00": previous,
             "JAGX@2026-11-24T14:31:09.153+00:00": current,
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -90,10 +92,10 @@ class TestOverlayHalts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "events.json"
             path.write_text(json.dumps({
-                "JAGX@2026-11-23T15:31:09+00:00": {
+                "JAGX@2026-11-24T00:50:09+00:00": {
                     "record": {
                         "symbol": "JAGX", "halt_date": "11/23/2026",
-                        "halt_time": "10:31:09", "reason_code": "LUDP",
+                        "halt_time": "19:50:09", "reason_code": "LUDP",
                         "retrieval_mode": "CURRENT",
                     }
                 }
@@ -108,7 +110,7 @@ class TestOverlayHalts(unittest.TestCase):
         for key, record_day, expected in (
             ("JAGX@2026-11-24T14:31:09+00:00", "11/23/2026",
              "belongs to a different session"),
-            ("JAGX@2026-11-23T15:31:09+00:00", "11/24/2026",
+            ("JAGX@2026-11-24T00:50:09+00:00", "11/24/2026",
              "key differs from halt date"),
         ):
             with self.subTest(key=key):
