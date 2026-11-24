@@ -133,7 +133,8 @@ class TestOverlayOperatorControls(unittest.TestCase):
         controls = _component(response.get_json(), "operator-controls-panel")
         self.assertIsNotNone(controls)
         self.assertTrue(_component(controls, "operator-confirm-button")["props"]["disabled"])
-        self.assertIn("REAL TIME · CONTROLLED", response.get_data(as_text=True))
+        import json
+        self.assertIn("REAL TIME · CONTROLLED", json.dumps(response.get_json(), ensure_ascii=False))
 
         preview = self.invoke_operator(app, token, "operator-preview-button.n_clicks")
         self.assertEqual(self.backend.preview_calls, [("SPY", "promote", "hot")])
