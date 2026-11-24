@@ -337,7 +337,10 @@ class TestOverlayOperatorControls(unittest.TestCase):
                         "value": (
                             "manual-receipt-1" if item["id"] == "operator-command"
                             else 3 if item["id"] == "operator-receipt-tick"
-                            else self.controller.snapshot().applied_event_count
+                            else [{"symbol": "SPY"}] if item["id"] == "membership-focus-grid"
+                            else [] if item["id"] in {
+                                "membership-uni-grid", "membership-hot-grid"
+                            } else self.controller.snapshot().applied_event_count
                         ),
                     }
                     for item in cb["inputs"]
