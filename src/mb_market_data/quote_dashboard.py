@@ -1679,6 +1679,7 @@ def create_quote_dashboard(
             Output("operator-symbol", "value"),
             Output("operator-action", "value"),
             Output("operator-target", "value"),
+            Output("operator-drag-intent", "data"),
             Input("membership-selected-symbol", "data"),
             Input("membership-drag-request", "data"),
             prevent_initial_call=True,
@@ -1686,7 +1687,7 @@ def create_quote_dashboard(
         def sync_operator_selected_symbol(
             symbol: str | None,
             proposed_drag: Mapping[str, Any] | None,
-        ) -> tuple[Any, Any, Any]:
+        ) -> tuple[Any, Any, Any, Any]:
             # Reflect a drop's proposed action in the controls. A preview is
             # produced independently; this reflection NEVER submits anything.
             if (
@@ -1707,13 +1708,28 @@ def create_quote_dashboard(
                         "promote" if tiers.index(target) > tiers.index(source)
                         else "demote"
                     )
-                    return proposed_symbol.strip().upper(), action, target
-                return (no_update,) * 3
-            return (
-                symbol if isinstance(symbol, str) and symbol else no_update,
-                no_update,
-                no_update,
-            )
+                    return (
+                        proposed_symbol.strip().upper(), action, target,
+                        dict(proposed_drag),
+                    )
+                return (no_update,) * 4
+            if isinstance(symbol, str) and symbol:
+                # Choose an intuitively valid next action for the effective
+                # tier, including a new outside-Uni symbol. Selection never
+                # queues a request; the server only prepares a preview.
+                records = membership_tier_records(
+                    build_quote_dashboard_view(controller.snapshot().state)
+                )
+                exact_symbol, tier = _membership_search_tier(records, symbol)
+                defaults = {
+                    "hot": ("demote", "focus"),
+                    "focus": ("promote", "hot"),
+                    "uni": ("promote", "focus"),
+                    None: ("promote", "uni"),
+                }
+                action, target = defaults[tier]
+                return exact_symbol, action, target, no_update
+            return (no_update,) * 4
 
         @app.callback(
             Output("operator-proposal", "data"),
