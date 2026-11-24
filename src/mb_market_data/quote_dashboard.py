@@ -1816,6 +1816,46 @@ def create_quote_dashboard(
                 + (f" · {message}" if message else "")
             )
 
+    if operator_enabled:
+        @app.callback(
+            Output("operator-follow-request", "data"),
+            Output("operator-follow-seen", "data"),
+            Input("operator-receipt-tick", "n_intervals"),
+            Input("operator-command", "data"),
+            Input("rendered-event-count", "data"),
+            State("operator-follow-seen", "data"),
+        )
+        def follow_confirmed_effective_membership(
+            _tick: int, command_id: str | None,
+            _rendered: int, seen: str | None,
+        ) -> tuple[Any, Any]:
+            """Follow once only after worker receipt AND effective roster agree.
+
+            A queued request or future-effective publication is never
+            interpreted as a completed move; a subsequent different
+            membership command may supersede the expected destination.
+            """
+            unchanged = (no_update, no_update)
+            if not command_id or command_id == seen:
+                return unchanged
+            try:
+                receipt = operator_actions.result(command_id)
+                if receipt.get("status") != "EFFECTIVE_AS_PUBLISHED":
+                    return unchanged
+                symbol, tier = receipt.get("symbol"), receipt.get("target")
+                if not isinstance(symbol, str) or tier not in TIERS:
+                    return unchanged
+                view = build_quote_dashboard_view(controller.snapshot().state)
+                records = membership_tier_records(view)
+                if not any(item.get("symbol") == symbol for item in records[tier]):
+                    return unchanged
+            except (OSError, ValueError, TypeError, KeyError):
+                return unchanged
+            return (
+                {"symbol": symbol, "tier": tier, "command_id": command_id},
+                command_id,
+            )
+
     @app.callback(
         *[Output(f"membership-{tier}-grid", "rowData") for tier in TIERS],
         *[Output(f"membership-{tier}-count", "children") for tier in TIERS],
