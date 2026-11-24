@@ -196,7 +196,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(self.backend.confirm_calls, [])
         self.assertFalse(preview["operator-confirm-button"]["disabled"])
         self.assertEqual(preview["operator-proposal"]["data"]["proposal_id"], "proposal-one")
-        self.assertIsNone(preview["operator-command"]["data"])
+        self.assertNotIn("operator-command", preview)
         self.assertIn("PREVIEW ONLY", preview["operator-preview-status"]["children"])
 
         submit = self.invoke_operator(
@@ -208,6 +208,67 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(submit["operator-command"]["data"], "manual-aaa111")
         self.assertIn("REQUEST QUEUED", submit["operator-submit-status"]["children"])
         self.assertNotIn("EFFECTIVE_AS_PUBLISHED", submit["operator-submit-status"]["children"])
+
+    def test_auto_follow_preserves_last_worker_receipt_after_symbol_changes(self):
+        """A successful r3 move must not turn into 'No worker receipt.'."""
+        app = self.app()
+        layout = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(layout.close)
+        token = _component(layout.get_json(), "operator-csrf")["props"]["data"]
+
+        preview = self.invoke_operator(app, token, "operator-preview-button.n_clicks")
+        submitted = self.invoke_operator(
+            app, token, "operator-confirm-button.n_clicks",
+            proposal=preview["operator-proposal"]["data"],
+        )
+        self.assertEqual(submitted["operator-command"]["data"], "manual-aaa111")
+        self.backend.receipt_status = "EFFECTIVE_AS_PUBLISHED"
+
+        # Auto-selection after the effective revision echoes the symbol back
+        # into operator controls. Only the *next preview* may be invalidated.
+        selected = self.invoke_operator(
+            app, token, "operator-symbol.value", symbol="SPY",
+            proposal=None,
+        )
+        self.assertIn("Selection changed", selected["operator-preview-status"]["children"])
+        self.assertNotIn("operator-command", selected)
+        self.assertNotIn("operator-submit-status", selected)
+        self.assertTrue(selected["operator-confirm-button"]["disabled"])
+
+        # New previews and denied previews must leave the last receipt intact.
+        another = self.invoke_operator(
+            app, token, "operator-preview-button.n_clicks", symbol="SPY",
+        )
+        self.assertNotIn("operator-command", another)
+        self.assertNotIn("operator-submit-status", another)
+        failed = self.invoke_operator(
+            app, token, "operator-preview-button.n_clicks", symbol="BAD",
+        )
+        self.assertNotIn("operator-command", failed)
+        self.assertNotIn("operator-submit-status", failed)
+
+        command_key, command_cb = next(
+            (key, info) for key, info in app.callback_map.items()
+            if getattr(info["output"], "component_id", None)
+            == "operator-receipt-status"
+        )
+        response = app.server.test_client().post("/_dash-update-component", json={
+            "output": command_key,
+            "outputs": {"id": "operator-receipt-status", "property": "children"},
+            "changedPropIds": ["operator-receipt-tick.n_intervals"],
+            "inputs": [
+                {"id": "operator-command", "property": "data",
+                 "value": submitted["operator-command"]["data"]},
+                {"id": "operator-receipt-tick", "property": "n_intervals",
+                 "value": 5},
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        visible = response.get_json()["response"]["operator-receipt-status"]["children"]
+        self.assertIn("manual-aaa111", visible)
+        self.assertIn("EFFECTIVE_AS_PUBLISHED", visible)
+        self.assertEqual(self.backend.confirm_calls, ["proposal-one"])
 
     def test_missing_token_changed_fields_or_old_preview_never_submit(self):
         app = self.app()
@@ -226,7 +287,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
             target="uni", proposal=preview["operator-proposal"]["data"],
         )
         self.assertIn("changed since preview", stale["operator-preview-status"]["children"])
-        self.assertIsNone(stale["operator-command"]["data"])
+        self.assertNotIn("operator-command", stale)
         self.assertEqual(self.backend.confirm_calls, [])
         changed = self.invoke_operator(app, token, "operator-symbol.value", symbol="QQQ",
                                        proposal=preview["operator-proposal"]["data"])
@@ -291,7 +352,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(body["operator-proposal"]["data"]["after"], "focus")
         self.assertIn("DRAG PREVIEW ONLY", body["operator-preview-status"]["children"])
         self.assertFalse(body["operator-confirm-button"]["disabled"])
-        self.assertIsNone(body["operator-command"]["data"])
+        self.assertNotIn("operator-command", body)
 
     def test_drop_backend_rechecks_actual_source_tier_before_preview(self):
         from pathlib import Path
