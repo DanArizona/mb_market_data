@@ -58,10 +58,11 @@ def main() -> int:
         "test_membership_browser",
         "test_overlay_session_catalog",
         "test_overlay_live_attachment",
+        "test_overlay_live_tail",
     ]
     suite = unittest.defaultTestLoader.loadTestsFromNames(modules)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
-    passed = result.wasSuccessful() and result.testsRun == 105 and not result.skipped
+    passed = result.wasSuccessful() and result.testsRun == 109 and not result.skipped
     report = {
         "result": "PASS" if passed else "FAIL",
         "tests_run": result.testsRun,
