@@ -402,9 +402,109 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertEqual(second["membership-search-symbol"]["value"], "BBB")
         self.assertEqual(controller.snapshot().observation_overlay.symbol, "BBB")
         self.assertEqual(controller.snapshot().observation_overlay.current_band, MembershipBand.FOCUS)
-        rejected = select("membership-find-button.n_clicks", search="NOTLISTED")
-        self.assertIn("not a listed member", rejected["membership-search-status"]["children"])
+        rejected = select("membership-find-button.n_clicks", search="notlisted")
+        self.assertIsNone(rejected["membership-selected-symbol"]["data"])
+        self.assertIn("NOTLISTED is not a listed member", rejected["membership-search-status"]["children"])
+        self.assertEqual(
+            rejected["observation-overlay-search-status"]["children"],
+            rejected["membership-search-status"]["children"],
+        )
+        self.assertEqual(rejected["membership-search-symbol"]["value"], "NOTLISTED")
+        self.assertEqual(rejected["observation-overlay-symbol"]["value"], "NOTLISTED")
+        self.assertEqual(rejected["chart-symbol-current"]["children"], "BBB")
+        for tier in ("uni", "focus", "hot"):
+            self.assertEqual(rejected[f"membership-{tier}-grid"]["selectedRows"], [])
         self.assertEqual(controller.snapshot().observation_overlay.symbol, "BBB")
+
+        from_graph = select("observation-overlay-symbol-apply.n_clicks", graph="wrong")
+        self.assertIsNone(from_graph["membership-selected-symbol"]["data"])
+        self.assertEqual(from_graph["membership-search-symbol"]["value"], "WRONG")
+        self.assertEqual(from_graph["observation-overlay-symbol"]["value"], "WRONG")
+        self.assertEqual(
+            from_graph["membership-search-status"]["children"],
+            from_graph["observation-overlay-search-status"]["children"],
+        )
+        self.assertIn("WRONG is not a listed member", from_graph["membership-search-status"]["children"])
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "BBB")
+
+        restored = select("membership-find-button.n_clicks", search="aaa")
+        self.assertEqual(restored["membership-selected-symbol"]["data"], "AAA")
+        self.assertEqual(restored["membership-search-symbol"]["value"], "AAA")
+        self.assertEqual(restored["observation-overlay-symbol"]["value"], "AAA")
+        self.assertEqual(
+            restored["membership-search-status"]["children"],
+            restored["observation-overlay-search-status"]["children"],
+        )
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "AAA")
+
+    def test_rejected_find_clears_stale_symbol_inspector(self) -> None:
+        controller = three_tier_controller(with_overlay=True)
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+
+        # A prior valid selection can have fully populated saved quote details.
+        selection_key, selection = next(
+            (key, value) for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(item.component_id == "membership-selected-symbol" for item in value["output"])
+        )
+        response = client.post("/_dash-update-component", json={
+            "output": selection_key,
+            "outputs": [
+                {"id": item.component_id, "property": item.component_property}
+                for item in selection["output"]
+            ],
+            "changedPropIds": ["membership-find-button.n_clicks"],
+            "inputs": [
+                {
+                    "id": item["id"], "property": item["property"],
+                    "value": 1 if item["id"] == "membership-find-button" else None,
+                }
+                for item in selection["inputs"]
+            ],
+            "state": [
+                {
+                    "id": item["id"], "property": item["property"],
+                    "value": "NOTVALID"
+                    if item["id"] == "membership-search-symbol" else None,
+                }
+                for item in selection["state"]
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        result = response.get_json()["response"]
+        self.assertIsNone(result["membership-selected-symbol"]["data"])
+        self.assertEqual(result["membership-search-symbol"]["value"], "NOTVALID")
+        self.assertEqual(result["observation-overlay-symbol"]["value"], "NOTVALID")
+        self.assertEqual(
+            result["membership-search-status"]["children"],
+            result["observation-overlay-search-status"]["children"],
+        )
+
+        inspector_key, inspector = next(
+            (key, value) for key, value in app.callback_map.items()
+            if getattr(value["output"], "component_id", None) == "membership-symbol-inspector"
+        )
+        inspector_response = client.post("/_dash-update-component", json={
+            "output": inspector_key,
+            "outputs": {
+                "id": "membership-symbol-inspector", "property": "children"
+            },
+            "changedPropIds": ["membership-selected-symbol.data"],
+            "inputs": [
+                {"id": "membership-selected-symbol", "property": "data", "value": None},
+                {"id": "rendered-event-count", "property": "data", "value": 1},
+            ],
+            "state": [],
+        })
+        self.addCleanup(inspector_response.close)
+        self.assertEqual(inspector_response.status_code, 200)
+        inspector_text = json.dumps(inspector_response.get_json())
+        self.assertIn("Select a current member to inspect it", inspector_text)
+        self.assertNotIn("BBB", inspector_text)
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "AAA")
 
     def test_membership_lists_follow_replay_revision_not_final_session(self) -> None:
         controller = overlay_controller()
