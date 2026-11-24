@@ -13,6 +13,10 @@ class FakeAuthoritativeOperator:
         self.preview_calls: list[tuple[str, str, str]] = []
         self.confirm_calls: list[str] = []
         self.receipt_calls: list[str] = []
+        self.drop_calls: list[tuple[str, str, str]] = []
+        self.receipt_status = "PUBLISHED_PENDING_EFFECTIVE"
+        self.receipt_symbol = "SPY"
+        self.receipt_target = "focus"
 
     def preview(self, symbol: str, action: str, target: str) -> dict:
         self.preview_calls.append((symbol, action, target))
@@ -28,6 +32,17 @@ class FakeAuthoritativeOperator:
             "request_written": False,
         }
 
+    def preview_drop(self, symbol: str, source_tier: str, destination_tier: str) -> dict:
+        self.drop_calls.append((symbol, source_tier, destination_tier))
+        ranks = ("uni", "focus", "hot")
+        if source_tier not in ranks or destination_tier not in ranks or source_tier == destination_tier:
+            raise ValueError("Invalid drop")
+        # The production adapter separately verifies actual effective source.
+        action = "promote" if ranks.index(destination_tier) > ranks.index(source_tier) else "demote"
+        preview = self.preview(symbol, action, destination_tier)
+        preview["before"] = source_tier
+        return preview
+
     def confirm(self, proposal_id: str) -> dict:
         self.confirm_calls.append(proposal_id)
         return {
@@ -37,7 +52,10 @@ class FakeAuthoritativeOperator:
 
     def result(self, command_id: str) -> dict:
         self.receipt_calls.append(command_id)
-        return {"id": command_id, "status": "PUBLISHED_PENDING_EFFECTIVE"}
+        return {
+            "id": command_id, "status": self.receipt_status,
+            "symbol": self.receipt_symbol, "target": self.receipt_target,
+        }
 
 
 def _component(node: Any, target: str) -> dict | None:
@@ -83,6 +101,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
             ("operator-symbol", "value"): symbol,
             ("operator-action", "value"): action,
             ("operator-target", "value"): target,
+            ("membership-drag-request", "data"): None,
             ("operator-proposal", "data"): proposal,
             ("operator-csrf", "data"): token,
         }
