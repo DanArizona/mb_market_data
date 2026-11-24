@@ -93,14 +93,15 @@ class TestOverlayOperatorControls(unittest.TestCase):
 
     def invoke_operator(self, app, token: str, trigger: str, *,
                         symbol: str = "SPY", action: str = "promote",
-                        target: str = "hot", proposal: dict | None = None):
+                        target: str = "hot", proposal: dict | None = None,
+                        drag_intent: dict | None = None):
         key, cb = self.callback(app, "operator-proposal")
         vals = {
             ("operator-confirm-button", "n_clicks"): 1,
             ("operator-symbol", "value"): symbol,
             ("operator-action", "value"): action,
             ("operator-target", "value"): target,
-            ("operator-drag-intent", "data"): None,
+            ("operator-drag-intent", "data"): drag_intent,
             ("operator-proposal", "data"): proposal,
             ("operator-csrf", "data"): token,
         }
@@ -353,6 +354,101 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertIn("DRAG PREVIEW ONLY", body["operator-preview-status"]["children"])
         self.assertFalse(body["operator-confirm-button"]["disabled"])
         self.assertNotIn("operator-command", body)
+
+    def test_drag_reflection_is_atomic_and_uses_only_confirm_button(self):
+        app = self.app()
+        layout = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(layout.close)
+        controls = _component(layout.get_json(), "operator-controls-panel")
+        self.assertIsNone(_component(controls, "operator-preview-button"))
+        self.assertIsNotNone(_component(controls, "operator-confirm-button"))
+        self.assertEqual(
+            _component(controls, "operator-action")["props"]["value"], "promote"
+        )
+        self.assertEqual(
+            _component(controls, "operator-target")["props"]["value"], "hot"
+        )
+
+        callback_key, callback = self.callback(app, "operator-symbol")
+        drag = {
+            "symbol": "INTC",
+            "source_tier": "hot",
+            "destination_tier": "focus",
+            "nonce": "drag-01",
+        }
+        response = app.server.test_client().post("/_dash-update-component", json={
+            "output": callback_key,
+            "outputs": [
+                {"id": item.component_id, "property": item.component_property}
+                for item in callback["output"]
+            ],
+            "changedPropIds": ["membership-drag-request.data"],
+            "inputs": [
+                {"id": "membership-selected-symbol", "property": "data",
+                 "value": "INTC"},
+                {"id": "membership-drag-request", "property": "data",
+                 "value": drag},
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        reflected = response.get_json()["response"]
+        self.assertEqual(reflected["operator-symbol"]["value"], "INTC")
+        self.assertEqual(reflected["operator-action"]["value"], "demote")
+        self.assertEqual(reflected["operator-target"]["value"], "focus")
+        self.assertEqual(reflected["operator-drag-intent"]["data"], drag)
+        self.assertEqual(self.backend.preview_calls, [])
+        self.assertEqual(self.backend.confirm_calls, [])
+
+    def test_stale_drag_control_values_cannot_enable_confirm(self):
+        app = self.app()
+        layout = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(layout.close)
+        token = _component(layout.get_json(), "operator-csrf")["props"]["data"]
+        drag = {
+            "symbol": "INTC", "source_tier": "hot",
+            "destination_tier": "focus", "nonce": "drag-02",
+        }
+        # Browser has received the drag but the old "Promote" field has not
+        # yet been replaced by the new "Ordinary demote" control value.
+        stale = self.invoke_operator(
+            app, token, "operator-drag-intent.data", symbol="INTC",
+            action="promote", target="focus", drag_intent=drag,
+        )
+        self.assertIn(
+            "synchronizing", stale["operator-preview-status"]["children"]
+        )
+        self.assertTrue(stale["operator-confirm-button"]["disabled"])
+        self.assertEqual(self.backend.drop_calls, [])
+        self.assertEqual(self.backend.confirm_calls, [])
+
+        # The reflected action, target and source arrive together.
+        ready = self.invoke_operator(
+            app, token, "operator-drag-intent.data", symbol="INTC",
+            action="demote", target="focus", drag_intent=drag,
+        )
+        self.assertEqual(
+            self.backend.drop_calls, [("INTC", "hot", "focus")]
+        )
+        self.assertIn(
+            "DRAG PREVIEW ONLY", ready["operator-preview-status"]["children"]
+        )
+        self.assertFalse(ready["operator-confirm-button"]["disabled"])
+        self.assertNotIn("operator-command", ready)
+
+        # Any later changed target must be re-previewed, not blindly queued.
+        changed = self.invoke_operator(
+            app, token, "operator-target.value", symbol="INTC",
+            action="demote", target="uni",
+            proposal=ready["operator-proposal"]["data"],
+        )
+        self.assertIn(
+            "AUTOMATIC PREVIEW ONLY", changed["operator-preview-status"]["children"]
+        )
+        self.assertEqual(
+            changed["operator-proposal"]["data"]["target"], "uni"
+        )
+        self.assertEqual(self.backend.confirm_calls, [])
 
     def test_drop_backend_rechecks_actual_source_tier_before_preview(self):
         from pathlib import Path
