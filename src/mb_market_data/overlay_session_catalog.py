@@ -14,6 +14,7 @@ import sqlite3
 
 SCHEMA_VERSION = 2
 MEMBERSHIP_CONTRACT = "nested-uni-focus-hot-v1"
+PLAN_CONTRACT = "one-unlock-daily-flow-v1"
 
 
 class SessionDiscoveryError(ValueError):
@@ -77,7 +78,7 @@ def inspect_session(data_root: str | Path, session_date: str | date) -> DatedSes
         raw = plan.get(key)
         if not isinstance(raw, str) or not raw.strip() or Path(raw).resolve() != expected.resolve():
             raise SessionDiscoveryError(f"Plan {key} differs from selected session")
-    if plan.get("contract") != MEMBERSHIP_CONTRACT:
+    if plan.get("contract") != PLAN_CONTRACT:
         raise SessionDiscoveryError("Unsupported hierarchy plan contract")
 
     try:
