@@ -1059,6 +1059,7 @@ def create_quote_dashboard(
                     dcc.Store(id="membership-drag-request"),
                     dcc.Store(id="operator-drag-intent"),
                     dcc.Store(id="membership-drag-binding-status"),
+                    dcc.Store(id="membership-drag-diagnostic"),
                     dcc.Interval(id="operator-receipt-tick", interval=3_000),
                 ] if operator_enabled else []
             ),
@@ -1664,8 +1665,23 @@ def create_quote_dashboard(
         @app.callback(
             Output("membership-drag-status", "children"),
             Input("membership-drag-binding-status", "data"),
+            Input("membership-drag-diagnostic", "data"),
         )
-        def drag_setup_status(binding: Mapping[str, Any] | None) -> str:
+        def drag_setup_status(
+            binding: Mapping[str, Any] | None,
+            diagnostic: Mapping[str, Any] | None,
+        ) -> str:
+            if isinstance(diagnostic, dict):
+                phase = diagnostic.get("phase")
+                reason = str(diagnostic.get("reason") or "")
+                if phase == "drop-missed":
+                    return reason or "Drop not registered. Retry."
+                if phase == "drop-rejected":
+                    return reason or "Drop rejected. Retry."
+                if phase == "drop-received":
+                    return reason + " · Check Preview below; Confirm is still required."
+                if phase == "drag-started":
+                    return reason
             if binding and binding.get("ready") is True:
                 return (
                     "Drag a symbol by its grip to prepare the Preview automatically. "
