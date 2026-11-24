@@ -1387,6 +1387,29 @@ h1 {
   font-weight: 700;
 }
 
+/* Controlled Real Time drag creates only an advisory Preview; the
+   effective roster remains driven by the authoritative worker journal. */
+.membership-drag-instructions {
+  margin: 0.2rem 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.membership-drag-status {
+  margin: 0 0 0.65rem;
+  color: var(--sea);
+  font-size: 0.78rem;
+}
+.membership-tier.membership-drop-ready {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.membership-tier.membership-drop-target {
+  border: 2px dashed var(--sea);
+  box-shadow: inset 0 0 0 2px var(--sea-soft);
+  background: var(--surface-raised);
+}
+.membership-tier .ag-row-drag { cursor: grab; }
+.membership-tier .ag-row-drag:active { cursor: grabbing; }
+
 .operator-controls-panel {
   max-height: none;
   overflow: visible;
