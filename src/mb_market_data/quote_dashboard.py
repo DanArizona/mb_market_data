@@ -1744,9 +1744,14 @@ def create_quote_dashboard(
             proposal: Mapping[str, Any] | None,
             csrf: str | None,
         ) -> tuple[Any, ...]:
-            """No command can be queued without explicit Preview and Confirm."""
+            """Keep the last submitted command visible while editing the next.
+
+            Preview invalidation only clears its own proposal/Confirm state.
+            Worker receipts belong to the last confirmed command, not the
+            current editable symbol or drag selection.
+            """
             if csrf != operator_token:
-                return None, "Operator session authorization invalid.", True, None, "No request queued."
+                return None, "Operator session authorization invalid.", True, no_update, no_update
             trigger = ctx.triggered_id
             if trigger in {"operator-symbol", "operator-action", "operator-target"}:
                 if (
@@ -1758,10 +1763,10 @@ def create_quote_dashboard(
                     # Programmatic echo from a drop filling the action fields
                     # must not erase its newly created PREVIEW.
                     return (no_update,) * 5
-                return None, "Selection changed. Preview again.", True, None, "No request queued."
+                return None, "Selection changed. Preview again.", True, no_update, no_update
             if trigger == "membership-drag-request":
                 if not isinstance(proposed_drag, dict):
-                    return None, "Invalid drag request.", True, None, "No request queued."
+                    return None, "Invalid drag request.", True, no_update, no_update
                 try:
                     reviewed = operator_actions.preview_drop(
                         str(proposed_drag.get("symbol", "")),
@@ -1769,7 +1774,7 @@ def create_quote_dashboard(
                         str(proposed_drag.get("destination_tier", "")),
                     )
                 except (OSError, ValueError, TypeError, KeyError) as error:
-                    return None, f"Drop preview refused: {error}", True, None, "No request queued."
+                    return None, f"Drop preview refused: {error}", True, no_update, no_update
                 message = (
                     f"DRAG PREVIEW ONLY · {reviewed['symbol']}: "
                     f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
@@ -1777,14 +1782,14 @@ def create_quote_dashboard(
                     f"expires {reviewed['expires_at_utc']}. "
                     "No command queued. Confirm below only after review."
                 )
-                return reviewed, message, False, None, "No request queued."
+                return reviewed, message, False, no_update, no_update
             if trigger == "operator-preview-button":
                 try:
                     reviewed = operator_actions.preview(
                         str(symbol or ""), str(action or ""), str(target or "")
                     )
                 except (OSError, ValueError, TypeError, KeyError) as error:
-                    return None, f"Preview refused: {error}", True, None, "No request queued."
+                    return None, f"Preview refused: {error}", True, no_update, no_update
                 status = (
                     f"PREVIEW ONLY · {reviewed['symbol']}: "
                     f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
@@ -1793,28 +1798,28 @@ def create_quote_dashboard(
                     f"expires {reviewed['expires_at_utc']}. "
                     f"{reviewed.get('note', '')}"
                 )
-                return reviewed, status, False, None, "No request queued."
+                return reviewed, status, False, no_update, no_update
             if trigger == "operator-confirm-button":
                 if not isinstance(proposal, dict) or not proposal.get("proposal_id"):
-                    return None, "No current preview. Preview again.", True, None, "No request queued."
+                    return None, "No current preview. Preview again.", True, no_update, no_update
                 if (
                     str(symbol or "").strip().upper() != proposal.get("symbol")
                     or action != proposal.get("action")
                     or target != proposal.get("target")
                 ):
-                    return None, "Request changed since preview. Preview again.", True, None, "No request queued."
+                    return None, "Request changed since preview. Preview again.", True, no_update, no_update
                 try:
                     result = operator_actions.confirm(proposal["proposal_id"])
                     request = result["request"]
                     command_id = request["id"]
                 except (OSError, ValueError, TypeError, KeyError) as error:
-                    return None, f"Confirm refused: {error}", True, None, "No request queued."
+                    return None, f"Confirm refused: {error}", True, no_update, no_update
                 return (
                     None,
                     f"Preview confirmed for {proposal['symbol']}; no direct journal edit.",
                     True,
                     command_id,
-                    f"REQUEST QUEUED · {command_id}. "
+                    f"LAST REQUEST QUEUED · {command_id}. "
                     "Await the existing membership worker's receipt; effectiveness is not yet confirmed.",
                 )
             return (no_update,) * 5
