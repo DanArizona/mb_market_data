@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 import time as perf_timer
 from datetime import date, datetime, time, timezone
 from pathlib import Path
@@ -290,7 +291,7 @@ def _membership_price(value: float | None) -> str:
 
 def _membership_inspector(
     html: Any, view: QuoteDashboardView, symbol: str | None, *,
-    live_mode: bool = False,
+    live_mode: bool = False, operator_enabled: bool = False,
 ) -> Any:
     """Show only evidence available at this replay time; never infer a block."""
 
@@ -350,9 +351,15 @@ def _membership_inspector(
             ),
             html.P(
                 (
-                    "Real Time · read-only committed observations. The latest quote "
-                    "may be delayed, incomplete, or stale. No manual membership "
-                    "actions are enabled."
+                    (
+                        "Real Time · committed observations may be delayed, incomplete "
+                        "or stale. Membership requests require explicit Preview and "
+                        "Confirm; the existing worker alone publishes revisions."
+                        if operator_enabled else
+                        "Real Time · read-only committed observations. The latest quote "
+                        "may be delayed, incomplete, or stale. No manual membership "
+                        "actions are enabled."
+                    )
                     if live_mode else
                     "Historical · read-only. This information is from saved, "
                     "replay-causal observations; it is not a live price feed. "
@@ -416,11 +423,118 @@ def _membership_search_tier(
     return symbol, None
 
 
+def _membership_operator_controls(
+    html: Any, dcc: Any, selected_symbol: str | None,
+) -> Any:
+    """Explicitly opt-in, preview-first controls; no direct journal edits."""
+    return html.Section(
+        [
+            html.H3("Manual Membership · controlled", className="membership-inspector-title"),
+            html.P(
+                "This viewer queues requests only after Preview and Confirm. "
+                "The existing authenticated worker decides whether to publish.",
+                className="membership-details-note",
+            ),
+            html.Label(
+                [
+                    "Symbol",
+                    dcc.Input(
+                        id="operator-symbol",
+                        type="text",
+                        value=selected_symbol or "",
+                        maxLength=20,
+                        placeholder="Ticker, including outside Uni",
+                        autoComplete="off",
+                        className="membership-search-input",
+                    ),
+                ],
+                className="operator-field",
+            ),
+            html.Div(
+                [
+                    html.Label(
+                        [
+                            "Action",
+                            dcc.Dropdown(
+                                id="operator-action",
+                                options=[
+                                    {"label": "Promote", "value": "promote"},
+                                    {"label": "Ordinary demote", "value": "demote"},
+                                ],
+                                value="promote",
+                                clearable=False,
+                            ),
+                        ],
+                        className="operator-field",
+                    ),
+                    html.Label(
+                        [
+                            "Target",
+                            dcc.Dropdown(
+                                id="operator-target",
+                                options=[
+                                    {"label": "Uni", "value": "uni"},
+                                    {"label": "Focus", "value": "focus"},
+                                    {"label": "Hot", "value": "hot"},
+                                ],
+                                value="focus",
+                                clearable=False,
+                            ),
+                        ],
+                        className="operator-field",
+                    ),
+                ],
+                className="operator-action-inputs",
+            ),
+            html.Button(
+                "Preview action",
+                id="operator-preview-button",
+                n_clicks=0,
+                className="membership-find-button",
+            ),
+            html.Div(
+                "No action previewed.",
+                id="operator-preview-status",
+                className="membership-search-status",
+                role="status",
+            ),
+            html.Button(
+                "Confirm and queue request",
+                id="operator-confirm-button",
+                n_clicks=0,
+                disabled=True,
+                className="control-button",
+            ),
+            html.Div(
+                "No request queued.",
+                id="operator-submit-status",
+                className="membership-search-status",
+                role="status",
+            ),
+            html.Div(
+                "No worker receipt.",
+                id="operator-receipt-status",
+                className="membership-search-status",
+                role="status",
+            ),
+            html.P(
+                "Previews expire after 90 seconds and are rechecked against the "
+                "current revision and worker heartbeat. Ordinary demotion does "
+                "not suppress later distinct automatic halt promotions.",
+                className="membership-details-note",
+            ),
+        ],
+        id="operator-controls-panel",
+        className="membership-inspector operator-controls-panel",
+    )
+
+
 def _membership_panel(
     html: Any, dag: Any, dcc: Any, view: QuoteDashboardView,
     selected_symbol: str | None, *, live_mode: bool = False,
+    operator_enabled: bool = False,
 ) -> Any:
-    """Shared read-only Membership layout for historical or committed live evidence."""
+    """Shared Membership layout; operator controls are Real Time opt-in only."""
     by_tier = membership_tier_records(view)
     return html.Section(
         [
@@ -434,7 +548,11 @@ def _membership_panel(
                         ),
                     ]),
                     html.Span(
-                        "REAL TIME · READ-ONLY" if live_mode else "HISTORICAL · READ-ONLY",
+                        (
+                            "REAL TIME · CONTROLLED" if operator_enabled
+                            else "REAL TIME · READ-ONLY" if live_mode
+                            else "HISTORICAL · READ-ONLY"
+                        ),
                         className="membership-readonly",
                     ),
                 ],
@@ -489,7 +607,8 @@ def _membership_panel(
                                     ),
                                     html.Div(
                                         _membership_inspector(
-                                            html, view, selected_symbol, live_mode=live_mode
+                                            html, view, selected_symbol, live_mode=live_mode,
+                                            operator_enabled=operator_enabled,
                                         ),
                                         id="membership-symbol-inspector",
                                     ),
@@ -497,6 +616,10 @@ def _membership_panel(
                                 id="membership-inspector-panel",
                                 className="membership-inspector",
                                 **{"aria-label": "Selected symbol information"},
+                            ),
+                            *(
+                                [_membership_operator_controls(html, dcc, selected_symbol)]
+                                if operator_enabled else []
                             ),
                         ],
                         id="membership-lookup-column",
@@ -507,8 +630,13 @@ def _membership_panel(
             ),
             html.P(
                 (
-                    "Real Time is observing committed journal evidence; manual "
-                    "Membership actions remain disabled in this experimental viewer."
+                    (
+                        "Controlled operator requests are possible only through Preview "
+                        "and Confirm, never by editing the displayed roster."
+                        if operator_enabled else
+                        "Real Time is observing committed journal evidence; manual "
+                        "Membership actions remain disabled in this experimental viewer."
+                    )
                     if live_mode else
                     "Historical membership is read-only; no drag, admission, "
                     "Preview, Confirm, or membership write actions are available."
@@ -819,6 +947,7 @@ def create_quote_dashboard(
     acquisition_health_reader: Callable[[], dict[str, Any]] | None = None,
     live_refresh: Callable[[], tuple[int, str]] | None = None,
     live_mode: bool = False,
+    operator_actions: Any | None = None,
 ) -> Any:
     """Create a local interactive dashboard for one replay controller."""
 
@@ -841,6 +970,10 @@ def create_quote_dashboard(
 
     if live_mode and live_refresh is None:
         raise ValueError("Real Time dashboard requires a read-only committed event source")
+    if operator_actions is not None and not live_mode:
+        raise ValueError("Manual operator actions are not permitted in Historical or Backtest")
+    operator_enabled = operator_actions is not None
+    operator_token = secrets.token_urlsafe(32) if operator_enabled else None
     replay = controller.snapshot()
     view = build_quote_dashboard_view(replay.state)
     controls = _control_values(replay)
@@ -875,6 +1008,14 @@ def create_quote_dashboard(
             *([dcc.Interval(id="acquisition-health-tick", interval=5_000)] if acquisition_health_reader else []),
             *([dcc.Interval(id="live-tail-tick", interval=5_000)] if live_mode else []),
             *([dcc.Store(id="live-refresh-count", data=replay.applied_event_count)] if live_mode else []),
+            *(
+                [
+                    dcc.Store(id="operator-csrf", data=operator_token),
+                    dcc.Store(id="operator-proposal"),
+                    dcc.Store(id="operator-command"),
+                    dcc.Interval(id="operator-receipt-tick", interval=3_000),
+                ] if operator_enabled else []
+            ),
             dcc.Store(
                 id="rendered-event-count",
                 data=replay.applied_event_count,
@@ -1181,15 +1322,24 @@ def create_quote_dashboard(
                             html.Div(
                                 [
                                     html.Strong(
-                                        "Real Time · committed read-only"
+                                        (
+                                            "Real Time · controlled Membership"
+                                            if operator_enabled else "Real Time · committed read-only"
+                                        )
                                         if live_mode else "Historical · read-only",
                                         className="workspace-mode-status",
                                     ),
                                     html.Span(
                                         (
-                                            "Live process not verified. Saved controller phase "
-                                            "does not prove liveness. Historical mode uses a "
-                                            "separately launched viewer; operator actions disabled."
+                                            (
+                                                "Commit-only quote stream; operator requests require "
+                                                "explicit Preview and Confirm and existing worker authority. "
+                                                "Saved phase does not verify liveness."
+                                                if operator_enabled else
+                                                "Live process not verified. Saved controller phase "
+                                                "does not prove liveness. Historical mode uses a "
+                                                "separately launched viewer; operator actions disabled."
+                                            )
                                             if live_mode else
                                             "Real Time requires an explicit validated daily attachment; "
                                             "Backtest remains disabled."
@@ -1230,6 +1380,7 @@ def create_quote_dashboard(
                                         view,
                                         replay.observation_overlay.symbol if replay.observation_overlay is not None else None,
                                         live_mode=live_mode,
+                                        operator_enabled=operator_enabled,
                                     ),
                                 ],
                             ),
@@ -1555,7 +1706,10 @@ def create_quote_dashboard(
     )
     def update_membership_inspector(symbol: str | None, _event_count: int) -> Any:
         replay_view = build_quote_dashboard_view(controller.snapshot().state)
-        return _membership_inspector(html, replay_view, symbol, live_mode=live_mode)
+        return _membership_inspector(
+            html, replay_view, symbol, live_mode=live_mode,
+            operator_enabled=operator_enabled,
+        )
 
     @app.callback(
         Output("activity-section", "data"),
