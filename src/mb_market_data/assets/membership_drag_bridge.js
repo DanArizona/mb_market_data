@@ -170,6 +170,7 @@
                             || registry.gesture.symbol !== symbol
                             || registry.gesture.source !== tier) {
                         registry.gesture = {source: tier, symbol, accepted: false};
+                        registry.pointer = null; // Never reuse coordinates from a prior drag.
                         notify("drag-started", symbol + ": drop onto another tier list.");
                     }
                 };
