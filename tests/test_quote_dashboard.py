@@ -8,6 +8,7 @@ from typing import Any
 
 from mb_market_data.observation_overlay import (
     ET as OVERLAY_ET,
+    MembershipBand,
     ObservationOverlayOHLCVCache,
     ObservationOverlayProjector,
     OverlayCandle,
@@ -140,7 +141,7 @@ def overlay_controller() -> QuoteDashboardReplayController:
     )
 
 
-def three_tier_controller() -> QuoteDashboardReplayController:
+def three_tier_controller(*, with_overlay: bool = False) -> QuoteDashboardReplayController:
     available_at = datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc)
     event = MembershipRevisionEvent(
         SamplingHierarchyRevision(
@@ -156,6 +157,16 @@ def three_tier_controller() -> QuoteDashboardReplayController:
     return QuoteDashboardReplayController(
         timeline=ReplayTimeline(SESSION_DATE, 1, available_at, available_at),
         event_factory=lambda: iter((event,)),
+        overlay_projector_factory=(
+            lambda: ObservationOverlayProjector(
+                cache=None, symbol="AAA", session_date=SESSION_DATE,
+            )
+        ) if with_overlay else None,
+        symbol_projector_factory=(
+            lambda symbol: ObservationOverlayProjector(
+                cache=None, symbol=symbol, session_date=SESSION_DATE,
+            )
+        ) if with_overlay else None,
     )
 
 
@@ -292,8 +303,12 @@ class TestQuoteDashboard(unittest.TestCase):
             and any(item.component_id == "membership-selected-symbol" for item in value["output"])
         )
         self.assertEqual(
-            [(item["id"], item["property"]) for item in callback["inputs"]],
+            [(item["id"], item["property"]) for item in callback["inputs"][:3]],
             [(f"membership-{tier}-grid", "cellClicked") for tier in ("uni", "focus", "hot")],
+        )
+        self.assertIn(
+            ("membership-find-button", "n_clicks"),
+            [(item["id"], item["property"]) for item in callback["inputs"]],
         )
 
         for clicked_tier, symbol in (("focus", "BBB"), ("hot", "CCC"), ("uni", "AAA")):
@@ -310,7 +325,10 @@ class TestQuoteDashboard(unittest.TestCase):
                      if item["id"] == f"membership-{clicked_tier}-grid" else None}
                     for item in callback["inputs"]
                 ],
-                "state": [],
+                "state": [
+                    {"id": item["id"], "property": item["property"], "value": None}
+                    for item in callback["state"]
+                ],
             })
             self.addCleanup(response.close)
             self.assertEqual(response.status_code, 200)
@@ -323,6 +341,70 @@ class TestQuoteDashboard(unittest.TestCase):
                 )
         # Only the browser selection changes. A click does not publish a revision.
         self.assertEqual(controller.snapshot().state.channel_revisions["focus"].revision, 0)
+
+    def test_readonly_find_graph_and_membership_share_one_selected_symbol(self) -> None:
+        controller = three_tier_controller(with_overlay=True)
+        controller.finish()
+        app = create_quote_dashboard(controller)
+        client = app.server.test_client()
+        layout = client.get("/_dash-layout")
+        self.addCleanup(layout.close)
+        self.assertEqual(layout.status_code, 200)
+        self.assertIn(b'"id":"membership-search-symbol"', layout.data)
+        self.assertIn(b'"id":"observation-overlay-symbol"', layout.data)
+        self.assertNotIn(b'"id":"operator-confirm-button"', layout.data)
+        key, callback = next(
+            (key, value) for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(item.component_id == "membership-selected-symbol" for item in value["output"])
+        )
+
+        def select(trigger: str, *, search: str | None = None, graph: str | None = None) -> dict:
+            def incoming(item: dict[str, Any]) -> Any:
+                pair = (item["id"], item["property"])
+                if pair == ("membership-search-symbol", "value"):
+                    return search
+                if pair == ("observation-overlay-symbol", "value"):
+                    return graph
+                if pair == ("membership-selected-symbol", "data"):
+                    return controller.snapshot().observation_overlay.symbol
+                return (1 if f"{pair[0]}.{pair[1]}" == trigger else None)
+
+            response = client.post("/_dash-update-component", json={
+                "output": key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in callback["output"]
+                ],
+                "changedPropIds": [trigger],
+                "inputs": [
+                    {"id": item["id"], "property": item["property"], "value": incoming(item)}
+                    for item in callback["inputs"]
+                ],
+                "state": [
+                    {"id": item["id"], "property": item["property"], "value": incoming(item)}
+                    for item in callback["state"]
+                ],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            return response.get_json()["response"]
+
+        first = select("membership-find-button.n_clicks", search="CCC")
+        self.assertEqual(first["membership-selected-symbol"]["data"], "CCC")
+        self.assertEqual(first["membership-hot-grid"]["selectedRows"], {"ids": ["CCC"]})
+        self.assertEqual(first["observation-overlay-symbol"]["value"], "CCC")
+        self.assertEqual(first["chart-symbol-current"]["children"], "CCC")
+        self.assertEqual(controller.snapshot().observation_overlay.current_band, MembershipBand.HOT)
+        second = select("observation-overlay-symbol-apply.n_clicks", graph="BBB")
+        self.assertEqual(second["membership-selected-symbol"]["data"], "BBB")
+        self.assertEqual(second["membership-focus-grid"]["selectedRows"], {"ids": ["BBB"]})
+        self.assertEqual(second["membership-search-symbol"]["value"], "BBB")
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "BBB")
+        self.assertEqual(controller.snapshot().observation_overlay.current_band, MembershipBand.FOCUS)
+        rejected = select("membership-find-button.n_clicks", search="NOTLISTED")
+        self.assertIn("not a listed member", rejected["membership-search-status"]["children"])
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "BBB")
 
     def test_membership_lists_follow_replay_revision_not_final_session(self) -> None:
         controller = overlay_controller()
@@ -481,6 +563,7 @@ class TestQuoteDashboard(unittest.TestCase):
             ("observation-overlay-chart", "clickData"): {
                 "points": [{"curveNumber": 0, "pointNumber": 0}]
             },
+            ("membership-selected-symbol", "data"): "SPY",
             ("observation-overlay-reference-mode", "data"): True,
             ("observation-overlay-chart", "figure"): figure,
             ("observation-overlay-candle-field", "value"): "high",
@@ -655,6 +738,7 @@ class TestQuoteDashboard(unittest.TestCase):
                                     "2026-09-11 09:35:00",
                                 ]
                             },
+                            ("membership-selected-symbol", "data"): "SPY",
                         }[(item["id"], item["property"])],
                     }
                     for item in callback["inputs"]
