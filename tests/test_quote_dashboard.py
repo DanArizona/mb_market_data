@@ -547,6 +547,141 @@ class TestQuoteDashboard(unittest.TestCase):
         controller.restart()
         self.assertEqual(current_lists()["membership-focus-grid"]["rowData"], [])
 
+    def test_live_membership_roster_never_lags_committed_status_after_burst(self) -> None:
+        """Regression: displayed r0 while the journal/status already reported r3."""
+        controller = three_tier_controller(with_overlay=True)
+        controller.finish()
+        controller.activate_live_readonly()
+        base = datetime(2026, 9, 11, 13, 30, tzinfo=timezone.utc)
+        new_revisions = tuple(
+            MembershipRevisionEvent(SamplingHierarchyRevision(
+                session_date=SESSION_DATE,
+                revision=number,
+                effective_at=base + timedelta(seconds=5 * number),
+                uni_symbols=("AAA", "BBB", "CCC"),
+                focus_symbols=("BBB", "CCC"),
+                hot_symbols=("CCC",) if number % 2 == 0 else (),
+                source="offline-burst",
+            ))
+            for number in (1, 2, 3)
+        )
+        calls = [0]
+
+        def live_refresh():
+            calls[0] += 1
+            if calls[0] == 1:
+                controller.append_live_committed(new_revisions)
+                return 3, "Synthetic journal effective r3"
+            return 0, "Synthetic journal effective r3"
+
+        app = create_quote_dashboard(
+            controller,
+            live_mode=True,
+            live_refresh=live_refresh,
+        )
+        client = app.server.test_client()
+        key, callback = next(
+            (key, value)
+            for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(
+                item.component_id == "live-data-status" for item in value["output"]
+            )
+        )
+        outputs = [
+            {"id": item.component_id, "property": item.component_property}
+            for item in callback["output"]
+        ]
+        for tick in (1, 2):
+            response = client.post("/_dash-update-component", json={
+                "output": key,
+                "outputs": outputs,
+                "changedPropIds": ["live-tail-tick.n_intervals"],
+                "inputs": [
+                    {
+                        "id": "live-tail-tick",
+                        "property": "n_intervals",
+                        "value": tick,
+                    }
+                ],
+                "state": [],
+            })
+            self.addCleanup(response.close)
+            self.assertEqual(response.status_code, 200)
+            updates = response.get_json()["response"]
+            self.assertIn("r3", updates["live-data-status"]["children"])
+            self.assertEqual(
+                updates["live-refresh-count"]["data"],
+                {"event_count": 4, "refresh": tick},
+            )
+            self.assertEqual(
+                [item["symbol"] for item in
+                 updates["membership-hot-grid"]["rowData"]],
+                [],
+            )
+            self.assertEqual(
+                [item["symbol"] for item in
+                 updates["membership-focus-grid"]["rowData"]],
+                ["BBB", "CCC"],
+            )
+            self.assertEqual(
+                updates["membership-hot-count"]["children"], "0"
+            )
+            self.assertEqual(
+                updates["membership-focus-count"]["children"], "2"
+            )
+
+        inspector_key, inspector = next(
+            (key, value)
+            for key, value in app.callback_map.items()
+            if getattr(value["output"], "component_id", None)
+            == "membership-symbol-inspector"
+        )
+        self.assertIn(
+            ("live-refresh-count", "data"),
+            [(item["id"], item["property"]) for item in inspector["inputs"]],
+        )
+        inspection = client.post("/_dash-update-component", json={
+            "output": inspector_key,
+            "outputs": {
+                "id": "membership-symbol-inspector", "property": "children"
+            },
+            "changedPropIds": ["live-refresh-count.data"],
+            "inputs": [
+                {
+                    "id": "membership-selected-symbol",
+                    "property": "data",
+                    "value": "CCC",
+                },
+                {
+                    "id": "live-refresh-count",
+                    "property": "data",
+                    "value": {"event_count": 4, "refresh": 2},
+                },
+            ],
+            "state": [],
+        })
+        self.addCleanup(inspection.close)
+        self.assertEqual(inspection.status_code, 200)
+        payload = json.dumps(inspection.get_json())
+        self.assertIn("CCC", payload)
+        self.assertIn("FOCUS", payload)
+        self.assertIn("r3", payload)
+
+        chart = next(
+            value for value in app.callback_map.values()
+            if isinstance(value["output"], list)
+            and any(
+                item.component_id == "observation-overlay-chart"
+                and item.component_property == "figure"
+                for item in value["output"]
+            )
+        )
+        self.assertIn(
+            ("live-refresh-count", "data"),
+            [(item["id"], item["property"]) for item in chart["inputs"]],
+        )
+
     def test_real_time_workspace_is_explicitly_readonly_and_refreshes_saved_status(self) -> None:
         controller = overlay_controller()
         controller.finish()
