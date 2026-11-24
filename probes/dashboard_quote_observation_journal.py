@@ -25,6 +25,7 @@ from mb_market_data.observation_overlay import (
     load_observation_overlay_cache,
 )
 from mb_market_data.quote_dashboard import create_quote_dashboard
+from mb_market_data.overlay_indexed_selection import IndexedOverlaySymbolSelection
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
 )
@@ -169,6 +170,10 @@ def main() -> int:
             event_factory=reader.events,
             overlay_projector_factory=overlay_projector_factory,
             symbol_projector_factory=make_overlay_projector if overlay_symbol else None,
+            indexed_symbol_projector_factory=(
+                IndexedOverlaySymbolSelection(reader, make_overlay_projector)
+                if overlay_symbol else None
+            ),
             overlay_end_at_utc=(
                 overlay_cache.request_end_et if overlay_cache is not None else None
             ),
