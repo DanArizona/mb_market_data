@@ -362,11 +362,11 @@ class TestOverlayOperatorControls(unittest.TestCase):
         controls = _component(layout.get_json(), "operator-controls-panel")
         self.assertIsNone(_component(controls, "operator-preview-button"))
         self.assertIsNotNone(_component(controls, "operator-confirm-button"))
-        self.assertEqual(
-            _component(controls, "operator-action")["props"]["value"], "promote"
+        self.assertIsNone(
+            _component(controls, "operator-action")["props"]["value"]
         )
-        self.assertEqual(
-            _component(controls, "operator-target")["props"]["value"], "hot"
+        self.assertIsNone(
+            _component(controls, "operator-target")["props"]["value"]
         )
 
         callback_key, callback = self.callback(app, "operator-symbol")
