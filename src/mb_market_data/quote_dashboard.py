@@ -1853,6 +1853,12 @@ def create_quote_dashboard(
             ]
             if replay.observation_overlay is not None else []
         ),
+        *(
+            [
+                Input("membership-drag-request", "data"),
+                Input("operator-follow-request", "data"),
+            ] if operator_enabled else []
+        ),
         State("membership-search-symbol", "value"),
         *(
             [State("observation-overlay-symbol", "value")]
@@ -1870,12 +1876,24 @@ def create_quote_dashboard(
         trigger = ctx.triggered_id
         count = len(TIERS)
         clicks = args[:count]
-        search_text = args[count + (4 if has_chart else 2)]
-        graph_text = args[count + 5] if has_chart else None
+        selection_input_end = count + (4 if has_chart else 2)
+        proposed_drag = args[selection_input_end] if operator_enabled else None
+        follow_request = args[selection_input_end + 1] if operator_enabled else None
+        search_text = args[selection_input_end + (2 if operator_enabled else 0)]
+        graph_text = args[selection_input_end + (3 if operator_enabled else 1)] if has_chart else None
         no_scroll = (no_update,) * count
         output_count = count * 2 + 4 + (2 if has_chart else 0)
 
-        if trigger in {"membership-find-button", "membership-search-symbol"}:
+        following = trigger == "operator-follow-request"
+        if operator_enabled and trigger in {
+            "membership-drag-request", "operator-follow-request"
+        }:
+            proposed = follow_request if following else proposed_drag
+            raw = proposed.get("symbol") if isinstance(proposed, dict) else None
+            from_grid = False
+            if not raw:
+                return (no_update,) * output_count
+        elif trigger in {"membership-find-button", "membership-search-symbol"}:
             raw = search_text
             from_grid = False
         elif has_chart and trigger in {
@@ -1920,10 +1938,22 @@ def create_quote_dashboard(
         )
         symbol, tier = _membership_search_tier(records, attempted)
         if tier is None:
+            if operator_enabled and trigger in {
+                "membership-drag-request", "operator-follow-request"
+            }:
+                return (no_update,) * output_count
             message = f"{symbol} is not a listed member at the current replay time."
             if has_chart:
                 message += " The displayed chart is unchanged."
             return rejected(message)
+        if operator_enabled and trigger == "membership-drag-request":
+            if not isinstance(proposed_drag, dict) or tier != proposed_drag.get("source_tier"):
+                return (no_update,) * output_count
+        if following and (
+            not isinstance(follow_request, dict)
+            or tier != follow_request.get("tier")
+        ):
+            return (no_update,) * output_count
 
         if has_chart:
             started = perf_timer.perf_counter()
@@ -1939,7 +1969,11 @@ def create_quote_dashboard(
                 )
 
         tier_name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
-        message = f"{symbol} selected in {tier_name}."
+        message = (
+            f"{symbol} is now effective in {tier_name}; selected automatically."
+            if following else
+            f"{symbol} selected in {tier_name}."
+        )
         scroll = tuple(
             {"rowId": symbol, "rowPosition": "middle"}
             if current == tier and not from_grid else no_update
