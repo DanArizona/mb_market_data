@@ -547,6 +547,55 @@ class TestQuoteDashboard(unittest.TestCase):
         controller.restart()
         self.assertEqual(current_lists()["membership-focus-grid"]["rowData"], [])
 
+    def test_real_time_workspace_is_explicitly_readonly_and_refreshes_saved_status(self) -> None:
+        controller = overlay_controller()
+        controller.finish()
+        app = create_quote_dashboard(
+            controller,
+            live_mode=True,
+            live_refresh=lambda: (
+                0,
+                "Committed journal · saved controller phase COLLECTING_DEGRADED "
+                "(liveness not verified)",
+            ),
+        )
+        client = app.server.test_client()
+        layout = client.get("/_dash-layout")
+        self.addCleanup(layout.close)
+        self.assertEqual(layout.status_code, 200)
+        markup = layout.get_data(as_text=True)
+        self.assertIn('"id":"live-tail-tick"', markup)
+        self.assertIn('"id":"live-data-status"', markup)
+        self.assertIn('"value":"real-time"', markup)
+        self.assertIn("Real Time · committed read-only", markup)
+        self.assertIn("REAL TIME · READ-ONLY", markup)
+        self.assertNotIn('"id":"operator-confirm-button"', markup)
+        self.assertIn('"disabled":true', markup.lower())
+
+        key, callback = next(
+            (key, value) for key, value in app.callback_map.items()
+            if isinstance(value["output"], list)
+            and any(item.component_id == "live-data-status" for item in value["output"])
+        )
+        response = client.post("/_dash-update-component", json={
+            "output": key,
+            "outputs": [
+                {"id": item.component_id, "property": item.component_property}
+                for item in callback["output"]
+            ],
+            "changedPropIds": ["live-tail-tick.n_intervals"],
+            "inputs": [
+                {"id": "live-tail-tick", "property": "n_intervals", "value": 1},
+            ],
+            "state": [],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "liveness not verified",
+            response.get_json()["response"]["live-data-status"]["children"],
+        )
+
     def test_activity_bar_selects_sidebar_without_mutating_replay(self) -> None:
         controller = overlay_controller()
         app = create_quote_dashboard(controller)
