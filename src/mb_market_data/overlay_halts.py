@@ -89,7 +89,18 @@ def load_daily_nasdaq_halt_events(
         record = episode["record"]
         if str(record.get("symbol", "")).upper() != selected:
             raise ValueError("daily Nasdaq episode symbol differs from key")
-        if record.get("halt_date") != session_date.strftime("%m/%d/%Y"):
+        keyed_at = _parse_aware(key.split("@", 1)[1], "episode key")
+        keyed_date = keyed_at.astimezone(ET).date()
+        recorded_date = record.get("halt_date")
+        if keyed_date != session_date:
+            # A CURRENT feed can still report an episode that began on a
+            # previous trading date. Do not present it as today's new halt
+            # or block this symbol's otherwise valid quote history.
+            # Only ignore it when its key and recorded date agree.
+            if recorded_date != keyed_date.strftime("%m/%d/%Y"):
+                raise ValueError("daily Nasdaq episode key differs from halt date")
+            continue
+        if recorded_date != session_date.strftime("%m/%d/%Y"):
             raise ValueError("daily Nasdaq episode belongs to a different session")
         if record.get("retrieval_mode") != "CURRENT":
             raise ValueError("daily Nasdaq episode must have CURRENT retrieval mode")
@@ -97,7 +108,6 @@ def load_daily_nasdaq_halt_events(
         if not reason:
             raise ValueError("daily Nasdaq halt reason is missing")
         start = _time(session_date, record.get("halt_time"))
-        keyed_at = _parse_aware(key.split("@", 1)[1], "episode key")
         if abs((keyed_at - start.astimezone(timezone.utc)).total_seconds()) > 0.001:
             raise ValueError("daily Nasdaq episode key differs from halt time")
         first = _parse_aware(episode.get("first_observed_at"), "first_observed_at")
