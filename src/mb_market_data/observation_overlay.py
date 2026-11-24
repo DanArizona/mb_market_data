@@ -32,6 +32,10 @@ from mb_market_data.quote_journal_replay import (
     ReplayEvent,
 )
 from mb_market_data.sampling_membership import SamplingHierarchyRevision
+from mb_market_data.quote_observation_store import (
+    StoredAcquisition,
+    StoredQuoteObservation,
+)
 from mb_market_data.overlay_halts import OverlayHaltInterval
 
 
@@ -404,18 +408,44 @@ class ObservationOverlayProjector:
             )
         if not matches:
             return
-        observation = matches[0]
+        self.apply_selected_observation(event.acquisition, matches[0])
+
+    def apply_selected_observation(
+        self,
+        acquisition: StoredAcquisition,
+        observation: StoredQuoteObservation,
+    ) -> None:
+        """Apply *one* indexed symbol row without pretending it is a full batch.
+
+        This is a supplemental historical Overlay projection, not a journal
+        audit or substitute for the full-cardinality QuoteAcquisitionEvent.
+        Normal full replay continues to validate entire acquisitions.
+        """
+        available = _utc(acquisition.completed_at_utc, "acquisition.completed_at_utc")
+        if acquisition.session_date != self.session_date:
+            raise ObservationOverlayError("selected acquisition belongs to another session")
+        if (
+            observation.symbol != self.symbol
+            or observation.acquisition_id != acquisition.acquisition_id
+            or observation.channel != acquisition.channel
+            or observation.channel_revision != acquisition.channel_revision
+            or observation.scheduled_at_utc != acquisition.scheduled_at_utc
+        ):
+            raise ObservationOverlayError("selected observation/acquisition identity mismatch")
+        if self._last_available is not None and available < self._last_available:
+            raise ObservationOverlayError("indexed observations are out of causal order")
+        self._last_available = available
         self._quote_points.append(
             OverlayQuotePoint(
                 available_at_utc=available,
                 scheduled_at_utc=observation.scheduled_at_utc,
-                acquisition_id=event.acquisition.acquisition_id,
-                channel=event.acquisition.channel,
-                channel_revision=event.acquisition.channel_revision,
+                acquisition_id=acquisition.acquisition_id,
+                channel=acquisition.channel,
+                channel_revision=acquisition.channel_revision,
                 status=observation.status,
                 detail=observation.detail,
                 values=MappingProxyType(dict(observation.values)),
-                poll_seconds=self.poll_seconds_by_run.get(event.acquisition.run_id),
+                poll_seconds=self.poll_seconds_by_run.get(acquisition.run_id),
             )
         )
 
