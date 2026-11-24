@@ -405,7 +405,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         ):
             with self.assertRaisesRegex(OperatorProblem, "strictly lower tier"):
                 state.preview("INTC", "demote", "focus")
-            with self.assertRaisesRegex(OperatorProblem, "strictly lower tier"):
+            with self.assertRaisesRegex(OperatorProblem, "Choose promote"):
                 state.preview("INTC", "demote", "hot")
             with self.assertRaisesRegex(OperatorProblem, "already at or above"):
                 state.preview("INTC", "promote", "focus")
