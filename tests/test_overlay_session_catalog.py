@@ -1,6 +1,7 @@
 """Isolated, no-provider tests for the dated Overlay session attachment gate."""
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import date
 import json
 from pathlib import Path
@@ -41,7 +42,7 @@ class TestOverlaySessionCatalog(unittest.TestCase):
 
     def write_journal(self, *, user_version=2, contract=CONTRACT, day=DAY):
         self.journal.unlink(missing_ok=True)
-        with sqlite3.connect(self.journal) as db:
+        with closing(sqlite3.connect(self.journal)) as db, db:
             db.execute(f"PRAGMA user_version={user_version}")
             db.execute("CREATE TABLE store_identity (singleton INTEGER, schema_version INTEGER, session_date TEXT, membership_contract TEXT)")
             db.execute("INSERT INTO store_identity VALUES (1,?,?,?)", (user_version, day, contract))
