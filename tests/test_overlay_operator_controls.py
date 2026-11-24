@@ -234,6 +234,171 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertIn("Preview refused", denied["operator-preview-status"]["children"])
         self.assertEqual(self.backend.confirm_calls, [])
 
+    def test_drag_only_previews_and_never_queues_without_confirm(self):
+        app = self.app()
+        layout = app.server.test_client().get("/_dash-layout")
+        self.addCleanup(layout.close)
+        self.assertEqual(layout.status_code, 200)
+        self.assertIsNotNone(_component(layout.get_json(), "membership-drag-request"))
+        self.assertIsNotNone(_component(layout.get_json(), "membership-drag-status"))
+        for tier in ("uni", "focus", "hot"):
+            grid = _component(layout.get_json(), f"membership-{tier}-grid")
+            self.assertTrue(grid["props"]["columnDefs"][0]["rowDrag"])
+            self.assertTrue(grid["props"]["dashGridOptions"]["suppressRowDrag"])
+            self.assertTrue(grid["props"]["dashGridOptions"]["suppressMoveWhenRowDragging"])
+
+        token = _component(layout.get_json(), "operator-csrf")["props"]["data"]
+        key, cb = self.callback(app, "operator-proposal")
+        values = {
+            "operator-preview-button": 0,
+            "operator-confirm-button": 0,
+            "operator-symbol": "INTC",
+            "operator-action": "demote",
+            "operator-target": "focus",
+            "membership-drag-request": {
+                "symbol": "INTC", "source_tier": "hot",
+                "destination_tier": "focus", "nonce": "unique-1",
+            },
+        }
+        response = app.server.test_client().post("/_dash-update-component", json={
+            "output": key,
+            "outputs": [
+                {"id": item.component_id, "property": item.component_property}
+                for item in cb["output"]
+            ],
+            "changedPropIds": ["membership-drag-request.data"],
+            "inputs": [
+                {"id": item["id"], "property": item["property"],
+                 "value": values[item["id"]]}
+                for item in cb["inputs"]
+            ],
+            "state": [
+                {"id": "operator-proposal", "property": "data", "value": None},
+                {"id": "operator-csrf", "property": "data", "value": token},
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()["response"]
+        self.assertEqual(self.backend.drop_calls, [("INTC", "hot", "focus")])
+        self.assertEqual(self.backend.confirm_calls, [])
+        self.assertEqual(body["operator-proposal"]["data"]["before"], "hot")
+        self.assertEqual(body["operator-proposal"]["data"]["after"], "focus")
+        self.assertIn("DRAG PREVIEW ONLY", body["operator-preview-status"]["children"])
+        self.assertFalse(body["operator-confirm-button"]["disabled"])
+        self.assertIsNone(body["operator-command"]["data"])
+
+    def test_drop_backend_rechecks_actual_source_tier_before_preview(self):
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from datetime import datetime, timezone
+        from mb_market_data.overlay_manual_membership import preview_validated_drop
+
+        operator = SimpleNamespace(
+            clock=lambda: datetime(2026, 11, 24, tzinfo=timezone.utc),
+            preview=Mock(return_value={"proposal_id": "p-1"}),
+        )
+        with patch(
+            "mb_market_data.overlay_manual_membership.membership_snapshot",
+            return_value={"selected": {"tier": "hot"}},
+        ) as roster:
+            with self.assertRaisesRegex(ValueError, "Source tier changed"):
+                preview_validated_drop(operator, Path("/offline"), "INTC", "focus", "uni")
+            with self.assertRaisesRegex(ValueError, "different tiers"):
+                preview_validated_drop(operator, Path("/offline"), "INTC", "hot", "hot")
+            answer = preview_validated_drop(operator, Path("/offline"), "intc", "hot", "focus")
+        self.assertEqual(answer["proposal_id"], "p-1")
+        operator.preview.assert_called_once_with("INTC", "demote", "focus")
+        self.assertEqual(roster.call_count, 2)
+
+    def test_effective_worker_receipt_follows_matching_tier_only_once(self):
+        app = self.app()
+        self.backend.receipt_status = "PENDING"
+        self.backend.receipt_symbol = "SPY"
+        self.backend.receipt_target = "focus"
+        key, cb = self.callback(app, "operator-follow-request")
+        def check(seen=None):
+            response = app.server.test_client().post("/_dash-update-component", json={
+                "output": key,
+                "outputs": [
+                    {"id": item.component_id, "property": item.component_property}
+                    for item in cb["output"]
+                ],
+                "changedPropIds": ["operator-receipt-tick.n_intervals"],
+                "inputs": [
+                    {
+                        "id": item["id"], "property": item["property"],
+                        "value": (
+                            "manual-receipt-1" if item["id"] == "operator-command"
+                            else 3 if item["id"] == "operator-receipt-tick"
+                            else self.controller.snapshot().applied_event_count
+                        ),
+                    }
+                    for item in cb["inputs"]
+                ],
+                "state": [
+                    {"id": "operator-follow-seen", "property": "data", "value": seen},
+                ],
+            })
+            self.addCleanup(response.close)
+            return response
+
+        pending = check()
+        self.assertEqual(pending.status_code, 204)
+        self.backend.receipt_status = "EFFECTIVE_AS_PUBLISHED"
+        self.backend.receipt_target = "hot"  # current SPY is Focus, not Hot
+        mismatched = check()
+        self.assertEqual(mismatched.status_code, 204)
+        self.backend.receipt_target = "focus"
+        effective = check()
+        self.assertEqual(effective.status_code, 200)
+        values = effective.get_json()["response"]
+        follow = values["operator-follow-request"]["data"]
+        self.assertEqual(
+            follow, {
+                "command_id": "manual-receipt-1",
+                "symbol": "SPY", "tier": "focus",
+            },
+        )
+        self.assertEqual(
+            values["operator-follow-seen"]["data"], "manual-receipt-1",
+        )
+        again = check(seen="manual-receipt-1")
+        self.assertEqual(again.status_code, 204)
+
+        select_key, select_cb = self.callback(app, "membership-selected-symbol")
+        response = app.server.test_client().post("/_dash-update-component", json={
+            "output": select_key,
+            "outputs": [
+                {"id": item.component_id, "property": item.component_property}
+                for item in select_cb["output"]
+            ],
+            "changedPropIds": ["operator-follow-request.data"],
+            "inputs": [
+                {"id": item["id"], "property": item["property"],
+                 "value": follow if item["id"] == "operator-follow-request" else None}
+                for item in select_cb["inputs"]
+            ],
+            "state": [
+                {"id": item["id"], "property": item["property"],
+                 "value": "SPY" if item["id"] == "membership-search-symbol" else None}
+                for item in select_cb["state"]
+            ],
+        })
+        self.addCleanup(response.close)
+        self.assertEqual(response.status_code, 200)
+        updated = response.get_json()["response"]
+        self.assertEqual(updated["membership-selected-symbol"]["data"], "SPY")
+        self.assertEqual(
+            updated["membership-focus-grid"]["scrollTo"],
+            {"rowId": "SPY", "rowPosition": "middle"},
+        )
+        self.assertIn(
+            "selected automatically",
+            updated["membership-search-status"]["children"],
+        )
+
     def test_worker_receipt_status_is_read_only(self):
         app = self.app()
         callback_key, callback = next(
