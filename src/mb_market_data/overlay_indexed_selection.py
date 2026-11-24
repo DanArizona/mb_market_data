@@ -11,11 +11,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Callable
 
-from mb_market_data.observation_overlay import ObservationOverlayProjector
+from mb_market_data.observation_overlay import ET, ObservationOverlayProjector
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
     MembershipRevisionEvent,
-    QuoteAcquisitionEvent,
     QuoteJournalReplayReader,
     ReplayEvent,
     ReplayIntegrityError,
@@ -94,8 +93,7 @@ class IndexedOverlaySymbolSelection:
         if cutoff.tzinfo is None or cutoff.utcoffset() is None:
             raise ValueError("Indexed Overlay cutoff must be timezone-aware")
         cutoff = cutoff.astimezone(timezone.utc)
-        if cutoff.astimezone(projector.cache.request_start_et.tzinfo if projector.cache
-                                 else __import__("zoneinfo").ZoneInfo("America/New_York")).date() != self.reader.session_date:
+        if cutoff.astimezone(ET).date() != self.reader.session_date:
             raise ValueError("Indexed Overlay cutoff belongs to another session")
 
         revisions, acquisitions = self._headers()
