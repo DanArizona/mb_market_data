@@ -126,7 +126,13 @@ class TestIndexedOverlaySymbolSelection(unittest.TestCase):
         self.assertEqual(len(early.snapshot(START + timedelta(seconds=10)).quote_points), 1)
         self.assertEqual(early.snapshot(START + timedelta(seconds=10)).current_band, MembershipBand.HOT)
         other = indexed("AAA", START + timedelta(seconds=30), None)
-        self.assertEqual(len(other.snapshot(START + timedelta(seconds=30)).quote_points), 1)
+        # Both a1 and a2 contain AAA at this cutoff; preserve both.
+        self.assertEqual(
+            [point.acquisition_id for point in other.snapshot(
+                START + timedelta(seconds=30)
+            ).quote_points],
+            ["a1", "a2"],
+        )
         self.assertEqual(store.header_calls, 2)
         self.assertEqual(store.selection_calls, ["BBB", "AAA"])
 
