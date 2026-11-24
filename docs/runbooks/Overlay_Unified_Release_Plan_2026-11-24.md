@@ -54,6 +54,38 @@ The timetable is an ordering of work, not a promise that an unqualified feature 
 - Tests, at least one real historical journal exercise, at least one bounded live integration exercise, and an explicit separate production-deployment decision are completed.
 - No order placement or trade execution is enabled by this release.
 
+## November 24 — experimental operator-panel progress (NOT production authorized)
+
+An existing operator backend was copied **without modification** from
+`experiment/overlay-membership-bridge-20261119` into this unified experimental
+branch (`daily_operator_ui.py` plus its static assets). The already established
+`OperatorState` and `daily_membership.submit` remain the only Preview / request
+submission path. No new membership writer or direct SQLite update was added.
+
+The unified Dashboard now has an **explicit opt-in** launch flag
+`--enable-manual-membership-actions`, available only with a verified
+`--real-time-data-root` for the current ET session. Without that flag,
+**ordinary Real Time and all Historical sessions remain read-only and have no
+manual action controls**. With it, the Real Time Membership inspector offers
+an editable symbol (including outside-Uni candidates), Promote or Ordinary
+Demote, target tier, **Preview**, separate **Confirm and queue request**, and
+the existing worker receipt status. Every input change invalidates the current
+preview. The operator's own short-lived proposal, owner/worker heartbeat,
+revision, action, cap and identity checks are re-evaluated on Confirm.
+The web process never publishes a hierarchy revision itself.
+
+The per-viewer operator session token is checked by both action callbacks.
+The displayed request status distinguishes **queued** from **effective** and
+does not claim success until the existing worker receipt says so. The new
+unified panel does not yet implement the synthetic prototype's drag/drop
+gesture or automatic selection after a newly effective promotion.
+
+**No production request has been submitted.** Even though the flag exists in
+experimental source, do not launch it against production or click Confirm
+without a separate attended authorization and a qualified Windows exercise.
+The right next check is the **default-disabled / no-network** UI verification,
+followed by a bounded synthetic operator exercise.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
