@@ -12,8 +12,41 @@ from datetime import date
 from pathlib import Path
 
 from .daily_membership import CONTRACT, normalized, read, report_result
-from .daily_operator_ui import OperatorState
+from .daily_operator_ui import OperatorProblem, OperatorState, membership_snapshot
 from .overlay_session_catalog import inspect_session
+
+
+def preview_validated_drop(
+    state: OperatorState,
+    root: Path,
+    symbol: str,
+    source_tier: str,
+    destination_tier: str,
+) -> dict:
+    """Check actual effective source, then preview; a drop NEVER submits.
+
+    Source/target/symbol are untrusted browser inputs. The authoritative
+    OperatorState.preview rechecks owner heartbeat, capacity, effective
+    revision and the 90-second deadline before any later Confirm.
+    """
+    tiers = ("uni", "focus", "hot")
+    if (
+        source_tier not in tiers
+        or destination_tier not in tiers
+        or source_tier == destination_tier
+    ):
+        raise OperatorProblem("Drop must move one symbol between different tiers.", 400)
+    exact_symbol = normalized(symbol)
+    record = membership_snapshot(root, selected=exact_symbol, clock=state.clock)
+    effective = record.get("selected")
+    if not isinstance(effective, dict) or effective.get("tier") != source_tier:
+        raise OperatorProblem("Source tier changed or is unavailable. Refresh and retry.")
+    action = (
+        "promote"
+        if tiers.index(destination_tier) > tiers.index(source_tier)
+        else "demote"
+    )
+    return state.preview(exact_symbol, action, destination_tier)
 
 
 class RealTimeMembershipOperator:
@@ -49,6 +82,13 @@ class RealTimeMembershipOperator:
     def preview(self, symbol: str, action: str, target: str) -> dict:
         """Advisory, nonmutating preview, with existing owner/worker gates."""
         return self._state.preview(normalized(symbol), action, target)
+
+    def preview_drop(
+        self, symbol: str, source_tier: str, destination_tier: str,
+    ) -> dict:
+        return preview_validated_drop(
+            self._state, self.root, symbol, source_tier, destination_tier,
+        )
 
     def confirm(self, proposal_id: str) -> dict:
         """Explicitly queue via existing submit; never publish the journal."""
