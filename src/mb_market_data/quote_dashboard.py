@@ -1658,11 +1658,43 @@ def create_quote_dashboard(
     if operator_enabled:
         @app.callback(
             Output("operator-symbol", "value"),
+            Output("operator-action", "value"),
+            Output("operator-target", "value"),
             Input("membership-selected-symbol", "data"),
+            Input("membership-drag-request", "data"),
             prevent_initial_call=True,
         )
-        def sync_operator_selected_symbol(symbol: str | None) -> Any:
-            return symbol if isinstance(symbol, str) and symbol else no_update
+        def sync_operator_selected_symbol(
+            symbol: str | None,
+            proposed_drag: Mapping[str, Any] | None,
+        ) -> tuple[Any, Any, Any]:
+            # Reflect a drop's proposed action in the controls. A preview is
+            # produced independently; this reflection NEVER submits anything.
+            if (
+                "membership-drag-request.data" in ctx.triggered_prop_ids
+                and isinstance(proposed_drag, dict)
+            ):
+                source, target = (
+                    proposed_drag.get("source_tier"),
+                    proposed_drag.get("destination_tier"),
+                )
+                tiers = ("uni", "focus", "hot")
+                proposed_symbol = proposed_drag.get("symbol")
+                if (
+                    source in tiers and target in tiers and source != target
+                    and isinstance(proposed_symbol, str)
+                ):
+                    action = (
+                        "promote" if tiers.index(target) > tiers.index(source)
+                        else "demote"
+                    )
+                    return proposed_symbol.strip().upper(), action, target
+                return (no_update,) * 3
+            return (
+                symbol if isinstance(symbol, str) and symbol else no_update,
+                no_update,
+                no_update,
+            )
 
         @app.callback(
             Output("operator-proposal", "data"),
@@ -1675,6 +1707,7 @@ def create_quote_dashboard(
             Input("operator-symbol", "value"),
             Input("operator-action", "value"),
             Input("operator-target", "value"),
+            Input("membership-drag-request", "data"),
             State("operator-proposal", "data"),
             State("operator-csrf", "data"),
             prevent_initial_call=True,
@@ -1685,6 +1718,7 @@ def create_quote_dashboard(
             symbol: str | None,
             action: str | None,
             target: str | None,
+            proposed_drag: Mapping[str, Any] | None,
             proposal: Mapping[str, Any] | None,
             csrf: str | None,
         ) -> tuple[Any, ...]:
@@ -1693,7 +1727,35 @@ def create_quote_dashboard(
                 return None, "Operator session authorization invalid.", True, None, "No request queued."
             trigger = ctx.triggered_id
             if trigger in {"operator-symbol", "operator-action", "operator-target"}:
+                if (
+                    isinstance(proposal, dict)
+                    and str(symbol or "").strip().upper() == proposal.get("symbol")
+                    and action == proposal.get("action")
+                    and target == proposal.get("target")
+                ):
+                    # Programmatic echo from a drop filling the action fields
+                    # must not erase its newly created PREVIEW.
+                    return (no_update,) * 5
                 return None, "Selection changed. Preview again.", True, None, "No request queued."
+            if trigger == "membership-drag-request":
+                if not isinstance(proposed_drag, dict):
+                    return None, "Invalid drag request.", True, None, "No request queued."
+                try:
+                    reviewed = operator_actions.preview_drop(
+                        str(proposed_drag.get("symbol", "")),
+                        str(proposed_drag.get("source_tier", "")),
+                        str(proposed_drag.get("destination_tier", "")),
+                    )
+                except (OSError, ValueError, TypeError, KeyError) as error:
+                    return None, f"Drop preview refused: {error}", True, None, "No request queued."
+                message = (
+                    f"DRAG PREVIEW ONLY · {reviewed['symbol']}: "
+                    f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
+                    f"({reviewed['action']}); r{reviewed['based_on_revision']}; "
+                    f"expires {reviewed['expires_at_utc']}. "
+                    "No command queued. Confirm below only after review."
+                )
+                return reviewed, message, False, None, "No request queued."
             if trigger == "operator-preview-button":
                 try:
                     reviewed = operator_actions.preview(
