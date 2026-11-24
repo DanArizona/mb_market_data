@@ -129,36 +129,46 @@ def main() -> int:
             args.overlay_symbol.strip().upper() != overlay_cache.symbol
         ):
             raise ValueError("--overlay-symbol differs from OHLCV cache symbol")
-        overlay_projector_factory = (
-            partial(
-                ObservationOverlayProjector,
-                cache=overlay_cache,
-                symbol=overlay_symbol,
+        poll_seconds_by_run = reader.poll_seconds_by_run() if overlay_symbol else {}
+
+        def make_overlay_projector(selected_symbol: str) -> ObservationOverlayProjector:
+            """Use only the exact selected-symbol/date cache and halt evidence."""
+            selected = selected_symbol.strip().upper()
+            return ObservationOverlayProjector(
+                cache=(
+                    overlay_cache
+                    if overlay_cache is not None and overlay_cache.symbol == selected
+                    else None
+                ),
+                symbol=selected,
                 session_date=reader.session_date,
-                poll_seconds_by_run=reader.poll_seconds_by_run(),
+                poll_seconds_by_run=poll_seconds_by_run,
                 halt_intervals=(
                     load_overlay_halt_intervals(
                         args.nasdaq_halts_json,
-                        symbol=overlay_symbol,
+                        symbol=selected,
                         session_date=reader.session_date,
                     )
                     if args.nasdaq_halts_json is not None
                     else load_daily_nasdaq_halt_events(
                         args.nasdaq_daily_events_json,
-                        symbol=overlay_symbol,
+                        symbol=selected,
                         session_date=reader.session_date,
                     )
                     if args.nasdaq_daily_events_json is not None
                     else ()
                 ),
             )
-            if overlay_symbol is not None
-            else None
+
+        overlay_projector_factory = (
+            partial(make_overlay_projector, overlay_symbol)
+            if overlay_symbol is not None else None
         )
         controller = QuoteDashboardReplayController(
             timeline=timeline,
             event_factory=reader.events,
             overlay_projector_factory=overlay_projector_factory,
+            symbol_projector_factory=make_overlay_projector if overlay_symbol else None,
             overlay_end_at_utc=(
                 overlay_cache.request_end_et if overlay_cache is not None else None
             ),
