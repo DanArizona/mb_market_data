@@ -141,8 +141,9 @@ separate Confirm button after reviewing action, target and revision.
 In ordinary Historical and read-only Real Time, drag controls and the
 corresponding callback are absent. In explicitly enabled controlled Real
 Time, they are available only within the locally attached operator session.
-The previous manual Preview/Confirm form remains a fallback if AG Grid
-drag binding is unavailable.
+The manual symbol/action/destination form remains available when AG Grid
+drag binding is unavailable. Manual changes now prepare a preview
+automatically, with only an explicit Confirm able to queue a request.
 
 A second callback watches the existing worker receipt and the projected
 membership roster. It auto-selects/scrolls the symbol to the destination tier
@@ -190,9 +191,52 @@ confirmed request, not the current editable proposal. A separate callback
 regression test covers confirm → automatic selection → preview/refusal with
 `EFFECTIVE_AS_PUBLISHED` preserved.
 
-This correction is **not yet Windows GUI verified**. Historical/read-only
+The correction was **visually verified on MasterBot**: the user screenshot
+shows INTC effective in Focus at r3, selected automatically, with the worker
+receipt still displaying `EFFECTIVE_AS_PUBLISHED`. Historical/read-only
 Real Time continue to exclude operator actions; no production files,
 credentials, membership worker or main branch are changed.
+
+## November 24 — one-button controlled Membership preview (experimental)
+
+The operator confirmed that two separately labeled buttons were confusing
+during drag tests. The user also encountered a disabled Confirm control when
+a drag's Hot → Focus demotion intent was temporarily reflected as
+`Promote → Focus`. That was a UI event-ordering issue, not authorization
+to bypass the backend checks.
+
+**Intended interaction:** an explicit drag or a manual selection of Symbol,
+Action and Destination prepares a reviewed, nonmutating **preview**.
+The UI exposes only one action button:
+`Confirm and queue request`. The server still performs the established
+`OperatorState.preview` checks (current tier, hierarchy revision, Hot
+capacity, session/worker eligibility, 90-second expiry), and Confirm
+revalidates again before queueing. Neither preview nor drag writes directly
+to the production journal.
+
+The bridge now emits symbol, action, target and a validated drag-intent store
+in one Dash callback. A mismatched intermediate field echo cannot enable
+Confirm. A subsequent matching preview or manual field edit prepares the
+proposal automatically; an action/destination change invalidates the old
+proposal and recomputes it. Backend preview errors leave Confirm disabled.
+The last confirmed command ID and worker receipt are retained independently
+when preparing other actions.
+
+**Safe startup:** Action and Destination begin unselected; an initial
+application load never arms a request. The user deliberately chooses these
+fields, or performs a drag, to prepare a preview. After an effective worker
+revision, automatic symbol following does not silently change the target
+to the reverse action or arm Confirm. The explicit next action is always
+operator initiated. An expired proposal requires a new field selection
+or another drag.
+
+**Validation status:** experimental branch has additional isolated callback
+regression coverage for (a) manual auto-preview and one Confirm, (b) atomic
+drag reflection, (c) mismatched intermediate values remaining disabled, and
+(d) auto-follow not choosing an automatic reverse action. These changes
+still require Windows QA and a fresh synthetic visual check. Historical
+and ordinary read-only Real Time remain read-only; main and production
+remain untouched.
 
 ## Next project milestone after a usable Overlay
 
