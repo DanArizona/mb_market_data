@@ -86,6 +86,43 @@ without a separate attended authorization and a qualified Windows exercise.
 The right next check is the **default-disabled / no-network** UI verification,
 followed by a bounded synthetic operator exercise.
 
+## Disposable unified Membership GUI qualification
+
+`preview_unified_operator_synthetic.cmd` is an explicit, offline-only
+test entrypoint in this experimental branch. It creates a temporary schema-v2
+journal with **fabricated** stock prices, a temporary owner heartbeat, and the
+**existing daily Membership worker** using a synthetic-only identity fixture.
+It opens the actual unified Real Time Membership panel with an unmistakable
+OFFLINE SYNTHETIC banner, then deletes temporary files after the in-app
+**Stop server** button is used. The normal production read-only viewer and
+production launch flags are not needed.
+
+From the separate MasterBot `dashing` experiment checkout:
+
+```cmd
+call preview_unified_operator_synthetic.cmd --port 8062
+```
+
+Open `http://127.0.0.1:8062` in Firefox. In **Membership**, set INTC,
+Ordinary demote, destination Focus. Click **Preview action** and inspect
+the before/after and revision. Only then click **Confirm and queue request**.
+Look for the worker receipt and the effective Focus membership after the short
+lead time. Once effective, preview and confirm promotion back to Hot. Use
+**Stop server** in Firefox to close and remove the disposable journal.
+
+The synthetic driver calls `OperatorState` directly against the freshly
+seeded temporary plan. The production-only `RealTimeMembershipOperator`
+correctly rejects synthetic plans, and the synthetic launcher does not use the
+real production plan, Schwab, real credentials, or a production quote journal.
+A synthetic identity allowlist is only a fixture; it is **not** a real exchange
+listing or security validation.
+
+**This has not yet been exercised in a Windows GUI**, and production control
+remains unauthorized. The next gate is the full isolated
+`verify_overlay_workspace.cmd` followed by this bounded demo, not a live
+operator launch. Drag/drop, auto-scroll following effective changes, OHLCV
+automatic acquisition and UI calendar remain pending unified-release features.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
