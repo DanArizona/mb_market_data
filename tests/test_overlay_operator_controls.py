@@ -96,12 +96,11 @@ class TestOverlayOperatorControls(unittest.TestCase):
                         target: str = "hot", proposal: dict | None = None):
         key, cb = self.callback(app, "operator-proposal")
         vals = {
-            ("operator-preview-button", "n_clicks"): 1,
             ("operator-confirm-button", "n_clicks"): 1,
             ("operator-symbol", "value"): symbol,
             ("operator-action", "value"): action,
             ("operator-target", "value"): target,
-            ("membership-drag-request", "data"): None,
+            ("operator-drag-intent", "data"): None,
             ("operator-proposal", "data"): proposal,
             ("operator-csrf", "data"): token,
         }
@@ -191,7 +190,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         import json
         self.assertIn("REAL TIME · CONTROLLED", json.dumps(response.get_json(), ensure_ascii=False))
 
-        preview = self.invoke_operator(app, token, "operator-preview-button.n_clicks")
+        preview = self.invoke_operator(app, token, "operator-action.value")
         self.assertEqual(self.backend.preview_calls, [("SPY", "promote", "hot")])
         self.assertEqual(self.backend.confirm_calls, [])
         self.assertFalse(preview["operator-confirm-button"]["disabled"])
@@ -216,7 +215,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.addCleanup(layout.close)
         token = _component(layout.get_json(), "operator-csrf")["props"]["data"]
 
-        preview = self.invoke_operator(app, token, "operator-preview-button.n_clicks")
+        preview = self.invoke_operator(app, token, "operator-action.value")
         submitted = self.invoke_operator(
             app, token, "operator-confirm-button.n_clicks",
             proposal=preview["operator-proposal"]["data"],
@@ -237,12 +236,12 @@ class TestOverlayOperatorControls(unittest.TestCase):
 
         # New previews and denied previews must leave the last receipt intact.
         another = self.invoke_operator(
-            app, token, "operator-preview-button.n_clicks", symbol="SPY",
+            app, token, "operator-action.value", symbol="SPY",
         )
         self.assertNotIn("operator-command", another)
         self.assertNotIn("operator-submit-status", another)
         failed = self.invoke_operator(
-            app, token, "operator-preview-button.n_clicks", symbol="BAD",
+            app, token, "operator-action.value", symbol="BAD",
         )
         self.assertNotIn("operator-command", failed)
         self.assertNotIn("operator-submit-status", failed)
@@ -276,12 +275,12 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.addCleanup(response.close)
         token = _component(response.get_json(), "operator-csrf")["props"]["data"]
         invalid = self.invoke_operator(
-            app, "unauthorized", "operator-preview-button.n_clicks"
+            app, "unauthorized", "operator-action.value"
         )
         self.assertIn("authorization invalid", invalid["operator-preview-status"]["children"])
         self.assertEqual(self.backend.preview_calls, [])
 
-        preview = self.invoke_operator(app, token, "operator-preview-button.n_clicks")
+        preview = self.invoke_operator(app, token, "operator-action.value")
         stale = self.invoke_operator(
             app, token, "operator-confirm-button.n_clicks",
             target="uni", proposal=preview["operator-proposal"]["data"],
@@ -294,9 +293,9 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertIsNone(changed["operator-proposal"]["data"])
         self.assertTrue(changed["operator-confirm-button"]["disabled"])
         denied = self.invoke_operator(
-            app, token, "operator-preview-button.n_clicks", symbol="BAD"
+            app, token, "operator-action.value", symbol="BAD"
         )
-        self.assertIn("Preview refused", denied["operator-preview-status"]["children"])
+        self.assertIn("Automatic preview unavailable", denied["operator-preview-status"]["children"])
         self.assertEqual(self.backend.confirm_calls, [])
 
     def test_drag_only_previews_and_never_queues_without_confirm(self):
@@ -316,12 +315,11 @@ class TestOverlayOperatorControls(unittest.TestCase):
         token = _component(layout.get_json(), "operator-csrf")["props"]["data"]
         key, cb = self.callback(app, "operator-proposal")
         values = {
-            "operator-preview-button": 0,
             "operator-confirm-button": 0,
             "operator-symbol": "INTC",
             "operator-action": "demote",
             "operator-target": "focus",
-            "membership-drag-request": {
+            "operator-drag-intent": {
                 "symbol": "INTC", "source_tier": "hot",
                 "destination_tier": "focus", "nonce": "unique-1",
             },
@@ -332,7 +330,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
                 {"id": item.component_id, "property": item.component_property}
                 for item in cb["output"]
             ],
-            "changedPropIds": ["membership-drag-request.data"],
+            "changedPropIds": ["operator-drag-intent.data"],
             "inputs": [
                 {"id": item["id"], "property": item["property"],
                  "value": values[item["id"]]}
