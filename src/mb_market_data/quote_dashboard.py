@@ -439,13 +439,14 @@ def _membership_search_tier(
 def _membership_operator_controls(
     html: Any, dcc: Any, selected_symbol: str | None,
 ) -> Any:
-    """Explicitly opt-in, preview-first controls; no direct journal edits."""
+    """One-click confirmation after automatic advisory preview; no journal edits."""
     return html.Section(
         [
             html.H3("Manual Membership · controlled", className="membership-inspector-title"),
             html.P(
-                "This viewer queues requests only after Preview and Confirm. "
-                "The existing authenticated worker decides whether to publish.",
+                "Choose a symbol and destination, or drag a row. A preview appears "
+                "automatically; Confirm is the only button required to queue "
+                "a request. The existing worker decides whether to publish.",
                 className="membership-details-note",
             ),
             html.Label(
@@ -458,6 +459,7 @@ def _membership_operator_controls(
                         maxLength=20,
                         placeholder="Ticker, including outside Uni",
                         autoComplete="off",
+                        debounce=True,
                         className="membership-search-input",
                     ),
                 ],
@@ -499,14 +501,8 @@ def _membership_operator_controls(
                 ],
                 className="operator-action-inputs",
             ),
-            html.Button(
-                "Preview action",
-                id="operator-preview-button",
-                n_clicks=0,
-                className="membership-find-button",
-            ),
             html.Div(
-                "No action previewed.",
+                "Choose a symbol, action, and target to prepare a preview.",
                 id="operator-preview-status",
                 className="membership-search-status",
                 role="status",
@@ -1057,6 +1053,7 @@ def create_quote_dashboard(
                     dcc.Store(id="operator-follow-request"),
                     dcc.Store(id="operator-follow-seen"),
                     dcc.Store(id="membership-drag-request"),
+                    dcc.Store(id="operator-drag-intent"),
                     dcc.Store(id="membership-drag-binding-status"),
                     dcc.Interval(id="operator-receipt-tick", interval=3_000),
                 ] if operator_enabled else []
@@ -1667,15 +1664,15 @@ def create_quote_dashboard(
         def drag_setup_status(binding: Mapping[str, Any] | None) -> str:
             if binding and binding.get("ready") is True:
                 return (
-                    "Drag a symbol by its grip onto another tier to Preview. "
-                    "No membership changes until separate Confirm."
+                    "Drag a symbol by its grip to prepare the Preview automatically. "
+                    "Only Confirm queues a Membership request."
                 )
             if binding and binding.get("phase") == "drag-unavailable":
                 return (
-                    "Drag unavailable; manual Preview remains available. "
+                    "Drag unavailable; choose manual fields for automatic Preview. "
                     + str(binding.get("reason") or "")
                 )
-            return "Preparing drag handles; manual Preview remains available."
+            return "Preparing drag handles; manual fields prepare previews automatically."
 
     if operator_enabled:
         @app.callback(
