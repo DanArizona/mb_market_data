@@ -178,7 +178,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Historical"):
             create_quote_dashboard(self.controller, operator_actions=self.backend)
 
-    def test_preview_is_nonmutating_and_confirm_requires_separate_click(self):
+    def test_manual_fields_auto_preview_and_single_confirm_queues_once(self):
         app = self.app()
         response = app.server.test_client().get("/_dash-layout")
         self.addCleanup(response.close)
@@ -187,6 +187,7 @@ class TestOverlayOperatorControls(unittest.TestCase):
         controls = _component(response.get_json(), "operator-controls-panel")
         self.assertIsNotNone(controls)
         self.assertTrue(_component(controls, "operator-confirm-button")["props"]["disabled"])
+        self.assertIsNone(_component(controls, "operator-preview-button"))
         import json
         self.assertIn("REAL TIME · CONTROLLED", json.dumps(response.get_json(), ensure_ascii=False))
 
@@ -229,10 +230,10 @@ class TestOverlayOperatorControls(unittest.TestCase):
             app, token, "operator-symbol.value", symbol="SPY",
             proposal=None,
         )
-        self.assertIn("Selection changed", selected["operator-preview-status"]["children"])
+        self.assertIn("AUTOMATIC PREVIEW ONLY", selected["operator-preview-status"]["children"])
         self.assertNotIn("operator-command", selected)
         self.assertNotIn("operator-submit-status", selected)
-        self.assertTrue(selected["operator-confirm-button"]["disabled"])
+        self.assertFalse(selected["operator-confirm-button"]["disabled"])
 
         # New previews and denied previews must leave the last receipt intact.
         another = self.invoke_operator(
@@ -290,8 +291,9 @@ class TestOverlayOperatorControls(unittest.TestCase):
         self.assertEqual(self.backend.confirm_calls, [])
         changed = self.invoke_operator(app, token, "operator-symbol.value", symbol="QQQ",
                                        proposal=preview["operator-proposal"]["data"])
-        self.assertIsNone(changed["operator-proposal"]["data"])
-        self.assertTrue(changed["operator-confirm-button"]["disabled"])
+        self.assertEqual(changed["operator-proposal"]["data"]["symbol"], "QQQ")
+        self.assertIn("AUTOMATIC PREVIEW ONLY", changed["operator-preview-status"]["children"])
+        self.assertFalse(changed["operator-confirm-button"]["disabled"])
         denied = self.invoke_operator(
             app, token, "operator-action.value", symbol="BAD"
         )
