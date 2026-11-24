@@ -1737,18 +1737,16 @@ def create_quote_dashboard(
             Output("operator-confirm-button", "disabled"),
             Output("operator-command", "data"),
             Output("operator-submit-status", "children"),
-            Input("operator-preview-button", "n_clicks"),
             Input("operator-confirm-button", "n_clicks"),
             Input("operator-symbol", "value"),
             Input("operator-action", "value"),
             Input("operator-target", "value"),
-            Input("membership-drag-request", "data"),
+            Input("operator-drag-intent", "data"),
             State("operator-proposal", "data"),
             State("operator-csrf", "data"),
             prevent_initial_call=True,
         )
         def handle_operator_request(
-            _preview_clicks: int | None,
             _confirm_clicks: int | None,
             symbol: str | None,
             action: str | None,
@@ -1757,84 +1755,147 @@ def create_quote_dashboard(
             proposal: Mapping[str, Any] | None,
             csrf: str | None,
         ) -> tuple[Any, ...]:
-            """Keep the last submitted command visible while editing the next.
+            """Prepare an advisory Preview automatically; only Confirm submits.
 
-            Preview invalidation only clears its own proposal/Confirm state.
-            Worker receipts belong to the last confirmed command, not the
-            current editable symbol or drag selection.
+            The frontend may update the symbol/action/target together after a
+            drop. The drag intent arrives in that SAME update and takes
+            precedence over intermediate field echoes. Echoes matching an
+            existing preview do not invalidate it. All calls to Confirm still
+            check the exact displayed fields and the backend worker gate.
+            The last confirmed command and receipt persist separately.
             """
             if csrf != operator_token:
-                return None, "Operator session authorization invalid.", True, no_update, no_update
-            trigger = ctx.triggered_id
-            if trigger in {"operator-symbol", "operator-action", "operator-target"}:
-                if (
-                    isinstance(proposal, dict)
-                    and str(symbol or "").strip().upper() == proposal.get("symbol")
-                    and action == proposal.get("action")
-                    and target == proposal.get("target")
-                ):
-                    # Programmatic echo from a drop filling the action fields
-                    # must not erase its newly created PREVIEW.
-                    return (no_update,) * 5
-                return None, "Selection changed. Preview again.", True, no_update, no_update
-            if trigger == "membership-drag-request":
-                if not isinstance(proposed_drag, dict):
-                    return None, "Invalid drag request.", True, no_update, no_update
-                try:
-                    reviewed = operator_actions.preview_drop(
-                        str(proposed_drag.get("symbol", "")),
-                        str(proposed_drag.get("source_tier", "")),
-                        str(proposed_drag.get("destination_tier", "")),
-                    )
-                except (OSError, ValueError, TypeError, KeyError) as error:
-                    return None, f"Drop preview refused: {error}", True, no_update, no_update
-                message = (
-                    f"DRAG PREVIEW ONLY · {reviewed['symbol']}: "
-                    f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
-                    f"({reviewed['action']}); r{reviewed['based_on_revision']}; "
-                    f"expires {reviewed['expires_at_utc']}. "
-                    "No command queued. Confirm below only after review."
+                return (
+                    None, "Operator session authorization invalid.", True,
+                    no_update, no_update,
                 )
-                return reviewed, message, False, no_update, no_update
-            if trigger == "operator-preview-button":
-                try:
-                    reviewed = operator_actions.preview(
-                        str(symbol or ""), str(action or ""), str(target or "")
-                    )
-                except (OSError, ValueError, TypeError, KeyError) as error:
-                    return None, f"Preview refused: {error}", True, no_update, no_update
-                status = (
-                    f"PREVIEW ONLY · {reviewed['symbol']}: "
-                    f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
-                    f"({reviewed['action']}); based on revision "
-                    f"r{reviewed['based_on_revision']}; "
-                    f"expires {reviewed['expires_at_utc']}. "
-                    f"{reviewed.get('note', '')}"
-                )
-                return reviewed, status, False, no_update, no_update
-            if trigger == "operator-confirm-button":
+            changed = set(ctx.triggered_prop_ids)
+            normalized_symbol = str(symbol or "").strip().upper()
+            requested_action = str(action or "")
+            requested_target = str(target or "")
+            requested = (normalized_symbol, requested_action, requested_target)
+
+            if "operator-confirm-button.n_clicks" in changed:
                 if not isinstance(proposal, dict) or not proposal.get("proposal_id"):
-                    return None, "No current preview. Preview again.", True, no_update, no_update
-                if (
-                    str(symbol or "").strip().upper() != proposal.get("symbol")
-                    or action != proposal.get("action")
-                    or target != proposal.get("target")
-                ):
-                    return None, "Request changed since preview. Preview again.", True, no_update, no_update
+                    return (
+                        None, "No current preview. Select the action again.",
+                        True, no_update, no_update,
+                    )
+                recorded = (
+                    proposal.get("symbol"),
+                    proposal.get("action"),
+                    proposal.get("target"),
+                )
+                if requested != recorded:
+                    return (
+                        None, "Request changed since preview. Review the updated action.",
+                        True, no_update, no_update,
+                    )
                 try:
                     result = operator_actions.confirm(proposal["proposal_id"])
                     request = result["request"]
                     command_id = request["id"]
                 except (OSError, ValueError, TypeError, KeyError) as error:
-                    return None, f"Confirm refused: {error}", True, no_update, no_update
+                    return (
+                        None, f"Confirm refused: {error}",
+                        True, no_update, no_update,
+                    )
                 return (
                     None,
-                    f"Preview confirmed for {proposal['symbol']}; no direct journal edit.",
+                    f"Confirmed {proposal['symbol']}: "
+                    f"{proposal['before'].upper()} → {proposal['after'].upper()}. "
+                    "The worker request is queued; membership is not yet effective.",
                     True,
                     command_id,
                     f"LAST REQUEST QUEUED · {command_id}. "
-                    "Await the existing membership worker's receipt; effectiveness is not yet confirmed.",
+                    "Await the existing membership worker's receipt.",
                 )
+
+            if "operator-drag-intent.data" in changed:
+                if not isinstance(proposed_drag, dict):
+                    return (
+                        None, "Invalid drag intent. Try dragging again.",
+                        True, no_update, no_update,
+                    )
+                source = proposed_drag.get("source_tier")
+                destination = proposed_drag.get("destination_tier")
+                dropped_symbol = proposed_drag.get("symbol")
+                ranks = ("uni", "focus", "hot")
+                if source not in ranks or destination not in ranks or source == destination:
+                    return (
+                        None, "Drop must be between two different Membership tiers.",
+                        True, no_update, no_update,
+                    )
+                expected = (
+                    str(dropped_symbol or "").strip().upper(),
+                    "promote" if ranks.index(destination) > ranks.index(source) else "demote",
+                    destination,
+                )
+                if requested != expected:
+                    # The UI has not yet reflected the drag intent into all
+                    # three controls. NEVER enable Confirm for mismatched
+                    # fields; their subsequent change automatically previews.
+                    return (
+                        None, "Preparing the drop preview; controls are synchronizing.",
+                        True, no_update, no_update,
+                    )
+                try:
+                    reviewed = operator_actions.preview_drop(
+                        expected[0], source, destination,
+                    )
+                except (OSError, ValueError, TypeError, KeyError) as error:
+                    return (
+                        None, f"Drop preview refused: {error}",
+                        True, no_update, no_update,
+                    )
+                status = (
+                    f"DRAG PREVIEW ONLY · {reviewed['symbol']}: "
+                    f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
+                    f"({reviewed['action']}); based on r{reviewed['based_on_revision']}; "
+                    f"expires {reviewed['expires_at_utc']}. "
+                    "Review this change, then click Confirm once."
+                )
+                return reviewed, status, False, no_update, no_update
+
+            if changed & {
+                "operator-symbol.value",
+                "operator-action.value",
+                "operator-target.value",
+            }:
+                if (
+                    isinstance(proposal, dict)
+                    and requested == (
+                        proposal.get("symbol"),
+                        proposal.get("action"),
+                        proposal.get("target"),
+                    )
+                ):
+                    # Programmatic field echoes from drag/selection must not
+                    # erase the current valid Preview or the last receipt.
+                    return (no_update,) * 5
+                if not normalized_symbol:
+                    return (
+                        None, "Enter a symbol to prepare a preview.",
+                        True, no_update, no_update,
+                    )
+                try:
+                    reviewed = operator_actions.preview(
+                        normalized_symbol, requested_action, requested_target,
+                    )
+                except (OSError, ValueError, TypeError, KeyError) as error:
+                    return (
+                        None, f"Automatic preview unavailable: {error}",
+                        True, no_update, no_update,
+                    )
+                status = (
+                    f"AUTOMATIC PREVIEW ONLY · {reviewed['symbol']}: "
+                    f"{reviewed['before'].upper()} → {reviewed['after'].upper()} "
+                    f"({reviewed['action']}); based on r{reviewed['based_on_revision']}; "
+                    f"expires {reviewed['expires_at_utc']}. "
+                    "Review this change, then click Confirm once."
+                )
+                return reviewed, status, False, no_update, no_update
+
             return (no_update,) * 5
 
         @app.callback(
