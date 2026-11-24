@@ -47,6 +47,87 @@ class TestOverlayHalts(unittest.TestCase):
         self.assertEqual(event.first_observed_at_utc.isoformat(),
                          "2026-11-13T14:32:03.368991+00:00")
 
+    def test_daily_halt_skips_prior_day_episode_but_keeps_current_episode(self) -> None:
+        """Nasdaq's CURRENT snapshot may carry an older JAGX halt episode."""
+        session = date(2026, 11, 24)
+        previous = {
+            "first_observed_at": "2026-11-24T14:30:00+00:00",
+            "last_observed_at": "2026-11-24T14:32:00+00:00",
+            "record": {
+                "symbol": "JAGX", "halt_date": "11/23/2026",
+                "halt_time": "10:31:09", "reason_code": "LUDP",
+                "retrieval_mode": "CURRENT",
+            },
+        }
+        current = {
+            "first_observed_at": "2026-11-24T14:32:03+00:00",
+            "last_observed_at": "2026-11-24T14:33:03+00:00",
+            "record": {
+                "symbol": "JAGX", "halt_date": "11/24/2026",
+                "halt_time": "09:31:09.153", "reason_code": "M",
+                "retrieval_mode": "CURRENT",
+            },
+        }
+        episodes = {
+            "JAGX@2026-11-23T15:31:09+00:00": previous,
+            "JAGX@2026-11-24T14:31:09.153+00:00": current,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.json"
+            path.write_text(json.dumps(episodes), encoding="utf-8")
+            intervals = load_daily_nasdaq_halt_events(
+                path, symbol="JAGX", session_date=session
+            )
+        self.assertEqual(len(intervals), 1)
+        self.assertEqual(intervals[0].reason_code, "M")
+        self.assertEqual(intervals[0].start_et.date(), session)
+        self.assertEqual(
+            intervals[0].first_observed_at_utc,
+            datetime(2026, 11, 24, 14, 32, 3, tzinfo=timezone.utc),
+        )
+
+    def test_prior_day_only_does_not_invent_a_current_day_halt(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.json"
+            path.write_text(json.dumps({
+                "JAGX@2026-11-23T15:31:09+00:00": {
+                    "record": {
+                        "symbol": "JAGX", "halt_date": "11/23/2026",
+                        "halt_time": "10:31:09", "reason_code": "LUDP",
+                        "retrieval_mode": "CURRENT",
+                    }
+                }
+            }), encoding="utf-8")
+            result = load_daily_nasdaq_halt_events(
+                path, symbol="JAGX", session_date=date(2026, 11, 24)
+            )
+        self.assertEqual(result, ())
+
+    def test_daily_halt_still_rejects_inconsistent_key_record_date(self) -> None:
+        session = date(2026, 11, 24)
+        for key, record_day, expected in (
+            ("JAGX@2026-11-24T14:31:09+00:00", "11/23/2026",
+             "belongs to a different session"),
+            ("JAGX@2026-11-23T15:31:09+00:00", "11/24/2026",
+             "key differs from halt date"),
+        ):
+            with self.subTest(key=key):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "events.json"
+                    path.write_text(json.dumps({
+                        key: {
+                            "record": {
+                                "symbol": "JAGX", "halt_date": record_day,
+                                "halt_time": "09:31:09", "reason_code": "LUDP",
+                                "retrieval_mode": "CURRENT",
+                            }
+                        },
+                    }), encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, expected):
+                        load_daily_nasdaq_halt_events(
+                            path, symbol="JAGX", session_date=session
+                        )
+
     def test_daily_halt_rejects_mismatched_key_and_event_time(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "events.json"
