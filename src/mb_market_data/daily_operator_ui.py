@@ -192,8 +192,8 @@ class OperatorState:
         current = view['selected']['tier']
         current_index = LEVELS.index(current) if current in LEVELS else -1
         desired = LEVELS.index(target)
-        if action == 'demote' and (current_index < 0 or desired > current_index):
-            raise OperatorProblem('Demotion requires membership at the destination tier or higher.')
+        if action == 'demote' and (current_index < 0 or desired >= current_index):
+            raise OperatorProblem('Demotion must move the symbol to a strictly lower tier.')
         if action == 'promote' and desired <= current_index:
             raise OperatorProblem('The symbol is already at or above that tier.')
         if (action == 'promote' and target == 'hot' and current != 'hot'
