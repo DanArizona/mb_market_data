@@ -530,8 +530,9 @@ def _membership_operator_controls(
             ),
             html.P(
                 "Previews expire after 90 seconds and are rechecked against the "
-                "current revision and worker heartbeat. Ordinary demotion does "
-                "not suppress later distinct automatic halt promotions.",
+                "current revision and worker heartbeat. If expired, reselect the "
+                "action/destination or drag again. Ordinary demotion does not "
+                "suppress later distinct automatic halt promotions.",
                 className="membership-details-note",
             ),
         ],
@@ -1794,7 +1795,11 @@ def create_quote_dashboard(
                     command_id = request["id"]
                 except (OSError, ValueError, TypeError, KeyError) as error:
                     return (
-                        None, f"Confirm refused: {error}",
+                        None,
+                        "Confirm refused: " + str(error).replace(
+                            "Preview again.",
+                            "Reselect an action/destination or repeat the drag.",
+                        ),
                         True, no_update, no_update,
                     )
                 return (
@@ -1873,6 +1878,11 @@ def create_quote_dashboard(
                 if not normalized_symbol:
                     return (
                         None, "Enter a symbol to prepare a preview.",
+                        True, no_update, no_update,
+                    )
+                if requested_action not in {"promote", "demote"} or requested_target not in TIERS:
+                    return (
+                        None, "Choose an action and destination to prepare a preview.",
                         True, no_update, no_update,
                     )
                 try:
