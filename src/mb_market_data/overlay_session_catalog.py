@@ -6,6 +6,7 @@ experimental checkout, pointing to the actual production *data* root.
 """
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import asdict, dataclass
 from datetime import date
 import json
@@ -82,7 +83,7 @@ def inspect_session(data_root: str | Path, session_date: str | date) -> DatedSes
         raise SessionDiscoveryError("Unsupported hierarchy plan contract")
 
     try:
-        with sqlite3.connect(journal.resolve().as_uri() + "?mode=ro", uri=True, timeout=2.0) as db:
+        with closing(sqlite3.connect(journal.resolve().as_uri() + "?mode=ro", uri=True, timeout=2.0)) as db:
             db.execute("PRAGMA query_only=ON")
             version = db.execute("PRAGMA user_version").fetchone()[0]
             if version != SCHEMA_VERSION:
