@@ -112,6 +112,8 @@ class TestOverlayHalts(unittest.TestCase):
              "belongs to a different session"),
             ("JAGX@2026-11-24T00:50:09+00:00", "11/24/2026",
              "key differs from halt date"),
+            ("JAGX@2026-11-25T14:31:09+00:00", "11/25/2026",
+             "future session"),
         ):
             with self.subTest(key=key):
                 with tempfile.TemporaryDirectory() as directory:
