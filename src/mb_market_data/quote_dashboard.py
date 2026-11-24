@@ -284,7 +284,10 @@ def _membership_price(value: float | None) -> str:
     return f"${value:,.4f}" if abs(value) < 1 else f"${value:,.2f}"
 
 
-def _membership_inspector(html: Any, view: QuoteDashboardView, symbol: str | None) -> Any:
+def _membership_inspector(
+    html: Any, view: QuoteDashboardView, symbol: str | None, *,
+    live_mode: bool = False,
+) -> Any:
     """Show only evidence available at this replay time; never infer a block."""
 
     details = selected_symbol_details(view, symbol)
@@ -342,9 +345,15 @@ def _membership_inspector(html: Any, view: QuoteDashboardView, symbol: str | Non
                 className="membership-details-grid",
             ),
             html.P(
-                "Historical · read-only. This information is from saved, "
-                "replay-causal observations; it is not a live price feed. "
-                "A rest-of-day suppression policy is not implied by an ordinary demotion.",
+                (
+                    "Real Time · read-only committed observations. The latest quote "
+                    "may be delayed, incomplete, or stale. No manual membership "
+                    "actions are enabled."
+                    if live_mode else
+                    "Historical · read-only. This information is from saved, "
+                    "replay-causal observations; it is not a live price feed. "
+                    "A rest-of-day suppression policy is not implied by an ordinary demotion."
+                ),
                 className="membership-details-note",
             ),
         ]
@@ -405,9 +414,9 @@ def _membership_search_tier(
 
 def _membership_panel(
     html: Any, dag: Any, dcc: Any, view: QuoteDashboardView,
-    selected_symbol: str | None,
+    selected_symbol: str | None, *, live_mode: bool = False,
 ) -> Any:
-    """New compact historical Membership layout, with no operator controls."""
+    """Shared read-only Membership layout for historical or committed live evidence."""
     by_tier = membership_tier_records(view)
     return html.Section(
         [
@@ -420,7 +429,10 @@ def _membership_panel(
                             "Select a ticker to inspect it in Membership and Charts."
                         ),
                     ]),
-                    html.Span("HISTORICAL · READ-ONLY", className="membership-readonly"),
+                    html.Span(
+                        "REAL TIME · READ-ONLY" if live_mode else "HISTORICAL · READ-ONLY",
+                        className="membership-readonly",
+                    ),
                 ],
                 className="membership-heading",
             ),
@@ -472,7 +484,9 @@ def _membership_panel(
                                         className="membership-search-status",
                                     ),
                                     html.Div(
-                                        _membership_inspector(html, view, selected_symbol),
+                                        _membership_inspector(
+                                            html, view, selected_symbol, live_mode=live_mode
+                                        ),
                                         id="membership-symbol-inspector",
                                     ),
                                 ],
@@ -488,8 +502,13 @@ def _membership_panel(
                 className="membership-tier-columns",
             ),
             html.P(
-                "Historical membership is read-only; no drag, admission, "
-                "Preview, Confirm, or membership write actions are available.",
+                (
+                    "Real Time is observing committed journal evidence; manual "
+                    "Membership actions remain disabled in this experimental viewer."
+                    if live_mode else
+                    "Historical membership is read-only; no drag, admission, "
+                    "Preview, Confirm, or membership write actions are available."
+                ),
                 className="membership-editing-note",
             ),
         ],
@@ -497,7 +516,11 @@ def _membership_panel(
     )
 
 
-def _overlay_description(overlay: ObservationOverlayData) -> str:
+def _overlay_description(
+    overlay: ObservationOverlayData, *, live_mode: bool = False
+) -> str:
+    if live_mode and overlay.cache is None:
+        return "Read-only committed quote and Membership evidence; no matching five-minute OHLCV cache."
     if overlay.candles:
         return "Completed five-minute OHLCV with replay-causal quote and membership evidence."
     if overlay.cache is not None:
@@ -508,7 +531,7 @@ def _overlay_description(overlay: ObservationOverlayData) -> str:
 def _observation_overlay_panel(
     html: Any,
     dcc: Any,
-    overlay: ObservationOverlayData,
+    overlay: ObservationOverlayData, *, live_mode: bool = False,
 ) -> Any:
     view = build_observation_overlay_view(overlay)
     return html.Section(
@@ -522,7 +545,7 @@ def _observation_overlay_panel(
                                 id="observation-overlay-title",
                             ),
                             html.P(
-                                _overlay_description(overlay),
+                                _overlay_description(overlay, live_mode=live_mode),
                                 id="observation-overlay-description",
                             ),
                         ]
@@ -790,6 +813,8 @@ def create_quote_dashboard(
     *,
     request_server_stop: Callable[[], None] | None = None,
     acquisition_health_reader: Callable[[], dict[str, Any]] | None = None,
+    live_refresh: Callable[[], tuple[int, str]] | None = None,
+    live_mode: bool = False,
 ) -> Any:
     """Create a local interactive dashboard for one replay controller."""
 
@@ -810,6 +835,8 @@ def create_quote_dashboard(
             "Dash dependencies are not installed. Run: " "python -m pip install -e ."
         ) from exc
 
+    if live_mode and live_refresh is None:
+        raise ValueError("Real Time dashboard requires a read-only committed event source")
     replay = controller.snapshot()
     view = build_quote_dashboard_view(replay.state)
     controls = _control_values(replay)
@@ -842,6 +869,8 @@ def create_quote_dashboard(
                 disabled=controls[3],
             ),
             *([dcc.Interval(id="acquisition-health-tick", interval=5_000)] if acquisition_health_reader else []),
+            *([dcc.Interval(id="live-tail-tick", interval=5_000)] if live_mode else []),
+            *([dcc.Store(id="live-refresh-count", data=replay.applied_event_count)] if live_mode else []),
             dcc.Store(
                 id="rendered-event-count",
                 data=replay.applied_event_count,
@@ -872,7 +901,10 @@ def create_quote_dashboard(
                                 [
                                     html.H1("Market State"),
                                     html.Div(
-                                        "Interactive exact-day replay",
+                                        (
+                                            "Real Time · committed journal"
+                                            if live_mode else "Interactive exact-day replay"
+                                        ),
                                         className="mode-label",
                                     ),
                                 ]
@@ -1131,11 +1163,11 @@ def create_quote_dashboard(
                                     dcc.RadioItems(
                                         id="workspace-mode",
                                         options=[
-                                            {"label": "Real Time", "value": "real-time", "disabled": True},
-                                            {"label": "Historical", "value": "historical"},
+                                            {"label": "Real Time", "value": "real-time", "disabled": not live_mode},
+                                            {"label": "Historical", "value": "historical", "disabled": live_mode},
                                             {"label": "Backtest", "value": "backtest", "disabled": True},
                                         ],
-                                        value="historical",
+                                        value="real-time" if live_mode else "historical",
                                         inline=True,
                                         className="workspace-mode-control",
                                     ),
@@ -1144,10 +1176,30 @@ def create_quote_dashboard(
                             ),
                             html.Div(
                                 [
-                                    html.Strong("Historical · read-only", className="workspace-mode-status"),
+                                    html.Strong(
+                                        "Real Time · committed read-only"
+                                        if live_mode else "Historical · read-only",
+                                        className="workspace-mode-status",
+                                    ),
                                     html.Span(
-                                        "Real Time and Backtest are reserved for future data adapters.",
+                                        (
+                                            "Live process not verified. Saved controller phase "
+                                            "does not prove liveness. Historical mode uses a "
+                                            "separately launched viewer; operator actions disabled."
+                                            if live_mode else
+                                            "Real Time requires an explicit validated daily attachment; "
+                                            "Backtest remains disabled."
+                                        ),
                                         className="workspace-mode-note",
+                                    ),
+                                    *(
+                                        [
+                                            html.Div(
+                                                "Checking committed journal progress…",
+                                                id="live-data-status",
+                                                className="workspace-mode-note",
+                                            )
+                                        ] if live_mode else []
                                     ),
                                 ],
                                 className="workspace-mode-context",
@@ -1173,6 +1225,7 @@ def create_quote_dashboard(
                                         dcc,
                                         view,
                                         replay.observation_overlay.symbol if replay.observation_overlay is not None else None,
+                                        live_mode=live_mode,
                                     ),
                                 ],
                             ),
@@ -1188,6 +1241,7 @@ def create_quote_dashboard(
                                                 html,
                                                 dcc,
                                                 replay.observation_overlay,
+                                                live_mode=live_mode,
                                             )
                                         ],
                                     )
@@ -1477,7 +1531,7 @@ def create_quote_dashboard(
     )
     def update_membership_inspector(symbol: str | None, _event_count: int) -> Any:
         replay_view = build_quote_dashboard_view(controller.snapshot().state)
-        return _membership_inspector(html, replay_view, symbol)
+        return _membership_inspector(html, replay_view, symbol, live_mode=live_mode)
 
     @app.callback(
         Output("activity-section", "data"),
@@ -1693,7 +1747,7 @@ def create_quote_dashboard(
                 reference_label,
                 viewport,
                 f"Observation Overlay · {overlay_view.symbol}",
-                _overlay_description(overlay),
+                _overlay_description(overlay, live_mode=live_mode),
             )
 
     if request_server_stop is not None:
