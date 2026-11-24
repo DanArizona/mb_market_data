@@ -22,6 +22,7 @@ from mb_market_data.daily_membership import read, report_result
 from mb_market_data.daily_operator_demo import DemoSession
 from mb_market_data.daily_operator_ui import OperatorState
 from mb_market_data.local_dashboard_server import LocalDashboardServer
+from mb_market_data.overlay_manual_membership import preview_validated_drop
 from mb_market_data.observation_overlay import ObservationOverlayProjector
 from mb_market_data.overlay_indexed_selection import IndexedOverlaySymbolSelection
 from mb_market_data.quote_dashboard import create_quote_dashboard
@@ -47,6 +48,13 @@ class SyntheticOperatorActions:
 
     def preview(self, symbol: str, action: str, target: str) -> dict:
         return self.operator.preview(symbol, action, target)
+
+    def preview_drop(
+        self, symbol: str, source_tier: str, destination_tier: str,
+    ) -> dict:
+        return preview_validated_drop(
+            self.operator, self.root, symbol, source_tier, destination_tier
+        )
 
     def confirm(self, proposal_id: str) -> dict:
         return self.operator.confirm(proposal_id)
