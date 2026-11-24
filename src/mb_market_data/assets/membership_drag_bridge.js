@@ -7,7 +7,7 @@
     const TIERS = ["uni", "focus", "hot"];
     const registry = {
         mode: "historical", apis: {}, zones: [], signature: null,
-        gesture: null, pointer: null, listeners: []
+        gesture: null, pointer: null, listeners: [], lastIssued: null
     };
     window.dash_clientside = window.dash_clientside || {};
     window.dash_clientside.mbMembershipDrag = window.dash_clientside.mbMembershipDrag || {};
@@ -38,6 +38,11 @@
         if (!TIERS.includes(source) || !TIERS.includes(target) || source === target
                 || !/^[A-Z0-9.-]{1,20}$/.test(symbol)) { return; }
         if (registry.gesture?.accepted) { return; }
+        const sameKey = source + ":" + target + ":" + symbol;
+        // dragStopped and external onDragStop can fire for the same release.
+        // Suppress that duplicate without mutating either roster.
+        if (registry.lastIssued?.key === sameKey
+                && Date.now() - registry.lastIssued.at < 250) { return; }
         if (registry.gesture &&
                 (registry.gesture.source !== source || registry.gesture.symbol !== symbol)) {
             notify("drop-rejected", "Dragged symbol no longer matches source. Retry.");
@@ -47,6 +52,7 @@
             registry.gesture = {source, symbol, accepted: false};
         }
         registry.gesture.accepted = true;
+        registry.lastIssued = {key: sameKey, at: Date.now()};
         const request = {
             symbol, source_tier: source, destination_tier: target,
             nonce: Date.now() + "-" + Math.random().toString(36).slice(2)
