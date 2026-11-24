@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from threading import Event
@@ -21,11 +22,14 @@ from mb_market_data.overlay_halts import (
     load_overlay_halt_intervals,
 )
 from mb_market_data.observation_overlay import (
+    ET,
     ObservationOverlayProjector,
     load_observation_overlay_cache,
 )
 from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.overlay_indexed_selection import IndexedOverlaySymbolSelection
+from mb_market_data.overlay_live_tail import ReadOnlyJournalTail
+from mb_market_data.overlay_session_catalog import inspect_session
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
 )
@@ -40,6 +44,13 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument("database", type=Path, help="Daily .sqlite3 file")
+    parser.add_argument(
+        "--real-time-data-root", type=Path,
+        help=(
+            "Explicit daily-controller data root for read-only, committed "
+            "Real Time mode; requires matching current ET session journal."
+        ),
+    )
     parser.add_argument("--polling-health-directory", type=Path,
                         help="Read-only monitor status folder; defaults to the journal's output/polling_health/SESSION_DATE")
     parser.add_argument(
@@ -93,6 +104,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if not 1 <= args.port <= 65_535:
         parser.error("--port must be between 1 and 65535")
+    if args.real_time_data_root is not None and args.start_at_beginning:
+        parser.error("--start-at-beginning is not supported for Real Time attachment")
     if args.nasdaq_halts_json and not args.observation_overlay_cache:
         parser.error("--nasdaq-halts-json requires --observation-overlay-cache")
     if args.nasdaq_daily_events_json and not (
@@ -165,25 +178,47 @@ def main() -> int:
             partial(make_overlay_projector, overlay_symbol)
             if overlay_symbol is not None else None
         )
+        selected_index = (
+            IndexedOverlaySymbolSelection(reader, make_overlay_projector)
+            if overlay_symbol is not None else None
+        )
         controller = QuoteDashboardReplayController(
             timeline=timeline,
             event_factory=reader.events,
             overlay_projector_factory=overlay_projector_factory,
             symbol_projector_factory=make_overlay_projector if overlay_symbol else None,
-            indexed_symbol_projector_factory=(
-                IndexedOverlaySymbolSelection(reader, make_overlay_projector)
-                if overlay_symbol else None
-            ),
+            indexed_symbol_projector_factory=selected_index,
             overlay_end_at_utc=(
                 overlay_cache.request_end_et if overlay_cache is not None else None
             ),
         )
-        if not args.start_at_beginning:
+        live_tail = None
+        if args.real_time_data_root is not None:
+            today_et = datetime.now(ET).date()
+            if reader.session_date != today_et:
+                raise ValueError(
+                    "Real Time attachment requires today's ET journal: "
+                    f"{reader.session_date} is not {today_et}"
+                )
+            matched = inspect_session(
+                args.real_time_data_root, reader.session_date
+            )
+            if Path(matched.journal_path).resolve() != args.database.resolve():
+                raise ValueError("Real Time controller plan/journal identity mismatch")
+            controller.seek(datetime.now(timezone.utc))
+            live_tail = ReadOnlyJournalTail(
+                data_root=args.real_time_data_root,
+                reader=reader, controller=controller,
+                indexed_selection=selected_index,
+            )
+        elif not args.start_at_beginning:
             controller.finish()
         replay = controller.snapshot()
         app = create_quote_dashboard(
             controller,
             request_server_stop=stop_event.set,
+            live_mode=live_tail is not None,
+            live_refresh=live_tail.refresh if live_tail is not None else None,
             acquisition_health_reader=partial(read_health_status,
                 args.polling_health_directory or args.database.parent.parent / "polling_health" / str(reader.session_date),
                 journal=args.database, session_date=reader.session_date),
@@ -214,14 +249,21 @@ def main() -> int:
     print(f"Replay events    : {timeline.event_count:,}")
     print(
         "Initial position : "
-        + ("beginning (paused)" if args.start_at_beginning else "end")
+        + (
+            "live committed prefix (read-only)" if live_tail is not None
+            else "beginning (paused)" if args.start_at_beginning else "end"
+        )
     )
     print(f"Events projected : {replay.applied_event_count:,}")
     print(f"Load time        : {elapsed:.3f} seconds")
     print(f"Open in browser  : {url}")
-    if not args.start_at_beginning:
+    if live_tail is not None:
+        print("Live tail         : committed additions every 5 seconds; no Schwab requests")
+        print("Controller phase  : saved evidence only; process liveness is NOT verified")
+        print("Real Time read-only: Historical requires a separate viewer launch.")
+    elif not args.start_at_beginning:
         print("Click Restart to return to the beginning of the session.")
-    print("Press Ctrl+C here or use Stop server in the dashboard.")
+    print("Use Stop server in the dashboard to close this viewer.")
     print()
 
     try:
