@@ -72,6 +72,9 @@ class QuoteDashboardReplayController:
         symbol_projector_factory: (
             Callable[[str], ObservationOverlayProjector] | None
         ) = None,
+        indexed_symbol_projector_factory: (
+            Callable[[str, datetime | None, ReplayEvent | None], ObservationOverlayProjector] | None
+        ) = None,
     ) -> None:
         if isinstance(speed, bool) or not isinstance(speed, (int, float)):
             raise TypeError("speed must be a number")
@@ -83,6 +86,7 @@ class QuoteDashboardReplayController:
         self._monotonic = monotonic
         self._overlay_projector_factory = overlay_projector_factory
         self._symbol_projector_factory = symbol_projector_factory
+        self._indexed_symbol_projector_factory = indexed_symbol_projector_factory
         if overlay_end_at_utc is not None:
             if overlay_projector_factory is None:
                 raise ValueError("overlay_end_at_utc requires an overlay projector")
@@ -268,15 +272,20 @@ class QuoteDashboardReplayController:
                 return self.snapshot()
             if self._symbol_projector_factory is None:
                 raise RuntimeError("Historical chart symbol switching is unavailable")
-            replacement = self._symbol_projector_factory(normalized)
+            cutoff = self._position_utc
+            if self._indexed_symbol_projector_factory is not None:
+                replacement = self._indexed_symbol_projector_factory(
+                    normalized, cutoff, self._pending
+                )
+            else:
+                replacement = self._symbol_projector_factory(normalized)
+                if cutoff is not None:
+                    for event in self._event_factory():
+                        if event.available_at_utc > cutoff:
+                            break
+                        replacement.apply(event)
             if replacement.symbol != normalized or replacement.session_date != self._timeline.session_date:
                 raise ValueError("Selected-symbol projector identity mismatch")
-            cutoff = self._position_utc
-            if cutoff is not None:
-                for event in self._event_factory():
-                    if event.available_at_utc > cutoff:
-                        break
-                    replacement.apply(event)
             self._overlay_projector = replacement
             # The next seek/restart must retain the newly inspected symbol.
             self._overlay_projector_factory = lambda: self._symbol_projector_factory(normalized)
