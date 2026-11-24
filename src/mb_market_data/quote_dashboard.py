@@ -438,20 +438,13 @@ def _membership_search_tier(
 
 def _membership_operator_controls(
     html: Any, dcc: Any, selected_symbol: str | None,
-    selected_tier: str | None = None,
 ) -> Any:
-    """One-click confirmation after automatic advisory preview; no journal edits."""
-    default_action, default_target = {
-        "hot": ("demote", "focus"),
-        "focus": ("promote", "hot"),
-        "uni": ("promote", "focus"),
-        None: ("promote", "uni"),
-    }[selected_tier]
+    """Single Confirm after an explicit manual selection or drop preview."""
     return html.Section(
         [
             html.H3("Manual Membership · controlled", className="membership-inspector-title"),
             html.P(
-                "Choose a symbol and destination, or drag a row. A preview appears "
+                "Choose an action and destination, or drag a row. A preview appears "
                 "automatically; Confirm is the only button required to queue "
                 "a request. The existing worker decides whether to publish.",
                 className="membership-details-note",
@@ -483,7 +476,8 @@ def _membership_operator_controls(
                                     {"label": "Promote", "value": "promote"},
                                     {"label": "Ordinary demote", "value": "demote"},
                                 ],
-                                value=default_action,
+                                value=None,
+                                placeholder="Choose action",
                                 clearable=False,
                             ),
                         ],
@@ -499,7 +493,8 @@ def _membership_operator_controls(
                                     {"label": "Focus", "value": "focus"},
                                     {"label": "Hot", "value": "hot"},
                                 ],
-                                value=default_target,
+                                value=None,
+                                placeholder="Choose destination",
                                 clearable=False,
                             ),
                         ],
@@ -509,7 +504,7 @@ def _membership_operator_controls(
                 className="operator-action-inputs",
             ),
             html.Div(
-                "Choose a symbol, action, and target to prepare a preview.",
+                "Choose an action and destination or drag a row to prepare a preview.",
                 id="operator-preview-status",
                 className="membership-search-status",
                 role="status",
@@ -655,10 +650,7 @@ def _membership_panel(
                                 **{"aria-label": "Selected symbol information"},
                             ),
                             *(
-                                [_membership_operator_controls(
-                                    html, dcc, selected_symbol,
-                                    _membership_search_tier(by_tier, selected_symbol)[1],
-                                )]
+                                [_membership_operator_controls(html, dcc, selected_symbol)]
                                 if operator_enabled else []
                             ),
                         ],
