@@ -62,6 +62,11 @@ class IndexedOverlaySymbolSelection:
         self._membership_events: tuple[MembershipRevisionEvent, ...] | None = None
         self._acquisitions: dict[str, StoredAcquisition] | None = None
 
+    def invalidate(self) -> None:
+        """Make newly committed headers visible to the next symbol switch."""
+        self._membership_events = None
+        self._acquisitions = None
+
     def _headers(self) -> tuple[tuple[MembershipRevisionEvent, ...], dict[str, StoredAcquisition]]:
         if self._membership_events is None or self._acquisitions is None:
             # Full headers/revisions are much smaller than all 700k+ symbol
