@@ -948,6 +948,7 @@ def create_quote_dashboard(
     live_refresh: Callable[[], tuple[int, str]] | None = None,
     live_mode: bool = False,
     operator_actions: Any | None = None,
+    synthetic_operator_demo: bool = False,
 ) -> Any:
     """Create a local interactive dashboard for one replay controller."""
 
@@ -973,6 +974,8 @@ def create_quote_dashboard(
     if operator_actions is not None and not live_mode:
         raise ValueError("Manual operator actions are not permitted in Historical or Backtest")
     operator_enabled = operator_actions is not None
+    if synthetic_operator_demo and not (live_mode and operator_enabled):
+        raise ValueError("Synthetic operator labeling requires controlled Real Time")
     operator_token = secrets.token_urlsafe(32) if operator_enabled else None
     replay = controller.snapshot()
     view = build_quote_dashboard_view(replay.state)
@@ -1037,6 +1040,18 @@ def create_quote_dashboard(
                 id="activity-section",
                 data="graph" if replay.observation_overlay is not None else "information",
             ),
+            *(
+                [
+                    html.Div(
+                        "OFFLINE SYNTHETIC MEMBERSHIP DEMO · FABRICATED QUOTES · "
+                        "NO SCHWAB / NO PRODUCTION JOURNAL · "
+                        "ALL REQUESTS GO TO A TEMPORARY SYNTHETIC WORKER",
+                        id="synthetic-operator-banner",
+                        className="synthetic-operator-banner",
+                        role="status",
+                    )
+                ] if synthetic_operator_demo else []
+            ),
             html.Header(
                 [
                     html.Div(
@@ -1047,7 +1062,10 @@ def create_quote_dashboard(
                                     html.H1("Market State"),
                                     html.Div(
                                         (
-                                            "Real Time · committed journal"
+                                            (
+                                                "OFFLINE SYNTHETIC · controlled Membership"
+                                                if synthetic_operator_demo else "Real Time · committed journal"
+                                            )
                                             if live_mode else "Interactive exact-day replay"
                                         ),
                                         className="mode-label",
@@ -1323,7 +1341,10 @@ def create_quote_dashboard(
                                 [
                                     html.Strong(
                                         (
-                                            "Real Time · controlled Membership"
+                                            (
+                                                "SYNTHETIC DEMO · controlled Membership"
+                                                if synthetic_operator_demo else "Real Time · controlled Membership"
+                                            )
                                             if operator_enabled else "Real Time · committed read-only"
                                         )
                                         if live_mode else "Historical · read-only",
@@ -1332,9 +1353,15 @@ def create_quote_dashboard(
                                     html.Span(
                                         (
                                             (
-                                                "Commit-only quote stream; operator requests require "
-                                                "explicit Preview and Confirm and existing worker authority. "
-                                                "Saved phase does not verify liveness."
+                                                (
+                                                    "DISPOSABLE SYNTHETIC DATA / WORKER. No live Schwab "
+                                                    "quotes and no production membership commands. "
+                                                    "Preview and Confirm affect the temporary test journal."
+                                                    if synthetic_operator_demo else
+                                                    "Commit-only quote stream; operator requests require "
+                                                    "explicit Preview and Confirm and existing worker authority. "
+                                                    "Saved phase does not verify liveness."
+                                                )
                                                 if operator_enabled else
                                                 "Live process not verified. Saved controller phase "
                                                 "does not prove liveness. Historical mode uses a "
