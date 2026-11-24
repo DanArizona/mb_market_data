@@ -136,7 +136,6 @@ def _overlay_display_controls(html: Any, dcc: Any, selected_symbol: str) -> Any:
                                 autoComplete="off",
                                 n_submit=0,
                                 className="membership-search-input",
-                                **{"aria-label": "Chart symbol ticker"},
                             ),
                             html.Button(
                                 "Apply",
@@ -441,7 +440,6 @@ def _membership_panel(
                                                 autoComplete="off",
                                                 n_submit=0,
                                                 className="membership-search-input",
-                                                **{"aria-label": "Find ticker in effective membership"},
                                             ),
                                             html.Button(
                                                 "Find",
