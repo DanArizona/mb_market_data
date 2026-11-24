@@ -238,6 +238,41 @@ still require Windows QA and a fresh synthetic visual check. Historical
 and ordinary read-only Real Time remain read-only; main and production
 remain untouched.
 
+## November 24 — repeatable one-button Membership visual QA, remaining drag miss
+
+MasterBot's unified synthetic session verified the streamlined workflow:
+one dropped Hot → Focus move initially did **not** create a visible
+preview. Repeating the drop produced the correct automatic Hot → Focus
+preview, and a single Confirm produced effective revision **r3**, an
+`EFFECTIVE_AS_PUBLISHED` receipt, and automatic highlight in Focus.
+A subsequent Focus → Hot drag preview and one Confirm produced
+effective revision **r4**, returned the symbol to Hot and retained the
+worker receipt. Main and production remained untouched.
+
+A separate issue was visible after the r3 demotion: the old controls
+could offer a new `Focus → Focus` demotion. This is a zero-tier-change
+operation, not a meaningful demotion. The experimental operator now
+rejects all same-tier demotions (target must be strictly lower than
+the current effective tier).
+
+A bounded drag-reliability correction adds a `dragStopped` fallback
+for an AG Grid row released over another visible tier panel, using
+the current pointer location to identify the intended target. It
+deduplicates the native external-drop-zone callback and the fallback
+for the same gesture. A missed, invalid or unrecognized drop now shows
+an explanatory status in Membership instead of leaving the operator
+guessing. Both paths still create only advisory preview requests;
+neither changes the browser's roster or queues a worker command.
+External-drop-zone support is documented by Dash AG Grid and
+the upstream AG Grid dragStopped/row drag event contracts.
+
+**Status:** script syntax checked and new offline regression checks
+added; Windows 11/Firebase visual drag reliability remains unverified.
+The exact cause of the first missed drag has not been established.
+The full suite and one fresh synthetic drag need MasterBot verification.
+After that bounded test, prioritize genuine Schwab 5-minute OHLCV
+integration rather than extending the Membership prototype further.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
