@@ -371,7 +371,10 @@ def _membership_inspector(
     )
 
 
-def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str, Any]]) -> Any:
+def _membership_tier_grid(
+    html: Any, dag: Any, tier: str,
+    records: list[dict[str, Any]], *, drag_enabled: bool = False,
+) -> Any:
     name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
     return html.Section(
         [
@@ -387,7 +390,9 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                 className="ag-theme-quartz-dark market-grid membership-symbol-grid",
                 rowData=records,
                 columnDefs=[
-                    {"field": "symbol", "headerName": "Symbol", "width": 115, "pinned": "left", "cellClass": "symbol-cell"},
+                    {"field": "symbol", "headerName": "Symbol", "width": 115,
+                     "pinned": "left", "cellClass": "symbol-cell",
+                     "rowDrag": drag_enabled},
                     {"field": "last_price", "headerName": "Last", "type": "numericColumn", "width": 95},
                     {"field": "description", "headerName": "Name", "minWidth": 130, "flex": 1},
                 ],
@@ -398,6 +403,13 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
                     # the membership click callback, not by each grid alone.
                     "suppressRowClickSelection": True,
                     "animateRows": False,
+                    # A drag must never reorder or mutate the recorded roster.
+                    **({
+                        "rowDragManaged": True,
+                        "rowDragMultiRow": False,
+                        "suppressMoveWhenRowDragging": True,
+                        "suppressRowDrag": True,  # enabled by guarded JS binder
+                    } if drag_enabled else {}),
                     "getRowId": {"function": "params.data.symbol"},
                     "tooltipShowDelay": 350,
                 },
@@ -407,6 +419,7 @@ def _membership_tier_grid(html: Any, dag: Any, tier: str, records: list[dict[str
             ),
         ],
         className=f"membership-tier membership-tier-{tier}",
+        id=f"membership-tier-{tier}",
     )
 
 
@@ -563,9 +576,30 @@ def _membership_panel(
                 "or Hot. Underlying membership remains nested: Hot ⊆ Focus ⊆ Uni.",
                 className="membership-explanation",
             ),
+            *(
+                [
+                    html.P(
+                        "Drag a symbol by its grip into another tier to create a "
+                        "PREVIEW only; explicit confirmation is always required.",
+                        className="membership-drag-instructions",
+                    ),
+                    html.Div(
+                        "Preparing drag handles; manual Preview remains available.",
+                        id="membership-drag-status",
+                        className="membership-drag-status",
+                        role="status",
+                    ),
+                ] if operator_enabled else []
+            ),
             html.Div(
                 [
-                    *[_membership_tier_grid(html, dag, tier, by_tier[tier]) for tier in TIERS],
+                    *[
+                        _membership_tier_grid(
+                            html, dag, tier, by_tier[tier],
+                            drag_enabled=operator_enabled,
+                        )
+                        for tier in TIERS
+                    ],
                     html.Div(
                         [
                             html.Section(
@@ -956,6 +990,7 @@ def create_quote_dashboard(
         import dash_ag_grid as dag
         from dash import (
             Dash,
+            ClientsideFunction,
             Input,
             Output,
             State,
@@ -1016,6 +1051,10 @@ def create_quote_dashboard(
                     dcc.Store(id="operator-csrf", data=operator_token),
                     dcc.Store(id="operator-proposal"),
                     dcc.Store(id="operator-command"),
+                    dcc.Store(id="operator-follow-request"),
+                    dcc.Store(id="operator-follow-seen"),
+                    dcc.Store(id="membership-drag-request"),
+                    dcc.Store(id="membership-drag-binding-status"),
                     dcc.Interval(id="operator-receipt-tick", interval=3_000),
                 ] if operator_enabled else []
             ),
