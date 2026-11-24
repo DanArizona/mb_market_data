@@ -84,6 +84,48 @@ def overlay_projector() -> ObservationOverlayProjector:
 
 
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_switch_overlay_symbol_keeps_replay_clock_and_persists_through_seek(self) -> None:
+        event = membership_event(0)
+        def make_projector(symbol: str) -> ObservationOverlayProjector:
+            return ObservationOverlayProjector(cache=None, symbol=symbol, session_date=SESSION_DATE)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: make_projector("FOCUS"),
+            symbol_projector_factory=make_projector,
+        )
+        before = controller.finish()
+        switched = controller.select_overlay_symbol(" hot ")
+        self.assertEqual(switched.observation_overlay.symbol, "HOT")
+        self.assertEqual(switched.observation_overlay.current_band, MembershipBand.HOT)
+        self.assertEqual(switched.replay_time_utc, before.replay_time_utc)
+        self.assertEqual(switched.applied_event_count, before.applied_event_count)
+        self.assertEqual(switched.status, before.status)
+        self.assertIsNone(switched.observation_overlay.cache)
+        self.assertEqual(controller.restart().observation_overlay.symbol, "HOT")
+        self.assertEqual(controller.finish().observation_overlay.current_band, MembershipBand.HOT)
+        self.assertEqual(controller.seek(START).observation_overlay.symbol, "HOT")
+
+    def test_rejected_symbol_switch_preserves_original_overlay(self) -> None:
+        event = membership_event(0)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: ObservationOverlayProjector(
+                cache=None, symbol="FOCUS", session_date=SESSION_DATE,
+            ),
+            symbol_projector_factory=lambda symbol: ObservationOverlayProjector(
+                cache=None, symbol="OTHER", session_date=SESSION_DATE,
+            ),
+        )
+        controller.finish()
+        with self.assertRaisesRegex(ValueError, "identity mismatch"):
+            controller.select_overlay_symbol("HOT")
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "FOCUS")
+        with self.assertRaisesRegex(ValueError, "nonblank"):
+            controller.select_overlay_symbol(" ")
+        self.assertEqual(controller.snapshot().observation_overlay.symbol, "FOCUS")
+
     def test_quote_only_overlay_is_available_without_ohlcv_cache(self) -> None:
         event = membership_event(0)
         controller = QuoteDashboardReplayController(
