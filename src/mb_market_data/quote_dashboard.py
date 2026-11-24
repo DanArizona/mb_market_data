@@ -401,8 +401,18 @@ def _observation_overlay_panel(
                         [
                             html.H2(f"Observation Overlay · {view.symbol}"),
                             html.P(
-                                "Completed five-minute OHLCV with "
-                                "replay-causal quote and membership evidence."
+                                (
+                                    "Completed five-minute OHLCV with "
+                                    "replay-causal quote and membership evidence."
+                                )
+                                if overlay.candles
+                                else (
+                                    "No completed five-minute candles at this replay time; "
+                                    "quote and membership evidence only."
+                                    if overlay.cache is not None
+                                    else "Quote-only historical view: no OHLCV cache attached; "
+                                    "candle and volume bars are unavailable."
+                                )
                             ),
                         ]
                     ),
