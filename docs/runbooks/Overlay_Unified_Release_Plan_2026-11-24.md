@@ -170,6 +170,30 @@ verification and a bounded synthetic visual exercise. No production
 Membership change is authorized, and genuine Schwab OHLCV Real Time
 integration remains a separate upcoming milestone.
 
+## November 24 — preserve effective worker receipt after auto-selection
+
+The controlled synthetic drag confirmed INTC Hot → Focus r3, with the symbol
+automatically selected/highlighted in Focus. The user screenshot showed
+`No worker receipt` afterward despite the effective revision. Source review
+found the UI cause: the automatic symbol echo called the operator selection
+invalidation callback, which also set `operator-command` to `None`, thus
+discarding the ID used for polling the last worker receipt. This did **not**
+undo the actual published Membership revision.
+
+The experimental correction now separates the *editable, invalidatable
+preview* from the *last confirmed command and worker receipt*. Invalidations,
+new previews and denied previews no longer clear the last confirmed command,
+so the receipt remains visible. A newly confirmed action replaces it with
+the new command ID. The operator panel labels the queue field
+`LAST REQUEST QUEUED` to clarify that the receipt belongs to the previous
+confirmed request, not the current editable proposal. A separate callback
+regression test covers confirm → automatic selection → preview/refusal with
+`EFFECTIVE_AS_PUBLISHED` preserved.
+
+This correction is **not yet Windows GUI verified**. Historical/read-only
+Real Time continue to exclude operator actions; no production files,
+credentials, membership worker or main branch are changed.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
