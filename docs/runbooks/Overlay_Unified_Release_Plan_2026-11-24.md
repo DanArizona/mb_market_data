@@ -273,6 +273,38 @@ The full suite and one fresh synthetic drag need MasterBot verification.
 After that bounded test, prioritize genuine Schwab 5-minute OHLCV
 integration rather than extending the Membership prototype further.
 
+## Deferred Membership list refinements — accepted user direction (November 24)
+
+Do **not** implement these during the immediate real-time OHLCV integration work;
+retain as agreed future UI refinements. Earlier drag-and-drop prototype decisions
+take precedence over the current unified Membership grid presentation.
+
+- **Tier-row columns:** remove the per-list `Name` column. The selected
+  security's name and description belong in the existing **Symbol details**
+  inspector, avoiding repetitive wide columns in Uni / Focus / Hot.
+  The resulting compact list should show **Symbol + one metric column**.
+- **Tier list search/filter:** remove the per-grid search/floating-filter
+  fields. The unified **Find symbol** field remains available; do not
+  eliminate that shared lookup.
+- **Sorting:** put the ascending/descending selector in each tier's
+  header (as established in the earlier drag-and-drop demo), rather than
+  a filter/search line inside the grid. Confirm desired initial order
+  and whether sort applies by Symbol or the chosen metric at implementation.
+- **Later metric selector:** make the current `Last` column a configurable
+  display via a dropdown with `Last`, `%change`, and `%range`. Requested
+  calculations, preserving the user's definitions:
+  `%change = 100 * (last / open - 1)`;
+  `%range = (max - min) / open`.
+  Determine the precise source and time window for `open`, `max`, and
+  `min`, treatment of missing/zero open, and whether `%range` is
+  multiplied by 100 for display under a percent label **when we work
+  on the feature**. Do not silently change the formula now.
+
+This is an accepted deferred UX direction, not a completed change or a
+reason to delay the next priority: **genuine Schwab five-minute OHLCV
+candles and volume in the unified Real Time Overlay**. No production
+source, credentials, workers, or installed files are to be changed.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
