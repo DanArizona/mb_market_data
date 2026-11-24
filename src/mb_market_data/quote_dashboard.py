@@ -1627,6 +1627,35 @@ def create_quote_dashboard(
             return no_update, detail
 
     if operator_enabled:
+        # The client-side binder only emits an untrusted proposed drop to a
+        # Dash Store. It cannot mutate a grid, queue a request, or publish.
+        app.clientside_callback(
+            ClientsideFunction(
+                namespace="mbMembershipDrag", function_name="bind"
+            ),
+            Output("membership-drag-binding-status", "data"),
+            Input("workspace-mode", "value"),
+            *[Input(f"membership-{tier}-grid", "id") for tier in TIERS],
+        )
+
+        @app.callback(
+            Output("membership-drag-status", "children"),
+            Input("membership-drag-binding-status", "data"),
+        )
+        def drag_setup_status(binding: Mapping[str, Any] | None) -> str:
+            if binding and binding.get("ready") is True:
+                return (
+                    "Drag a symbol by its grip onto another tier to Preview. "
+                    "No membership changes until separate Confirm."
+                )
+            if binding and binding.get("phase") == "drag-unavailable":
+                return (
+                    "Drag unavailable; manual Preview remains available. "
+                    + str(binding.get("reason") or "")
+                )
+            return "Preparing drag handles; manual Preview remains available."
+
+    if operator_enabled:
         @app.callback(
             Output("operator-symbol", "value"),
             Input("membership-selected-symbol", "data"),
