@@ -22,10 +22,13 @@ DAY = date(2026, 11, 13)
 START = datetime(2026, 11, 13, 14, 30, tzinfo=timezone.utc)
 
 
-def acquisition(key: str, completed_seconds: int, *, symbols: int = 1, channel: str = "focus") -> StoredAcquisition:
+def acquisition(
+    key: str, completed_seconds: int, *, symbols: int = 1,
+    channel: str = "focus", channel_revision: int = 0,
+) -> StoredAcquisition:
     return StoredAcquisition(
         acquisition_id=key, run_id="run-1", channel=channel,
-        channel_revision=0, session_date=DAY, slot_id=key,
+        channel_revision=channel_revision, session_date=DAY, slot_id=key,
         scheduled_at_utc=START + timedelta(seconds=completed_seconds - 1),
         dispatched_at_utc=START + timedelta(seconds=completed_seconds - 1),
         completed_at_utc=START + timedelta(seconds=completed_seconds),
@@ -82,17 +85,18 @@ def fixture():
         hot_symbols=(), source="unit-test",
     )
     a1 = acquisition("a1", 5, symbols=2)
-    a2 = acquisition("a2", 25, channel="hot")
+    a2 = acquisition("a2", 25, symbols=2, channel_revision=1)
     aaa = observation(a1, "AAA", 0)
     bbb1 = observation(a1, "BBB", 1)
-    bbb2 = observation(a2, "BBB", 0)
+    aaa2 = observation(a2, "AAA", 0)
+    bbb2 = observation(a2, "BBB", 1)
     events = (
         MembershipRevisionEvent(r0),
         QuoteAcquisitionEvent(a1, (aaa, bbb1)),
         MembershipRevisionEvent(r1),
-        QuoteAcquisitionEvent(a2, (bbb2,)),
+        QuoteAcquisitionEvent(a2, (aaa2, bbb2)),
     )
-    store = FakeStore((r0, r1), (a1, a2), (aaa, bbb1, bbb2))
+    store = FakeStore((r0, r1), (a1, a2), (aaa, bbb1, aaa2, bbb2))
     reader = SimpleNamespace(schema_version=2, session_date=DAY, store=store)
     def make(symbol):
         return ObservationOverlayProjector(cache=None, symbol=symbol, session_date=DAY)
