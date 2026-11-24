@@ -123,6 +123,53 @@ remains unauthorized. The next gate is the full isolated
 operator launch. Drag/drop, auto-scroll following effective changes, OHLCV
 automatic acquisition and UI calendar remain pending unified-release features.
 
+## November 24 — drag-to-preview and post-effectiveness following
+
+The isolated synthetic unified Real Time Membership panel has already been
+visually verified through `INTC` Hot → Focus (r3) → Hot (r4), with
+`EFFECTIVE_AS_PUBLISHED` receipts, no production modifications.
+
+The next experimental checkpoint adds drag-and-drop using the earlier
+`membership_drag_bridge.js` AG Grid external-drop-zone implementation.
+**Drag emits only a proposal** with the symbol, source tier and destination
+tier. The server revalidates the symbol's *actual current effective tier*
+against the authoritative operator snapshot and calls the existing 90-second
+`OperatorState.preview`. Drag cannot directly queue a request, reorder
+recorded row data, or publish a revision. The operator still must click the
+separate Confirm button after reviewing action, target and revision.
+
+In ordinary Historical and read-only Real Time, drag controls and the
+corresponding callback are absent. In explicitly enabled controlled Real
+Time, they are available only within the locally attached operator session.
+The previous manual Preview/Confirm form remains a fallback if AG Grid
+drag binding is unavailable.
+
+A second callback watches the existing worker receipt and the projected
+membership roster. It auto-selects/scrolls the symbol to the destination tier
+**only once**, and only when the receipt reports
+`EFFECTIVE_AS_PUBLISHED` **and** the effective destination row is actually
+present in committed journal evidence. A queued or stale preview cannot
+cause an apparent completed move; a later superseding revision that has
+moved the symbol elsewhere is not followed into the wrong tier.
+
+The existing disposable runner is retained:
+
+```cmd
+call preview_unified_operator_synthetic.cmd --port 8062
+```
+
+On the Membership tab, drag INTC from Hot into Focus by its grip. Review the
+drop-created PREVIEW before confirming. Observe the worker receipt, the
+effective destination and automatic selection/scroll. Then drag INTC back
+from Focus to Hot, confirm and observe. Stop the local demo using
+**Stop server**. Everything remains isolated in a temporary synthetic
+journal/worker.
+
+**Status:** experimental source and isolated tests only, pending Windows
+verification and a bounded synthetic visual exercise. No production
+Membership change is authorized, and genuine Schwab OHLCV Real Time
+integration remains a separate upcoming milestone.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
