@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-import time
+import time as perf_timer
 from datetime import date, datetime, time, timezone
 from pathlib import Path
 from threading import Timer
@@ -1401,7 +1401,7 @@ def create_quote_dashboard(
             return status_only(f"{symbol} is not a listed member at the current replay time.")
 
         if has_chart:
-            started = time.perf_counter()
+            started = perf_timer.perf_counter()
             try:
                 controller.select_overlay_symbol(symbol)
             except (ValueError, RuntimeError) as error:
@@ -1409,7 +1409,7 @@ def create_quote_dashboard(
             finally:
                 print(
                     f"OVERLAY SYMBOL SELECTION {symbol}: "
-                    f"{time.perf_counter() - started:.3f}s backend",
+                    f"{perf_timer.perf_counter() - started:.3f}s backend",
                     flush=True,
                 )
         tier_name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
