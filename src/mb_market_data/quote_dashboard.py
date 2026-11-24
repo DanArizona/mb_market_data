@@ -1045,7 +1045,10 @@ def create_quote_dashboard(
             ),
             *([dcc.Interval(id="acquisition-health-tick", interval=5_000)] if acquisition_health_reader else []),
             *([dcc.Interval(id="live-tail-tick", interval=5_000)] if live_mode else []),
-            *([dcc.Store(id="live-refresh-count", data=replay.applied_event_count)] if live_mode else []),
+            *([dcc.Store(
+                id="live-refresh-count",
+                data={"event_count": replay.applied_event_count, "refresh": -1},
+            )] if live_mode else []),
             *(
                 [
                     dcc.Store(id="operator-csrf", data=operator_token),
@@ -1636,7 +1639,10 @@ def create_quote_dashboard(
                     *((no_update,) * (2 * len(TIERS))),
                 )
             return (
-                projected.applied_event_count if new_events else no_update,
+                {
+                    "event_count": projected.applied_event_count,
+                    "refresh": _tick,
+                },
                 detail,
                 *[records[tier] for tier in TIERS],
                 *[f"{len(records[tier]):,}" for tier in TIERS],
