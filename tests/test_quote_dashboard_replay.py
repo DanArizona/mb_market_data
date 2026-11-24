@@ -84,6 +84,33 @@ def overlay_projector() -> ObservationOverlayProjector:
 
 
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_switch_to_another_symbol_does_not_reuse_wrong_ohlcv_cache(self) -> None:
+        event = membership_event(0)
+        matching_cache = overlay_projector().cache
+        self.assertIsNotNone(matching_cache)
+
+        def projector(symbol: str) -> ObservationOverlayProjector:
+            return ObservationOverlayProjector(
+                cache=matching_cache if symbol == "FOCUS" else None,
+                symbol=symbol,
+                session_date=SESSION_DATE,
+            )
+
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: projector("FOCUS"),
+            symbol_projector_factory=projector,
+        )
+        controller.finish()
+        self.assertIsNotNone(controller.snapshot().observation_overlay.cache)
+        other = controller.select_overlay_symbol("HOT")
+        self.assertEqual(other.observation_overlay.symbol, "HOT")
+        self.assertIsNone(other.observation_overlay.cache)
+        back = controller.select_overlay_symbol("FOCUS")
+        self.assertEqual(back.observation_overlay.cache.symbol, "FOCUS")
+        self.assertEqual(back.observation_overlay.cache.session_date, SESSION_DATE)
+
     def test_switch_overlay_symbol_keeps_replay_clock_and_persists_through_seek(self) -> None:
         event = membership_event(0)
         def make_projector(symbol: str) -> ObservationOverlayProjector:
