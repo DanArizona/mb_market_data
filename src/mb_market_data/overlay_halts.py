@@ -99,6 +99,8 @@ def load_daily_nasdaq_halt_events(
             # Only ignore it when its key and recorded date agree.
             if recorded_date != keyed_date.strftime("%m/%d/%Y"):
                 raise ValueError("daily Nasdaq episode key differs from halt date")
+            if keyed_date > session_date:
+                raise ValueError("daily Nasdaq episode belongs to a future session")
             continue
         if recorded_date != session_date.strftime("%m/%d/%Y"):
             raise ValueError("daily Nasdaq episode belongs to a different session")
