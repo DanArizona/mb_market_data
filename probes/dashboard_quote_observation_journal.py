@@ -51,6 +51,15 @@ def parse_args() -> argparse.Namespace:
             "Real Time mode; requires matching current ET session journal."
         ),
     )
+    parser.add_argument(
+        "--enable-manual-membership-actions",
+        action="store_true",
+        help=(
+            "ATTENDED, EXPLICIT OPT-IN ONLY: expose Preview and Confirm for "
+            "the existing daily membership worker. A confirmed action can "
+            "change production membership. Never used by ordinary Real Time."
+        ),
+    )
     parser.add_argument("--polling-health-directory", type=Path,
                         help="Read-only monitor status folder; defaults to the journal's output/polling_health/SESSION_DATE")
     parser.add_argument(
@@ -106,6 +115,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--port must be between 1 and 65535")
     if args.real_time_data_root is not None and args.start_at_beginning:
         parser.error("--start-at-beginning is not supported for Real Time attachment")
+    if args.enable_manual_membership_actions and args.real_time_data_root is None:
+        parser.error("Manual actions require an explicit Real Time controller attachment")
     if args.nasdaq_halts_json and not args.observation_overlay_cache:
         parser.error("--nasdaq-halts-json requires --observation-overlay-cache")
     if args.nasdaq_daily_events_json and not (
@@ -193,6 +204,7 @@ def main() -> int:
             ),
         )
         live_tail = None
+        operator_actions = None
         if args.real_time_data_root is not None:
             today_et = datetime.now(ET).date()
             if reader.session_date != today_et:
@@ -211,6 +223,15 @@ def main() -> int:
                 reader=reader, controller=controller,
                 indexed_selection=selected_index,
             )
+            if args.enable_manual_membership_actions:
+                # Only this opt-in path imports the existing operator backend.
+                # The read-only and Historical viewers never construct it.
+                from mb_market_data.overlay_manual_membership import (
+                    RealTimeMembershipOperator,
+                )
+                operator_actions = RealTimeMembershipOperator(
+                    args.real_time_data_root, reader.session_date
+                )
         elif not args.start_at_beginning:
             controller.finish()
         replay = controller.snapshot()
@@ -219,6 +240,7 @@ def main() -> int:
             request_server_stop=stop_event.set,
             live_mode=live_tail is not None,
             live_refresh=live_tail.refresh if live_tail is not None else None,
+            operator_actions=operator_actions,
             acquisition_health_reader=partial(read_health_status,
                 args.polling_health_directory or args.database.parent.parent / "polling_health" / str(reader.session_date),
                 journal=args.database, session_date=reader.session_date),
@@ -259,6 +281,14 @@ def main() -> int:
     print(f"Open in browser  : {url}")
     if live_tail is not None:
         print("Live tail         : committed additions every 5 seconds; no Schwab requests")
+        print(
+            "Operator controls : "
+            + (
+                "EXPLICITLY ENABLED · Preview/Confirm may queue production changes"
+                if operator_actions is not None
+                else "DISABLED · read-only"
+            )
+        )
         print("Controller phase  : saved evidence only; process liveness is NOT verified")
         print("Real Time read-only: Historical requires a separate viewer launch.")
     elif not args.start_at_beginning:
