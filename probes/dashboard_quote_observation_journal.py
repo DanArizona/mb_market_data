@@ -29,6 +29,7 @@ from mb_market_data.observation_overlay import (
 from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.overlay_indexed_selection import IndexedOverlaySymbolSelection
 from mb_market_data.overlay_live_tail import ReadOnlyJournalTail
+from mb_market_data.overlay_live_ohlcv import LiveOHLCVReader
 from mb_market_data.overlay_session_catalog import inspect_session
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
@@ -49,6 +50,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Explicit daily-controller data root for read-only, committed "
             "Real Time mode; requires matching current ET session journal."
+        ),
+    )
+    parser.add_argument(
+        "--real-time-ohlcv-root", type=Path,
+        help=(
+            "OPTIONAL read-only independent immutable live OHLCV evidence folder. "
+            "Requires --real-time-data-root and --overlay-symbol. "
+            "This viewer NEVER acquires candles, authenticates, or starts a client."
         ),
     )
     parser.add_argument(
@@ -115,6 +124,12 @@ def parse_args() -> argparse.Namespace:
         parser.error("--port must be between 1 and 65535")
     if args.real_time_data_root is not None and args.start_at_beginning:
         parser.error("--start-at-beginning is not supported for Real Time attachment")
+    if args.real_time_ohlcv_root is not None and args.real_time_data_root is None:
+        parser.error("Live OHLCV evidence requires an explicit Real Time attachment")
+    if args.real_time_ohlcv_root is not None and not args.overlay_symbol:
+        parser.error("Live OHLCV evidence requires a selected --overlay-symbol")
+    if args.real_time_ohlcv_root is not None and args.observation_overlay_cache:
+        parser.error("Live OHLCV root and fixed historical OHLCV cache cannot be combined")
     if args.enable_manual_membership_actions and args.real_time_data_root is None:
         parser.error("Manual actions require an explicit Real Time controller attachment")
     if args.enable_manual_membership_actions and args.host != "127.0.0.1":
@@ -156,17 +171,28 @@ def main() -> int:
             args.overlay_symbol.strip().upper() != overlay_cache.symbol
         ):
             raise ValueError("--overlay-symbol differs from OHLCV cache symbol")
+        live_ohlcv_reader = (
+            LiveOHLCVReader(
+                args.real_time_ohlcv_root, session_date=reader.session_date
+            )
+            if args.real_time_ohlcv_root is not None else None
+        )
         poll_seconds_by_run = reader.poll_seconds_by_run() if overlay_symbol else {}
 
         def make_overlay_projector(selected_symbol: str) -> ObservationOverlayProjector:
             """Use only the exact selected-symbol/date cache and halt evidence."""
             selected = selected_symbol.strip().upper()
+            fixed_cache = (
+                overlay_cache
+                if overlay_cache is not None and overlay_cache.symbol == selected
+                else None
+            )
+            live_cache = (
+                live_ohlcv_reader.latest(selected)
+                if live_ohlcv_reader is not None else None
+            )
             return ObservationOverlayProjector(
-                cache=(
-                    overlay_cache
-                    if overlay_cache is not None and overlay_cache.symbol == selected
-                    else None
-                ),
+                cache=live_cache if live_cache is not None else fixed_cache,
                 symbol=selected,
                 session_date=reader.session_date,
                 poll_seconds_by_run=poll_seconds_by_run,
@@ -236,12 +262,36 @@ def main() -> int:
                 )
         elif not args.start_at_beginning:
             controller.finish()
+        live_refresh = live_tail.refresh if live_tail is not None else None
+        if live_tail is not None and live_ohlcv_reader is not None:
+            # The viewer reads only completed, immutable raw-backed bundles.
+            # A separate producer owns any authenticated client / SDK calls.
+            def refresh_with_live_candles() -> tuple[int, str]:
+                newly_committed, detail = live_tail.refresh()
+                current = controller.snapshot().observation_overlay
+                if current is None:
+                    return newly_committed, detail + " · OHLCV: no symbol selected"
+                cache = live_ohlcv_reader.latest(current.symbol)
+                if cache is None:
+                    return (
+                        newly_committed,
+                        detail + " · OHLCV: no independent completed-candle snapshot",
+                    )
+                changed = controller.install_live_ohlcv_cache(cache)
+                label = (
+                    f" · OHLCV: {len(cache.candles)} genuine completed "
+                    f"Schwab candles for {cache.symbol}, last received "
+                    f"{cache.acquired_at_utc.isoformat()} UTC "
+                    "(immutable read-only evidence, no client in viewer)"
+                )
+                return newly_committed + int(changed), detail + label
+            live_refresh = refresh_with_live_candles
         replay = controller.snapshot()
         app = create_quote_dashboard(
             controller,
             request_server_stop=stop_event.set,
             live_mode=live_tail is not None,
-            live_refresh=live_tail.refresh if live_tail is not None else None,
+            live_refresh=live_refresh,
             operator_actions=operator_actions,
             acquisition_health_reader=partial(read_health_status,
                 args.polling_health_directory or args.database.parent.parent / "polling_health" / str(reader.session_date),
@@ -292,6 +342,9 @@ def main() -> int:
             )
         )
         print("Controller phase  : saved evidence only; process liveness is NOT verified")
+        if args.real_time_ohlcv_root is not None:
+            print(f"Live OHLCV evidence: {args.real_time_ohlcv_root}")
+            print("OHLCV source: independent immutable files only; no Schwab client in viewer")
         print("Real Time read-only: Historical requires a separate viewer launch.")
     elif not args.start_at_beginning:
         print("Click Restart to return to the beginning of the session.")
