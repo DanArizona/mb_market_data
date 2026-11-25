@@ -130,6 +130,7 @@ def _build_closed_cache(
 def acquire_live_ohlcv(
     client: Any, *, symbol: str, session_date: date,
     now_factory: Callable[[], datetime] = lambda: datetime.now(UTC),
+    session_end_et: datetime | None = None,
 ) -> LiveOHLCVAcquisition:
     """One bounded request with an injected client; no credentials or scheduler.
 
@@ -141,6 +142,13 @@ def acquire_live_ohlcv(
     if started.astimezone(ET).date() != session_date:
         raise LiveOHLCVError("Live OHLCV requires today's exact Eastern session")
     start_et, end_et = request_bounds(session_date)
+    if session_end_et is not None:
+        if session_end_et.tzinfo is None or session_end_et.utcoffset() is None:
+            raise LiveOHLCVError("Session close must be timezone-aware")
+        allowed_end = session_end_et.astimezone(ET)
+        if allowed_end.date() != session_date or not start_et < allowed_end <= end_et:
+            raise LiveOHLCVError("Session close is outside the requested ET session")
+        end_et = allowed_end
     requested_until_et = min(started.astimezone(ET), end_et)
     if requested_until_et <= start_et:
         raise LiveOHLCVNotReady("Price-history session has not begun")
