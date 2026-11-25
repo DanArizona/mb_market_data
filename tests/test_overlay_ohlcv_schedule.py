@@ -146,13 +146,26 @@ class OwnedScheduleTests(unittest.TestCase):
             completed_slot(et(13, 0, 5), opens_at=self.opens, closes_at=close),
             close,
         )
+        self.assertEqual(
+            completed_slot(et(13, 1, 0), opens_at=self.opens, closes_at=close),
+            close,
+        )
         self.assertIsNone(
-            completed_slot(et(13, 0, 6), opens_at=self.opens, closes_at=close)
+            completed_slot(et(13, 2, 1), opens_at=self.opens, closes_at=close)
         )
         early = self.build(closes_at=close)
         client = fixture()
-        self.assertEqual(self.run(early, client, 13, 0, 6).status, "NOT_DUE")
-        self.assertEqual(client.requests, [])
+        final = self.run(early, client, 13, 1, 0)
+        self.assertEqual(final.status, "PUBLISHED")
+        self.assertEqual(final.slot_close_et, close)
+        self.assertEqual(client.requests[0][1]["endDate"], close)
+        self.assertEqual(
+            self.run(early, client, 13, 1, 30).status, "ALREADY_ATTEMPTED",
+        )
+        self.assertEqual(
+            self.run(early, client, 13, 2, 1).status, "NOT_DUE",
+        )
+        self.assertEqual(len(client.requests), 1)
 
     def test_rejects_broken_schedule_before_writing(self):
         with self.assertRaisesRegex(ValueError, "date differs"):
