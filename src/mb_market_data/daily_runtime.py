@@ -690,6 +690,8 @@ def watch(root,once=False,*,exit_when_final=False,quit_key=viewer_quit_key):
             print(readable_status(status))
             message=status_age_message(status,age)
             if message:print(message)
+            if not once:
+                print('Viewer only: press Q to return to CMD; daily collection continues.')
         except (OSError,ValueError,KeyError):
             print('No readable status yet:',root)
         if once:return 0
