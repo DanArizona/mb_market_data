@@ -368,6 +368,56 @@ affecting Uni/Focus/Hot quote cadence. That production integration and
 real Schwab response qualification require explicit separate approval.
 Do not claim real-time candle acquisition has been verified until it has.
 
+## November 25 — owned five-minute OHLCV scheduler prototype (not deployed)
+
+After MasterBot verified **141/141 offline tests PASS**, repository inspection
+confirmed that the production `daily_runtime` one-unlock controller launches
+distinct authorized Uni/Focus/Hot worker processes, with client initialization
+serialized by `auth_lock(ecfg)`. The controller authenticates once attended
+and passes the credential to its own supervised children in memory/pipe.
+It is **not** a literal shared Python SDK client instance. Any OHLCV worker
+must be an explicitly owned, authorized controller role, not a second
+uncontrolled operator-launched poller or an API-calling browser.
+
+The experimental `overlay_ohlcv_schedule.OwnedOHLCVSchedule` is an
+**injected-client, no-credential, no-background-thread** orchestration
+contract for a future controller-owned OHLCV role:
+
+- A current selected symbol is supplied by the owning process; neither
+  this module nor the existing Overlay viewer obtains credentials.
+- At most one request **per selected symbol per completed five-minute
+  slot**, beginning five seconds after the boundary. Requests are capped
+  at **two distinct selected symbols per five-minute slot**, which limits
+  user switching from creating an unlimited rate spike.
+- Each requested symbol/slot is recorded in a **nonsecret durable
+  reservation ledger before the provider call**, so explicit owned-worker
+  restarts do not immediately reissue the same request. Errors do not
+  trigger tight-loop retries; the next five-minute slot is the next
+  opportunity.
+- The opening and closing ET times are supplied by the authoritative
+  session plan; early-close sessions are supported. The final completed
+  interval can be captured in a bounded two-minute post-close window,
+  with the Schwab query and cache capped to the actual exchange close
+  (never silently to 16:00 on an early-close day).
+- Publishing uses the separate immutable raw/cache evidence bundle
+  validated earlier; the quote journal and membership records are never
+  mutated by this component.
+- Eight additional offline tests cover pre-boundary suppression, live
+  completed-bar acquisition at the boundary, restart idempotence,
+  owner availability, two-symbol quota, failed-request backoff,
+  early closing and malformed schedules.
+
+**Checkpoint scope:** experimental scheduling and acquisition-library code
+only. The suite now expects **149 offline tests** (141 previously qualified
+plus eight new scheduler tests). As of this revision they have **not yet
+been run on MasterBot**. This does not install an OHLCV worker, modify a
+running controller, request Schwab data, or activate any Real Time API
+session. The next implementation step is to add an explicitly supervised
+OHLCV child to a **future experimental daily-controller candidate**, with
+authenticated client creation through the established controller auth lock,
+an exact selected-symbol handoff, status/health reporting and a stop/exit
+lifecycle. No production deployment without a separate decision.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
