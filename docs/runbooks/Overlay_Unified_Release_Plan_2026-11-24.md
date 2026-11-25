@@ -438,6 +438,47 @@ Schwab OHLCV session. Use the dedicated
 contract and remaining qualification criteria. A future experimental
 session-specific authorization is required before genuine live acquisition.
 
+## November 25 — explicit Stop server confirmation (experimental)
+
+The operator reported an apparent Stop server failure after the Nov 25
+Real Time Overlay session: Firefox still showed the chart with a
+`Stopping…` label. The saved **daily polling controller** independently
+reported `FINISHED` with Uni/Focus/Hot worker exit 0 and both Membership
+and Nasdaq workers stopped. The local Overlay viewer is **not** the
+daily-session controller; the Stop server button must never stop or
+modify production quote collection.
+
+The existing `LocalDashboardServer` retained its September graceful
+stop-event and main-thread shutdown implementation. However, the Dash
+callback formerly returned `Stopping…` without any browser-side
+confirmation. A stopped local WSGI server leaves the old Firefox DOM
+visible, which can look like an active application.
+
+The experimental viewer now packages
+`assets/overlay_stop_confirmation.js` which, after the confirmed Stop
+server click, makes local same-origin HEAD checks. When the listener
+is unreachable twice, it covers the stale chart with an explicit
+**Overlay viewer stopped — close this browser tab** notice and explains
+that daily polling is independent. If the listener still responds after
+a short timeout, it says **shutdown not confirmed** rather than falsely
+claiming success.
+
+The viewer entrypoint logs
+`VIEWER STOP REQUESTED` to its own CMD, followed by the existing
+`Dashboard stopped.` after the WSGI thread has exited.
+`tests/test_quote_dashboard.py` now checks that this JS is included.
+A dedicated loopback-only test in
+`tests/test_local_dashboard_server.py` exercises a real Dash
+`Stop server` HTTP callback, joins the WSGI server and checks that
+the port is no longer accepting connections. It is intentionally
+outside the network-denying standard Overlay suite.
+
+**Qualification pending:** actual CMD return/port-closure and Firefox
+post-stop confirmation on MasterBot. A stale screenshot alone cannot
+prove whether the server is still listening. Do not modify the
+production controller, and do not kill a PID without verifying it is
+the intended local viewer.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
