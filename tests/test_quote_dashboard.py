@@ -1118,7 +1118,8 @@ class TestQuoteDashboard(unittest.TestCase):
         layout = client.get("/_dash-layout")
         stylesheet = client.get("/assets/quote_dashboard.css")
         favicon = client.get("/assets/favicon.svg")
-        for response in (page, layout, stylesheet, favicon):
+        shutdown_script = client.get("/assets/overlay_stop_confirmation.js")
+        for response in (page, layout, stylesheet, favicon, shutdown_script):
             self.addCleanup(response.close)
 
         self.assertEqual(page.status_code, 200)
@@ -1134,6 +1135,9 @@ class TestQuoteDashboard(unittest.TestCase):
         self.assertNotIn(b"observation-overlay-panel", layout.data)
         self.assertEqual(len(app.callback_map), 10)
         self.assertEqual(stylesheet.status_code, 200)
+        self.assertEqual(shutdown_script.status_code, 200)
+        self.assertIn(b"Overlay viewer stopped", shutdown_script.data)
+        self.assertIn(b"daily Uni / Focus / Hot", shutdown_script.data)
         self.assertIn(b"@media print", stylesheet.data)
         self.assertIn(b".dash-dropdown-content", stylesheet.data)
         self.assertIn(b".replay-speed-dropdown .Select-control", stylesheet.data)
