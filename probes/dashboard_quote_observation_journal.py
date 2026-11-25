@@ -279,8 +279,8 @@ def main() -> int:
                     )
                 changed = controller.install_live_ohlcv_cache(cache)
                 label = (
-                    f" · OHLCV: {len(cache.candles)} genuine completed "
-                    f"Schwab candles for {cache.symbol}, last received "
+                    f" · OHLCV: {len(cache.candles)} completed "
+                    f"Schwab-format source-backed candles for {cache.symbol}, last received "
                     f"{cache.acquired_at_utc.isoformat()} UTC "
                     "(immutable read-only evidence, no client in viewer)"
                 )
