@@ -155,6 +155,112 @@ class TestLiveOHLCVProducerAndConsumer(unittest.TestCase):
                 publish_live_ohlcv(tmp, replace(result, cache=changed))
             self.assertFalse((Path(tmp) / str(DAY)).exists())
 
+    def controller(self):
+        from mb_market_data.observation_overlay import ObservationOverlayProjector
+        from mb_market_data.quote_dashboard_replay import QuoteDashboardReplayController
+        from mb_market_data.quote_journal_replay import MembershipRevisionEvent, ReplayTimeline
+        from mb_market_data.sampling_membership import SamplingHierarchyRevision
+
+        at = instant(9, 30).astimezone(UTC)
+        event = MembershipRevisionEvent(SamplingHierarchyRevision(
+            session_date=DAY, revision=0, effective_at=at,
+            uni_symbols=("TEST", "AAPL"), focus_symbols=("TEST",),
+            hot_symbols=(), source="offline-live-candle-test",
+        ))
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(DAY, 1, at, at),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: ObservationOverlayProjector(
+                cache=None, symbol="TEST", session_date=DAY,
+            ),
+            symbol_projector_factory=lambda symbol: ObservationOverlayProjector(
+                cache=None, symbol=symbol, session_date=DAY,
+            ),
+        )
+        controller.finish()
+        return controller
+
+    def test_live_controller_accepts_closed_bars_without_journal_mutation(self):
+        controller = self.controller()
+        before = controller.snapshot()
+        cache = acquisition(StubClient(self.payload), 9, 37).cache
+        with self.assertRaisesRegex(RuntimeError, "Real Time"):
+            controller.install_live_ohlcv_cache(cache)
+        controller.activate_live_readonly()
+        self.assertTrue(controller.install_live_ohlcv_cache(cache))
+        self.assertFalse(controller.install_live_ohlcv_cache(cache))
+        after = controller.snapshot()
+        self.assertEqual(after.applied_event_count, before.applied_event_count)
+        self.assertEqual(after.state.revision_count, before.state.revision_count)
+        self.assertEqual(after.replay_time_utc, before.replay_time_utc)
+        self.assertEqual([c.volume for c in after.observation_overlay.candles], [111])
+        self.assertEqual(after.observation_overlay.symbol, "TEST")
+        self.assertEqual(after.observation_overlay.replay_time_utc, cache.acquired_at_utc)
+
+        extended = acquisition(StubClient(self.payload), 9, 40).cache
+        self.assertTrue(controller.install_live_ohlcv_cache(extended))
+        self.assertEqual(
+            [c.volume for c in controller.snapshot().observation_overlay.candles],
+            [111, 222],
+        )
+        with self.assertRaisesRegex(ValueError, "changed or removed"):
+            controller.install_live_ohlcv_cache(cache)
+        with self.assertRaisesRegex(ValueError, "another selected symbol"):
+            controller.select_overlay_symbol("AAPL")
+            controller.install_live_ohlcv_cache(extended)
+
+    def test_live_controller_rejects_same_time_conflict_and_wrong_session(self):
+        controller = self.controller()
+        controller.activate_live_readonly()
+        cache = acquisition(StubClient(self.payload), 9, 37).cache
+        self.assertTrue(controller.install_live_ohlcv_cache(cache))
+        wrong_day = replace(cache, session_date=date(2026, 11, 24))
+        # Cache's candle date must match, so object construction itself refuses.
+        # Check the other exact-identity guard with a valid independently
+        # generated empty-stream symbol instead.
+        with self.assertRaisesRegex(ValueError, "cache symbol"):
+            from mb_market_data.observation_overlay import ObservationOverlayProjector
+            projector = ObservationOverlayProjector(
+                cache=cache, symbol="AAPL", session_date=DAY,
+            )
+        altered = replace(
+            cache,
+            candles=(replace(cache.candles[0], close=103.0),),
+        )
+        with self.assertRaisesRegex(ValueError, "Conflicting"):
+            controller.install_live_ohlcv_cache(altered)
+        self.assertEqual(
+            [c.volume for c in controller.snapshot().observation_overlay.candles],
+            [111],
+        )
+
+    def test_selected_symbol_switch_does_not_reuse_previous_candles(self):
+        controller = self.controller()
+        controller.activate_live_readonly()
+        cache = acquisition(StubClient(self.payload), 9, 37).cache
+        self.assertTrue(controller.install_live_ohlcv_cache(cache))
+        switched = controller.select_overlay_symbol("AAPL")
+        self.assertEqual(switched.observation_overlay.symbol, "AAPL")
+        self.assertEqual(switched.observation_overlay.candles, ())
+        with self.assertRaisesRegex(ValueError, "another selected symbol"):
+            controller.install_live_ohlcv_cache(cache)
+
+    def test_live_reader_detects_new_publication_for_selected_symbol(self):
+        controller = self.controller()
+        controller.activate_live_readonly()
+        with tempfile.TemporaryDirectory() as tmp:
+            reader = LiveOHLCVReader(tmp, session_date=DAY)
+            now = instant(9, 40, 3).astimezone(UTC)
+            self.assertIsNone(reader.latest("TEST", now=now))
+            first = acquisition(StubClient(self.payload), 9, 37)
+            publish_live_ohlcv(tmp, first)
+            self.assertTrue(controller.install_live_ohlcv_cache(reader.latest("TEST", now=now)))
+            second = acquisition(StubClient(self.payload), 9, 40)
+            publish_live_ohlcv(tmp, second)
+            self.assertTrue(controller.install_live_ohlcv_cache(reader.latest("TEST", now=now)))
+            self.assertEqual(len(controller.snapshot().observation_overlay.candles), 2)
+            self.assertEqual(controller.snapshot().applied_event_count, 1)
+
     def test_cache_keeps_historical_uniform_blue_volume_style(self):
         # The live path uses the existing figure builder, never an alternate
         # green/red histogram or a separate synthetic candle renderer.
