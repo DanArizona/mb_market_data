@@ -304,6 +304,70 @@ reason to delay the next priority: **genuine Schwab five-minute OHLCV
 candles and volume in the unified Real Time Overlay**. No production
 source, credentials, workers, or installed files are to be changed.
 
+## Wednesday November 25 — intraday completed Schwab OHLCV path (experimental)
+
+**Development objective:** add genuine five-minute OHLCV candles/volume for
+the selected Real Time Overlay symbol, without a second provider client in
+the viewer and without changing the daily quote-polling controller.
+
+This experimental checkpoint introduces a **read-only evidence-fed first
+phase**, not yet actual automatic Schwab acquisition in the running
+November 25 production session:
+
+1. `overlay_live_ohlcv.acquire_live_ohlcv(client, ...)` accepts only a
+   separately authorized, already-authenticated Schwab SDK client supplied
+   by its caller. It requests one selected symbol with
+   `price_history(frequencyType="minute", frequency=5)` and an exact ET
+   request cutoff. It filters out Schwab's potentially **provisional
+   current candle**. A bar is eligible only if its whole five-minute
+   interval ended by the *request* time, not just by response receipt.
+   No credentials, user input, network client creation or polling loop
+   reside in this library.
+2. `publish_live_ohlcv(root, acquisition)` publishes one independently
+   stored **immutable** bundle: original raw response bytes and a validated
+   normalized cache. It writes into a staging directory and exposes the
+   complete bundle with one atomic rename. The live viewer is NOT a
+   publisher and does not write the production quote journal.
+3. `LiveOHLCVReader(root, session_date).latest(symbol)` discovers the
+   newest bundle for one exact symbol and ET date. It verifies raw
+   SHA-256, bundle timestamp/name, cached candle data versus the source,
+   completion boundaries and provenance. A malformed latest bundle is
+   rejected instead of silently relabeled as valid prior data.
+4. An opt-in `--real-time-ohlcv-root PATH` on
+   `probes/dashboard_quote_observation_journal.py` reads these
+   independent bundles **only** alongside a validated
+   `--real-time-data-root` and an explicit `--overlay-symbol`. It is
+   incompatible with the fixed historical OHLCV-cache option. On each
+   existing 5-second Real Time tick, the selected symbol's newest
+   validated bundle is applied; symbol changes recheck cache identity.
+   Without a bundle the viewer stays truthful **quote-only**.
+5. `ObservationOverlayProjector.update_live_cache()` rejects future
+   candles, cache rollbacks, changed completed bars, wrong symbol/date,
+   and conflicting acquisitions. The Real Time controller attaches
+   this evidence without adding fabricated quote events or changing
+   journal replay counts/timestamps. Historical mode keeps its original
+   immutable cache and rejects live updates.
+6. The historical Plotly renderer is reused unchanged, including
+   rising-price dark green `#1A6B57`, falling-price dark red
+   `#803D43`, and **uniform light-blue volume `#6fc8ff`**. Live
+   display does not recolor volume green/red.
+
+**Current qualification:** offline tests for cutoff, provisional response
+bars, immutable source/cache integrity, selection isolation, monotonic
+updates, and retained blue volume. The experimental suite expects
+**141** tests (129 previously qualified plus 12 new); MasterBot results
+and GUI review are still pending.
+
+**Important remaining dependency:** the running November 25 controller
+does not publish these new intraday bundles, and this checkpoint deliberately
+does not create a separate Schwab client, credential prompt, or uncontrolled
+poller. The next integration decision is how a *single authorized SDK
+client owner* should schedule post-five-minute-boundary price-history
+requests and publish these bundles for the selected symbol, without
+affecting Uni/Focus/Hot quote cadence. That production integration and
+real Schwab response qualification require explicit separate approval.
+Do not claim real-time candle acquisition has been verified until it has.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
