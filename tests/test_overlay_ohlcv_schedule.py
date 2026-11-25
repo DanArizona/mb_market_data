@@ -57,7 +57,7 @@ class OwnedScheduleTests(unittest.TestCase):
             max_symbols_per_slot=overrides.get("limit", 2),
         )
 
-    def run(self, worker, client, h, m, s, symbol="TEST", **kw):
+    def invoke_tick(self, worker, client, h, m, s, symbol="TEST", **kw):
         f = times(h, m, s)
         return worker.tick(
             client=client, selected_symbol=symbol,
@@ -67,23 +67,23 @@ class OwnedScheduleTests(unittest.TestCase):
     def test_no_provider_call_before_completion_plus_five_seconds(self):
         client = fixture()
         for stamp in ((9, 30, 0), (9, 34, 59), (9, 35, 0), (9, 35, 4)):
-            outcome = self.run(self.worker, client, *stamp)
+            outcome = self.invoke_tick(self.worker, client, *stamp)
             self.assertEqual(outcome.status, "NOT_DUE")
         self.assertEqual(client.requests, [])
         self.assertFalse((self.root / "owned-state").exists())
 
     def test_publishes_one_request_at_first_boundary_and_no_duplicate(self):
         client = fixture()
-        published = self.run(self.worker, client, 9, 35, 5)
+        published = self.invoke_tick(self.worker, client, 9, 35, 5)
         self.assertEqual(published.status, "PUBLISHED")
         self.assertEqual(published.slot_close_et, et(9, 35))
         self.assertEqual(published.candle_count, 1)
         self.assertTrue(published.bundle_path.is_dir())
         self.assertEqual(len(client.requests), 1)
-        same = self.run(self.worker, client, 9, 39, 0)
+        same = self.invoke_tick(self.worker, client, 9, 39, 0)
         self.assertEqual(same.status, "ALREADY_ATTEMPTED")
         restarted = self.build()
-        duplicate = self.run(restarted, client, 9, 39, 30)
+        duplicate = self.invoke_tick(restarted, client, 9, 39, 30)
         self.assertEqual(duplicate.status, "ALREADY_ATTEMPTED")
         self.assertEqual(len(client.requests), 1)
         ledger = json.loads((self.root / "owned-state" / "ledger.json").read_text())
@@ -92,8 +92,8 @@ class OwnedScheduleTests(unittest.TestCase):
 
     def test_new_slot_includes_next_completed_bar_and_never_provisional(self):
         client = fixture()
-        first = self.run(self.worker, client, 9, 35, 5)
-        second = self.run(self.worker, client, 9, 40, 5)
+        first = self.invoke_tick(self.worker, client, 9, 35, 5)
+        second = self.invoke_tick(self.worker, client, 9, 40, 5)
         self.assertEqual(second.status, "PUBLISHED")
         self.assertEqual(second.candle_count, 2)
         self.assertEqual(len(client.requests), 2)
@@ -102,11 +102,11 @@ class OwnedScheduleTests(unittest.TestCase):
     def test_owner_absent_or_selection_missing_cannot_request(self):
         client = fixture()
         self.assertEqual(
-            self.run(self.worker, client, 9, 35, 6, owner_active=lambda: False).status,
+            self.invoke_tick(self.worker, client, 9, 35, 6, owner_active=lambda: False).status,
             "OWNER_UNAVAILABLE",
         )
         self.assertEqual(
-            self.run(self.worker, client, 9, 35, 6, symbol=None).status,
+            self.invoke_tick(self.worker, client, 9, 35, 6, symbol=None).status,
             "NO_SELECTION",
         )
         self.assertEqual(client.requests, [])
@@ -114,24 +114,24 @@ class OwnedScheduleTests(unittest.TestCase):
 
     def test_two_symbol_budget_per_slot_is_bounded(self):
         client = fixture()
-        self.assertEqual(self.run(self.worker, client, 9, 35, 5).status, "PUBLISHED")
+        self.assertEqual(self.invoke_tick(self.worker, client, 9, 35, 5).status, "PUBLISHED")
         # A second symbol can be attempted in the same slot, but the source
         # intentionally rejects its mismatched symbol instead of publishing.
-        second = self.run(self.worker, client, 9, 35, 8, symbol="AAPL")
+        second = self.invoke_tick(self.worker, client, 9, 35, 8, symbol="AAPL")
         self.assertEqual(second.status, "FAILED")
         self.assertEqual(second.error_type, "ObservationOverlayDataError")
         self.assertEqual(len(client.requests), 2)
-        third = self.run(self.worker, client, 9, 35, 10, symbol="MSFT")
+        third = self.invoke_tick(self.worker, client, 9, 35, 10, symbol="MSFT")
         self.assertEqual(third.status, "BUDGET_EXHAUSTED")
         self.assertEqual(len(client.requests), 2)
 
     def test_failure_is_recorded_without_repeated_provider_call(self):
         client = StubClient({"symbol": "TEST", "candles": []})
-        first = self.run(self.worker, client, 9, 35, 5)
+        first = self.invoke_tick(self.worker, client, 9, 35, 5)
         self.assertEqual(first.status, "NOT_READY")
         self.assertEqual(first.error_type, "LiveOHLCVNotReady")
         self.assertEqual(
-            self.run(self.worker, client, 9, 35, 10).status,
+            self.invoke_tick(self.worker, client, 9, 35, 10).status,
             "ALREADY_ATTEMPTED",
         )
         self.assertEqual(len(client.requests), 1)
@@ -155,15 +155,15 @@ class OwnedScheduleTests(unittest.TestCase):
         )
         early = self.build(closes_at=close)
         client = fixture()
-        final = self.run(early, client, 13, 1, 0)
+        final = self.invoke_tick(early, client, 13, 1, 0)
         self.assertEqual(final.status, "PUBLISHED")
         self.assertEqual(final.slot_close_et, close)
         self.assertEqual(client.requests[0][1]["endDate"], close)
         self.assertEqual(
-            self.run(early, client, 13, 1, 30).status, "ALREADY_ATTEMPTED",
+            self.invoke_tick(early, client, 13, 1, 30).status, "ALREADY_ATTEMPTED",
         )
         self.assertEqual(
-            self.run(early, client, 13, 2, 1).status, "NOT_DUE",
+            self.invoke_tick(early, client, 13, 2, 1).status, "NOT_DUE",
         )
         self.assertEqual(len(client.requests), 1)
 
