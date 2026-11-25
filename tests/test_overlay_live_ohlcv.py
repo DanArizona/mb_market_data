@@ -203,8 +203,13 @@ class TestLiveOHLCVProducerAndConsumer(unittest.TestCase):
             [c.volume for c in controller.snapshot().observation_overlay.candles],
             [111, 222],
         )
+        changed_first = replace(extended.candles[0], close=103.0)
+        tampered_later = replace(
+            extended, acquired_at_utc=extended.acquired_at_utc.replace(second=3),
+            candles=(changed_first, extended.candles[1]),
+        )
         with self.assertRaisesRegex(ValueError, "changed or removed"):
-            controller.install_live_ohlcv_cache(cache)
+            controller.install_live_ohlcv_cache(tampered_later)
         with self.assertRaisesRegex(ValueError, "another selected symbol"):
             controller.select_overlay_symbol("AAPL")
             controller.install_live_ohlcv_cache(extended)
@@ -214,10 +219,9 @@ class TestLiveOHLCVProducerAndConsumer(unittest.TestCase):
         controller.activate_live_readonly()
         cache = acquisition(StubClient(self.payload), 9, 37).cache
         self.assertTrue(controller.install_live_ohlcv_cache(cache))
-        wrong_day = replace(cache, session_date=date(2026, 11, 24))
-        # Cache's candle date must match, so object construction itself refuses.
-        # Check the other exact-identity guard with a valid independently
-        # generated empty-stream symbol instead.
+        # Wrong-day evidence is rejected even at cache construction.
+        with self.assertRaisesRegex(ValueError, "candle is not on cache"):
+            replace(cache, session_date=date(2026, 11, 24))
         with self.assertRaisesRegex(ValueError, "cache symbol"):
             from mb_market_data.observation_overlay import ObservationOverlayProjector
             projector = ObservationOverlayProjector(
