@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from mb_market_data.observation_overlay import (
     ObservationOverlayData,
     ObservationOverlayProjector,
+    ObservationOverlayOHLCVCache,
 )
 from mb_market_data.quote_event_state import (
     QuoteEventStateProjector,
@@ -195,11 +196,25 @@ class QuoteDashboardReplayController:
 
     def snapshot(self) -> DashboardReplaySnapshot:
         with self._lock:
+            overlay_cutoff = self._position_utc
+            # Live candle evidence can arrive after the last committed quote
+            # acquisition. Its own reception time is an independent causal
+            # display cutoff, never an invented quote/journal event.
+            if (
+                self._live_readonly
+                and self._overlay_projector is not None
+                and self._overlay_projector.cache is not None
+            ):
+                acquired = self._overlay_projector.cache.acquired_at_utc
+                overlay_cutoff = max(
+                    (time for time in (overlay_cutoff, acquired) if time is not None),
+                    default=None,
+                )
             overlay = (
-                self._overlay_projector.snapshot(self._position_utc)
+                self._overlay_projector.snapshot(overlay_cutoff)
                 if (
                     self._overlay_projector is not None
-                    and self._position_utc is not None
+                    and overlay_cutoff is not None
                 )
                 else None
             )
@@ -316,6 +331,24 @@ class QuoteDashboardReplayController:
                     last_available_at_utc=prior_time,
                 )
             return self.snapshot()
+
+    def install_live_ohlcv_cache(self, cache: ObservationOverlayOHLCVCache) -> bool:
+        """Read-only Real Time chart update from independently saved evidence.
+
+        The controller never acquires candles, authenticates or edits a quote
+        journal. A cache for a previously selected symbol is refused.
+        Historical mode cannot update its immutable replay cache.
+        """
+        with self._lock:
+            if not self._live_readonly:
+                raise RuntimeError("Live OHLCV updates require Real Time mode")
+            if self._overlay_projector is None:
+                raise ValueError("No selected Overlay symbol for live OHLCV")
+            if cache.symbol != self._overlay_projector.symbol:
+                raise ValueError("Live OHLCV cache is for another selected symbol")
+            if cache.session_date != self._timeline.session_date:
+                raise ValueError("Live OHLCV cache belongs to another journal date")
+            return self._overlay_projector.update_live_cache(cache)
 
     def select_overlay_symbol(self, symbol: str) -> DashboardReplaySnapshot:
         """Switch the inspected symbol without changing the main replay clock.
