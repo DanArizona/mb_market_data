@@ -13,7 +13,7 @@ No unattended retry, periodic polling or browser OAuth authorization.
 from __future__ import annotations
 
 import argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import getpass
 import importlib.util
 import json
@@ -33,6 +33,48 @@ from mb_market_data.overlay_live_ohlcv import (
 from mb_market_data.overlay_session_catalog import inspect_session
 
 CONTRACT = "one-unlock-daily-flow-v1"
+
+
+def _fresh(text: str, *, now: datetime, label: str) -> None:
+    """Require recent timestamped evidence instead of trusting a saved PID."""
+    if not isinstance(text, str) or not text:
+        raise ValueError(f"Missing {label} timestamp")
+    observed = datetime.fromisoformat(text)
+    if observed.utcoffset() is None:
+        raise ValueError(f"Naive {label} timestamp")
+    age = now.astimezone(timezone.utc) - observed.astimezone(timezone.utc)
+    if not timedelta(seconds=-3) <= age <= timedelta(seconds=120):
+        raise ValueError(f"Stale or future {label} timestamp")
+
+
+def verify_collecting_channels(status: dict, *, now: datetime) -> None:
+    """Allow historical Hot gaps, but require actively healthy workers now."""
+    phase = status.get("phase")
+    if phase not in {"COLLECTING", "COLLECTING_DEGRADED"}:
+        raise ValueError(f"Controller is not collecting ({phase})")
+    health = status.get("health")
+    if not isinstance(health, dict) or health.get("journal_read") == "UNAVAILABLE" or health.get("error_type"):
+        raise ValueError("Journal health is unavailable")
+    channels, workers = health.get("channels"), status.get("workers")
+    if not isinstance(channels, dict) or not isinstance(workers, dict):
+        raise ValueError("Channel/worker health evidence missing")
+    expected = ("uni", "focus", "hot") if status.get("hot_activated") else ("uni", "focus")
+    for name in expected:
+        worker, channel = workers.get(name), channels.get(name)
+        if not isinstance(worker, dict) or not isinstance(channel, dict):
+            raise ValueError(f"{name} worker/channel missing")
+        if worker.get("exit_code") is not None or worker.get("api_state") != "AVAILABLE":
+            raise ValueError(f"{name} worker exited or API unavailable")
+        if channel.get("state") != "RUNNING":
+            raise ValueError(f"{name} not currently running")
+        count = channel.get("committed_acquisitions")
+        if type(count) is not int or count < 1:
+            raise ValueError(f"{name} has no committed acquisitions")
+        outcomes = channel.get("latest_outcomes")
+        if not isinstance(outcomes, dict) or outcomes.get("request_error", 0):
+            raise ValueError(f"{name} recent request error")
+        _fresh(worker.get("api_at"), now=now, label=f"{name} API")
+        _fresh(channel.get("last_committed_slot_utc"), now=now, label=f"{name} acquisition")
 
 
 def load_live_plan(plan_file: Path, *, now: datetime) -> dict:
@@ -70,12 +112,12 @@ def load_live_plan(plan_file: Path, *, now: datetime) -> dict:
     owner = json.loads((state_root / "owner.json").read_text(encoding="utf-8"))
     if (
         status.get("session_date") != day.isoformat()
-        or status.get("phase") != "COLLECTING"
         or type(status.get("pid")) is not int
         or type(owner.get("pid")) is not int
         or status["pid"] != owner["pid"]
     ):
-        raise ValueError("The production daily collector is not verified COLLECTING")
+        raise ValueError("Daily controller status/owner identity mismatch")
+    verify_collecting_channels(status, now=current)
     if not owner_available(state_root, pid=status["pid"]):
         raise ValueError("The production controller owner heartbeat is not current")
     timestamp = datetime.fromisoformat(status["at"]).astimezone(ET)
