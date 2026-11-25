@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from datetime import datetime, timezone
@@ -58,6 +59,16 @@ def parse_args() -> argparse.Namespace:
             "OPTIONAL read-only independent immutable live OHLCV evidence folder. "
             "Requires --real-time-data-root and --overlay-symbol. "
             "This viewer NEVER acquires candles, authenticates, or starts a client."
+        ),
+    )
+    parser.add_argument(
+        "--enable-ohlcv-selection",
+        action="store_true",
+        help=(
+            "EXPERIMENTAL explicit opt-in, loopback only: write nonsecret "
+            "selected-symbol capture intent to an OHLCV-enabled daily controller. "
+            "Requires --real-time-data-root and --real-time-ohlcv-root. "
+            "No provider calls from the viewer."
         ),
     )
     parser.add_argument(
@@ -130,6 +141,12 @@ def parse_args() -> argparse.Namespace:
         parser.error("Live OHLCV evidence requires a selected --overlay-symbol")
     if args.real_time_ohlcv_root is not None and args.observation_overlay_cache:
         parser.error("Live OHLCV root and fixed historical OHLCV cache cannot be combined")
+    if args.enable_ohlcv_selection and (
+        args.real_time_data_root is None or args.real_time_ohlcv_root is None
+    ):
+        parser.error("OHLCV selected-symbol publishing requires Real Time and its evidence root")
+    if args.enable_ohlcv_selection and args.host != "127.0.0.1":
+        parser.error("OHLCV selected-symbol publishing requires exact loopback")
     if args.enable_manual_membership_actions and args.real_time_data_root is None:
         parser.error("Manual actions require an explicit Real Time controller attachment")
     if args.enable_manual_membership_actions and args.host != "127.0.0.1":
@@ -233,6 +250,13 @@ def main() -> int:
         )
         live_tail = None
         operator_actions = None
+        ohlcv_selection_bridge = None
+        last_ohlcv_selected = {"symbol": None}
+        def request_ohlcv_symbol(symbol: str) -> None:
+            if ohlcv_selection_bridge is None:
+                raise RuntimeError("OHLCV symbol capture is not enabled")
+            ohlcv_selection_bridge.publish(symbol)
+            last_ohlcv_selected["symbol"] = symbol
         if args.real_time_data_root is not None:
             today_et = datetime.now(ET).date()
             if reader.session_date != today_et:
@@ -245,6 +269,27 @@ def main() -> int:
             )
             if Path(matched.journal_path).resolve() != args.database.resolve():
                 raise ValueError("Real Time controller plan/journal identity mismatch")
+            if args.enable_ohlcv_selection:
+                # Separate from manual Membership writer. Only a controller
+                # started with the experimental OHLCV option has this plan.
+                from mb_market_data.overlay_ohlcv_worker import OwnedOHLCVSelection
+                plan_path = (
+                    args.real_time_data_root / "output" / "daily_session"
+                    / str(reader.session_date) / "plan.json"
+                )
+                owned_plan = json.loads(plan_path.read_text(encoding="utf-8"))
+                if owned_plan.get("overlay_ohlcv_enabled") is not True:
+                    raise ValueError("Current daily controller was not launched with OHLCV")
+                if Path(owned_plan["overlay_ohlcv_evidence_root"]).resolve() != (
+                    args.real_time_ohlcv_root.resolve()
+                ):
+                    raise ValueError("OHLCV evidence folder differs from the controller plan")
+                owner_receipt = json.loads(
+                    (plan_path.parent / "owner.json").read_text(encoding="utf-8")
+                )
+                ohlcv_selection_bridge = OwnedOHLCVSelection(
+                    owned_plan, owner_pid=owner_receipt["pid"],
+                )
             controller.seek(datetime.now(timezone.utc))
             live_tail = ReadOnlyJournalTail(
                 data_root=args.real_time_data_root,
@@ -271,6 +316,16 @@ def main() -> int:
                 current = controller.snapshot().observation_overlay
                 if current is None:
                     return newly_committed, detail + " · OHLCV: no symbol selected"
+                if (
+                    ohlcv_selection_bridge is not None
+                    and last_ohlcv_selected["symbol"] != current.symbol
+                ):
+                    try:
+                        # First refresh also arms the initial chart symbol.
+                        # A future or stopped session cannot publish intent.
+                        request_ohlcv_symbol(current.symbol)
+                    except (OSError, ValueError, RuntimeError):
+                        detail += " · OHLCV selection: no active authorized owner"
                 cache = live_ohlcv_reader.latest(current.symbol)
                 if cache is None:
                     return (
@@ -292,6 +347,10 @@ def main() -> int:
             request_server_stop=stop_event.set,
             live_mode=live_tail is not None,
             live_refresh=live_refresh,
+            live_symbol_selection_sink=(
+                request_ohlcv_symbol if ohlcv_selection_bridge is not None
+                else None
+            ),
             operator_actions=operator_actions,
             acquisition_health_reader=partial(read_health_status,
                 args.polling_health_directory or args.database.parent.parent / "polling_health" / str(reader.session_date),
@@ -345,6 +404,11 @@ def main() -> int:
         if args.real_time_ohlcv_root is not None:
             print(f"Live OHLCV evidence: {args.real_time_ohlcv_root}")
             print("OHLCV source: independent immutable files only; no Schwab client in viewer")
+            print(
+                "OHLCV capture selection: "
+                + ("EXPLICITLY ENABLED (nonsecret request only)"
+                   if ohlcv_selection_bridge is not None else "DISABLED (read-only)")
+            )
         print("Real Time read-only: Historical requires a separate viewer launch.")
     elif not args.start_at_beginning:
         print("Click Restart to return to the beginning of the session.")
