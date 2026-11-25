@@ -418,6 +418,26 @@ authenticated client creation through the established controller auth lock,
 an exact selected-symbol handoff, status/health reporting and a stop/exit
 lifecycle. No production deployment without a separate decision.
 
+## November 25 — controller-owned OHLCV integration checkpoint (experiment only)
+
+The existing 149/149 tests passed on MasterBot. The next experimental
+source checkpoint now includes a **fully connected, explicitly opt-in
+controller-owned OHLCV role**: `--overlay-ohlcv` for a future daily
+controller plan, authenticated child with standard private credential pipe,
+provider backoff and owner heartbeat, bounded five-minute request scheduling,
+nonsecret symbol intent from the Real Time Overlay via
+`--enable-ohlcv-selection` on loopback, immutable candle publication and
+read-only chart consumption. Normal runs with no opt-in are unchanged.
+
+The worker/selection handoff has an additional eight offline tests.
+**157 tests are expected but have not yet been run on MasterBot.**
+No current November 25 production processes were replaced, stopped or
+modified; `main` is unchanged. This is not yet a verified actual live
+Schwab OHLCV session. Use the dedicated
+`docs/runbooks/Overlay_Owned_Live_OHLCV_2026-11-25.md` for the integration
+contract and remaining qualification criteria. A future experimental
+session-specific authorization is required before genuine live acquisition.
+
 ## Next project milestone after a usable Overlay
 
 Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
