@@ -255,6 +255,8 @@ class LiveOHLCVReader:
         newest = candidates[-1]
         cached = self._memo.get(selected)
         if cached is not None and cached[0] == newest:
+            if cached[1].acquired_at_utc > cutoff:
+                raise LiveOHLCVError("Live OHLCV snapshot is not yet acquired")
             return cached[1]
         raw = (newest / BUNDLE_RAW).read_bytes()
         source_hash = hashlib.sha256(raw).hexdigest()
@@ -269,6 +271,12 @@ class LiveOHLCVReader:
             or cache.symbol != selected
             or cache.session_date != self.session_date
             or cache.acquired_at_utc > cutoff
+            or cache.request_end_et > cache.acquired_at_utc.astimezone(ET)
+            or any(
+                bar.end_et > cache.request_end_et
+                or bar.available_at_utc > cache.acquired_at_utc
+                for bar in cache.candles
+            )
             or cache.source != "schwabdev.Client.price_history"
         ):
             raise LiveOHLCVError("Live OHLCV bundle provenance/identity mismatch")
