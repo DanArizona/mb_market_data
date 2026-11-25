@@ -34,8 +34,8 @@ from .observation_overlay_acquisition import (
 UTC = timezone.utc
 BUNDLE_RAW = "price_history_raw.json"
 BUNDLE_CACHE = "ohlcv_cache.json"
-SYMBOL_PATTERN = re.compile(r"^[A-Z][A-Z0-9.\\-]{0,19}$")
-BUNDLE_PATTERN = re.compile(r"^(\\d{8}T\\d{12}Z)-([a-f0-9]{16})$")
+SYMBOL_PATTERN = re.compile(r"^[A-Z][A-Z0-9.-]{0,19}$")
+BUNDLE_PATTERN = re.compile(r"^(\d{8}T\d{12}Z)-([a-f0-9]{16})$")
 
 
 class LiveOHLCVError(ValueError):
