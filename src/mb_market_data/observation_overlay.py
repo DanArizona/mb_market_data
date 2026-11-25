@@ -356,6 +356,40 @@ class ObservationOverlayProjector:
         self._last_available: datetime | None = None
         self._last_revision = -1
 
+    def update_live_cache(self, cache: ObservationOverlayOHLCVCache) -> bool:
+        """Install a newer independent live OHLCV snapshot without journal edits.
+
+        Only the Real Time controller calls this operation. Historical replay
+        keeps its immutable original cache. Already completed Schwab candles
+        cannot silently change, shrink or be backfilled by a later poll.
+        """
+        if not isinstance(cache, ObservationOverlayOHLCVCache):
+            raise TypeError("Live OHLCV update must use a validated cache")
+        if cache.symbol != self.symbol or cache.session_date != self.session_date:
+            raise ValueError("Live OHLCV cache symbol/session identity mismatch")
+        if cache.acquired_at_utc.astimezone(ET).date() != self.session_date:
+            raise ValueError("Live OHLCV acquisition belongs to another ET date")
+        if any(
+            candle.end_et > cache.request_end_et
+            or candle.available_at_utc > cache.acquired_at_utc
+            for candle in cache.candles
+        ):
+            raise ValueError("Live OHLCV contains an incomplete or future candle")
+        previous = self.cache
+        if previous is not None:
+            if cache.acquired_at_utc < previous.acquired_at_utc:
+                raise ValueError("Live OHLCV snapshot acquisition time regressed")
+            if cache.acquired_at_utc == previous.acquired_at_utc:
+                if cache == previous:
+                    return False
+                raise ValueError("Conflicting live OHLCV snapshots share an acquisition time")
+            if len(cache.candles) < len(previous.candles) or (
+                cache.candles[:len(previous.candles)] != previous.candles
+            ):
+                raise ValueError("Live OHLCV update changed or removed completed candles")
+        self.cache = cache
+        return True
+
     def apply(self, event: ReplayEvent) -> None:
         """Validate and incorporate one causally ordered journal event."""
 
