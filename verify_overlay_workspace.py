@@ -63,11 +63,12 @@ def main() -> int:
         "test_overlay_ohlcv_schedule",
         "test_overlay_ohlcv_worker",
         "test_live_ohlcv_one_shot_preflight",
+        "test_daily_viewer_lifecycle",
         "test_overlay_operator_controls",
     ]
     suite = unittest.defaultTestLoader.loadTestsFromNames(modules)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
-    passed = result.wasSuccessful() and result.testsRun == 161 and not result.skipped
+    passed = result.wasSuccessful() and result.testsRun == 165 and not result.skipped
     report = {
         "result": "PASS" if passed else "FAIL",
         "tests_run": result.testsRun,
