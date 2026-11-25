@@ -220,7 +220,7 @@ class TestLiveOHLCVProducerAndConsumer(unittest.TestCase):
         cache = acquisition(StubClient(self.payload), 9, 37).cache
         self.assertTrue(controller.install_live_ohlcv_cache(cache))
         # Wrong-day evidence is rejected even at cache construction.
-        with self.assertRaisesRegex(ValueError, "candle is not on cache"):
+        with self.assertRaisesRegex(ValueError, "request bounds must be on session_date"):
             replace(cache, session_date=date(2026, 11, 24))
         with self.assertRaisesRegex(ValueError, "cache symbol"):
             from mb_market_data.observation_overlay import ObservationOverlayProjector
