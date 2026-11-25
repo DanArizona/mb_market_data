@@ -655,8 +655,32 @@ def child_main(args):
     finally:password=None
 
 
-def watch(root,once=False):
+def viewer_quit_key():
+    """Allow Q to end only the foreground status display on Windows.
+
+    Ctrl+C is unreliable in some Anaconda CMD windows. Nonblocking msvcrt
+    reading gives the operator an independent key that does not request
+    session stop, alter the controller, or touch collection processes.
+    """
+    if os.name != 'nt':return False
+    try:
+        import msvcrt
+        while msvcrt.kbhit():
+            if msvcrt.getwch().lower()=='q':return True
+    except (OSError,ImportError):
+        return False
+    return False
+
+
+def watch(root,once=False,*,exit_when_final=False,quit_key=viewer_quit_key):
+    """Display saved session status, optionally auto-return after final report.
+
+    The startup viewer should not pin CMD after the daily controller has
+    finished. An explicit 'watch' command remains open until Q or Ctrl+C.
+    Neither viewer-exit mechanism stops production collection.
+    """
     while True:
+        status=None
         try:
             status=read_json(root/'status.json')
             age=(now()-datetime.fromisoformat(status['at'])).total_seconds()
@@ -666,11 +690,22 @@ def watch(root,once=False):
             print(readable_status(status))
             message=status_age_message(status,age)
             if message:print(message)
-        except (OSError,ValueError,KeyError):print('No readable status yet:',root)
+        except (OSError,ValueError,KeyError):
+            print('No readable status yet:',root)
         if once:return 0
+        # Wait for the authoritative final cleanup receipt; FINISHED by
+        # itself may have been written before the controller finished cleanup.
+        if (exit_when_final and status is not None
+            and status.get('final_status') is True and is_final_report(status)):
+            print('Daily session final report verified; returning to CMD prompt.')
+            return 0
+        if quit_key():
+            print('Status viewer closed with Q; collection/controller unchanged.')
+            return 0
         try:time.sleep(2)
         except KeyboardInterrupt:
-            print('Viewer closed. Controller and collection unchanged.');return 0
+            print('Status viewer closed with Ctrl+C; collection/controller unchanged.')
+            return 0
 
 
 def main(argv=None):
@@ -754,7 +789,7 @@ def wait_for_controller(proc,root,log,*,timeout_seconds=50):
             seen=show_authorization(root,proc.pid,seen)
             print('Daily session active. State:',root)
             print('Use watch/status in any window; closing the viewer does not stop collection.')
-            return watch(root)
+            return watch(root,exit_when_final=True)
         time.sleep(.25)
     print('Startup not confirmed. Do not launch another instance; inspect log and process status:',log)
     return 2
