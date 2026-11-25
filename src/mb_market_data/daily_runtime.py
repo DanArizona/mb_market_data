@@ -415,6 +415,11 @@ def run_controller(plan,password,*,resume=False):
     def restart_service(role):
         old=tasks.get(role)
         if old is not None and old.poll() is None:return
+        if role=='ohlcv':
+            if not plan.get('overlay_ohlcv_enabled') or stop_collection or now()>=schedule_close:return
+            if not selection_finished or not (root/'selection'/'r1.json').is_file():return
+            tasks[role]=spawn(role,plan_file,password,root/(role+'.log'))
+            return
         if role=='nasdaq' and not plan.get('automatic_nasdaq'):return
         if not plan.get('membership_control') or not selection_finished or now()>=schedule_close:return
         tasks[role]=spawn(role,plan_file,password,root/(role+'.log'))
@@ -423,7 +428,9 @@ def run_controller(plan,password,*,resume=False):
         # starts an authenticated worker and does not create this plan flag.
         if not plan.get('overlay_ohlcv_enabled') or not selection_finished or stop_collection:
             return
-        if now()>=schedule_close:
+        if not value['selection_status'].startswith(('READY', 'DEGRADED')):
+            return
+        if not (root/'selection'/'r1.json').is_file() or now()>=schedule_close:
             return
         if 'ohlcv' not in tasks:
             tasks['ohlcv']=spawn('ohlcv',plan_file,password,root/'ohlcv.log')
@@ -502,6 +509,8 @@ def run_controller(plan,password,*,resume=False):
                     (root/'resume-collection.request').unlink()
                     if current<schedule_close:
                         (root/'stop.request').unlink(missing_ok=True);stop_collection=False
+                        if tasks.get('ohlcv') is not None and tasks['ohlcv'].poll() is not None:
+                            tasks.pop('ohlcv', None)  # explicit collection resume
                         launch_channel('uni')
                         if selection_finished and (root/'selection'/'r1.json').exists():launch_channel('focus')
                         if plan.get('hot_activated') and seed_is_published(plan):launch_channel('hot')
@@ -544,7 +553,7 @@ def run_controller(plan,password,*,resume=False):
                                 launch_channel(channel)
                 launch_services()
                 launch_ohlcv()
-                for role in ('membership','nasdaq'):
+                for role in ('membership','nasdaq','ohlcv'):
                     request=root/('restart-'+role+'.request')
                     if request.exists():
                         request.unlink();restart_service(role)
@@ -677,7 +686,7 @@ def main(argv=None):
         p.add_argument('--overlay-ohlcv',action='store_true',
             help='EXPERIMENTAL opt-in: controller-owned, bounded selected-symbol Schwab 5-minute OHLCV child')
         if name=='start':p.add_argument('--live',action='store_true');p.add_argument('--resume',action='store_true')
-    for name in ('status','watch','stop','exit','restart-uni','restart-focus','restart-hot','restart-membership','restart-nasdaq','resume-collection'):
+    for name in ('status','watch','stop','exit','restart-uni','restart-focus','restart-hot','restart-membership','restart-nasdaq','restart-ohlcv','resume-collection'):
         p=sub.add_parser(name);p.add_argument('--state-root',type=Path,required=True)
     p=sub.add_parser('_child');p.add_argument('--role',required=True);p.add_argument('--plan-file',type=Path,required=True)
     p.add_argument('--generation',type=int,default=0);p.add_argument('--resume',action='store_true');p.add_argument('--owner-pid',type=int)
