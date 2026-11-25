@@ -24,7 +24,7 @@ def et(hour, minute, second=0):
 def times(hour, minute, second=0):
     return iter((
         et(hour, minute, second).astimezone(UTC),
-        et(hour, minute, second + 1).astimezone(UTC),
+        (et(hour, minute, second) + timedelta(seconds=1)).astimezone(UTC),
     ))
 
 
@@ -170,7 +170,7 @@ class OwnedScheduleTests(unittest.TestCase):
     def test_rejects_broken_schedule_before_writing(self):
         with self.assertRaisesRegex(ValueError, "date differs"):
             self.build(closes_at=datetime(2026, 11, 26, 13, tzinfo=ET))
-        with self.assertRaisesRegex(ValueError, "between"):
+        with self.assertRaisesRegex(ValueError, "one or two symbols"):
             self.build(limit=3)
         with self.assertRaisesRegex(ValueError, "five-minute boundary"):
             self.build(opens_at=et(9, 31))
