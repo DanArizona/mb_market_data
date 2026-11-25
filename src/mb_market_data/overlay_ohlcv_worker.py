@@ -169,6 +169,7 @@ def owned_ohlcv_service(
         symbol = selected.read()
         result = gate.tick(
             client=client, selected_symbol=symbol, now=current,
+            now_factory=lambda: _now(clock).astimezone(UTC),
             owner_active=lambda: not stop() and not (
                 Path(plan["state_root"]) / "stop.request"
             ).exists(),
