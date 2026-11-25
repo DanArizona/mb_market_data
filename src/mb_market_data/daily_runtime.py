@@ -117,6 +117,26 @@ class BackoffClient:
             self.retry_at=self.clock()+min(300,max(30,delay));self.report('RATE_LIMIT_BACKOFF')
         else:self.report('AVAILABLE')
         return response
+    def price_history(self, *args, **kwargs):
+        """Bounded OHLCV provider request with quote-worker authorization gates."""
+        if self.stop_requested():raise InterruptedError('Owning session stopped')
+        if self.authorization_required:
+            raise RuntimeError('API paused: authorization required')
+        if self.clock()<self.retry_at:
+            raise RuntimeError('API paused: provider backoff')
+        try:response=self.client.price_history(*args,**kwargs)
+        except Exception:
+            self.retry_at=self.clock()+2;self.report('TRANSIENT_ERROR')
+            raise RuntimeError('Transient OHLCV provider request failure') from None
+        code=getattr(response,'status_code',None)
+        if code in (401,403):
+            self.authorization_required=True;self.report('AUTHORIZATION_REQUIRED')
+        elif code==429:
+            try:delay=float(getattr(response,'headers',{}).get('Retry-After',30))
+            except (TypeError,ValueError):delay=30
+            self.retry_at=self.clock()+min(300,max(30,delay));self.report('RATE_LIMIT_BACKOFF')
+        else:self.report('AVAILABLE')
+        return response
     def close(self):self.client.close()
 
 
@@ -374,7 +394,7 @@ def run_controller(plan,password,*,resume=False):
                 if health_state.get('owner_pid')==os.getpid():value['monitor_status']=health_state['state'] if monitor.poll() is None else 'EXITED '+str(monitor.returncode)
             except (OSError,ValueError,TypeError,KeyError):pass
         value['services']={}
-        for role in ('membership','nasdaq'):
+        for role in ('membership','nasdaq','ohlcv'):
             proc=tasks.get(role)
             if proc is not None:
                 try:record=read_json(root/role/'status.json')
@@ -398,6 +418,15 @@ def run_controller(plan,password,*,resume=False):
         if role=='nasdaq' and not plan.get('automatic_nasdaq'):return
         if not plan.get('membership_control') or not selection_finished or now()>=schedule_close:return
         tasks[role]=spawn(role,plan_file,password,root/(role+'.log'))
+    def launch_ohlcv():
+        # Experimental only, explicit plan opt-in. The read-only viewer never
+        # starts an authenticated worker and does not create this plan flag.
+        if not plan.get('overlay_ohlcv_enabled') or not selection_finished or stop_collection:
+            return
+        if now()>=schedule_close:
+            return
+        if 'ohlcv' not in tasks:
+            tasks['ohlcv']=spawn('ohlcv',plan_file,password,root/'ohlcv.log')
     def launch_channel(channel):
         old=workers.get(channel)
         if old and old['proc'].poll() is None:return
@@ -514,6 +543,7 @@ def run_controller(plan,password,*,resume=False):
                             if channel=='uni' or (channel=='focus' and value['selection_status'].startswith(('READY','DEGRADED'))) or (channel=='hot' and seed_is_published(plan)):
                                 launch_channel(channel)
                 launch_services()
+                launch_ohlcv()
                 for role in ('membership','nasdaq'):
                     request=root/('restart-'+role+'.request')
                     if request.exists():
@@ -572,12 +602,18 @@ def child_main(args):
         if args.role=='controller':return run_controller(plan,password,resume=args.resume)
         if args.role in ('uni','focus','hot'):return run_worker(plan,password,args.role,args.generation,args.owner_pid)
         stop=WorkerControl(root,owner_pid=args.owner_pid,channel=args.role,generation=args.generation,
-            reader=read_json,clock=now,honor_collection_stop=False)
+            reader=read_json,clock=now,honor_collection_stop=(args.role=='ohlcv'))
         if args.role=='nasdaq':
             from .daily_nasdaq_source import run as source_run
             return source_run(plan,owner_pid=args.owner_pid,stop=stop)
-        client=BackoffClient(prepared_client(plan,password),stop_requested=stop)
+        client=BackoffClient(prepared_client(plan,password),
+            state_path=root/f'{args.role}-api.json' if args.role=='ohlcv' else None,
+            stop_requested=stop)
         try:
+            if args.role=='ohlcv':
+                from .overlay_ohlcv_worker import owned_ohlcv_service
+                with channel_lock('daily-ohlcv:'+str(Path(plan['journal']).resolve()).casefold(),stop):
+                    return owned_ohlcv_service(plan,client,owner_pid=args.owner_pid,stop=stop)
             if args.role=='membership':
                 from .daily_membership import service
                 return service(plan,client,owner_pid=args.owner_pid,stop=stop)
@@ -638,6 +674,8 @@ def main(argv=None):
         p.add_argument('--hot-symbols',nargs='+',help='Explicit opening Hot test seeds; enables independent three-channel desktop monitor')
         p.add_argument('--membership-controls',action='store_true',help='Enable shared manual membership worker')
         p.add_argument('--nasdaq-halts',action='store_true',help='Opt in to paced live Nasdaq LUDP/M admission through shared writer')
+        p.add_argument('--overlay-ohlcv',action='store_true',
+            help='EXPERIMENTAL opt-in: controller-owned, bounded selected-symbol Schwab 5-minute OHLCV child')
         if name=='start':p.add_argument('--live',action='store_true');p.add_argument('--resume',action='store_true')
     for name in ('status','watch','stop','exit','restart-uni','restart-focus','restart-hot','restart-membership','restart-nasdaq','resume-collection'):
         p=sub.add_parser(name);p.add_argument('--state-root',type=Path,required=True)
@@ -659,6 +697,9 @@ def main(argv=None):
     if args.membership_controls or args.nasdaq_halts:
         from .daily_membership import configure as configure_membership
         plan=configure_membership(plan,nasdaq=args.nasdaq_halts)
+    if args.overlay_ohlcv:
+        from .overlay_ohlcv_worker import configure_ohlcv
+        plan=configure_ohlcv(plan)
     if args.action=='plan' or not args.live:
         print(json.dumps(plan,indent=2));print('PLAN ONLY: no credential prompt, provider, or production writes.');return 0
     validate_start(plan,now=now(),resume=args.resume)
