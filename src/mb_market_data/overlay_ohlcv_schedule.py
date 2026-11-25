@@ -27,6 +27,7 @@ from .overlay_live_ohlcv import (
 UTC = timezone.utc
 SLOT = timedelta(minutes=5)
 DEFAULT_GRACE = timedelta(seconds=5)
+FINAL_SLOT_WINDOW = timedelta(minutes=2)
 MAX_SYMBOLS_PER_SLOT = 2
 LEDGER_CONTRACT = "overlay-owned-ohlcv-schedule-v1"
 
@@ -67,9 +68,9 @@ def completed_slot(
         raise ValueError("OHLCV close must be on a five-minute boundary")
     if not isinstance(grace, timedelta) or not timedelta(0) <= grace <= timedelta(minutes=1):
         raise ValueError("OHLCV grace must be between zero and sixty seconds")
-    # One final boundary just after early/regular close is permitted. No
-    # post-close live requests after this bounded period.
-    if at.date() != start.date() or at < start + SLOT + grace or at > end + grace:
+    # Permit a bounded late capture of the final completed interval. The
+    # price-history cutoff is still the exchange close, never after it.
+    if at.date() != start.date() or at < start + SLOT + grace or at > end + FINAL_SLOT_WINDOW:
         return None
     elapsed = (min(at - grace, end) - start) // SLOT
     if elapsed < 1:
@@ -178,6 +179,7 @@ class OwnedOHLCVSchedule:
         try:
             acquisition = acquire_live_ohlcv(
                 client, symbol=symbol, session_date=self.session_date,
+                session_end_et=self.closes_at,
                 **({"now_factory": now_factory} if now_factory is not None else {}),
             )
             path = publish_live_ohlcv(self.evidence_root, acquisition)
