@@ -981,6 +981,7 @@ def create_quote_dashboard(
     acquisition_health_reader: Callable[[], dict[str, Any]] | None = None,
     live_refresh: Callable[[], tuple[int, str]] | None = None,
     live_mode: bool = False,
+    live_symbol_selection_sink: Callable[[str], None] | None = None,
     operator_actions: Any | None = None,
     synthetic_operator_demo: bool = False,
 ) -> Any:
@@ -1008,6 +1009,8 @@ def create_quote_dashboard(
         raise ValueError("Real Time dashboard requires a read-only committed event source")
     if operator_actions is not None and not live_mode:
         raise ValueError("Manual operator actions are not permitted in Historical or Backtest")
+    if live_symbol_selection_sink is not None and not live_mode:
+        raise ValueError("OHLCV capture selection requires explicitly enabled Real Time")
     operator_enabled = operator_actions is not None
     if synthetic_operator_demo and not (live_mode and operator_enabled):
         raise ValueError("Synthetic operator labeling requires controlled Real Time")
@@ -2133,6 +2136,7 @@ def create_quote_dashboard(
         ):
             return (no_update,) * output_count
 
+        capture_warning = ""
         if has_chart:
             started = perf_timer.perf_counter()
             try:
@@ -2145,13 +2149,23 @@ def create_quote_dashboard(
                     f"{perf_timer.perf_counter() - started:.3f}s backend",
                     flush=True,
                 )
+            if live_symbol_selection_sink is not None:
+                # Opt-in nonsecret capture intent only. A failure must not
+                # undo the user's valid read-only symbol/chart selection.
+                try:
+                    live_symbol_selection_sink(symbol)
+                except Exception as error:
+                    capture_warning = (
+                        " OHLCV capture selection unavailable "
+                        f"({type(error).__name__}); chart selection retained."
+                    )
 
         tier_name = {"uni": "Uni only", "focus": "Focus only", "hot": "Hot"}[tier]
         message = (
             f"{symbol} is now effective in {tier_name}; selected automatically."
             if following else
             f"{symbol} selected in {tier_name}."
-        )
+        ) + capture_warning
         scroll = tuple(
             {"rowId": symbol, "rowPosition": "middle"}
             if current == tier and not from_grid else no_update
