@@ -88,6 +88,15 @@ def main() -> int:
     started = time.perf_counter()
     stop_event = Event()
 
+    def request_viewer_stop() -> None:
+        """Browser Stop server targets only this local Overlay listener."""
+        print(
+            "VIEWER STOP REQUESTED: shutting down local Overlay server only; "
+            "daily polling controller is independent.",
+            flush=True,
+        )
+        stop_event.set()
+
     try:
         reader = QuoteJournalReplayReader(args.database)
         timeline = reader.timeline()
@@ -128,7 +137,7 @@ def main() -> int:
         replay = controller.snapshot()
         app = create_quote_dashboard(
             controller,
-            request_server_stop=stop_event.set,
+            request_server_stop=request_viewer_stop,
             acquisition_health_reader=partial(read_health_status,
                 args.polling_health_directory or PROJECT_ROOT / "output/polling_health" / str(reader.session_date),
                 journal=args.database, session_date=reader.session_date),
