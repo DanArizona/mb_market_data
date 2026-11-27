@@ -293,7 +293,14 @@ class QuoteDashboardReplayController:
             self._live_readonly = True
             self._pending = None
             self._events = iter(())
-            self._position_utc = projected.current_time_utc
+            # Before the first effective event, retain seek(now)'s causal
+            # cutoff so the configured empty Overlay and its UI callbacks
+            # exist at startup. Event history itself still has no timestamp.
+            self._position_utc = (
+                projected.current_time_utc
+                if projected.current_time_utc is not None
+                else self._position_utc
+            )
             self._end_time_utc = projected.current_time_utc
             self._timeline = ReplayTimeline(
                 session_date=self._timeline.session_date,

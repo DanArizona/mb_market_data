@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from mb_market_data.observation_overlay import ObservationOverlayProjector, MembershipBand
 from mb_market_data.overlay_live_tail import ReadOnlyJournalTail
+from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.quote_dashboard_replay import QuoteDashboardReplayController
 from mb_market_data.quote_journal_replay import MembershipRevisionEvent, ReplayTimeline
 from mb_market_data.quote_observation_store import StoredAcquisition, StoredQuoteObservation
@@ -80,6 +81,98 @@ class FakeObserver:
 
 
 class TestReadOnlyJournalTail(unittest.TestCase):
+    def test_preopen_empty_dashboard_keeps_chart_and_renders_later_committed_quote(self):
+        """Starting before r0 is effective must not permanently omit Charts."""
+        for initial_headers in ((), (revision(0, 0),)):
+            with self.subTest(future_r0_already_saved=bool(initial_headers)):
+                a1, o1 = acquisition(5)
+                reader = FakeReader(initial_headers, {a1.acquisition_id: (o1,)})
+                first = START if initial_headers else None
+                controller = QuoteDashboardReplayController(
+                    timeline=ReplayTimeline(DAY, len(initial_headers), first, first),
+                    event_factory=lambda: iter(initial_headers),
+                    overlay_projector_factory=lambda: ObservationOverlayProjector(
+                        cache=None, symbol="AAA", session_date=DAY,
+                    ),
+                )
+                clock = [START - timedelta(minutes=1)]
+                controller.seek(clock[0])
+                with patch("mb_market_data.overlay_live_tail.ReadOnlySessionObserver", FakeObserver):
+                    tail = ReadOnlyJournalTail(
+                        data_root=Path("/tmp"), reader=reader, controller=controller,
+                    )
+                app = create_quote_dashboard(
+                    controller, live_mode=True,
+                    live_refresh=lambda: tail.refresh(now=clock[0]),
+                )
+                client = app.server.test_client()
+                with client.get("/_dash-layout") as layout:
+                    self.assertEqual(layout.status_code, 200)
+                    self.assertTrue(
+                        b'"id":"observation-overlay-chart"' in layout.data,
+                        "Preopen startup omitted the chart from the permanent layout",
+                    )
+                    self.assertNotIn(b"No Observation Overlay evidence", layout.data)
+
+                def callback_for(output_id):
+                    return next(
+                        (key, callback) for key, callback in app.callback_map.items()
+                        if isinstance(callback["output"], list)
+                        and any(item.component_id == output_id for item in callback["output"])
+                    )
+
+                chart_key, chart_callback = callback_for("observation-overlay-chart")
+
+                def post_callback(key, callback, trigger, values):
+                    with client.post("/_dash-update-component", json={
+                        "output": key,
+                        "outputs": [
+                            {"id": item.component_id, "property": item.component_property}
+                            for item in callback["output"]
+                        ],
+                        "changedPropIds": [trigger],
+                        **{
+                            group: [dict(item, value=values.get(item["id"])) for item in callback[group]]
+                            for group in ("inputs", "state")
+                        },
+                    }) as response:
+                        self.assertEqual(response.status_code, 200)
+                        return response.get_json()["response"]
+
+                if not initial_headers:
+                    reader.headers.append(revision(0, 0))
+                self.assertEqual(tail.refresh(now=clock[0])[0], 0)
+                empty = controller.snapshot()
+                self.assertEqual(empty.applied_event_count, 0)
+                self.assertIsNone(empty.state.current_time_utc)
+                self.assertIsNone(empty.last_event_time_utc)
+                self.assertEqual(empty.observation_overlay.replay_time_utc, clock[0])
+                self.assertEqual(empty.observation_overlay.membership_transitions, ())
+                self.assertEqual(empty.observation_overlay.quote_points, ())
+                self.assertEqual(empty.observation_overlay.candles, ())
+
+                reader.headers.append(a1)
+                clock[0] = START + timedelta(seconds=7)
+                live_key, live_callback = callback_for("live-data-status")
+                live = post_callback(
+                    live_key, live_callback, "live-tail-tick.n_intervals",
+                    {"live-tail-tick": 1},
+                )
+                self.assertEqual(live["live-refresh-count"]["data"]["event_count"], 2)
+                chart = post_callback(
+                    chart_key, chart_callback, "live-refresh-count.data",
+                    {"live-refresh-count": live["live-refresh-count"]["data"],
+                     "membership-selected-symbol": "AAA", "observation-overlay-units": "price"},
+                )
+                self.assertEqual(chart["observation-overlay-band"]["children"], "Focus")
+                quote = next(
+                    trace for trace in chart["observation-overlay-chart"]["figure"]["data"]
+                    if trace["name"] == "Focus quote"
+                )
+                self.assertEqual(quote["y"], [42.5])
+                self.assertEqual(controller.snapshot().state.acquisition_count, 1)
+                self.assertEqual(controller.snapshot().observation_overlay.candles, ())
+
     def build(self):
         r0 = revision(0, 0)
         a1, o1 = acquisition(5)

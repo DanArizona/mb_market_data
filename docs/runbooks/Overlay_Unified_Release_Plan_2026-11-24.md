@@ -561,9 +561,54 @@ while the new worker truthfully reports that it has no new successful capture.
 
 Four focused regressions exercise command routing and owner/stop checks,
 worker-to-controller status acceptance, retained acquisition/error evidence,
-and changed/absent selections. The updated workspace suite expects **169**
-tests. It passed **169/169, zero failures/errors/skips**, in the Linux
+and changed/absent selections. For published `f4af8b3`, the workspace suite
+expected **169** tests. It passed **169/169, zero failures/errors/skips**, in the Linux
 development environment with Dash 2.18.2 and Plotly 6.5.2. No real provider
 requests or desktop visual qualification were performed. This is evidence
 for the corrected candidate, separate from the accepted 165-test MasterBot
-checkpoint. The actual combined daily session remains to be exercised.
+checkpoint. At publication, the actual combined daily session had not yet
+been exercised.
+
+Subsequent MasterBot evidence on November 27 extends that checkpoint:
+
+- The Windows 169-test candidate reported **169/169 PASS in 4.998 seconds**,
+  with zero failures/errors/skips, using `dashing`, Dash 2.18.2 and Plotly 6.5.2.
+  Its exact MasterBot HEAD was not independently confirmed from pull output.
+- On MasterBot, the daily controller used the existing **`closeout-qa`** environment.
+  Its import check passed with `exchange-calendars` 4.13.2,
+  `mb_tools.schwab_secure` and `tkinter`. The earlier `sea-green` attempt
+  stopped before authentication, with plan preparation only. Keep the
+  viewer in **`dashing`**.
+- The November 27 live controller, PID **50256**, reported authentication
+  **VERIFIED**. As of **09:39:28 ET**, all three quote channels reported
+  **zero missing slots**; selection, Hot, Nasdaq and membership services
+  were running.
+- Worker/viewer output reported the first MSFT OHLCV acquisition at
+  **14:35:05.825806Z**, with latest completed candle end **09:35 ET**.
+  A subsequent update was received at **14:40:06.485353Z**, with **32**
+  loaded candles. The cache increased from **31 to 32**; both counts include
+  extended-hours candles. The **09:40:24 ET** viewer screenshot
+  showed two regular-session candles, volume and fresh chart state.
+- The viewer showed a static empty Charts panel while the journal advanced.
+  Source review identified a startup path that omits the chart and its callbacks
+  when no event is yet effective; the actual viewer launch time was not captured.
+  A **viewer-only restart** restored the chart while the healthy daily controller
+  continued running.
+
+These status and screenshot observations establish a **partial live
+checkpoint**, including two consecutive automatic OHLCV samples. Symbol
+handoff and session closeout remain pending; the whole session is not yet
+qualified. No independent reconciliation of raw OHLCV numeric values is
+claimed by this checkpoint.
+
+The separate local preopen viewer correction retains the already validated
+`seek(now)` cutoff when no event has yet been projected, allowing the empty
+Overlay and its callbacks to exist from startup. Actual event timestamps
+remain empty until committed events arrive. One focused regression covers
+both an empty journal and a future-effective initial revision, then renders
+a subsequently committed quote in the same Dash application without a restart.
+The updated offline suite passed **170/170 in 3.849 seconds**, with zero
+failures/errors/skips, in the isolated Linux candidate using Dash 2.18.2 and
+Plotly 6.5.2. Network/provider access and credential prompts were blocked.
+This correction has **not been deployed**, and Windows verification of the
+170-test candidate has **not been run**.
