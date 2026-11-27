@@ -36,6 +36,27 @@ def validate_feed(feed):
         raise ValueError('Response is not a Nasdaq RSS channel; an HTML/error response is not an empty feed')
 
 
+def resumption_history(previous, row, observed):
+    """Retain when each reported trade-resumption endpoint became known.
+
+    A revision of a scheduled endpoint is a new report. Blank fields in a
+    later feed do not withdraw a previously reported endpoint. Migrated rows
+    remain marked incomplete so the read-only viewer can use old captures.
+    """
+    history=list(previous.get('resumption_updates',[]))
+    complete=previous.get('resumption_history_complete',not bool(previous))
+    if not history and previous.get('record',{}).get('resumption_trade_time'):
+        old=previous['record']
+        history.append({'resumption_date':old.get('resumption_date',''),
+            'resumption_trade_time':old['resumption_trade_time'],
+            'observed_at':previous['last_observed_at']})
+    if row.get('resumption_trade_time'):
+        current={key:row.get(key,'') for key in ('resumption_date','resumption_trade_time')}
+        if not history or any(history[-1].get(key)!=value for key,value in current.items()):
+            history.append({**current,'observed_at':observed.isoformat()})
+    return history,complete
+
+
 def accept_capture(plan,feed,*,owner_pid,eligible_since,root):
     """Save feed evidence BEFORE submitting events. No synthetic live inputs."""
     validate_feed(feed)
@@ -62,8 +83,10 @@ def accept_capture(plan,feed,*,owner_pid,eligible_since,root):
             for field in ('resumption_date','resumption_quote_time','resumption_trade_time'):
                 if not row.get(field) and previous.get('record',{}).get(field):
                     row[field]=previous['record'][field]
+            history,complete=resumption_history(previous,row,observed)
             events[key]={'record':row,'first_observed_at':previous.get('first_observed_at',observed.isoformat()),
-                'last_observed_at':observed.isoformat(),'capture_file':str(captures/(stamp+'.json'))}
+                'last_observed_at':observed.isoformat(),'capture_file':str(captures/(stamp+'.json')),
+                'resumption_updates':history,'resumption_history_complete':complete}
         if record.reason_code.strip().upper() not in VOLATILITY_REASON_CODES:continue
         if halted<max(timestamp(plan['opens_at']),eligible_since) or halted>observed or halted>=timestamp(plan['closes_at']):
             ignored+=1;continue

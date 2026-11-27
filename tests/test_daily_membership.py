@@ -180,6 +180,27 @@ class FeedTests(Fixture):
         a=self.capture([self.record()]);self.assertEqual(a['queued'],1)
         b=self.capture([self.record(resumption='10:00:00')]);self.assertEqual(b['queued'],0)
         self.assertEqual(len(list((self.state/'membership/inbox').glob('*.json'))),1)
+    def test_resumption_receipts_survive_feed_modes_and_record_endpoint_changes(self):
+        halted=self.at-timedelta(seconds=1)
+        initial=self.at
+        self.capture([self.record(halt=halted)])
+        self.step(60);first_resume=self.at
+        self.capture([self.record(halt=halted,resumption='10:00:00')])
+        self.step(60)
+        historical=replace(self.record(halt=halted,resumption='10:00:00'),retrieval_mode='HISTORICAL')
+        feed=replace(self.feed([historical]),retrieval_mode='HISTORICAL')
+        ns.accept_capture(self.plan,feed,owner_pid=100,eligible_since=self.open,root=self.state/'nasdaq')
+        self.step(60);revised=self.at
+        self.capture([self.record(halt=halted,resumption='10:05:00')])
+        self.step(60)
+        self.capture([self.record(halt=halted)])  # Blank CURRENT fields retain the known report.
+        event,=dm.read(self.state/'nasdaq/events.json').values()
+        self.assertEqual(event['first_observed_at'],initial.isoformat())
+        self.assertTrue(event['resumption_history_complete'])
+        self.assertEqual([(r['resumption_trade_time'],r['observed_at']) for r in event['resumption_updates']],
+                         [('10:00:00',first_resume.isoformat()),('10:05:00',revised.isoformat())])
+        self.assertEqual(event['record']['resumption_trade_time'],'10:05:00')
+        self.assertEqual(len(list((self.state/'membership/inbox').glob('*.json'))),1)
     def test_distinct_halt_produces_separate_command(self):
         self.capture([self.record()]);self.step();self.capture([self.record()])
         self.assertEqual(len(list((self.state/'membership/inbox').glob('*.json'))),2)

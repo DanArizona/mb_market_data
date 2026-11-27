@@ -31,6 +31,7 @@ from mb_market_data.quote_dashboard import create_quote_dashboard
 from mb_market_data.overlay_indexed_selection import IndexedOverlaySymbolSelection
 from mb_market_data.overlay_live_tail import ReadOnlyJournalTail
 from mb_market_data.overlay_live_ohlcv import LiveOHLCVReader
+from mb_market_data.overlay_live_halts import LiveHaltEventsReader, live_halt_events_path
 from mb_market_data.overlay_session_catalog import inspect_session
 from mb_market_data.quote_dashboard_replay import (
     QuoteDashboardReplayController,
@@ -50,7 +51,8 @@ def parse_args() -> argparse.Namespace:
         "--real-time-data-root", type=Path,
         help=(
             "Explicit daily-controller data root for read-only, committed "
-            "Real Time mode; requires matching current ET session journal."
+            "Real Time mode; requires matching current ET session journal. "
+            "Automatically follows this session's saved Nasdaq halt events."
         ),
     )
     parser.add_argument(
@@ -126,8 +128,8 @@ def parse_args() -> argparse.Namespace:
         "--nasdaq-daily-events-json",
         type=Path,
         help=(
-            "Completed daily_session/DATE/nasdaq/events.json for causally "
-            "observed Nasdaq halt markers (never infer release times)"
+            "daily_session/DATE/nasdaq/events.json for causally observed "
+            "Nasdaq halt markers and intervals; follows updates in Real Time"
         ),
     )
     args = parser.parse_args()
@@ -203,6 +205,15 @@ def main() -> int:
             )
             if args.real_time_ohlcv_root is not None else None
         )
+        daily_halt_path = live_halt_events_path(
+            args.real_time_data_root, session_date=reader.session_date,
+            daily_events_path=args.nasdaq_daily_events_json,
+            historical_halts_path=args.nasdaq_halts_json,
+        )
+        live_halt_reader = (
+            LiveHaltEventsReader(daily_halt_path, session_date=reader.session_date)
+            if daily_halt_path is not None and overlay_symbol else None
+        )
         poll_seconds_by_run = reader.poll_seconds_by_run() if overlay_symbol else {}
 
         def make_overlay_projector(selected_symbol: str) -> ObservationOverlayProjector:
@@ -229,6 +240,8 @@ def main() -> int:
                         session_date=reader.session_date,
                     )
                     if args.nasdaq_halts_json is not None
+                    else live_halt_reader.latest(selected)
+                    if live_halt_reader is not None
                     else load_daily_nasdaq_halt_events(
                         args.nasdaq_daily_events_json,
                         symbol=selected,
@@ -317,11 +330,22 @@ def main() -> int:
         elif not args.start_at_beginning:
             controller.finish()
         live_refresh = live_tail.refresh if live_tail is not None else None
-        if live_tail is not None and live_ohlcv_reader is not None:
+        if live_tail is not None and (
+            live_ohlcv_reader is not None or live_halt_reader is not None
+        ):
             # The viewer reads only completed, immutable raw-backed bundles.
             # A separate producer owns any authenticated client / SDK calls.
-            def refresh_with_live_candles() -> tuple[int, str]:
+            def refresh_with_live_evidence() -> tuple[int, str]:
                 newly_committed, detail = live_tail.refresh()
+                # Halts are independent of candle availability. In particular,
+                # a new halt must appear while the same symbol stays selected,
+                # even before the first completed candle has been acquired.
+                if live_halt_reader is not None:
+                    halt_changes, halt_detail = live_halt_reader.refresh(controller)
+                    newly_committed += halt_changes
+                    detail += " · " + halt_detail
+                if live_ohlcv_reader is None:
+                    return newly_committed, detail
                 current = controller.snapshot().observation_overlay
                 if current is None:
                     return newly_committed, detail + " · OHLCV: no symbol selected"
@@ -349,7 +373,7 @@ def main() -> int:
                     "(immutable read-only evidence, no client in viewer)"
                 )
                 return newly_committed + int(changed), detail + label
-            live_refresh = refresh_with_live_candles
+            live_refresh = refresh_with_live_evidence
         replay = controller.snapshot()
         app = create_quote_dashboard(
             controller,
@@ -386,8 +410,8 @@ def main() -> int:
         print("OO candles       : none (quote-only historical replay)")
     if args.nasdaq_halts_json is not None:
         print(f"Nasdaq halts     : {args.nasdaq_halts_json}")
-    if args.nasdaq_daily_events_json is not None:
-        print(f"Daily Nasdaq     : {args.nasdaq_daily_events_json}")
+    if daily_halt_path is not None or args.nasdaq_daily_events_json is not None:
+        print(f"Daily Nasdaq     : {daily_halt_path or args.nasdaq_daily_events_json}")
     print(f"Replay events    : {timeline.event_count:,}")
     print(
         "Initial position : "

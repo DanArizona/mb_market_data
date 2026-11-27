@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import hashlib
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
@@ -186,6 +187,9 @@ class OverlayHaltSegment(NamedTuple):
     end_et: datetime
     price: float
     reason_code: str
+    first_observed_at_et: datetime | None = None
+    reported_resumption_et: datetime | None = None
+    resumption_observed_at_et: datetime | None = None
 
 
 class OverlayDailyHaltMarker(NamedTuple):
@@ -217,10 +221,9 @@ def resolve_halt_segments(
 
     replay_time_et = overlay.replay_time_utc.astimezone(ET)
     segments: list[OverlayHaltSegment] = []
-    for interval in overlay.halt_intervals:
-        # A daily feed event has no causally verified end. Rendering it as
-        # a span through replay time would assert a halt duration we do not know.
-        if interval.first_observed_at_utc is not None:
+    for supplied in overlay.halt_intervals:
+        interval = supplied.visible_at(overlay.replay_time_utc)
+        if interval is None:
             continue
         visible_end = min(interval.end_et or replay_time_et, replay_time_et)
         if visible_end <= interval.start_et:
@@ -246,6 +249,11 @@ def resolve_halt_segments(
                 visible_end,
                 price,
                 interval.reason_code,
+                (interval.first_observed_at_utc.astimezone(ET)
+                 if interval.first_observed_at_utc is not None else None),
+                interval.end_et,
+                (interval.end_observed_at_utc.astimezone(ET)
+                 if interval.end_observed_at_utc is not None else None),
             )
         )
     return tuple(segments)
@@ -269,7 +277,10 @@ def resolve_daily_halt_markers(
         for point in overlay.quote_points
         if (price := _quote_price(point)) is not None
     ]
-    for interval in overlay.halt_intervals:
+    for supplied in overlay.halt_intervals:
+        interval = supplied.visible_at(overlay.replay_time_utc)
+        if interval is None:
+            continue
         observed = interval.first_observed_at_utc
         if observed is None:
             continue
@@ -1136,23 +1147,42 @@ def build_observation_overlay_figure(
             shift_hover=shift_hover,
         )
 
-    for index, segment in enumerate(
-        resolve_halt_segments(overlay, off_hours=off_hours)
-    ):
+    for segment in resolve_halt_segments(overlay, off_hours=off_hours):
+        # Plotly also uses trace uid values in DOM selectors. Keep the stable
+        # identity CSS-safe while preserving it across added candles/episodes.
+        episode_id = "nasdaq-halt-" + hashlib.sha256(
+            f"{overlay.symbol}|{segment.start_et.isoformat()}".encode("utf-8")
+        ).hexdigest()[:20]
+        resumption = (
+            segment.reported_resumption_et.strftime("%H:%M:%S.%f")[:-3] + " ET"
+            if segment.reported_resumption_et is not None else "not yet reported"
+        )
+        first_observed = (
+            segment.first_observed_at_et.strftime("%H:%M:%S.%f")[:-3] + " ET"
+            if segment.first_observed_at_et is not None else "historical annotation"
+        )
+        resumption_observed = (
+            segment.resumption_observed_at_et.strftime("%H:%M:%S.%f")[:-3] + " ET"
+            if segment.resumption_observed_at_et is not None else "not recorded"
+        )
         figure.add_trace(
             go.Scatter(
                 x=[segment.start_et, segment.end_et],
                 y=[segment.price, segment.price],
                 mode="lines",
-                name="Nasdaq halt",
-                legendgroup="nasdaq-halt",
-                showlegend=index == 0,
+                uid=episode_id,
+                name=f"Nasdaq halt {segment.start_et:%H:%M:%S}",
+                legendgroup=episode_id,
+                showlegend=True,
                 line={"color": HALT_COLOR, "width": HALT_LINE_WIDTH},
                 customdata=[
                     [
                         segment.reason_code,
                         segment.start_et.strftime("%H:%M:%S.%f")[:-3],
                         segment.end_et.strftime("%H:%M:%S.%f")[:-3],
+                        resumption,
+                        first_observed,
+                        resumption_observed,
                     ]
                 ] * 2,
             ),
@@ -1164,13 +1194,19 @@ def build_observation_overlay_figure(
             figure.data[-1],
             category="feature",
             standard=(
-                "<b>Confirmed Nasdaq halt</b><br>"
-                "%{customdata[1]}–%{customdata[2]} ET<br>"
+                "<b>Nasdaq reported halt</b><br>"
+                "Halt start %{customdata[1]} ET<br>"
+                "Reported trade resumption: %{customdata[3]}<br>"
+                "First observed: %{customdata[4]}<br>"
                 "Marker price %{y}<extra></extra>"
             ),
             detailed=(
-                "<b>Confirmed Nasdaq halt</b><br>"
-                "%{customdata[1]}–%{customdata[2]} ET<br>"
+                "<b>Nasdaq reported halt</b><br>"
+                "Halt start %{customdata[1]} ET<br>"
+                "Displayed through %{customdata[2]} ET<br>"
+                "Reported trade resumption: %{customdata[3]}<br>"
+                "First observed: %{customdata[4]}<br>"
+                "Resumption report received: %{customdata[5]}<br>"
                 "Reason code %{customdata[0]}<br>"
                 "Marker price %{y} (first in-halt observation)<extra></extra>"
             ),
@@ -1186,6 +1222,10 @@ def build_observation_overlay_figure(
                 y=[item.price for item in daily_markers],
                 mode="markers",
                 name="Nasdaq halt first observed",
+                uid="nasdaq-observed-" + hashlib.sha256(
+                    f"{overlay.session_date}|{overlay.symbol}".encode("utf-8")
+                ).hexdigest()[:20],
+                legendgroup="nasdaq-halt-observed",
                 marker={
                     "symbol": "diamond-open",
                     "color": HALT_COLOR,

@@ -27,8 +27,39 @@ For the November 13 ONFO session, six `LUDP` episodes were recorded in
 appear only after that first observation. A diamond marker uses a saved quote
 price for visual placement and reveals its quote timestamp on hover. The
 daily report's later `resumption_trade_time` is **not** treated as a release
-known at the earlier observation. No duration is inferred from these daily
-reports.
+known at the earlier observation.
+
+### Halt lines and first-observed diamonds (restored November 27)
+
+Each observed episode also has a thick, 7-pixel magenta horizontal line. Once
+the halt has been observed and an in-halt quote is available, the line begins
+at Nasdaq's reported halt time, including the interval before our first
+observation. Its fixed price is the first available journal quote within the
+halt. It renders above polling points. Each line has a timestamped Plotly
+legend entry; clicking it hides/restores that episode independently of the
+other lines and the diamond series. Hidden-line state survives live refresh.
+
+The line extends only through the displayed evidence clock until a reported
+trade-resumption endpoint is known. Then it ends at that reported time, still
+clipped to the display clock. Hover distinguishes a reported endpoint from
+"not yet reported" and gives the separate receipt times. Resumption updates
+never become visible before their own receipt, including during backward seek.
+Neither flat prices nor a five-minute timer manufacture a halt or its ending.
+
+The daily source now preserves endpoint revisions directly. Existing sessions
+recover their receipt history from retained `nasdaq/captures/*.json` files;
+when captures are absent, `last_observed_at` is a conservative bound for the
+latest endpoint. Keep the capture directory alongside `events.json` for the
+most accurate historical timing.
+
+In Real Time mode, `--real-time-data-root` automatically attaches the matching
+`output/daily_session/DATE/nasdaq/events.json`. An explicit
+`--nasdaq-daily-events-json` overrides that path; an explicit historical
+`--nasdaq-halts-json` retains its fixed-source behavior. The daily file is
+refreshed while the symbol stays selected, even before candles are available.
+A missing file can arrive later without restarting the viewer. Missing,
+invalid, or truncated updates report their condition and retain previously
+accepted evidence; they do not stop independent quote/candle refreshes.
 
 The November 13 journal remains audit **FAIL** because six Hot slots are
 missing. It remains useful for forensics of the observations that *were*
@@ -87,7 +118,8 @@ experimental viewer has no authority to publish membership commands.
 ## Safety and qualification
 
 - Historical snapshot is read-only. Stop this viewer without stopping collectors.
-- No manual release can be inferred from a `CURRENT` Nasdaq final record.
+- Reported trade-resumption updates use their own receipt times; a later
+  `CURRENT` or `HISTORICAL` record cannot reveal an endpoint earlier in replay.
 - Current experimental presentation does not qualify real-time or backtest adapters.
 - The original `INTEGRATION_SOURCE_INVENTORY.json` remains an immutable
   provenance fingerprint. Run `verify_overlay_workspace.py` for tests of the

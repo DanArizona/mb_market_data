@@ -718,3 +718,50 @@ and password prompts were blocked by the verifier. Windows execution of this
 177-test candidate and its new live request allowance have not yet been
 observed; the prior MasterBot visual evidence concerns the published
 single-candle fix and existing acquisition/display integration.
+
+## November 27 — restore live Nasdaq halt lines and detection diamonds
+
+The operator observed missing first-observed diamonds for Nasdaq-admitted ZYN
+and requested restoration of thick magenta halt lines. Inspection confirmed
+three integration gaps: the live launch omitted the daily events input, the
+viewer did not refresh halt evidence, and the daily loader rejected legitimate
+HISTORICAL updates produced by the alternating Nasdaq collector.
+
+The combined correction now:
+
+- Automatically attaches the matching daily events file from the live data
+  root and refreshes it on the existing live tick, independently of candles.
+- Accepts both saved retrieval modes; waits for missing-at-start evidence and
+  reports unavailable updates while retaining already accepted episodes.
+- Restores a 7-pixel magenta line from Nasdaq's reported halt time at the first
+  available in-halt quote price. First observation gates initial visibility;
+  once visible, the line includes the earlier reported-start-to-detection gap.
+- Gives every episode its own stable, timestamped Plotly legend entry. Lines
+  can be hidden independently; diamonds remain a separate series; visibility
+  persists when subsequent candles or episodes change trace ordering.
+- Retains receipt history for reported trade-resumption changes. A line grows
+  through the evidence clock while no endpoint is known and ends at a reported
+  endpoint only after that update is known. Hover states when resumption has
+  not yet been reported. It does not infer release from quote movement.
+- Reads existing normalized captures for older session files, including today's
+  collector output. New collectors persist endpoint history directly. Automatic
+  Hot admission and Nasdaq request cadence are unchanged.
+
+**Verification:** 200/200 offline workspace tests passed in 4.060 seconds with
+zero failures/errors/skips, Dash 2.18.2 and Plotly 6.5.2. The suite now includes
+the daily Nasdaq feed tests as well as live file evolution, same-symbol updates,
+symbol-switch retention, independent halt receipt timing, resumption revisions,
+backward seek, and per-episode renderer tests. Network and password prompts
+were blocked throughout. A separate local Plotly.js 3.3.1 DOM rendering check
+exercised actual legend hide/restore, diamond independence, and persistence of
+a hidden episode through `Plotly.react` while a new episode remained visible.
+This is not a claim of a new Windows desktop/live-market qualification.
+
+**Rollout:** publish to the existing experimental branch under the standing
+authorization. The current collector need not be restarted to use the viewer
+fix: existing captures provide the receipt history. Preserve the previously
+agreed checkout update after normal closeout; the next normal collector start
+also picks up direct endpoint-history persistence and the already-published
+five-per-minute OHLCV policy. Viewer-only restart loads the new display code.
+No further live halt is required as a development gate. Indicator work and
+deferred transport-level collection metrics retain their accepted priorities.

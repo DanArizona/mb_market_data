@@ -15,6 +15,7 @@ from mb_market_data.observation_overlay import (
     ObservationOverlayProjector,
     ObservationOverlayOHLCVCache,
 )
+from mb_market_data.overlay_halts import OverlayHaltInterval
 from mb_market_data.quote_event_state import (
     QuoteEventStateProjector,
     QuoteEventStateSnapshot,
@@ -197,17 +198,19 @@ class QuoteDashboardReplayController:
     def snapshot(self) -> DashboardReplaySnapshot:
         with self._lock:
             overlay_cutoff = self._position_utc
-            # Live candle evidence can arrive after the last committed quote
-            # acquisition. Its own reception time is an independent causal
-            # display cutoff, never an invented quote/journal event.
-            if (
-                self._live_readonly
-                and self._overlay_projector is not None
-                and self._overlay_projector.cache is not None
-            ):
-                acquired = self._overlay_projector.cache.acquired_at_utc
+            # Independently received candle/halt evidence can arrive after the
+            # latest committed quote. Receipt time advances the Overlay only;
+            # Nasdaq's possibly future resumption time never advances it.
+            if self._live_readonly and self._overlay_projector is not None:
+                cache = self._overlay_projector.cache
+                receipts = [item.latest_observed_at_utc
+                            for item in self._overlay_projector.halt_intervals]
                 overlay_cutoff = max(
-                    (time for time in (overlay_cutoff, acquired) if time is not None),
+                    (time for time in (
+                        overlay_cutoff,
+                        cache.acquired_at_utc if cache is not None else None,
+                        *receipts,
+                    ) if time is not None),
                     default=None,
                 )
             overlay = (
@@ -356,6 +359,25 @@ class QuoteDashboardReplayController:
             if cache.session_date != self._timeline.session_date:
                 raise ValueError("Live OHLCV cache belongs to another journal date")
             return self._overlay_projector.update_live_cache(cache)
+
+    def install_live_halt_intervals(
+        self,
+        intervals: tuple[OverlayHaltInterval, ...],
+        *,
+        symbol: str,
+        session_date: date,
+    ) -> bool:
+        """Refresh only the selected symbol's saved daily Nasdaq evidence."""
+        with self._lock:
+            if not self._live_readonly:
+                raise RuntimeError("Live halt updates require Real Time mode")
+            if self._overlay_projector is None:
+                raise ValueError("No selected Overlay symbol for live halt evidence")
+            if session_date != self._timeline.session_date:
+                raise ValueError("Live halt evidence belongs to another journal date")
+            return self._overlay_projector.update_live_halt_intervals(
+                intervals, symbol=symbol, session_date=session_date,
+            )
 
     def select_overlay_symbol(self, symbol: str) -> DashboardReplaySnapshot:
         """Switch the inspected symbol without changing the main replay clock.

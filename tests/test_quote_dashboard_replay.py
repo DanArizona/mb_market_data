@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 
 from mb_market_data.observation_overlay import (
@@ -14,6 +15,7 @@ from mb_market_data.quote_dashboard_replay import (
     DashboardReplayStatus,
     QuoteDashboardReplayController,
 )
+from mb_market_data.overlay_halts import OverlayHaltInterval, OverlayHaltResumption
 from mb_market_data.quote_journal_replay import (
     ChannelRevisionEvent,
     MembershipRevisionEvent,
@@ -84,6 +86,42 @@ def overlay_projector() -> ObservationOverlayProjector:
 
 
 class TestQuoteDashboardReplayController(unittest.TestCase):
+    def test_historical_seek_reveals_resumption_updates_only_at_their_receipts(self) -> None:
+        first = START + timedelta(minutes=2)
+        first_resume = OverlayHaltResumption(START + timedelta(minutes=6), first + timedelta(seconds=10))
+        revised_resume = OverlayHaltResumption(START + timedelta(minutes=8), first + timedelta(minutes=1))
+        halt = OverlayHaltInterval(
+            START.astimezone(OVERLAY_ET), revised_resume.end_et, "LUDP", first,
+            revised_resume.observed_at_utc, (first_resume, revised_resume),
+        )
+        event = membership_event(0)
+        controller = QuoteDashboardReplayController(
+            timeline=ReplayTimeline(SESSION_DATE, 1, START, START),
+            event_factory=lambda: iter((event,)),
+            overlay_projector_factory=lambda: ObservationOverlayProjector(
+                cache=None, symbol="FOCUS", session_date=SESSION_DATE, halt_intervals=(halt,),
+            ),
+            overlay_end_at_utc=START + timedelta(minutes=10),
+        )
+        self.assertEqual(controller.seek(first - timedelta(seconds=1)).observation_overlay.halt_intervals, ())
+        self.assertIsNone(controller.seek(first).observation_overlay.halt_intervals[0].end_et)
+        known = controller.seek(first_resume.observed_at_utc).observation_overlay.halt_intervals[0]
+        self.assertEqual(known.end_et, first_resume.end_et)
+        self.assertEqual(known.resumption_updates, (first_resume,))
+        self.assertEqual(controller.seek(revised_resume.observed_at_utc).observation_overlay.halt_intervals[0].end_et,
+                         revised_resume.end_et)
+        self.assertIsNone(controller.seek(first).observation_overlay.halt_intervals[0].end_et)
+        with self.assertRaisesRegex(RuntimeError, "Real Time"):
+            controller.install_live_halt_intervals((halt,), symbol="FOCUS", session_date=SESSION_DATE)
+        for invalid in (
+            replace(halt, resumption_updates=(revised_resume, first_resume)),
+            replace(halt, end_et=first_resume.end_et),
+            replace(halt, resumption_updates=(), end_observed_at_utc=None),
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                ObservationOverlayProjector(cache=None, symbol="FOCUS", session_date=SESSION_DATE,
+                                            halt_intervals=(invalid,))
+
     def test_switch_to_another_symbol_does_not_reuse_wrong_ohlcv_cache(self) -> None:
         event = membership_event(0)
         matching_cache = overlay_projector().cache

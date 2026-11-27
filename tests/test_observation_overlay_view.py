@@ -28,7 +28,7 @@ from mb_market_data.observation_overlay_view import (
     resolve_daily_halt_markers,
     selected_reference_from_click,
 )
-from mb_market_data.overlay_halts import OverlayHaltInterval
+from mb_market_data.overlay_halts import OverlayHaltInterval, OverlayHaltResumption
 
 UTC = timezone.utc
 SESSION_DATE = date(2026, 9, 24)
@@ -107,7 +107,7 @@ def overlay() -> ObservationOverlayData:
 
 
 class TestObservationOverlayView(unittest.TestCase):
-    def test_daily_nasdaq_report_is_marker_not_assumed_halt_span(self) -> None:
+    def test_daily_nasdaq_diamond_can_precede_an_in_halt_price_anchor(self) -> None:
         event = OverlayHaltInterval(
             datetime(2026, 9, 24, 9, 31, 9, tzinfo=ET),
             None,
@@ -128,6 +128,81 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(daily[0].mode, "markers")
         self.assertEqual(daily[0].customdata[0][0], "09:31:09.000")
         self.assertEqual(daily[0].customdata[0][1], "09:32:03.000")
+
+    def test_daily_halt_line_starts_at_nasdaq_time_and_ends_when_report_is_known(self) -> None:
+        start = datetime(2026, 9, 24, 9, 31, 9, tzinfo=ET)
+        first = datetime(2026, 9, 24, 13, 32, 3, tzinfo=UTC)
+        resume = datetime(2026, 9, 24, 9, 36, 9, tzinfo=ET)
+        resume_received = datetime(2026, 9, 24, 13, 37, tzinfo=UTC)
+        event = OverlayHaltInterval(
+            start, resume, "LUDP", first, resume_received,
+            (OverlayHaltResumption(resume, resume_received),),
+        )
+        first_quote = replace(
+            overlay().quote_points[0], available_at_utc=start.astimezone(UTC) + timedelta(seconds=1),
+        )
+        later_quote = replace(
+            first_quote, available_at_utc=first + timedelta(seconds=1),
+            values=MappingProxyType({"quote_last_price": 99.0}),
+        )
+        value = replace(
+            overlay(), halt_intervals=(event,), quote_points=(first_quote, later_quote),
+            replay_time_utc=first - timedelta(microseconds=1),
+        )
+        self.assertEqual(resolve_halt_segments(value, off_hours=True), ())
+        self.assertEqual(resolve_daily_halt_markers(value, off_hours=True), ())
+        value = replace(value, replay_time_utc=first)
+        segment, = resolve_halt_segments(value, off_hours=True)
+        self.assertEqual((segment.start_et, segment.end_et, segment.price),
+                         (start, first.astimezone(ET), 10.4))
+        self.assertIsNone(segment.reported_resumption_et)
+        value = replace(value, replay_time_utc=resume_received - timedelta(microseconds=1))
+        segment, = resolve_halt_segments(value, off_hours=True)
+        self.assertEqual(segment.end_et, value.replay_time_utc.astimezone(ET))
+        self.assertIsNone(segment.reported_resumption_et)
+        value = replace(value, replay_time_utc=resume_received)
+        segment, = resolve_halt_segments(value, off_hours=True)
+        self.assertEqual((segment.end_et, segment.reported_resumption_et), (resume, resume))
+        self.assertEqual(segment.price, 10.4)
+
+    def test_halt_lines_are_thick_independent_legend_traces_with_stable_identity(self) -> None:
+        event = OverlayHaltInterval(
+            datetime(2026, 9, 24, 9, 30, tzinfo=ET),
+            datetime(2026, 9, 24, 9, 31, tzinfo=ET), "LUDP",
+            datetime(2026, 9, 24, 13, 30, 10, tzinfo=UTC),
+            datetime(2026, 9, 24, 13, 31, 10, tzinfo=UTC),
+        )
+        value = replace(overlay(), halt_intervals=(event,))
+        first_figure = build_observation_overlay_figure(value)
+        first_line, = [trace for trace in first_figure.data
+                       if trace.name.startswith("Nasdaq halt ") and trace.mode == "lines"]
+        second = OverlayHaltInterval(
+            datetime(2026, 9, 24, 9, 32, tzinfo=ET), None, "M",
+            datetime(2026, 9, 24, 13, 32, 10, tzinfo=UTC),
+        )
+        second_quote = replace(value.quote_points[0],
+                               available_at_utc=datetime(2026, 9, 24, 13, 32, 5, tzinfo=UTC))
+        updated = build_observation_overlay_figure(replace(
+            value, halt_intervals=(event, second),
+            quote_points=(*value.quote_points, second_quote), candles=(), cache=None,
+        ))
+        lines = [trace for trace in updated.data
+                 if trace.name.startswith("Nasdaq halt ") and trace.mode == "lines"]
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(first_line.uid, lines[0].uid)
+        self.assertNotEqual(lines[0].legendgroup, lines[1].legendgroup)
+        self.assertNotEqual(lines[0].uid, lines[1].uid)
+        self.assertTrue(all(trace.showlegend for trace in lines))
+        self.assertTrue(all(trace.line.color == "#d100d1" and trace.line.width == 7
+                            for trace in lines))
+        self.assertEqual(first_figure.layout.uirevision, updated.layout.uirevision)
+        diamond, = [trace for trace in updated.data if trace.name == "Nasdaq halt first observed"]
+        self.assertNotIn(diamond.legendgroup, [trace.legendgroup for trace in lines])
+        last_quote_index = max(index for index, trace in enumerate(updated.data)
+                               if trace.name.endswith(" quote"))
+        first_line_index = next(index for index, trace in enumerate(updated.data)
+                                if trace.uid == lines[0].uid)
+        self.assertGreater(first_line_index, last_quote_index)
 
     def test_daily_nasdaq_marker_waits_for_actual_quote_anchor(self) -> None:
         event = OverlayHaltInterval(

@@ -36,7 +36,7 @@ from mb_market_data.quote_observation_store import (
     StoredAcquisition,
     StoredQuoteObservation,
 )
-from mb_market_data.overlay_halts import OverlayHaltInterval
+from mb_market_data.overlay_halts import OverlayHaltInterval, merge_live_halt_intervals
 
 
 ET = ZoneInfo("America/New_York")
@@ -334,27 +334,88 @@ class ObservationOverlayProjector:
         self.cache = cache
         self.symbol = normalized_symbol
         self.session_date = session_date
-        self.halt_intervals = tuple(halt_intervals)
+        self.halt_intervals = self._validated_halt_intervals(halt_intervals)
         self.poll_seconds_by_run = MappingProxyType(dict(poll_seconds_by_run or {}))
-        if any(
-            interval.start_et.date() != session_date
-            or (
-                interval.end_et is not None
-                and interval.end_et.date() != session_date
-            )
-            or (
-                interval.first_observed_at_utc is not None
-                and _utc(interval.first_observed_at_utc, "halt first_observed_at_utc")
-                < interval.start_et.astimezone(UTC)
-            )
-            for interval in self.halt_intervals
-        ):
-            raise ValueError("halt interval belongs to another session")
         self._transitions: list[OverlayMembershipTransition] = []
         self._quote_points: list[OverlayQuotePoint] = []
         self._current_band = MembershipBand.OUTSIDE_UNI
         self._last_available: datetime | None = None
         self._last_revision = -1
+
+    def _validated_halt_intervals(
+        self, intervals: tuple[OverlayHaltInterval, ...]
+    ) -> tuple[OverlayHaltInterval, ...]:
+        validated = tuple(intervals)
+        for interval in validated:
+            if not isinstance(interval, OverlayHaltInterval):
+                raise TypeError("Halt evidence must use validated intervals")
+            start = _utc(interval.start_et, "halt start_et")
+            if start.astimezone(ET).date() != self.session_date:
+                raise ValueError("halt interval belongs to another session")
+            if interval.end_et is not None:
+                end = _utc(interval.end_et, "halt end_et")
+                if end < start or end.astimezone(ET).date() != self.session_date:
+                    raise ValueError("halt end is inconsistent with its session/start")
+            first = interval.first_observed_at_utc
+            if first is not None:
+                first = _utc(first, "halt first_observed_at_utc")
+                if first < start or first.astimezone(ET).date() != self.session_date:
+                    raise ValueError("halt observation is inconsistent with its session/start")
+            previous_receipt: datetime | None = None
+            for update in interval.resumption_updates:
+                end = _utc(update.end_et, "halt resumption end_et")
+                observed = _utc(update.observed_at_utc, "halt resumption observed_at_utc")
+                if (
+                    first is None or observed < first or end < start
+                    or end.astimezone(ET).date() != self.session_date
+                    or observed.astimezone(ET).date() != self.session_date
+                ):
+                    raise ValueError("halt resumption is inconsistent with its observation/session")
+                if previous_receipt is not None and observed <= previous_receipt:
+                    raise ValueError("halt resumption observations must be strictly ordered")
+                previous_receipt = observed
+            if interval.end_observed_at_utc is not None:
+                observed = _utc(interval.end_observed_at_utc, "halt end_observed_at_utc")
+                if (
+                    interval.end_et is None or first is None or observed < first
+                    or observed.astimezone(ET).date() != self.session_date
+                ):
+                    raise ValueError("halt end observation is inconsistent with its session")
+            elif first is not None and interval.end_et is not None:
+                raise ValueError("daily halt resumption requires its own observation time")
+            if interval.resumption_updates:
+                latest = interval.resumption_updates[-1]
+                if (interval.end_et, interval.end_observed_at_utc) != (
+                    latest.end_et, latest.observed_at_utc,
+                ):
+                    raise ValueError("halt endpoint differs from its latest received update")
+        return validated
+
+    def update_live_halt_intervals(
+        self,
+        intervals: tuple[OverlayHaltInterval, ...],
+        *,
+        symbol: str,
+        session_date: date,
+    ) -> bool:
+        """Install saved Nasdaq updates without changing quote evidence.
+
+        Episode identity and first receipt survive later resumption updates.
+        Missing or truncated source files cannot silently erase known halts.
+        """
+        if _symbol(symbol) != self.symbol or session_date != self.session_date:
+            raise ValueError("Live halt symbol/session identity mismatch")
+        candidate = self._validated_halt_intervals(intervals)
+        by_start = {item.start_et: item for item in candidate}
+        if len(by_start) != len(candidate) or any(
+            item.first_observed_at_utc is None for item in candidate
+        ):
+            raise ValueError("Live halt evidence requires distinct observed episodes")
+        candidate = merge_live_halt_intervals(self.halt_intervals, candidate)
+        if candidate == self.halt_intervals:
+            return False
+        self.halt_intervals = candidate
+        return True
 
     def update_live_cache(self, cache: ObservationOverlayOHLCVCache) -> bool:
         """Install a newer independent live OHLCV snapshot without journal edits.
@@ -506,12 +567,8 @@ class ObservationOverlayProjector:
                 if item.available_at_utc <= cutoff
             ),
             halt_intervals=tuple(
-                interval for interval in self.halt_intervals
-                if (
-                    _utc(interval.first_observed_at_utc, "halt first_observed_at_utc")
-                    if interval.first_observed_at_utc is not None
-                    else interval.start_et.astimezone(UTC)
-                ) <= cutoff
+                visible for interval in self.halt_intervals
+                if (visible := interval.visible_at(cutoff)) is not None
             ),
         )
 
