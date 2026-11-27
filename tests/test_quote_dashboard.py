@@ -1053,8 +1053,11 @@ class TestQuoteDashboard(unittest.TestCase):
         traces = body["observation-overlay-chart"]["figure"]["data"]
         self.assertEqual(
             tuple(trace["name"] for trace in traces),
-            ("Navigator host",),
+            ("Nasdaq halts", "Navigator host"),
         )
+        self.assertFalse(traces[0]["showlegend"])
+        self.assertEqual(traces[0]["x"], [None])
+        self.assertEqual(traces[0]["y"], [None])
         self.assertEqual(traces[-1]["xaxis"], "x3")
         self.assertEqual(traces[-1]["yaxis"], "y3")
         self.assertFalse(traces[-1]["showlegend"])

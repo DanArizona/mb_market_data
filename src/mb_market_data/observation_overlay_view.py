@@ -31,7 +31,7 @@ OVERLAY_HEIGHT_PIXELS = 800
 REGULAR_OPEN = time(9, 30)
 REGULAR_CLOSE = time(16, 0)
 HALT_COLOR = "#d100d1"
-HALT_LINE_WIDTH = 7
+HALT_LINE_WIDTH = 3.5
 REQUEST_ERROR_COLOR = "#ff4d5d"
 REQUEST_ERROR_LINE_WIDTH = 7
 
@@ -1147,12 +1147,11 @@ def build_observation_overlay_figure(
             shift_hover=shift_hover,
         )
 
-    for segment in resolve_halt_segments(overlay, off_hours=off_hours):
-        # Plotly also uses trace uid values in DOM selectors. Keep the stable
-        # identity CSS-safe while preserving it across added candles/episodes.
-        episode_id = "nasdaq-halt-" + hashlib.sha256(
-            f"{overlay.symbol}|{segment.start_et.isoformat()}".encode("utf-8")
-        ).hexdigest()[:20]
+    halt_segments = resolve_halt_segments(overlay, off_hours=off_hours)
+    halt_x: list[Any] = []
+    halt_y: list[Any] = []
+    halt_customdata: list[Any] = []
+    for segment in halt_segments:
         resumption = (
             segment.reported_resumption_et.strftime("%H:%M:%S.%f")[:-3] + " ET"
             if segment.reported_resumption_et is not None else "not yet reported"
@@ -1165,54 +1164,63 @@ def build_observation_overlay_figure(
             segment.resumption_observed_at_et.strftime("%H:%M:%S.%f")[:-3] + " ET"
             if segment.resumption_observed_at_et is not None else "not recorded"
         )
-        figure.add_trace(
-            go.Scatter(
-                x=[segment.start_et, segment.end_et],
-                y=[segment.price, segment.price],
-                mode="lines",
-                uid=episode_id,
-                name=f"Nasdaq halt {segment.start_et:%H:%M:%S}",
-                legendgroup=episode_id,
-                showlegend=True,
-                line={"color": HALT_COLOR, "width": HALT_LINE_WIDTH},
-                customdata=[
-                    [
-                        segment.reason_code,
-                        segment.start_et.strftime("%H:%M:%S.%f")[:-3],
-                        segment.end_et.strftime("%H:%M:%S.%f")[:-3],
-                        resumption,
-                        first_observed,
-                        resumption_observed,
-                    ]
-                ] * 2,
-            ),
-            row=1,
-            col=1,
-        )
-        figure.data[-1].xaxis = "x3"
-        _hover_variants(
-            figure.data[-1],
-            category="feature",
-            standard=(
-                "<b>Nasdaq reported halt</b><br>"
-                "Halt start %{customdata[1]} ET<br>"
-                "Reported trade resumption: %{customdata[3]}<br>"
-                "First observed: %{customdata[4]}<br>"
-                "Marker price %{y}<extra></extra>"
-            ),
-            detailed=(
-                "<b>Nasdaq reported halt</b><br>"
-                "Halt start %{customdata[1]} ET<br>"
-                "Displayed through %{customdata[2]} ET<br>"
-                "Reported trade resumption: %{customdata[3]}<br>"
-                "First observed: %{customdata[4]}<br>"
-                "Resumption report received: %{customdata[5]}<br>"
-                "Reason code %{customdata[0]}<br>"
-                "Marker price %{y} (first in-halt observation)<extra></extra>"
-            ),
-            detailed_hover=detailed_hover,
-            shift_hover=shift_hover,
-        )
+        details = [
+            segment.reason_code,
+            segment.start_et.strftime("%H:%M:%S.%f")[:-3],
+            segment.end_et.strftime("%H:%M:%S.%f")[:-3],
+            resumption,
+            first_observed,
+            resumption_observed,
+        ]
+        # One trace is one persistent legend choice, including episodes added
+        # by a later live refresh. Gaps keep separate halts disconnected.
+        halt_x.extend((segment.start_et, segment.end_et, None))
+        halt_y.extend((segment.price, segment.price, None))
+        halt_customdata.extend((details, details, None))
+    # Keep the same trace through empty replay frames. Removing it would lose
+    # a user's hidden-layer choice when a seek/filter later restores the halts.
+    figure.add_trace(
+        go.Scatter(
+            x=halt_x or [None],
+            y=halt_y or [None],
+            mode="lines",
+            uid="nasdaq-halts-" + hashlib.sha256(
+                f"{overlay.session_date}|{overlay.symbol}".encode("utf-8")
+            ).hexdigest()[:20],
+            name="Nasdaq halts",
+            legendgroup="nasdaq-halts",
+            showlegend=bool(halt_segments),
+            connectgaps=False,
+            line={"color": HALT_COLOR, "width": HALT_LINE_WIDTH},
+            customdata=halt_customdata or [None],
+        ),
+        row=1,
+        col=1,
+    )
+    figure.data[-1].xaxis = "x3"
+    _hover_variants(
+        figure.data[-1],
+        category="feature",
+        standard=(
+            "<b>Nasdaq reported halt</b><br>"
+            "Halt start %{customdata[1]} ET<br>"
+            "Reported trade resumption: %{customdata[3]}<br>"
+            "First observed: %{customdata[4]}<br>"
+            "Marker price %{y}<extra></extra>"
+        ),
+        detailed=(
+            "<b>Nasdaq reported halt</b><br>"
+            "Halt start %{customdata[1]} ET<br>"
+            "Displayed through %{customdata[2]} ET<br>"
+            "Reported trade resumption: %{customdata[3]}<br>"
+            "First observed: %{customdata[4]}<br>"
+            "Resumption report received: %{customdata[5]}<br>"
+            "Reason code %{customdata[0]}<br>"
+            "Marker price %{y} (first in-halt observation)<extra></extra>"
+        ),
+        detailed_hover=detailed_hover,
+        shift_hover=shift_hover,
+    )
 
     daily_markers = resolve_daily_halt_markers(overlay, off_hours=off_hours)
     if daily_markers:

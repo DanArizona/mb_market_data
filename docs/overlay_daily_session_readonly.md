@@ -31,13 +31,14 @@ known at the earlier observation.
 
 ### Halt lines and first-observed diamonds (restored November 27)
 
-Each observed episode also has a thick, 7-pixel magenta horizontal line. Once
+Each observed episode also has a 3.5-pixel magenta horizontal line. Once
 the halt has been observed and an in-halt quote is available, the line begins
 at Nasdaq's reported halt time, including the interval before our first
 observation. Its fixed price is the first available journal quote within the
-halt. It renders above polling points. Each line has a timestamped Plotly
-legend entry; clicking it hides/restores that episode independently of the
-other lines and the diamond series. Hidden-line state survives live refresh.
+halt. It renders above polling points. One **Nasdaq halts** Plotly legend entry
+hides/restores all horizontal lines together, independently of the diamond
+series. Each episode retains its own timestamps and reason in hover.
+The hidden-layer choice survives new episodes and replay frames with no lines.
 
 The line extends only through the displayed evidence clock until a reported
 trade-resumption endpoint is known. Then it ends at that reported time, still
@@ -45,6 +46,12 @@ clipped to the display clock. Hover distinguishes a reported endpoint from
 "not yet reported" and gives the separate receipt times. Resumption updates
 never become visible before their own receipt, including during backward seek.
 Neither flat prices nor a five-minute timer manufacture a halt or its ending.
+In particular, the line's price is the selected journal quote price, not a
+Nasdaq pause-threshold value. Earlier polling observations can already have
+that same last price. Detailed hover's **Last trade**, **Trade age**,
+**Cumulative volume**, and **Security status** help distinguish repeated
+prices from a provider-reported halted status. Quote dots use acquisition
+completion times; the line uses Nasdaq's reported halt-event timestamp.
 
 The daily source now preserves endpoint revisions directly. Existing sessions
 recover their receipt history from retained `nasdaq/captures/*.json` files;

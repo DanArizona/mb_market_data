@@ -765,3 +765,39 @@ also picks up direct endpoint-history persistence and the already-published
 five-per-minute OHLCV policy. Viewer-only restart loads the new display code.
 No further live halt is required as a development gate. Indicator work and
 deferred transport-level collection metrics retain their accepted priorities.
+
+## November 27 — Windows verification and halt legend refinement
+
+The operator updated MasterBot and reported **200/200 PASS in 6.457 seconds**,
+zero failures/errors/skips, using `dashing` with Dash 2.18.2 / Plotly 6.5.2.
+The verifier reported no provider calls or production changes. Its generated
+preview was under `output/overlay-workspace-20261127T191534923285Z`.
+The subsequent real-session ZYN Historical screenshots showed the restored
+horizontal halt lines and first-observed diamonds alongside saved candles
+and quote observations. This is desktop evidence for saved-session display;
+it is not a new live-update timing measurement.
+
+The operator requested half-width lines and one collective legend control.
+The horizontal layer now uses **3.5 pixels** and a single **Nasdaq halts**
+entry. Disconnected spans share one stable Plotly trace, keeping their own
+hover details and separate identity from first-observed diamonds. A hidden
+layer stays hidden when new episodes arrive or a replay temporarily shows no
+halts. Nasdaq start/receipt times, price anchors and resumption logic are
+unchanged.
+
+The screenshots also show equal-price observations preceding some line
+starts. The line's price comes from the first usable Schwab last-price
+observation at/after Nasdaq's reported halt time; earlier observations can
+already contain that same price. These screenshots do not expose Schwab's
+security-status or last-trade fields and therefore do not establish that an
+actual halt preceded the Nasdaq timestamp. The bounded follow-up is to inspect
+existing Detailed hover or saved rows around 11:53:53 and 11:59:20 ET, without
+new provider requests. A pre-pause limit state remains a hypothesis for those
+specific episodes, not a measured conclusion.
+
+**Refinement verification:** 200/200 offline tests passed in 4.002 seconds,
+with no failures/errors/skips or provider calls. The existing renderer and
+dashboard expectations were updated; the test count is unchanged. A local
+Plotly.js 3.3.1 DOM check exercised the actual grouped legend click: 3.5-pixel
+width, one entry, independent diamonds, newly added episodes staying hidden,
+hidden-state persistence through an empty frame, and restoration of all lines.

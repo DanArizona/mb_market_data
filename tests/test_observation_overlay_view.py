@@ -165,7 +165,7 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual((segment.end_et, segment.reported_resumption_et), (resume, resume))
         self.assertEqual(segment.price, 10.4)
 
-    def test_halt_lines_are_thick_independent_legend_traces_with_stable_identity(self) -> None:
+    def test_halt_lines_share_one_thinner_legend_trace_with_stable_identity(self) -> None:
         event = OverlayHaltInterval(
             datetime(2026, 9, 24, 9, 30, tzinfo=ET),
             datetime(2026, 9, 24, 9, 31, tzinfo=ET), "LUDP",
@@ -175,7 +175,7 @@ class TestObservationOverlayView(unittest.TestCase):
         value = replace(overlay(), halt_intervals=(event,))
         first_figure = build_observation_overlay_figure(value)
         first_line, = [trace for trace in first_figure.data
-                       if trace.name.startswith("Nasdaq halt ") and trace.mode == "lines"]
+                       if trace.name == "Nasdaq halts"]
         second = OverlayHaltInterval(
             datetime(2026, 9, 24, 9, 32, tzinfo=ET), None, "M",
             datetime(2026, 9, 24, 13, 32, 10, tzinfo=UTC),
@@ -187,14 +187,19 @@ class TestObservationOverlayView(unittest.TestCase):
             quote_points=(*value.quote_points, second_quote), candles=(), cache=None,
         ))
         lines = [trace for trace in updated.data
-                 if trace.name.startswith("Nasdaq halt ") and trace.mode == "lines"]
-        self.assertEqual(len(lines), 2)
+                 if trace.name == "Nasdaq halts"]
+        self.assertEqual(len(lines), 1)
         self.assertEqual(first_line.uid, lines[0].uid)
-        self.assertNotEqual(lines[0].legendgroup, lines[1].legendgroup)
-        self.assertNotEqual(lines[0].uid, lines[1].uid)
-        self.assertTrue(all(trace.showlegend for trace in lines))
-        self.assertTrue(all(trace.line.color == "#d100d1" and trace.line.width == 7
-                            for trace in lines))
+        self.assertEqual(first_line.legendgroup, lines[0].legendgroup)
+        self.assertTrue(lines[0].showlegend)
+        self.assertEqual(lines[0].line.color, "#d100d1")
+        self.assertEqual(lines[0].line.width, 3.5)
+        self.assertFalse(lines[0].connectgaps)
+        self.assertEqual(list(lines[0].x), [event.start_et, event.end_et, None,
+                                          second.start_et, value.replay_time_utc.astimezone(ET), None])
+        self.assertEqual(list(lines[0].y), [10.4, 10.4, None, 10.4, 10.4, None])
+        self.assertEqual(lines[0].customdata[0][1], "09:30:00.000")
+        self.assertEqual(lines[0].customdata[3][1], "09:32:00.000")
         self.assertEqual(first_figure.layout.uirevision, updated.layout.uirevision)
         diamond, = [trace for trace in updated.data if trace.name == "Nasdaq halt first observed"]
         self.assertNotIn(diamond.legendgroup, [trace.legendgroup for trace in lines])
@@ -203,6 +208,12 @@ class TestObservationOverlayView(unittest.TestCase):
         first_line_index = next(index for index, trace in enumerate(updated.data)
                                 if trace.uid == lines[0].uid)
         self.assertGreater(first_line_index, last_quote_index)
+        empty = build_observation_overlay_figure(replace(value, halt_intervals=()))
+        empty_line, = [trace for trace in empty.data if trace.name == "Nasdaq halts"]
+        self.assertEqual(empty_line.uid, first_line.uid)
+        self.assertFalse(empty_line.showlegend)
+        self.assertEqual(tuple(empty_line.x), (None,))
+        self.assertEqual(tuple(empty_line.y), (None,))
 
     def test_daily_nasdaq_marker_waits_for_actual_quote_anchor(self) -> None:
         event = OverlayHaltInterval(
@@ -294,6 +305,7 @@ class TestObservationOverlayView(unittest.TestCase):
                 "5-minute OHLC",
                 "Volume",
                 "Focus quote",
+                "Nasdaq halts",
                 "Navigator host",
             ),
         )
@@ -304,11 +316,12 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(figure.data[0].xaxis, "x3")
         self.assertEqual(figure.data[1].xaxis, "x2")
         self.assertEqual(figure.data[2].xaxis, "x3")
-        self.assertEqual(figure.data[3].xaxis, "x3")
-        self.assertEqual(figure.data[3].yaxis, "y3")
-        self.assertFalse(figure.data[3].showlegend)
-        self.assertEqual(figure.data[3].hoverinfo, "skip")
-        self.assertEqual(figure.data[3].opacity, 0)
+        navigator, = [trace for trace in figure.data if trace.name == "Navigator host"]
+        self.assertEqual(navigator.xaxis, "x3")
+        self.assertEqual(navigator.yaxis, "y3")
+        self.assertFalse(navigator.showlegend)
+        self.assertEqual(navigator.hoverinfo, "skip")
+        self.assertEqual(navigator.opacity, 0)
         self.assertEqual(figure.layout.yaxis.title.text, "Price")
         self.assertEqual(figure.layout.yaxis2.title.text, "Volume")
         self.assertFalse(figure.layout.yaxis3.visible)
