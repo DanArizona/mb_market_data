@@ -1,6 +1,14 @@
 # Controller-owned Real Time OHLCV — experimental integration (2026-11-25)
 
-## Status and qualification boundary
+**November 27 update:** the operator demonstrated live candle/volume display
+and selection handoffs for MSFT, NVDA and ZYN. The accepted acquisition policy
+is now **five attempts per rolling 60 seconds**, retaining one attempt per
+symbol per completed five-minute candle interval. Detailed SDK retry metrics
+are deferred. The qualification notes below record the original November 25
+checkpoint; current evidence and rollout guidance are in
+`Overlay_Unified_Release_Plan_2026-11-24.md`.
+
+## Initial status and qualification boundary (November 25)
 
 **Experiment only.** Source lives on
 `experiment/overlay-unified-release-20261124`. Nothing in this
@@ -18,7 +26,7 @@ this candidate against a live Schwab session until separately approved.
    via `--overlay-ohlcv`. The default `plan` and `start` paths do
    not enable the role. The authoritative daily plan records the
    selection root, independent candle evidence root, and a
-   two-symbol-per-five-minute-request budget. The exchange calendar
+   five-attempt budget with an explicit 60-second rolling window. The exchange calendar
    supplies actual open/close ET times.
 2. The daily owner launches a child role named `ohlcv` **only after**
    the opening r1 is published, and before the exchange close. The
@@ -42,9 +50,12 @@ this candidate against a live Schwab session until separately approved.
    original opening, and calls the already-qualified
    `OwnedOHLCVSchedule.tick` at most once for each selected symbol at
    each completed five-minute interval. A reserved durable nonsecret
-   ledger limits duplicate requests across worker restarts; at most two
-   distinct selected symbols can be attempted per interval. Provider
-   failures do not create tight-loop retries.
+   ledger limits duplicate requests across worker restarts; at most five
+   acquisition attempts can be reserved in any rolling 60 seconds, including
+   unsuccessful attempts and regular selected-symbol refreshes. The allowance
+   does not reset at a clock-minute or candle boundary. SDK-internal retries
+   are not individually counted by this application-level limit. Provider
+   failures do not create an additional application retry loop within the slot.
 6. After a successful Schwab `price_history` response the child
    publishes a self-contained original raw response and
    completed-only, source-backed five-minute OHLCV cache into
@@ -57,7 +68,7 @@ this candidate against a live Schwab session until separately approved.
    A viewer without `--enable-ohlcv-selection` is still read-only;
    even when enabled, the viewer **never calls Schwab**.
 
-## Remaining validation
+## Initial validation checklist (November 25)
 
 - New offline test module
   `tests/test_overlay_ohlcv_worker.py` checks an explicitly enabled
@@ -74,7 +85,7 @@ this candidate against a live Schwab session until separately approved.
   restarted while today's session is collecting. Real live activation
   requires a separate authorization and a future session-specific plan.
 
-## Explicitly deferred
+## Initial milestone deferrals (November 25)
 
 Custom indicators, historical backtesting, OHLCV across all Uni
 members, tier-list refinements, trade execution and any second

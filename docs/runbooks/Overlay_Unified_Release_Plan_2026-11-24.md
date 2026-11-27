@@ -654,3 +654,67 @@ Dash 2.18.2 and Plotly 6.5.2. Network/provider access and credential prompts
 were blocked. The correction has not yet been applied to the live Windows
 viewer; the ongoing session's raw OHLCV numeric qualification is unaffected
 by this rendering check.
+
+### November 27 — live display evidence and selected-symbol request policy
+
+After publication of `2f4e71f`, the operator's saved first-MSFT-snapshot check
+showed one complete candle body, wick and volume bar on MasterBot. Subsequent
+live selection handoffs showed NVDA candles/volume (receipt 10:26:13 ET) and
+ZYN candles/volume (receipt 10:30:06 ET). ZYN was reported by the operator as
+a Nasdaq-admitted Hot member. Its earlier screenshot showed zero cached
+candles; the later screenshot showed 16. The old two-symbol slot allowance
+was a plausible explanation for the wait, but the request ledger was not
+provided and the exact click-to-display latency was not established.
+
+The operator accepted replacing the prototype's two-symbol-per-five-minute
+slot cap with **five OHLCV acquisition attempts per rolling minute**, and
+deferring improved collection metrics. This supersedes the November 25
+two-symbol quota; it is an application policy, not a claimed Schwab quota.
+
+The updated scheduler:
+
+- Counts all acquisition reservations in the preceding 60 seconds, including
+  scheduled refreshes, symbol changes, failed requests and unfinished attempts.
+  SDK-internal HTTP retries do not consume separate reservations.
+- Preserves the existing one-attempt-per-symbol-per-completed-five-minute-slot
+  rule, completed-candle timing and five-second grace. Revisiting a symbol
+  already attempted in that candle interval does not repeat the request.
+- Allows a sixth new attempt when capacity expires, without waiting for the
+  next candle boundary. Exactly 60-second-old reservations expire. It adds
+  no fixed pacing delay, and clock-minute/candle boundaries do not reset it.
+- Reuses the durable v1 reservation ledger across worker restarts. Existing
+  entries retain their identity and count in the window; malformed reservation
+  timestamps block further requests instead of silently freeing capacity.
+- Records the new budget and window in new plans and the effective policy in
+  worker status. A newly started updated worker reading a legacy plan without
+  a window field uses the new five-per-minute default, rather than treating
+  the old per-candle value of two as a minute budget. It preserves that plan.
+
+**Rollout:** update the experimental checkout after ordinary session closeout
+and use the new source for the next normal daily launch with `--overlay-ohlcv`.
+An already-running worker retains its loaded scheduler. Restarting the viewer
+cannot change that policy, and `restart-ohlcv` only recovers an ended worker;
+it does not reload a healthy child. A forced worker termination or whole-session
+restart is not required for this change. No new market-session qualification
+stage is a prerequisite for continuing indicator development.
+
+**Deferred collection metrics:** record transport-level attempts, intermediate
+HTTP statuses/errors, SDK retry waits, final outcomes and aggregate request
+rates across quote/OHLCV workers, with authentication accounted separately.
+The current `request_count`/`http_requests` values count application calls,
+including calls rejected locally by backoff, and omit SDK-internal retries.
+Long SDK calls can include retry/token waits even when their final response
+is successful. The proposed retry/throttling feedback loop is a hypothesis,
+not an established cause of the previous slow acquisitions. This observability
+work is an explicit deferred goal and does not gate the request-policy change
+or indicator work.
+
+**Verification:** the updated offline workspace suite passed **177/177 in
+4.264 seconds**, with zero failures, errors or skips, using Dash 2.18.2 and
+Plotly 6.5.2 in the isolated Linux candidate. Six additional regressions cover
+rolling-window expiry and boundaries, persistence and malformed timestamps,
+and actual worker selection handoffs for new and legacy plans. Network calls
+and password prompts were blocked by the verifier. Windows execution of this
+177-test candidate and its new live request allowance have not yet been
+observed; the prior MasterBot visual evidence concerns the published
+single-candle fix and existing acquisition/display integration.

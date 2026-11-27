@@ -19,7 +19,7 @@ from mb_market_data.overlay_ohlcv_worker import (
 from mb_market_data.daily_runtime import BackoffClient
 from mb_market_data import daily_runtime as rt
 import test_daily_runtime as runtime_tests
-from test_overlay_live_ohlcv import StubClient, raw_candle
+from test_overlay_live_ohlcv import Response, StubClient, raw_candle
 
 UTC = timezone.utc
 DAY = date(2026, 11, 25)
@@ -89,8 +89,64 @@ class OwnedOHLCVWorkerTests(unittest.TestCase):
             Path(self.plan["overlay_ohlcv_evidence_root"]),
             Path(self.plan["data_root"]) / "output" / "overlay_ohlcv_live",
         )
-        self.assertEqual(self.plan["overlay_ohlcv_request_budget"], 2)
+        self.assertEqual(self.plan["overlay_ohlcv_request_budget"], 5)
+        self.assertEqual(self.plan["overlay_ohlcv_request_budget_window_seconds"], 60)
         self.assertFalse((self.root / "ohlcv").exists())
+
+    def test_new_and_legacy_plans_enforce_the_effective_minute_budget(self):
+        symbols = ("TEST", "SECOND", "THIRD", "FOURTH", "FIFTH", "SIXTH")
+        for minute, legacy, budget in ((35, False, 5), (40, True, 5), (45, False, 2)):
+            with self.subTest(legacy=legacy, budget=budget):
+                plan = dict(self.plan)
+                if legacy:
+                    plan.pop("overlay_ohlcv_request_budget_window_seconds")
+                    plan["overlay_ohlcv_request_budget"] = 2
+                else:
+                    plan["overlay_ohlcv_request_budget"] = budget
+                original_plan = dict(plan)
+                self.clock.at = et(9, minute, 5)
+                self.heartbeat()
+                sink = OwnedOHLCVSelection(plan, owner_pid=self.owner, clock=self.clock)
+                sink.publish(symbols[0])
+                client = self.fixture()
+                reports = []
+
+                def sleep(_seconds):
+                    reports.append(json.loads((self.root / "ohlcv" / "status.json").read_text()))
+                    if len(reports) < len(symbols):
+                        self.clock.at += timedelta(seconds=2)
+                        self.heartbeat()
+                        symbol = symbols[len(reports)]
+                        sink.publish(symbol)
+                        payload = client.response.json()
+                        payload["symbol"] = symbol
+                        client.response = Response(payload)
+
+                owned_ohlcv_service(
+                    plan, client, owner_pid=self.owner,
+                    stop=lambda: len(reports) == len(symbols),
+                    clock=self.clock, sleep=sleep,
+                )
+                self.assertEqual(len(client.requests), budget)
+                self.assertEqual(
+                    [report["state"] for report in reports],
+                    ["PUBLISHED"] * budget + ["BUDGET_EXHAUSTED"] * (len(symbols) - budget),
+                )
+                self.assertTrue(all(report["request_budget"] == budget for report in reports))
+                self.assertTrue(all(report["request_budget_window_seconds"] == 60 for report in reports))
+                self.assertEqual(plan, original_plan)
+
+    def test_unsupported_request_windows_fail_before_acquisition(self):
+        for window in (0, 300, "60", 60.0, None):
+            with self.subTest(window=window):
+                plan = dict(self.plan, overlay_ohlcv_request_budget_window_seconds=window)
+                client = self.fixture()
+                with self.assertRaisesRegex(ValueError, "window must be 60 seconds"):
+                    owned_ohlcv_service(
+                        plan, client, owner_pid=self.owner, stop=lambda: True,
+                        clock=self.clock,
+                    )
+                self.assertEqual(client.requests, [])
 
     def test_selection_handoff_contains_no_credentials(self):
         sink = self.bridge()

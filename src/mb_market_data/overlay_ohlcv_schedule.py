@@ -6,8 +6,9 @@ explicit owner supplies its authenticated client, selected symbol and clock.
 A tick is called by that owner; never by the read-only Overlay viewer.
 
 Every attempt is reserved in a nonsecret, persistent ledger BEFORE the API
-call, preventing duplicate requests if an owned worker restarts. The owner
-must independently enforce the lifetime/heartbeat and API-rate budget.
+call, preventing duplicate requests if an owned worker restarts. Reservations
+also enforce a rolling-minute acquisition budget. SDK-internal HTTP retries
+are not separately counted here; the owner must enforce its lifetime/heartbeat.
 """
 from __future__ import annotations
 
@@ -28,7 +29,8 @@ UTC = timezone.utc
 SLOT = timedelta(minutes=5)
 DEFAULT_GRACE = timedelta(seconds=5)
 FINAL_SLOT_WINDOW = timedelta(minutes=2)
-MAX_SYMBOLS_PER_SLOT = 2
+MAX_REQUESTS_PER_MINUTE = 5
+REQUEST_WINDOW = timedelta(seconds=60)
 LEDGER_CONTRACT = "overlay-owned-ohlcv-schedule-v1"
 
 
@@ -48,6 +50,19 @@ def _aware_et(value: datetime, label: str) -> datetime:
     if not isinstance(value, datetime) or value.utcoffset() is None:
         raise ValueError(f"{label} must be an offset-aware datetime")
     return value.astimezone(ET)
+
+
+def _reservation_time(row: Any) -> datetime:
+    """Read old and new ledger reservations without silently freeing budget."""
+    if not isinstance(row, dict):
+        raise ValueError("OHLCV ledger reservation timestamp invalid")
+    try:
+        reserved = datetime.fromisoformat(row["reserved_at_utc"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("OHLCV ledger reservation timestamp invalid") from error
+    if reserved.utcoffset() is None:
+        raise ValueError("OHLCV ledger reservation timestamp must be offset-aware")
+    return reserved.astimezone(UTC)
 
 
 def completed_slot(
@@ -82,7 +97,7 @@ def completed_slot(
 
 
 class OwnedOHLCVSchedule:
-    """One-owner one-symbol-per-slot acquisition gate.
+    """One-owner acquisition gate with duplicate and rolling-minute limits.
 
     Each instance is bound to an explicit ET session and independent output.
     It does not start/stop polling; only the daily controller can supply the
@@ -92,7 +107,7 @@ class OwnedOHLCVSchedule:
     def __init__(
         self, *, session_date: date, opens_at: datetime, closes_at: datetime,
         state_root: str | Path, evidence_root: str | Path,
-        max_symbols_per_slot: int = MAX_SYMBOLS_PER_SLOT,
+        max_requests_per_minute: int = MAX_REQUESTS_PER_MINUTE,
         grace: timedelta = DEFAULT_GRACE,
     ) -> None:
         self.session_date = session_date
@@ -104,9 +119,9 @@ class OwnedOHLCVSchedule:
             raise ValueError("OHLCV plan date differs from session date")
         if self.evidence_root == self.state_root:
             raise ValueError("OHLCV evidence and scheduling state must be separate")
-        if type(max_symbols_per_slot) is not int or not 1 <= max_symbols_per_slot <= 2:
-            raise ValueError("OHLCV budget must be one or two symbols per five minutes")
-        self.max_symbols_per_slot = max_symbols_per_slot
+        if type(max_requests_per_minute) is not int or max_requests_per_minute < 1:
+            raise ValueError("OHLCV requests per minute must be a positive integer")
+        self.max_requests_per_minute = max_requests_per_minute
         self.grace = grace
         self.ledger_path = self.state_root / "ledger.json"
         # Ensure malformed schedule is rejected BEFORE creating any output.
@@ -141,7 +156,7 @@ class OwnedOHLCVSchedule:
         now_factory: Callable[[], datetime] | None = None,
         owner_active: Callable[[], bool] = lambda: True,
     ) -> OHLCVTickerResult:
-        """At most one attempt per symbol per completed interval.
+        """At most one attempt per symbol per completed interval, within budget.
 
         An explicitly injected live owner must guard this function with its
         exclusive service lock. An unsuccessful provider request waits for
@@ -159,14 +174,20 @@ class OwnedOHLCVSchedule:
             return OHLCVTickerResult("NO_SELECTION", None, slot)
         symbol = _symbol(selected_symbol)
         ledger = self._read()
+        reservation_times = [_reservation_time(row) for row in ledger["attempts"]]
         key = slot.isoformat()
         attempts = [
             row for row in ledger["attempts"]
-            if isinstance(row, dict) and row.get("slot_close_et") == key
+            if row.get("slot_close_et") == key
         ]
         if any(row.get("symbol") == symbol for row in attempts):
             return OHLCVTickerResult("ALREADY_ATTEMPTED", symbol, slot)
-        if len(attempts) >= self.max_symbols_per_slot:
+        reserved_at = _aware_et(now, "now").astimezone(UTC)
+        cutoff = reserved_at - REQUEST_WINDOW
+        # Every reservation counts, including failures and older candle slots.
+        # Exactly sixty seconds old expires; future timestamps remain charged
+        # if the clock moves backwards instead of silently resetting the budget.
+        if sum(stamp > cutoff for stamp in reservation_times) >= self.max_requests_per_minute:
             return OHLCVTickerResult("BUDGET_EXHAUSTED", symbol, slot)
         # Durable reservation comes before any SDK request, for crash-safe
         # at-most-once semantics across an explicit worker restart.
@@ -174,7 +195,7 @@ class OwnedOHLCVSchedule:
             "slot_close_et": key,
             "symbol": symbol,
             "state": "RESERVED",
-            "reserved_at_utc": _aware_et(now, "now").astimezone(UTC).isoformat(),
+            "reserved_at_utc": reserved_at.isoformat(),
         }
         ledger["attempts"].append(attempt)
         self._write(ledger)

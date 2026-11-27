@@ -18,7 +18,9 @@ from .acquisition_health import atomic_json
 from .daily_worker_liveness import OwnerHeartbeatGuard
 from .observation_overlay import ET
 from .overlay_live_ohlcv import _symbol
-from .overlay_ohlcv_schedule import OwnedOHLCVSchedule
+from .overlay_ohlcv_schedule import (
+    MAX_REQUESTS_PER_MINUTE, REQUEST_WINDOW, OwnedOHLCVSchedule,
+)
 
 UTC = timezone.utc
 SELECTION_CONTRACT = "owned-overlay-ohlcv-selection-v1"
@@ -44,8 +46,23 @@ def configure_ohlcv(plan: dict) -> dict:
         overlay_ohlcv_enabled=True,
         overlay_ohlcv_selection_root=str(root / "ohlcv"),
         overlay_ohlcv_evidence_root=str(data / "output" / "overlay_ohlcv_live"),
-        overlay_ohlcv_request_budget=2,
+        overlay_ohlcv_request_budget=MAX_REQUESTS_PER_MINUTE,
+        overlay_ohlcv_request_budget_window_seconds=int(REQUEST_WINDOW.total_seconds()),
     )
+
+
+def _minute_request_budget(plan: dict) -> int:
+    """Resolve new minute budgets without reinterpreting legacy per-slot units."""
+    key = "overlay_ohlcv_request_budget_window_seconds"
+    if key not in plan:
+        # Older plans recorded two symbols per candle slot. A newly started
+        # worker adopts the current default, preserving the original plan and
+        # its existing reservation ledger. Running workers are not reloaded.
+        return MAX_REQUESTS_PER_MINUTE
+    window = plan[key]
+    if type(window) is not int or window != int(REQUEST_WINDOW.total_seconds()):
+        raise ValueError("OHLCV request budget window must be 60 seconds")
+    return plan.get("overlay_ohlcv_request_budget")
 
 
 def _paths(plan: dict) -> tuple[Path, Path]:
@@ -162,6 +179,7 @@ def owned_ohlcv_service(
         session_date=selected.session_date,
         opens_at=selected.opens_at, closes_at=selected.closes_at,
         state_root=selected.selection_root, evidence_root=selected.evidence_root,
+        max_requests_per_minute=_minute_request_budget(plan),
     )
     current = _now(clock)
     last_success = None
@@ -205,6 +223,8 @@ def owned_ohlcv_service(
                 "pid": os.getpid(),
                 "owner_pid": owner_pid,
                 "session_date": selected.session_date.isoformat(),
+                "request_budget": gate.max_requests_per_minute,
+                "request_budget_window_seconds": int(REQUEST_WINDOW.total_seconds()),
                 "symbol": symbol,
                 "slot_close_et": result.slot_close_et.isoformat()
                 if result.slot_close_et is not None else None,

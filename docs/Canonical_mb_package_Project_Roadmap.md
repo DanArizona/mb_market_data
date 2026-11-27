@@ -340,6 +340,7 @@ Near-term work should be handled in small, testable weekly increments—normally
 
 ### Deferred
 
+- **Schwab request and retry metrics (November 27 decision):** defer detailed HTTP-attempt accounting across Uni, Focus, Hot, OHLCV and authentication. Future work should record SDK retries, response/error outcomes, retry waits and aggregate request rates to explain long acquisitions. Current application-call counters are not a retry-inclusive HTTP count. This work is not a prerequisite for the accepted five-OHLCV-attempts-per-rolling-minute policy or continued indicator development; see the November 27 update in `runbooks/Overlay_Unified_Release_Plan_2026-11-24.md`.
 - **Dashboard print refinement:** deferred until higher-value replay and membership work is complete.
 - **Dashboard date selector:** deferred. Initial seek uses the journal/date selected outside the dashboard; a later selector may choose one daily journal but will not create a multi-day seek or backtesting interface.
 - **Universe-selector GUI:** deferred. The first selector remains CLI/config driven.
