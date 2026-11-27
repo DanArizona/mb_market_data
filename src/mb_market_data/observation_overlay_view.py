@@ -804,6 +804,10 @@ def _navigator_price_range(figure: Any) -> list[float]:
     for trace in figure.data:
         if trace.yaxis != "y":
             continue
+        if trace.type == "bar" and trace.name == "5-minute OHLC":
+            # The supplemental body uses a relative height. Its native OHLC
+            # trace already supplies the actual low/high prices.
+            continue
         for field in ("low", "high", "y"):
             values = getattr(trace, field, None)
             if values is None:
@@ -963,7 +967,9 @@ def build_observation_overlay_figure(
     candles = tuple(
         item for item in overlay.candles if off_hours or _regular_hours(item.start_et)
     )
+    single_candle_body = None
     if candles:
+        interval_ms = OHLCV_INTERVAL.total_seconds() * 1000
         candle_times = [item.start_et + OHLCV_INTERVAL / 2 for item in candles]
         candle_customdata = [
             [
@@ -986,6 +992,7 @@ def build_observation_overlay_figure(
                 close=[item.close for item in candles],
                 customdata=candle_customdata,
                 name="5-minute OHLC",
+                legendgroup="overlay-ohlcv",
                 increasing_line_color="#1A6B57",
                 decreasing_line_color="#803D43",
             ),
@@ -1012,6 +1019,7 @@ def build_observation_overlay_figure(
             go.Bar(
                 x=candle_times,
                 y=[item.volume for item in candles],
+                width=interval_ms * 0.8,
                 name="Volume",
                 marker_color="#6fc8ff",
                 opacity=0.55,
@@ -1020,23 +1028,45 @@ def build_observation_overlay_figure(
             row=2,
             col=1,
         )
-        _hover_variants(
-            figure.data[-1],
-            category="feature",
-            standard=candle_standard.replace("%{open}", "%{customdata[1]}")
-            .replace("%{high}", "%{customdata[2]}")
-            .replace("%{low}", "%{customdata[3]}")
-            .replace("%{close}", "%{customdata[4]}"),
-            detailed=candle_standard.replace("%{open}", "%{customdata[1]}")
+        bar_standard = (
+            candle_standard.replace("%{open}", "%{customdata[1]}")
             .replace("%{high}", "%{customdata[2]}")
             .replace("%{low}", "%{customdata[3]}")
             .replace("%{close}", "%{customdata[4]}")
-            .replace(
-                "<extra>", "<br>Schwab 5-minute price history; available at interval end<extra>"
-            ),
+        )
+        bar_detailed = bar_standard.replace(
+            "<extra>", "<br>Schwab 5-minute price history; available at interval end<extra>"
+        )
+        _hover_variants(
+            figure.data[-1],
+            category="feature",
+            standard=bar_standard,
+            detailed=bar_detailed,
             detailed_hover=detailed_hover,
             shift_hover=shift_hover,
         )
+        if len(candles) == 1:
+            # Plotly infers a one-millisecond spacing for a single date.
+            # Keep the native OHLC wick/legend and give its real body the
+            # same interval width as a normal pair of five-minute candles.
+            candle = candles[0]
+            color = "#1A6B57" if candle.close >= candle.open else "#803D43"
+            single_candle_body = go.Bar(
+                x=candle_times,
+                y=[abs(candle.close - candle.open)],
+                base=[min(candle.open, candle.close)],
+                width=interval_ms * 0.49,
+                name="5-minute OHLC",
+                legendgroup="overlay-ohlcv",
+                showlegend=False,
+                marker={"color": _rgba(color, 0.5), "line": {"color": color, "width": 2}},
+                customdata=candle_customdata,
+            )
+            _hover_variants(
+                single_candle_body, category="feature",
+                standard=bar_standard, detailed=bar_detailed,
+                detailed_hover=detailed_hover, shift_hover=shift_hover,
+            )
 
     channels = tuple(sorted({point.channel for point in overlay.quote_points}))
     for channel in channels:
@@ -1295,6 +1325,10 @@ def build_observation_overlay_figure(
                 col=1,
             )
             figure.data[-1].xaxis = "x3"
+
+    if single_candle_body is not None:
+        figure.add_trace(single_candle_body, row=1, col=1)
+        figure.data[-1].xaxis = "x3"
 
     # Plotly positions a range slider below the lowest data-bearing subplot
     # associated with its x-axis.  Price traces deliberately use x3 so that

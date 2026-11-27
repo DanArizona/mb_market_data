@@ -257,6 +257,80 @@ class TestObservationOverlayView(unittest.TestCase):
         self.assertEqual(figure.data[0].increasing.line.color, "#1A6B57")
         self.assertEqual(figure.data[0].decreasing.line.color, "#803D43")
 
+    def test_single_regular_candle_has_interval_width_without_changing_ohlcv(self) -> None:
+        for opening, closing, color in (
+            (10.25, 10.75, "#1A6B57"),
+            (10.75, 10.25, "#803D43"),
+            (10.5, 10.5, "#1A6B57"),
+        ):
+            with self.subTest(open=opening, close=closing):
+                evidence = overlay()
+                candle = replace(evidence.candles[1], open=opening, close=closing)
+                evidence = replace(
+                    evidence, candles=(evidence.candles[0], candle), quote_points=(),
+                )
+                figure = build_observation_overlay_figure(
+                    evidence, off_hours=False, shift_hover=True,
+                )
+                native, volume = figure.data[:2]
+                bodies = [
+                    (index, trace) for index, trace in enumerate(figure.data)
+                    if trace.type == "bar" and trace.name == "5-minute OHLC"
+                ]
+                self.assertEqual(len(bodies), 1)
+                body_index, body = bodies[0]
+                self.assertEqual(native.type, "candlestick")
+                self.assertEqual(tuple(native.x), (candle.start_et + timedelta(minutes=2.5),))
+                self.assertEqual(tuple(body.x), tuple(native.x))
+                self.assertEqual(tuple(volume.x), tuple(native.x))
+                self.assertEqual(tuple(native.open), (opening,))
+                self.assertEqual(tuple(native.close), (closing,))
+                self.assertEqual((tuple(native.low), tuple(native.high)), ((10.0,), (11.0,)))
+                self.assertEqual(tuple(volume.y), (200,))
+                # Match the existing two-candle geometry on a date axis.
+                self.assertEqual(body.width, 147_000)
+                self.assertEqual(volume.width, 240_000)
+                self.assertEqual(tuple(body.base), (min(opening, closing),))
+                self.assertEqual(tuple(body.y), (abs(closing - opening),))
+                self.assertEqual(body.marker.line.color, color)
+                self.assertEqual(body.marker.line.width, 2)
+                self.assertFalse(body.showlegend)
+                self.assertEqual(body.legendgroup, native.legendgroup)
+                self.assertEqual((body.xaxis, body.yaxis), ("x3", "y"))
+                self.assertEqual(body.customdata, native.customdata)
+                self.assertEqual(body.hovertemplate, volume.hovertemplate)
+                self.assertEqual(body.meta["overlay_hover"], volume.meta["overlay_hover"])
+                self.assertNotIn("%{open}", body.hovertemplate)
+                self.assertIn("%{customdata[1]}", body.hovertemplate)
+                navigator_low, navigator_high = figure.layout.xaxis3.rangeslider.yaxis.range
+                self.assertGreater(navigator_low, 9.0)  # body height is not a price
+                self.assertLess(navigator_low, candle.low)
+                self.assertGreater(navigator_high, candle.high)
+                for field in ("open", "high", "low", "close"):
+                    selected = selected_reference_from_click(
+                        evidence,
+                        {"points": [{"curveNumber": body_index, "pointNumber": 0}]},
+                        figure.to_plotly_json(), field,
+                    )
+                    self.assertEqual(selected["price"], getattr(candle, field))
+                    self.assertEqual(
+                        datetime.fromisoformat(selected["available_at_utc"]).astimezone(UTC),
+                        candle.end_et.astimezone(UTC),
+                    )
+                next_candle = replace(candle, start_et=candle.end_et)
+                later = replace(
+                    evidence, candles=(*evidence.candles, next_candle),
+                    replay_time_utc=next_candle.end_et.astimezone(UTC),
+                )
+                two = build_observation_overlay_figure(later, off_hours=False)
+                self.assertFalse(any(
+                    trace.type == "bar" and trace.name == "5-minute OHLC"
+                    for trace in two.data
+                ))
+                self.assertEqual(two.data[0].customdata[0], native.customdata[0])
+                self.assertEqual(tuple(two.data[0].open), (opening, opening))
+                self.assertEqual(two.data[1].width, volume.width)
+
     def test_applies_independent_quote_point_display_styles(self) -> None:
         figure = build_observation_overlay_figure(
             overlay(),

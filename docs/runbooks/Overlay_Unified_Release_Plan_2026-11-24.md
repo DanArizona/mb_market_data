@@ -612,3 +612,45 @@ failures/errors/skips, in the isolated Linux candidate using Dash 2.18.2 and
 Plotly 6.5.2. Network/provider access and credential prompts were blocked.
 This correction has **not been deployed**, and Windows verification of the
 170-test candidate has **not been run**.
+
+### Single visible candle rendering correction, November 27
+
+The user's three-screenshot sequence showed the first visible regular-session
+candle as a wick without a visible body or volume bar; once a second regular
+candle appeared, both candle bodies and volume became visible. Source review
+and actual Plotly SVG rendering reproduced the count-dependent display defect.
+
+Plotly.py 6.5.2 bundles Plotly.js 3.3.1. When regular-hours filtering leaves
+only one timestamp, its automatic spacing calculation falls back to **1 ms**.
+The resulting native candle body is **0.49 ms** wide and volume **0.8 ms** wide,
+collapsing to zero-width SVG geometry in the tested viewport. Two five-minute
+candles supply a **300,000 ms** spacing, producing the expected **147,000 ms**
+body and **240,000 ms** volume widths.
+
+The correction preserves the native candlestick's OHLC values, wick and legend.
+For one visible candle, a floating Bar draws that same real candle's body at
+its actual interval midpoint, with the explicit **147,000 ms** width. It shares
+the native candle's name, customdata and legend group, retaining OHLCV hover
+and reference selection. The volume trace uses **240,000 ms** explicitly.
+The supplemental body disappears when a second candle is visible. A doji
+keeps its true zero body height and gains the correctly sized horizontal
+outline. The navigator uses native low/high prices and excludes the body's
+relative height from its price-range calculation. Acquisition, scheduling,
+retained raw responses and cache contents are unchanged.
+
+The installed Plotly.js renderer was exercised under **jsdom**, using figures
+generated directly from the modified Python source. Rising, falling and doji
+cases produced nonzero main-chart and navigator body widths, visible volume,
+and the correct rendered OHLCV hover values. All four candle-field reference
+selections and the one-to-two-candle transition were checked. This is actual
+SVG rendering evidence, **not Windows desktop acceptance**; no browser or
+jsdom dependency was added to the project or its standard verification suite.
+
+One focused regression covers the single regular candle with a hidden
+premarket candle, rising/falling/doji bodies, hover/reference fidelity,
+navigator bounds and the second-candle transition. The full offline suite
+passed **171/171 in 3.967 seconds**, with zero failures/errors/skips, using
+Dash 2.18.2 and Plotly 6.5.2. Network/provider access and credential prompts
+were blocked. The correction has not yet been applied to the live Windows
+viewer; the ongoing session's raw OHLCV numeric qualification is unaffected
+by this rendering check.
