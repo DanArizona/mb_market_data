@@ -488,3 +488,82 @@ Propose **one end-to-end custom indicator prototype** on retained historical dat
 - Start Nov 24 production session via the accepted one-unlock procedure and report controller status plus successful real quote acquisitions.
 - Supply the promised Overlay screenshot/feedback; visual-specific UI changes should match the actual layout, not an inferred redesign.
 - Keep production code, installed controller, credentials and live journals unchanged while experiment changes are reviewed.
+
+## November 27 — one-user development and combined integration
+
+The operator clarified that the process called "production" is the working
+development deployment for one user, and will always have one user. Its intended
+useful outcome includes custom indicators and supervised trading. Market data
+and recorded evidence are still real; the clarification changes the delivery
+process, not the meaning of those records.
+
+**Revised working approach:** prepare one integrated candidate and use one
+planned, attended daily session for the genuine-data demonstration, automatic
+OHLCV exercise, coexistence checks, and first actual use of that candidate.
+The owned worker's first successful response provides the original raw/cache
+evidence and chart demonstration; later intervals in the same session provide
+the repeated-update evidence. A separate successful one-shot run is no longer
+a prerequisite. Keep the one-shot probe available for diagnosis when useful.
+
+### Minimum preparation and combined session
+
+1. Correct the existing OHLCV restart-command routing and worker/controller
+   status identity. Preserve the last successful acquisition and actual latest
+   completed candle time separately from the current scheduler tick, so an
+   idle tick does not erase useful acquisition evidence. Use existing status
+   output, without adding another alarm subsystem.
+2. Verify the changed paths and run the existing fast workspace suite once on
+   the changed candidate. The accepted MasterBot `dfb1fd6` result remains
+   **165 tests PASS, zero failures/errors/skips** for that earlier source.
+   Do not repeat unchanged qualifications merely to create another stage.
+3. Use the candidate as the single daily owner for its planned session, with
+   OHLCV selected in the original plan. Observe first genuine candles, several
+   subsequent five-minute intervals, one symbol change, useful status and the
+   existing restart path, viewer independence, and the final interval/cleanup
+   during the same ordinary use. Preserve quote coverage and audit findings.
+4. Record the exact source, launch configuration, evidence locations and any
+   unresolved findings. A successful combined session is also the first actual
+   use of that version; an extra uneventful "first production day", release
+   rehearsal, or fixed number of clean days is not a prerequisite. Repeat only
+   the affected check when a concrete finding or later change requires it.
+
+Fresh daily startup still precedes the existing 09:29 ET selection deadline.
+The combined exercise does not add a competing owner or rewrite a running
+session's plan. Existing authorization for experimental development remains;
+activation of the concrete daily candidate and changes to installed/main code
+follow the operator's existing authorization boundaries.
+
+### Advance the intended useful product alongside OHLCV
+
+Build the first small indicator calculation/display path against retained
+historical candle data while live OHLCV observations are unavailable. Reuse
+that input/output path with live validated candle snapshots. Indicator work
+does not wait for every possible OHLCV condition to be observed, nor for an
+arbitrary clean-day count. No particular first formula or trading strategy is
+selected by this delivery decision. Optimization and supervised execution stay
+subsequent explicit capabilities; this change does not enable broker orders.
+
+Provider lateness and revisions remain data findings to expose honestly. The
+current single-attempt-per-slot schedule and strict completed-candle prefix
+policy should be assessed using actual evidence, rather than preemptively
+building speculative retry/reconciliation infrastructure. Unrelated GUI
+refinements and another large simulation remain deferred.
+
+### Candidate correction and verification recorded November 27
+
+The restart command now uses the existing guarded control-request route. The
+worker publishes its child PID for controller status acceptance, and retains
+separate last-success/last-attempt records through idle and failed ticks.
+Daily status displays the real candle end and acquisition time, with each
+record's own symbol. These records describe the current worker lifetime;
+after restart, existing saved evidence and the reservation ledger are retained
+while the new worker truthfully reports that it has no new successful capture.
+
+Four focused regressions exercise command routing and owner/stop checks,
+worker-to-controller status acceptance, retained acquisition/error evidence,
+and changed/absent selections. The updated workspace suite expects **169**
+tests. It passed **169/169, zero failures/errors/skips**, in the Linux
+development environment with Dash 2.18.2 and Plotly 6.5.2. No real provider
+requests or desktop visual qualification were performed. This is evidence
+for the corrected candidate, separate from the accepted 165-test MasterBot
+checkpoint. The actual combined daily session remains to be exercised.

@@ -40,6 +40,8 @@ class OHLCVTickerResult:
     bundle_path: Path | None = None
     candle_count: int = 0
     error_type: str | None = None
+    acquired_at_utc: datetime | None = None
+    latest_candle_end_et: datetime | None = None
 
 
 def _aware_et(value: datetime, label: str) -> datetime:
@@ -190,6 +192,8 @@ class OwnedOHLCVSchedule:
             return OHLCVTickerResult(
                 "PUBLISHED", symbol, slot, path,
                 len(acquisition.cache.candles),
+                acquired_at_utc=acquisition.cache.acquired_at_utc,
+                latest_candle_end_et=acquisition.cache.candles[-1].end_et,
             )
         except Exception as error:
             # Do not persist SDK exception messages, HTTP bodies or OAuth data.

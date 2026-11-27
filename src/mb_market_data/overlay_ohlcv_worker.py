@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
 import time
 from typing import Any, Callable
@@ -163,6 +164,8 @@ def owned_ohlcv_service(
         state_root=selected.selection_root, evidence_root=selected.evidence_root,
     )
     current = _now(clock)
+    last_success = None
+    last_attempt = None
     while current.date() == selected.session_date and current <= selected.closes_at + timedelta(minutes=2):
         if stop() or (Path(plan["state_root"]) / "stop.request").exists():
             break
@@ -174,6 +177,23 @@ def owned_ohlcv_service(
                 Path(plan["state_root"]) / "stop.request"
             ).exists(),
         )
+        observed_at = _now(clock).isoformat()
+        if result.status in {"PUBLISHED", "FAILED", "NOT_READY"}:
+            last_attempt = {
+                "symbol": result.symbol,
+                "state": result.status,
+                "at": observed_at,
+                "slot_close_et": result.slot_close_et.isoformat(),
+                "error_type": result.error_type,
+            }
+        if result.status == "PUBLISHED":
+            last_success = {
+                "symbol": result.symbol,
+                "acquired_at_utc": result.acquired_at_utc.isoformat(),
+                "latest_candle_end_et": result.latest_candle_end_et.isoformat(),
+                "candle_count": result.candle_count,
+                "bundle_name": result.bundle_path.name,
+            }
         try:
             # A status failure is visible in the service log but must not
             # misrepresent an actual successful provider acquisition.
@@ -181,16 +201,22 @@ def owned_ohlcv_service(
             atomic_json(selected.selection_root / "status.json", {
                 "role": OWNER_ROLE,
                 "state": result.status,
-                "at": current.isoformat(),
+                "at": observed_at,
+                "pid": os.getpid(),
                 "owner_pid": owner_pid,
                 "session_date": selected.session_date.isoformat(),
-                "symbol": result.symbol,
+                "symbol": symbol,
                 "slot_close_et": result.slot_close_et.isoformat()
                 if result.slot_close_et is not None else None,
                 "candle_count": result.candle_count,
                 "bundle_name": result.bundle_path.name
                 if result.bundle_path is not None else None,
                 "error_type": result.error_type,
+                # Scheduling ticks must not erase actual acquisition evidence.
+                # Each retained record keeps its own symbol and timestamps;
+                # a changed/absent selection cannot relabel an earlier result.
+                "last_success": last_success,
+                "last_attempt": last_attempt,
             })
         except OSError as error:
             print("OHLCV STATUS WRITE UNAVAILABLE:", type(error).__name__, flush=True)

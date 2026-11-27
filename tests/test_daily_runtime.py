@@ -55,10 +55,11 @@ class RuntimeTests(unittest.TestCase):
             self.assertTrue(all(c['cadence_profile']=='interleaved-v1' for c in configs))
         for f in self.root.rglob('*'):
             if f.is_file():self.assertNotIn(canary.encode(),f.read_bytes(),str(f))
-    def exercise_controller(self,selection_fails=False,uni_crashes=False,stop_collection=False,post_fails=False):
+    def exercise_controller(self,selection_fails=False,uni_crashes=False,stop_collection=False,post_fails=False,
+                            close_minute=31,ohlcv_status=None):
         # Shortened logical scenario; process launching is substituted here.
         # Actual child probe process boundary is independently tested above.
-        self.plan['closes_at']=self.clock().replace(minute=31,second=0).isoformat()
+        self.plan['closes_at']=self.clock().replace(minute=close_minute,second=0).isoformat()
         self.plan['postclose_delay_seconds']=1;self.plan['postclose_window_seconds']=60
         launched=[];post_called=[];controller=self
         class Proc:
@@ -85,7 +86,10 @@ class RuntimeTests(unittest.TestCase):
         def spawn(role,*a,**k):
             launched.append(role)
             if stop_collection and role=='uni':(self.state/'stop.request').write_text('test stop collection')
-            return Proc(role)
+            proc=Proc(role)
+            if role=='ohlcv' and ohlcv_status is not None:
+                atomic_json(self.state/'ohlcv'/'status.json',ohlcv_status(proc.pid))
+            return proc
         with patch.object(rt,'now',self.clock),patch.object(rt,'prepared_client',return_value=Mock()),\
              patch.object(rt,'spawn',side_effect=spawn),patch.object(rt,'health_snapshot',return_value={}),\
              patch.object(rt.time,'sleep',side_effect=self.clock.sleep):

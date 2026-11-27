@@ -337,6 +337,20 @@ def readable_status(value):
     for role,item in value.get('services',{}).items():
         record=item.get('status',{})
         lines.append(role.upper()+': '+str(record.get('state','STARTING'))+' | PID '+str(item.get('pid'))+' | exit '+str(item.get('exit_code')))
+        if role=='ohlcv' and record:
+            lines.append('  Selected symbol: '+str(record.get('symbol') or 'NONE'))
+            saved=record.get('last_success') or {}
+            if saved:
+                lines.append('  Last saved candles: '+str(saved.get('symbol'))+
+                    ' | latest completed '+str(saved.get('latest_candle_end_et'))+
+                    ' | acquired '+str(saved.get('acquired_at_utc')))
+                if saved.get('symbol')!=record.get('symbol'):
+                    lines.append('  Last saved acquisition is for a different selection.')
+            else:lines.append('  No successful acquisition recorded by this worker yet.')
+            attempt=record.get('last_attempt') or {}
+            if attempt.get('error_type'):
+                lines.append('  Last request: '+str(attempt.get('symbol'))+' '+str(attempt.get('state'))+
+                    ' | '+str(attempt.get('error_type'))+' | '+str(attempt.get('at')))
     if value.get('authorization'):lines.append(format_report(value['authorization']))
     if value.get('error') and not value.get('authorization'):lines.append('ERROR: '+value['error'])
     lines.append('Viewer is read-only. Stop collection and Exit session are separate commands.')
@@ -730,7 +744,7 @@ def main(argv=None):
     args=parser.parse_args(argv)
     if args.action=='_child':return child_main(args)
     if args.action in ('status','watch'):return watch(args.state_root.resolve(),once=args.action=='status')
-    if args.action in ('stop','exit','restart-uni','restart-focus','restart-hot','restart-membership','restart-nasdaq','resume-collection'):
+    if args.action in ('stop','exit','restart-uni','restart-focus','restart-hot','restart-membership','restart-nasdaq','restart-ohlcv','resume-collection'):
         root=args.state_root.resolve()
         if not owner_available(root):raise ValueError('No fresh active controller; no control request written')
         if args.action.startswith('restart-') and (root/'stop.request').exists():
