@@ -801,3 +801,27 @@ dashboard expectations were updated; the test count is unchanged. A local
 Plotly.js 3.3.1 DOM check exercised the actual grouped legend click: 3.5-pixel
 width, one entry, independent diamonds, newly added episodes staying hidden,
 hidden-state persistence through an empty frame, and restoration of all lines.
+
+## November 27 — Halt timing investigation and MasterBot clock correction
+
+The subsequent detailed hovers and saved-data probe supersede the earlier
+unresolved screenshot-only timing hypotheses. The first `Halted` response has
+a provider quote time of 11:59:20.067 ET, one millisecond after Nasdaq's reported
+11:59:20.066 halt, but local receipt is 11:59:18.279250. All 11 `Normal` rows in
+the inspected window also have provider quote times ahead of local receipt.
+
+An independent evening measurement found MasterBot about **2.53 seconds slow**.
+Starting Windows Time and synchronizing with the existing `1.pool.ntp.org`
+source reduced the separately measured offset against `time.windows.com` to
+**0.37-1.81 ms ahead**. The operator set automatic startup and verified
+`START_TYPE: 2 AUTO_START`, `STATE: 4 RUNNING`, and zero service exit codes.
+Existing start triggers and time-source configuration were preserved.
+
+This strongly corroborates the clock-mismatch explanation; the exact daytime
+offset was not measured and historical timestamps must remain unchanged. The
+approximately 105-second recorded Nasdaq discovery gap is a separate finding,
+not a delay fixed by the clock correction. No further live-session gate is
+introduced before indicator work; transport/retry metrics remain deferred.
+
+Full evidence, command results, qualifications and continuation guidance are in
+[the halt timing investigation runbook](Halt_Timing_Investigation_2026-11-27.md).
