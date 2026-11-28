@@ -1,5 +1,9 @@
 # ZYN halt timing investigation and MasterBot clock correction
 
+For the reusable command guide, see the
+[MasterBot timing runbook](MasterBot_Timing_Runbook_20261127.md). This document retains
+the incident evidence and its qualifications.
+
 ## Outcome and scope
 
 The November 27 investigation found a current MasterBot clock lag of about
