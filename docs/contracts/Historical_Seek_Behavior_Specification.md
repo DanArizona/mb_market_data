@@ -50,10 +50,31 @@ Historical seek is an investigative and diagnostic feature for one selected dail
 | Capability | Intended data | Purpose | Seek support |
 | --- | --- | --- | --- |
 | Single-day collection replay | One locally collected daily journal | Investigation, diagnostics, and visual inspection | Yes |
-| Short-period backtesting | Multiple locally collected daily journals | Recent studies using high-fidelity collected observations | No |
-| Long-term backtesting | Historical data fetched from Schwab, Massive, or another provider | Months or years of strategy evaluation without waiting to accumulate equivalent local history | No |
+| Bounded short-period backtesting | The actual recorded observation stream from one or more daily journals, held fixed for the study | Evaluate supported indicators or decision rules subject to recorded collection/selection, cadence, and coverage | No |
+| Broader backtesting and optimization | Historical data fetched from Schwab, potentially Massive, or another suitable provider; may be cached locally | Research using declared provider coverage and fidelity without waiting to accumulate equivalent local observations | No |
 
 Provider-sourced history may have different granularity and will not automatically reproduce the polling times, membership revisions, missing observations, or API behavior contained in locally collected journals. Backtest results must identify their data source and must not imply greater replay fidelity than the source provides.
+
+**November 28 clarification:** Local-observation studies are possible, but a
+fixed recorded stream does not establish what an alternate membership or
+sampling policy would have observed. A symbol recorded at Uni cadence cannot
+be treated as if Hot-frequency responses existed throughout that interval.
+Require adequate actual input coverage for the proposed calculation or mark
+it unsupported; interpolation or a carried-forward last value is not evidence
+of an unobserved acquisition. Conclusions must retain their collection and
+coverage assumptions.
+
+Provider history remains the primary path for broader research and
+optimization. Locally cached provider historical API data is still provider
+history and is distinct from our collected polling observations. Availability
+of a suitable Massive dataset has not been verified. A general counterfactual
+membership simulator is not a prerequisite to the first indicator.
+
+See decision D-031 in the [canonical roadmap](../Canonical_mb_package_Project_Roadmap.md)
+and the [Indicator Framework architecture proposal](Indicator_Framework_Architecture_2026-11-28.md).
+The data-scope clarification is accepted user direction; the proposed
+architecture does not change this specification's single-day diagnostic seek
+behavior.
 
 ## 3. Established requirements
 
@@ -293,8 +314,9 @@ The following decisions remain outside this specification:
 - the policy representation and lifetime of blocking, `FORCE_ABSENT`, removal, temporary suppression, and reinstatement;
 - dynamic atomic membership implementation;
 - an optional dashboard date selector for choosing one daily journal;
-- short-period backtesting across collected journals;
-- long-term backtesting from Schwab, Massive, or other historical sources.
+- bounded short-period studies on collected observations under the fixed-stream and actual-coverage limits above;
+- broader provider-history backtesting and optimization, with source capabilities and access verified for the proposed study;
+- counterfactual membership/sampling analysis when adequate inputs and a concrete research question justify it.
 
 The next implementation-planning step is to inspect the current journal timestamp representation and map each behavioral requirement to the existing replay/dashboard functions and tests, using exact named insertion points.
 
@@ -310,3 +332,16 @@ The next implementation-planning step is to inspect the current journal timestam
 - Added the full-day September 11 collection as a second real-day regression case.
 - Kept initial journal/date selection outside the dashboard and classified a dashboard date selector as an optional later convenience.
 - Separated single-day diagnostic replay from short-period collected-journal backtesting and long-term provider-sourced backtesting.
+
+### 2026-11-28 — Research-data scope clarification
+
+- Preserved single-day diagnostic seek as a distinct capability.
+- Clarified that bounded studies may use our recorded observation stream, with
+  collection/selection, cadence, coverage, and missing-input assumptions made
+  explicit. Such a study cannot manufacture the responses a different
+  membership or polling policy might have collected.
+- Retained provider history, including local caches of provider historical
+  API data, as the primary path for broader research and optimization.
+- Linked D-031 and the [proposed Indicator Framework architecture](Indicator_Framework_Architecture_2026-11-28.md).
+  Earlier review-log wording is retained as history. This documentation update
+  adds no seek behavior, provider access, simulator, or live-session gate.

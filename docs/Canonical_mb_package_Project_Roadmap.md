@@ -6,6 +6,14 @@
 
 **Role of this document:** Durable roadmap, status register, and decision register
 
+**Focused decision update (2026-11-28):** Research-data scope is clarified by
+D-031 below. Provider history is the primary path for broader research and
+optimization; bounded studies on our recorded observations remain possible
+when their sampling and coverage limitations are explicit. The related
+[Indicator Framework architecture](contracts/Indicator_Framework_Architecture_2026-11-28.md)
+is a development proposal. This update does not refresh unrelated dated
+implementation milestones in this roadmap.
+
 This is the authoritative high-level project record. Weekly chats—named `week YYYY-MM-DD`—perform detailed planning, implementation, testing, and evidence review. Durable conclusions from those chats should be incorporated here periodically. A weekly plan does not change canonical architecture, status, or priorities until its durable conclusion is promoted into this roadmap.
 
 Status terms used here:
@@ -292,8 +300,8 @@ Near-term work should be handled in small, testable weekly increments—normally
 - Maintain a historical OV store and compute 3/5/10/30-day medians and maxima, relative/unusual-volume measures, near-open volume, price versus previous close, and persistence metrics.
 - Add acquisition-time plots, per-symbol extraction, data-quality summaries, and operational health reporting where they aid validation.
 - Establish daily data distillation and retention rules so full journals remain auditable while longer historical storage remains manageable.
-- Support short-period backtesting across multiple locally collected daily journals without adding seek as a backtesting feature.
-- Plan long-term backtesting around provider-sourced historical data—such as Schwab or Massive—rather than waiting years to accumulate local collections. Record source, granularity, and fidelity limitations explicitly.
+- Allow bounded short-period studies on the actual locally recorded observation stream, with collection/selection, sampling cadence, covered symbols/times, and missing-data assumptions explicit. Do not add seek as a backtesting feature or assume observations that a different membership policy might have collected.
+- Use provider-sourced historical data—such as Schwab or potentially Massive—as the primary path for broader backtesting and optimization. A local cache of provider historical API data remains provider history, distinct from our polling journals. Record source, granularity, revisions, and fidelity limitations explicitly; access to a suitable Massive dataset is not yet established.
 - Preserve stable instrument identity separately from ticker symbols; record symbol changes, corporate actions, delistings, and dated universe snapshots.
 
 ### 5.2 Medium-term coordinator and scanner hardening
@@ -307,11 +315,12 @@ Near-term work should be handled in small, testable weekly increments—normally
 
 ### 5.3 Back-testing and trading
 
-- Keep single-day collection replay as an investigative/diagnostic tool with seek; do not treat it as the long-term backtesting interface.
-- For short-period studies, evaluate multiple locally collected daily journals through a separate backtesting workflow without seek.
-- For long-term studies, fetch historical data from providers such as Schwab or Massive and identify differences from locally collected polling evidence.
+- Keep single-day collection replay as an investigative/diagnostic tool with seek; a bounded fixed-observation study is a separate evaluation workflow, not a new seek mode.
+- Short-period studies may evaluate alternative indicators or decision rules on the same recorded stream, including multiple daily journals where useful. Conclusions remain conditional on actual symbol/time coverage, selection, sampling cadence, and stated missing-data rules.
+- For broader research and optimization, use provider-sourced historical datasets, cached locally when useful, and identify their differences from locally collected polling evidence.
 - Build historical back-testing on timestamped universe membership and instrument identity where those inputs exist, avoiding survivorship and look-ahead bias.
-- Compare full-journal short-period back-testing with back-testing from distilled daily files before choosing the long-term local-storage/query architecture.
+- Alternate membership or polling policies require adequate input coverage in the recorded or independently supplied data. If required observations are absent, mark the scenario unsupported rather than inventing what would have been collected. Interpolation or a carried-forward last value is not evidence of an unobserved acquisition. A general counterfactual membership simulator is not an initial Indicator Framework requirement.
+- Choose the long-term historical storage/query architecture around reusable provider datasets and derived calculations. Journal distillation remains useful for live support, diagnostics, audit, and explicitly bounded studies, but cannot create missing historical coverage or a complete market record.
 - Add algorithm evaluation and optimization against historical data only after the replay and data-quality foundation is trustworthy.
 - An independent algorithmic-trading component may eventually consume the same decision outputs, run in simulation/paper mode, undergo back-testing, and later control live trades. This remains conceptual and must be introduced behind explicit risk, brokerage, order-state, recovery, and audit controls.
 
@@ -455,7 +464,7 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-014 | Clean dashboard server termination is complete; both supported methods are validated. | Completed |
 | D-015 | The recurring planning task is named **Weekly mb_package Project Review**. | Active |
 | D-016 | Historical seek is a single-day diagnostic feature. Journal/date selection remains external initially; a dashboard date selector is optional later. | Active |
-| D-017 | Short-period backtesting may use multiple local daily journals without seek; long-term backtesting should use provider-sourced historical data rather than waiting years for local collection. | Active |
+| D-017 | Short-period backtesting may use multiple local daily journals without seek; long-term backtesting should use provider-sourced historical data rather than waiting years for local collection. | Superseded by D-031 on 2026-11-28; historical wording retained |
 | D-018 | Seek uses normalized UTC timestamps at full stored microsecond precision; membership revisions use `effective_at_utc`, acquisitions use `completed_at_utc`, and whole-second manual input includes the complete displayed second. | Active |
 | D-019 | Legacy independent-channel journals replay faithfully with diagnostic hierarchy status; strict **Hot ⊆ Focus ⊆ Uni** validation applies to hierarchy-governed journals. | Active |
 | D-020 | A hierarchy revision is a complete Uni/Focus/Hot snapshot with one global per-session revision and one atomic publication boundary; acquisitions bind to that exact revision. | Active |
@@ -469,6 +478,7 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
 | D-028 | Observation Overlay expansion features—live mode; multi-symbol/session/day views; indicators, signals, events, and holdings; configurable periods; alternate providers; and algorithm/backtesting use—are deferred, not dropped. | Active |
 | D-029 | A daily-universe snapshot must carry independently validated completed-session volume evidence. A next-morning `quote.totalVolume` snapshot is not accepted merely because the regular-trade timestamp still names the prior session. | Completed; same-date post-close gate live-validated September 24 |
 | D-030 | Keep opening Focus at 40 symbols while operational experience and multi-session evidence accumulate. Membership-cutoff and size refinements must not block the next project milestone; their meaningful later test is coverage of symbols promoted—or that should have been promoted—into Hot. | Active |
+| D-031 | Provider-sourced historical data is the primary path for broader research and optimization; caching it locally does not make it our collected polling evidence. Bounded short-term studies may use the actual recorded observation stream with explicit selection, coverage, cadence, and fidelity assumptions. Claims about different membership or sampling policies require adequate actual input data; absent observations must not be fabricated or silently inferred. General counterfactual membership simulation is not an initial framework requirement. | Active; user clarification 2026-11-28; refines and supersedes D-017 |
 
 ## Maintenance protocol
 
@@ -602,3 +612,20 @@ A GUI click, an accepted command, or a process exit code alone is insufficient w
   volume, numeric quote outcomes, and hierarchy bands; and is absent unless an
   immutable cache is explicitly supplied. Cache acquisition and completed-day
   validation remain the next increment.
+
+### 2026-11-28 — Research-data scope and proposed Indicator Framework
+
+- Recorded the user's clarification that local-observation backtesting is not
+  absolutely excluded. A single-day or short-period study may hold the actual
+  observation stream fixed and evaluate supported calculations or decision
+  rules, with its coverage and collection assumptions stated.
+- Kept provider history as the primary source for broader research and
+  optimization, including locally cached provider historical API responses.
+  Suitable Massive history and account access remain possibilities to verify.
+- Distinguished those studies from alternate membership/sampling scenarios
+  that require observations the current journal never collected. Unsupported
+  inputs remain explicit; no general counterfactual reconstruction is required
+  before the first indicator.
+- Superseded D-017 with D-031 while preserving the older decision and update
+  log as historical records. The [Indicator Framework architecture proposal](contracts/Indicator_Framework_Architecture_2026-11-28.md)
+  develops these boundaries; its implementation choices remain proposed.

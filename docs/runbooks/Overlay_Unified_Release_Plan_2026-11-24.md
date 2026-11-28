@@ -481,7 +481,7 @@ the intended local viewer.
 
 ## Next project milestone after a usable Overlay
 
-Propose **one end-to-end custom indicator prototype** on retained historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency.
+Propose **one end-to-end custom indicator prototype** on provider-sourced historical data: define inputs, calculation contract, visible chart/inspector output, reproducible out-of-sample evaluation and no-lookahead constraints. Indicator optimization and supervised execution will be subsequent explicit milestones. Avoid infrastructure expansion without a demonstrated dependency. See the November 28 clarification below for bounded studies using locally collected observations.
 
 ## Operator attention required next
 
@@ -536,8 +536,8 @@ follow the operator's existing authorization boundaries.
 ### Advance the intended useful product alongside OHLCV
 
 Build the first small indicator calculation/display path against retained
-historical candle data while live OHLCV observations are unavailable. Reuse
-that input/output path with live validated candle snapshots. Indicator work
+provider-sourced historical candle data while live OHLCV observations are
+unavailable. Reuse that input/output path with live validated candle snapshots. Indicator work
 does not wait for every possible OHLCV condition to be observed, nor for an
 arbitrary clean-day count. No particular first formula or trading strategy is
 selected by this delivery decision. Optimization and supervised execution stay
@@ -825,3 +825,42 @@ introduced before indicator work; transport/retry metrics remain deferred.
 
 Full evidence, command results, qualifications and continuation guidance are in
 [the halt timing investigation runbook](Halt_Timing_Investigation_2026-11-27.md).
+
+## November 28 — Indicator Framework direction and historical-data scope
+
+The operator wants to understand the framework before choosing the first
+indicator. The requirements include current market values and historical
+sequences, multiple symbols, input parameters, dependencies on other indicators,
+incremental calculation state, and common mathematical definitions for live
+operation, historical evaluation and offline parameter optimization. The
+Indicators interface should configure and inspect registered calculations;
+future Strategy/Trading controls have separate decision and supervision roles.
+
+The [Indicator Framework architecture document](../contracts/Indicator_Framework_Architecture_2026-11-28.md)
+is a **proposal for discussion**, not approved or implemented architecture.
+No first formula, storage vendor, new provider subscription, backtest engine,
+or trading capability is selected or activated by this planning update.
+
+**Historical-data clarification:** provider-sourced history is the primary path
+for broader research and optimization. Locally saved provider historical
+responses remain provider history; derived features retain their source and
+data-version identity. Operational journal replay remains available for
+diagnosis. The operator clarified that a bounded short-term study may also use
+our collected observations, provided its fixed observation coverage and limits
+are explicit. This is not a blanket prohibition on local-data studies.
+
+Tier membership changes which symbols and sampling rates were actually
+collected. A study using a fixed recording cannot assume Hot-frequency samples
+for a symbol that was sampled only in Uni, or assume observations for unobserved
+symbols. Alternative membership or sampling decisions are supported only when
+the required data actually exists. Otherwise the scenario remains unsupported;
+do not invent dense samples or silently treat the recording as general market
+history. Richer provider data, potentially from Massive, is a future option whose
+coverage and suitability must be established rather than assumed.
+
+Full reconstruction of alternative membership/collection policies remains a
+deferred hard case. It adds no prerequisite to the initial framework. Begin
+with clear input/output, dependency, time and state interfaces and a small
+calculation/display path; the first example can remain simple. Existing
+transport/retry-metrics deferral and the decision not to require another live
+session before indicator development remain unchanged.
